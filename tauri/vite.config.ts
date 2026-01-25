@@ -21,6 +21,10 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    // Watch files in the app directory for changes
+    watch: {
+      ignored: ['!**/../app/**'],
+    },
   },
   envPrefix: ['VITE_', 'TAURI_'],
   build: {

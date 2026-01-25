@@ -74,6 +74,28 @@ class HistoryQuery(BaseModel):
     offset: int = Field(default=0, ge=0)
 
 
+class HistoryResponse(BaseModel):
+    """Response model for history entry (includes profile name)."""
+    id: str
+    profile_id: str
+    profile_name: str
+    text: str
+    language: str
+    audio_path: str
+    duration: float
+    seed: Optional[int]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class HistoryListResponse(BaseModel):
+    """Response model for history list."""
+    items: List[HistoryResponse]
+    total: int
+
+
 class TranscriptionRequest(BaseModel):
     """Request model for audio transcription."""
     language: Optional[str] = Field(None, pattern="^(en|zh)$")

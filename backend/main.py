@@ -18,7 +18,7 @@ from pathlib import Path
 import uuid
 
 from . import database, models, profiles, history, tts, transcribe
-from .database import get_db, init_db
+from .database import get_db, init_db, Generation as DBGeneration, VoiceProfile as DBVoiceProfile
 
 # Initialize database
 init_db()
@@ -240,7 +240,7 @@ async def generate_speech(
 # HISTORY ENDPOINTS
 # ============================================
 
-@app.get("/history", response_model=List[models.GenerationResponse])
+@app.get("/history", response_model=models.HistoryListResponse)
 async def list_history(
     profile_id: Optional[str] = None,
     search: Optional[str] = None,
@@ -255,20 +255,41 @@ async def list_history(
         limit=limit,
         offset=offset,
     )
-    generations, total = await history.list_generations(query, db)
-    return generations
+    return await history.list_generations(query, db)
 
 
-@app.get("/history/{generation_id}", response_model=models.GenerationResponse)
+@app.get("/history/{generation_id}", response_model=models.HistoryResponse)
 async def get_generation(
     generation_id: str,
     db: Session = Depends(get_db),
 ):
     """Get a generation by ID."""
-    generation = await history.get_generation(generation_id, db)
-    if not generation:
+    # Get generation with profile name
+    result = db.query(
+        DBGeneration,
+        DBVoiceProfile.name.label('profile_name')
+    ).join(
+        DBVoiceProfile,
+        DBGeneration.profile_id == DBVoiceProfile.id
+    ).filter(
+        DBGeneration.id == generation_id
+    ).first()
+    
+    if not result:
         raise HTTPException(status_code=404, detail="Generation not found")
-    return generation
+    
+    gen, profile_name = result
+    return models.HistoryResponse(
+        id=gen.id,
+        profile_id=gen.profile_id,
+        profile_name=profile_name,
+        text=gen.text,
+        language=gen.language,
+        audio_path=gen.audio_path,
+        duration=gen.duration,
+        seed=gen.seed,
+        created_at=gen.created_at,
+    )
 
 
 @app.delete("/history/{generation_id}")

@@ -10,8 +10,8 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from .models import GenerationRequest, GenerationResponse, HistoryQuery
-from .database import Generation as DBGeneration
+from .models import GenerationRequest, GenerationResponse, HistoryQuery, HistoryResponse, HistoryListResponse
+from .database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile
 
 
 # Generations storage directory
@@ -85,7 +85,7 @@ async def get_generation(
 async def list_generations(
     query: HistoryQuery,
     db: Session,
-) -> Tuple[List[GenerationResponse], int]:
+) -> HistoryListResponse:
     """
     List generations with optional filters.
     
@@ -94,10 +94,16 @@ async def list_generations(
         db: Database session
         
     Returns:
-        Tuple of (generations, total_count)
+        HistoryListResponse with items and total count
     """
-    # Build base query
-    q = db.query(DBGeneration)
+    # Build base query with join to get profile name
+    q = db.query(
+        DBGeneration,
+        DBVoiceProfile.name.label('profile_name')
+    ).join(
+        DBVoiceProfile,
+        DBGeneration.profile_id == DBVoiceProfile.id
+    )
     
     # Apply profile filter
     if query.profile_id:
@@ -118,11 +124,26 @@ async def list_generations(
     q = q.offset(query.offset).limit(query.limit)
     
     # Execute query
-    generations = q.all()
+    results = q.all()
     
-    return (
-        [GenerationResponse.model_validate(g) for g in generations],
-        total_count,
+    # Convert to HistoryResponse with profile_name
+    items = []
+    for generation, profile_name in results:
+        items.append(HistoryResponse(
+            id=generation.id,
+            profile_id=generation.profile_id,
+            profile_name=profile_name,
+            text=generation.text,
+            language=generation.language,
+            audio_path=generation.audio_path,
+            duration=generation.duration,
+            seed=generation.seed,
+            created_at=generation.created_at,
+        ))
+    
+    return HistoryListResponse(
+        items=items,
+        total=total_count,
     )
 
 
