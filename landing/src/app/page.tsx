@@ -191,6 +191,29 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Demo Video Section */}
+      <section className="py-12 sm:py-16 md:py-20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-center mb-8 sm:mb-12">
+            See it in action...
+          </h2>
+          <div className="flex justify-center">
+            <div className="w-full max-w-5xl">
+              <video
+                className="w-full h-auto rounded-lg shadow-lg"
+                controls
+                playsInline
+                preload="metadata"
+                poster="/VoiceBoxAppScreenshot.webp"
+              >
+                <source src="/voicebox-demo.webm" type="video/webm" />
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Features Section */}
       <Section id="features">
         <SectionTitle className="mb-4 text-center">Features</SectionTitle>

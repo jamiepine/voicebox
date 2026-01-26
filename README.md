@@ -53,6 +53,15 @@ Voicebox is available now for macOS, Windows, and Linux.
 
 ---
 
+## See it in action...
+
+<video width="800" controls>
+  <source src="https://voicebox.sh/voicebox-demo.webm" type="video/webm">
+  Your browser does not support the video tag. <a href="https://voicebox.sh">Watch on voicebox.sh</a>
+</video>
+
+---
+
 ## Features
 
 ### Voice Cloning with Qwen3-TTS
