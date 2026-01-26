@@ -32,7 +32,7 @@ def build_server():
         '--exclude-module', 'IPython',
         '--exclude-module', 'notebook',
         '--exclude-module', 'pytest',
-        '--exclude-module', 'setuptools',
+        # Don't exclude setuptools - pkg_resources needs it
         '--exclude-module', 'torch.distributions',
         '--exclude-module', 'torch.testing',
         '--exclude-module', 'tensorboard',
@@ -79,6 +79,16 @@ def build_server():
         '--copy-metadata', 'qwen-tts',
         '--collect-submodules', 'qwen_tts',
         '--collect-data', 'qwen_tts',
+        # Fix for pkg_resources and jaraco namespace packages
+        '--hidden-import', 'pkg_resources.extern',
+        '--hidden-import', 'jaraco',
+        '--hidden-import', 'jaraco.text',
+        '--hidden-import', 'jaraco.functools',
+        '--hidden-import', 'jaraco.context',
+        '--collect-submodules', 'jaraco',
+        '--copy-metadata', 'jaraco.text',
+        '--copy-metadata', 'jaraco.functools',
+        '--copy-metadata', 'jaraco.context',
         '--noconfirm',
         '--clean',
     ])
