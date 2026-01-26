@@ -84,12 +84,12 @@ export function HistoryTable() {
             <Table className="w-full table-fixed">
               <TableHeader className="sticky top-0 bg-background z-10">
                 <TableRow>
-                  <TableHead className="w-[38%]">Text</TableHead>
-                  <TableHead className="w-[13%]">Profile</TableHead>
-                  <TableHead className="w-[9%]">Language</TableHead>
-                  <TableHead className="w-[9%]">Duration</TableHead>
-                  <TableHead className="w-[13%]">Created</TableHead>
-                  <TableHead className="w-[8%] text-right">Actions</TableHead>
+                  <TableHead className="w-[38%]">Input</TableHead>
+                  <TableHead className="w-[13%]">Voice</TableHead>
+                  <TableHead className="w-[9%]">Lang</TableHead>
+                  <TableHead className="w-[9%]">Length</TableHead>
+                  <TableHead className="w-[13%]">Date</TableHead>
+                  <TableHead className="w-[8%] text-right"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -104,7 +104,7 @@ export function HistoryTable() {
                       <TableCell className="truncate">{gen.text}</TableCell>
                       <TableCell className="truncate">{gen.profile_name}</TableCell>
                       <TableCell>
-                        <Badge variant="outline" className="text-xs">
+                        <Badge variant="outline" className="text-xs text-muted-foreground">
                           {gen.language}
                         </Badge>
                       </TableCell>
@@ -113,10 +113,7 @@ export function HistoryTable() {
                         {formatDate(gen.created_at)}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div
-                          className="flex justify-end"
-                          onClick={(e) => e.stopPropagation()}
-                        >
+                        <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
@@ -129,15 +126,11 @@ export function HistoryTable() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handlePlay(gen.id, gen.text)}
-                              >
+                              <DropdownMenuItem onClick={() => handlePlay(gen.id, gen.text)}>
                                 <Play className="mr-2 h-4 w-4" />
                                 Play
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDownload(gen.id, gen.text)}
-                              >
+                              <DropdownMenuItem onClick={() => handleDownload(gen.id, gen.text)}>
                                 <Download className="mr-2 h-4 w-4" />
                                 Download
                               </DropdownMenuItem>

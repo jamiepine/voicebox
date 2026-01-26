@@ -74,7 +74,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
             {profile.description || 'No description'}
           </p>
           <div className="mb-2">
-            <Badge variant="outline" className="text-xs h-5 px-1.5">
+            <Badge variant="outline" className="text-xs h-5 px-1.5 text-muted-foreground">
               {profile.language}
             </Badge>
           </div>
