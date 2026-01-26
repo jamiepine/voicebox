@@ -11,6 +11,15 @@ export const metadata: Metadata = {
   description:
     'Near-perfect voice cloning powered by Qwen3-TTS. Desktop app for Mac, Windows, and Linux. Multi-sample support, smart caching, local or remote inference.',
   keywords: ['voice cloning', 'TTS', 'Qwen3', 'desktop app', 'AI voice'],
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.png', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
   openGraph: {
     title: 'voicebox',
     description: 'Professional voice cloning with Qwen3-TTS',

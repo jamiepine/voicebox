@@ -176,6 +176,54 @@ class ApiClient {
     });
   }
 
+  async exportGeneration(generationId: string): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/history/${generationId}/export`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: response.statusText,
+      }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
+  async exportGenerationAudio(generationId: string): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/history/${generationId}/export-audio`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: response.statusText,
+      }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.blob();
+  }
+
+  async importGeneration(file: File): Promise<{ id: string; profile_id: string; profile_name: string; text: string; message: string }> {
+    const url = `${this.getBaseUrl()}/history/import`;
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: response.statusText,
+      }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
   // Audio
   getAudioUrl(audioId: string): string {
     return `${this.getBaseUrl()}/audio/${audioId}`;

@@ -1,4 +1,4 @@
-import { Volume2, Loader2, Settings } from 'lucide-react';
+import { Loader2, Settings, Volume2 } from 'lucide-react';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
 import { cn } from '@/lib/utils/cn';
 import { useGenerationStore } from '@/stores/generationStore';
@@ -21,10 +21,12 @@ export function Sidebar({ activeTab, onTabChange, isMacOS }: SidebarProps) {
   const isPlayerVisible = !!audioUrl;
 
   return (
-    <div className={cn(
-      "fixed left-0 top-0 h-full w-20 bg-sidebar border-r border-border flex flex-col items-center py-6 gap-6",
-      isMacOS && "pt-14"
-    )}>
+    <div
+      className={cn(
+        'fixed left-0 top-0 h-full w-20 bg-sidebar border-r border-border flex flex-col items-center py-6 gap-6',
+        isMacOS && 'pt-14',
+      )}
+    >
       {/* Logo */}
       <div className="mb-2">
         <img src={voiceboxLogo} alt="Voicebox" className="w-12 h-12 object-contain" />

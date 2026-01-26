@@ -393,6 +393,39 @@ async def list_history(
     return await history.list_generations(query, db)
 
 
+@app.get("/history/stats")
+async def get_stats(db: Session = Depends(get_db)):
+    """Get generation statistics."""
+    return await history.get_generation_stats(db)
+
+
+@app.post("/history/import")
+async def import_generation(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Import a generation from a ZIP archive."""
+    # Validate file size (max 50MB)
+    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+    
+    # Read file content
+    content = await file.read()
+    
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024 * 1024)}MB"
+        )
+    
+    try:
+        result = await export_import.import_generation_from_zip(content, db)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/history/{generation_id}", response_model=models.HistoryResponse)
 async def get_generation(
     generation_id: str,
@@ -440,10 +473,68 @@ async def delete_generation(
     return {"message": "Generation deleted successfully"}
 
 
-@app.get("/history/stats")
-async def get_stats(db: Session = Depends(get_db)):
-    """Get generation statistics."""
-    return await history.get_generation_stats(db)
+@app.get("/history/{generation_id}/export")
+async def export_generation(
+    generation_id: str,
+    db: Session = Depends(get_db),
+):
+    """Export a generation as a ZIP archive."""
+    try:
+        # Get generation to create filename
+        generation = db.query(DBGeneration).filter_by(id=generation_id).first()
+        if not generation:
+            raise HTTPException(status_code=404, detail="Generation not found")
+        
+        # Export to ZIP
+        zip_bytes = export_import.export_generation_to_zip(generation_id, db)
+        
+        # Create safe filename from text
+        safe_text = "".join(c for c in generation.text[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
+        if not safe_text:
+            safe_text = "generation"
+        filename = f"generation-{safe_text}.voicebox.zip"
+        
+        # Return as streaming response
+        return StreamingResponse(
+            io.BytesIO(zip_bytes),
+            media_type="application/zip",
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"'
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/history/{generation_id}/export-audio")
+async def export_generation_audio(
+    generation_id: str,
+    db: Session = Depends(get_db),
+):
+    """Export only the audio file from a generation."""
+    generation = db.query(DBGeneration).filter_by(id=generation_id).first()
+    if not generation:
+        raise HTTPException(status_code=404, detail="Generation not found")
+    
+    audio_path = Path(generation.audio_path)
+    if not audio_path.exists():
+        raise HTTPException(status_code=404, detail="Audio file not found")
+    
+    # Create safe filename from text
+    safe_text = "".join(c for c in generation.text[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
+    if not safe_text:
+        safe_text = "generation"
+    filename = f"{safe_text}.wav"
+    
+    return FileResponse(
+        audio_path,
+        media_type="audio/wav",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
 
 
 # ============================================

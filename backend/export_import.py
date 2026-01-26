@@ -2,6 +2,7 @@
 Voice profile export/import module.
 
 Handles exporting profiles to ZIP archives and importing them back.
+Also handles exporting individual generations.
 """
 
 import json
@@ -12,7 +13,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from .models import VoiceProfileResponse
-from .database import VoiceProfile as DBVoiceProfile, ProfileSample as DBProfileSample
+from .database import VoiceProfile as DBVoiceProfile, ProfileSample as DBProfileSample, Generation as DBGeneration
 from .profiles import create_profile, add_profile_sample
 from .models import VoiceProfileCreate
 from . import config
@@ -211,3 +212,196 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
         if isinstance(e, ValueError):
             raise
         raise ValueError(f"Error importing profile: {str(e)}")
+
+
+def export_generation_to_zip(generation_id: str, db: Session) -> bytes:
+    """
+    Export a generation to a ZIP archive.
+    
+    Args:
+        generation_id: Generation ID to export
+        db: Database session
+        
+    Returns:
+        ZIP file contents as bytes
+        
+    Raises:
+        ValueError: If generation not found
+    """
+    # Get generation
+    generation = db.query(DBGeneration).filter_by(id=generation_id).first()
+    if not generation:
+        raise ValueError(f"Generation {generation_id} not found")
+    
+    # Get profile info
+    profile = db.query(DBVoiceProfile).filter_by(id=generation.profile_id).first()
+    if not profile:
+        raise ValueError(f"Profile {generation.profile_id} not found")
+    
+    # Get audio file
+    audio_path = Path(generation.audio_path)
+    if not audio_path.exists():
+        raise ValueError(f"Audio file not found: {audio_path}")
+    
+    # Create ZIP in memory
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Create manifest.json
+        manifest = {
+            "version": "1.0",
+            "generation": {
+                "id": generation.id,
+                "text": generation.text,
+                "language": generation.language,
+                "duration": generation.duration,
+                "seed": generation.seed,
+                "instruct": generation.instruct,
+                "created_at": generation.created_at.isoformat(),
+            },
+            "profile": {
+                "id": profile.id,
+                "name": profile.name,
+                "description": profile.description,
+                "language": profile.language,
+            }
+        }
+        zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
+        
+        # Add audio file
+        filename = audio_path.name
+        zip_file.write(audio_path, f"audio/{filename}")
+    
+    zip_buffer.seek(0)
+    return zip_buffer.read()
+
+
+async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
+    """
+    Import a generation from a ZIP archive.
+    
+    Args:
+        file_bytes: ZIP file contents
+        db: Database session
+        
+    Returns:
+        Dictionary with generation ID and profile info
+        
+    Raises:
+        ValueError: If ZIP is invalid or missing required files
+    """
+    from pathlib import Path
+    import tempfile
+    import shutil
+    from datetime import datetime
+    from . import config
+    
+    zip_buffer = io.BytesIO(file_bytes)
+    
+    try:
+        with zipfile.ZipFile(zip_buffer, 'r') as zip_file:
+            # Validate ZIP structure
+            namelist = zip_file.namelist()
+            
+            if "manifest.json" not in namelist:
+                raise ValueError("ZIP archive missing manifest.json")
+            
+            # Read manifest
+            manifest_data = json.loads(zip_file.read("manifest.json"))
+            
+            if "version" not in manifest_data:
+                raise ValueError("Invalid manifest.json: missing version")
+            
+            if "generation" not in manifest_data:
+                raise ValueError("Invalid manifest.json: missing generation data")
+            
+            generation_data = manifest_data["generation"]
+            profile_data = manifest_data.get("profile", {})
+            
+            # Validate required fields
+            required_fields = ["text", "language", "duration"]
+            for field in required_fields:
+                if field not in generation_data:
+                    raise ValueError(f"Invalid manifest.json: missing generation.{field}")
+            
+            # Find audio file in archive
+            audio_files = [f for f in namelist if f.startswith("audio/") and f.endswith(".wav")]
+            if not audio_files:
+                raise ValueError("No audio file found in ZIP archive")
+            
+            audio_file_path = audio_files[0]
+            
+            # Check if we should match an existing profile or create metadata
+            profile_id = None
+            profile_name = profile_data.get("name", "Unknown Profile")
+            
+            # Try to find matching profile by name
+            if profile_name and profile_name != "Unknown Profile":
+                existing_profile = db.query(DBVoiceProfile).filter_by(name=profile_name).first()
+                if existing_profile:
+                    profile_id = existing_profile.id
+            
+            # If no matching profile, use a placeholder or the first available profile
+            if not profile_id:
+                # Get any profile, or None if no profiles exist
+                any_profile = db.query(DBVoiceProfile).first()
+                if any_profile:
+                    profile_id = any_profile.id
+                    profile_name = any_profile.name
+                else:
+                    raise ValueError("No voice profiles found. Please create a profile before importing generations.")
+            
+            # Extract audio file to temporary location
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp.write(zip_file.read(audio_file_path))
+                tmp_path = tmp.name
+            
+            try:
+                # Create generations directory
+                generations_dir = config.get_generations_dir()
+                generations_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Generate new ID for this generation
+                new_generation_id = str(__import__('uuid').uuid4())
+                
+                # Copy audio to generations directory
+                audio_dest = generations_dir / f"{new_generation_id}.wav"
+                shutil.copy(tmp_path, audio_dest)
+                
+                # Create generation record
+                db_generation = DBGeneration(
+                    id=new_generation_id,
+                    profile_id=profile_id,
+                    text=generation_data["text"],
+                    language=generation_data["language"],
+                    audio_path=str(audio_dest),
+                    duration=generation_data["duration"],
+                    seed=generation_data.get("seed"),
+                    instruct=generation_data.get("instruct"),
+                    created_at=datetime.utcnow(),
+                )
+                
+                db.add(db_generation)
+                db.commit()
+                db.refresh(db_generation)
+                
+                return {
+                    "id": db_generation.id,
+                    "profile_id": profile_id,
+                    "profile_name": profile_name,
+                    "text": db_generation.text,
+                    "message": f"Generation imported successfully (assigned to profile: {profile_name})"
+                }
+                
+            finally:
+                # Clean up temp file
+                Path(tmp_path).unlink(missing_ok=True)
+            
+    except zipfile.BadZipFile:
+        raise ValueError("Invalid ZIP file")
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in archive: {e}")
+    except Exception as e:
+        if isinstance(e, ValueError):
+            raise
+        raise ValueError(f"Error importing generation: {str(e)}")
