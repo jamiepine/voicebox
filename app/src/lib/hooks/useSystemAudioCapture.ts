@@ -22,6 +22,7 @@ export function useSystemAudioCapture({
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const stopRecordingRef = useRef<(() => Promise<void>) | null>(null);
+  const isRecordingRef = useRef(false);
 
   // Check if system audio capture is supported
   useEffect(() => {
@@ -40,6 +41,7 @@ export function useSystemAudioCapture({
   }, []);
 
   const startRecording = useCallback(async () => {
+    console.log('[useSystemAudioCapture] startRecording called');
     if (!isTauri()) {
       const errorMsg = 'System audio capture is only available in the desktop app.';
       setError(errorMsg);
@@ -53,15 +55,19 @@ export function useSystemAudioCapture({
     }
 
     try {
+      console.log('[useSystemAudioCapture] Starting capture...');
       setError(null);
       setDuration(0);
 
       // Start native capture
+      console.log('[useSystemAudioCapture] Calling invoke...');
       await invoke('start_system_audio_capture', {
         maxDurationSecs: maxDurationSeconds,
       });
+      console.log('[useSystemAudioCapture] Invoke completed, starting timer');
 
       setIsRecording(true);
+      isRecordingRef.current = true;
       startTimeRef.current = Date.now();
 
       // Start timer
@@ -72,11 +78,14 @@ export function useSystemAudioCapture({
 
           // Auto-stop at max duration
           if (elapsed >= maxDurationSeconds && stopRecordingRef.current) {
+            console.log('[useSystemAudioCapture] Max duration reached, auto-stopping');
             void stopRecordingRef.current();
           }
         }
       }, 100);
+      console.log('[useSystemAudioCapture] Timer started');
     } catch (err) {
+      console.error('[useSystemAudioCapture] Error starting recording:', err);
       const errorMessage =
         err instanceof Error
           ? err.message
@@ -93,6 +102,7 @@ export function useSystemAudioCapture({
 
     try {
       setIsRecording(false);
+      isRecordingRef.current = false;
 
       if (timerRef.current !== null) {
         clearInterval(timerRef.current);
@@ -130,32 +140,39 @@ export function useSystemAudioCapture({
   }, [stopRecording]);
 
   const cancelRecording = useCallback(async () => {
-    if (isRecording) {
+    if (isRecordingRef.current) {
       await stopRecording();
     }
 
     setIsRecording(false);
+    isRecordingRef.current = false;
     setDuration(0);
 
     if (timerRef.current !== null) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  }, [isRecording, stopRecording]);
+  }, [stopRecording]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount only
   useEffect(() => {
     return () => {
+      console.log('[useSystemAudioCapture] Component unmounting, cleaning up');
       if (timerRef.current !== null) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
       // Cancel recording on unmount if still recording
-      if (isRecording) {
-        void cancelRecording();
+      if (isRecordingRef.current && isTauri()) {
+        console.log('[useSystemAudioCapture] Canceling recording on unmount');
+        // Call stop directly without the callback to avoid stale closure
+        invoke('stop_system_audio_capture').catch((err) => {
+          console.error('[useSystemAudioCapture] Error stopping on unmount:', err);
+        });
       }
     };
-    // biome-ignore lint/correctness/useExhaustiveDependencies: cancelRecording is stable
-  }, [isRecording]);
+    // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on unmount
+  }, []);
 
   return {
     isRecording,
