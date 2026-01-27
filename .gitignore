@@ -30,7 +30,6 @@ target/
 *.swo
 *~
 
-tauri/src-tauri/gen/
 # OS
 .DS_Store
 Thumbs.db
