@@ -10,7 +10,6 @@ import { UpdateStatus } from '@/components/ServerSettings/UpdateStatus';
 import ShinyText from '@/components/ShinyText';
 import { Sidebar } from '@/components/Sidebar';
 import { TitleBarDragRegion } from '@/components/TitleBarDragRegion';
-import { UpdateNotification } from '@/components/UpdateNotification';
 import { Toaster } from '@/components/ui/toaster';
 import { ProfileList } from '@/components/VoiceProfiles/ProfileList';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
@@ -175,8 +174,6 @@ function App() {
 
         <main className="flex-1 ml-20 overflow-hidden flex flex-col">
           <div className="container mx-auto px-8 max-w-[1800px] h-full overflow-hidden flex flex-col">
-            <UpdateNotification />
-
             {activeTab === 'settings' ? (
               <div className="space-y-4 overflow-y-auto flex flex-col">
                 <div className="grid gap-4 md:grid-cols-2">
