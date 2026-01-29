@@ -11,9 +11,6 @@ def build_server():
     """Build Python server as standalone binary."""
     backend_dir = Path(__file__).parent
 
-    # Check for local editable qwen_tts install
-    local_qwen_path = Path.home() / 'Projects' / 'voice' / 'Qwen3-TTS'
-
     # PyInstaller arguments
     args = [
         'server.py',  # Use server.py as entry point instead of main.py
@@ -21,10 +18,11 @@ def build_server():
         '--name', 'voicebox-server',
     ]
 
-    # Add local qwen_tts path if it exists (for editable installs)
-    if local_qwen_path.exists():
-        args.extend(['--paths', str(local_qwen_path)])
-        print(f"Using local qwen_tts source from: {local_qwen_path}")
+    # Add local qwen_tts path if specified (for editable installs)
+    qwen_tts_path = os.getenv('QWEN_TTS_PATH')
+    if qwen_tts_path and Path(qwen_tts_path).exists():
+        args.extend(['--paths', str(qwen_tts_path)])
+        print(f"Using local qwen_tts source from: {qwen_tts_path}")
 
     # Add hidden imports
     args.extend([

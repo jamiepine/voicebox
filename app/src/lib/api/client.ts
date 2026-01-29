@@ -120,6 +120,16 @@ class ApiClient {
     });
   }
 
+  async updateProfileSample(
+    sampleId: string,
+    referenceText: string,
+  ): Promise<ProfileSampleResponse> {
+    return this.request<ProfileSampleResponse>(`/profiles/samples/${sampleId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ reference_text: referenceText }),
+    });
+  }
+
   async exportProfile(profileId: string): Promise<Blob> {
     const url = `${this.getBaseUrl()}/profiles/${profileId}/export`;
     const response = await fetch(url);

@@ -112,8 +112,6 @@ export function FloatingGenerateBox({
     }
   }, [selectedProfileId, profiles, setSelectedProfileId]);
 
-  // Get current form value to trigger resize when it changes
-  const formValue = form.watch(isInstructMode ? 'instruct' : 'text');
 
   // Auto-resize textarea based on content (only when expanded)
   useEffect(() => {
@@ -196,59 +194,104 @@ export function FloatingGenerateBox({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <div className="flex gap-2">
-              <motion.div className="flex-1" transition={{ duration: 0.3, ease: 'easeOut' }}>
-                {isInstructMode && (
-                  <span className="text-xs text-accent font-medium mb-1 block">
-                    Delivery instructions:
-                  </span>
-                )}
-                <FormField
-                  control={form.control}
-                  name={isInstructMode ? 'instruct' : 'text'}
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <motion.div
-                          animate={{
-                            height: isExpanded ? 'auto' : '32px',
-                          }}
-                          transition={{ duration: 0.15, ease: 'easeOut' }}
-                          style={{ overflow: 'hidden' }}
-                        >
-                          <Textarea
-                            {...field}
-                            ref={(node: HTMLTextAreaElement | null) => {
-                              // Store ref for auto-resize
-                              textareaRef.current = node;
-                              // Forward ref to react-hook-form
-                              if (typeof field.ref === 'function') {
-                                field.ref(node);
-                              }
+              <motion.div
+                className={cn('flex-1', isExpanded && 'mr-12')}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              >
+                {/* Text field - hidden when in instruct mode */}
+                <div style={{ display: isInstructMode ? 'none' : 'block' }}>
+                  <FormField
+                    control={form.control}
+                    name="text"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <motion.div
+                            animate={{
+                              height: isExpanded ? 'auto' : '32px',
                             }}
-                            placeholder={
-                              isInstructMode
-                                ? 'Add delivery instructions...'
-                                : isStoriesRoute && currentStory
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            style={{ overflow: 'hidden' }}
+                          >
+                            <Textarea
+                              {...field}
+                              ref={(node: HTMLTextAreaElement | null) => {
+                                // Store ref for auto-resize (only for active field)
+                                if (!isInstructMode) {
+                                  textareaRef.current = node;
+                                }
+                                // Forward ref to react-hook-form
+                                if (typeof field.ref === 'function') {
+                                  field.ref(node);
+                                }
+                              }}
+                              placeholder={
+                                isStoriesRoute && currentStory
                                   ? `Generate speech for "${currentStory.name}"...`
                                   : selectedProfile
                                     ? `Generate speech using ${selectedProfile.name}...`
                                     : 'Select a voice profile above...'
-                            }
-                            className="resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm placeholder:text-muted-foreground/60 w-full"
-                            style={{
-                              minHeight: isExpanded ? '100px' : '32px',
-                              maxHeight: '300px',
+                              }
+                              className="resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm placeholder:text-muted-foreground/60 w-full"
+                              style={{
+                                minHeight: isExpanded ? '100px' : '32px',
+                                maxHeight: '300px',
+                              }}
+                              disabled={!selectedProfileId}
+                              onClick={() => setIsExpanded(true)}
+                              onFocus={() => setIsExpanded(true)}
+                            />
+                          </motion.div>
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                {/* Instruct field - hidden when in text mode */}
+                <div style={{ display: isInstructMode ? 'block' : 'none' }}>
+                  <FormField
+                    control={form.control}
+                    name="instruct"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl>
+                          <motion.div
+                            animate={{
+                              height: isExpanded ? 'auto' : '32px',
                             }}
-                            disabled={!selectedProfileId}
-                            onClick={() => setIsExpanded(true)}
-                            onFocus={() => setIsExpanded(true)}
-                          />
-                        </motion.div>
-                      </FormControl>
-                      <FormMessage className="text-xs" />
-                    </FormItem>
-                  )}
-                />
+                            transition={{ duration: 0.15, ease: 'easeOut' }}
+                            style={{ overflow: 'hidden' }}
+                          >
+                            <Textarea
+                              {...field}
+                              ref={(node: HTMLTextAreaElement | null) => {
+                                // Store ref for auto-resize (only for active field)
+                                if (isInstructMode) {
+                                  textareaRef.current = node;
+                                }
+                                // Forward ref to react-hook-form
+                                if (typeof field.ref === 'function') {
+                                  field.ref(node);
+                                }
+                              }}
+                              placeholder="Add delivery instructions..."
+                              className="resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm placeholder:text-muted-foreground/60 w-full"
+                              style={{
+                                minHeight: isExpanded ? '100px' : '32px',
+                                maxHeight: '300px',
+                              }}
+                              disabled={!selectedProfileId}
+                              onClick={() => setIsExpanded(true)}
+                              onFocus={() => setIsExpanded(true)}
+                            />
+                          </motion.div>
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </motion.div>
 
               <div className="relative shrink-0">
@@ -278,9 +321,12 @@ export function FloatingGenerateBox({
                         variant="ghost"
                         size="icon"
                         onClick={() => setIsInstructMode(!isInstructMode)}
-                        className={`h-10 w-10 rounded-full bg-card border border-border hover:bg-background/50 transition-all duration-200 ${
-                          isInstructMode ? 'text-accent' : ''
-                        }`}
+                        className={cn(
+                          'h-10 w-10 rounded-full transition-all duration-200',
+                          isInstructMode
+                            ? 'bg-accent text-accent-foreground border border-accent hover:bg-accent/90'
+                            : 'bg-card border border-border hover:bg-background/50',
+                        )}
                       >
                         <MessageSquare className="h-4 w-4" />
                       </Button>

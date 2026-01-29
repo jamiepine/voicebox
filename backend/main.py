@@ -283,6 +283,19 @@ async def delete_profile_sample(
     return {"message": "Sample deleted successfully"}
 
 
+@app.put("/profiles/samples/{sample_id}", response_model=models.ProfileSampleResponse)
+async def update_profile_sample(
+    sample_id: str,
+    data: models.ProfileSampleUpdate,
+    db: Session = Depends(get_db),
+):
+    """Update a profile sample's reference text."""
+    sample = await profiles.update_profile_sample(sample_id, data.reference_text, db)
+    if not sample:
+        raise HTTPException(status_code=404, detail="Sample not found")
+    return sample
+
+
 @app.get("/profiles/{profile_id}/export")
 async def export_profile(
     profile_id: str,

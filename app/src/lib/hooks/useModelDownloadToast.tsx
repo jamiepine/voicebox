@@ -140,8 +140,8 @@ export function useModelDownloadToast({
       }
     };
 
-    eventSource.onerror = () => {
-      console.error('SSE error');
+    eventSource.onerror = (error) => {
+      console.error('SSE error:', error);
       eventSource.close();
       eventSourceRef.current = null;
 

@@ -115,6 +115,17 @@ First-time usage will be slower due to model downloads, but subsequent runs will
 ```
 Creates platform-specific binary in `tauri/src-tauri/binaries/`
 
+**Building with local Qwen3-TTS development version:**
+
+If you're actively developing or modifying the Qwen3-TTS library, set the `QWEN_TTS_PATH` environment variable to point to your local clone:
+
+```bash
+export QWEN_TTS_PATH=~/path/to/your/Qwen3-TTS
+./scripts/build-server.sh
+```
+
+This makes PyInstaller use your local qwen-tts version instead of the pip-installed package. Useful when testing changes to the TTS library before they're published to PyPI or when using an editable install (`pip install -e`).
+
 **Build Tauri desktop app:**
 ```bash
 cd tauri

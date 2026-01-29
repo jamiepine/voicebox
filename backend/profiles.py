@@ -273,6 +273,33 @@ async def delete_profile_sample(
     return True
 
 
+async def update_profile_sample(
+    sample_id: str,
+    reference_text: str,
+    db: Session,
+) -> Optional[ProfileSampleResponse]:
+    """
+    Update a profile sample's reference text.
+    
+    Args:
+        sample_id: Sample ID
+        reference_text: Updated reference text
+        db: Database session
+        
+    Returns:
+        Updated sample or None if not found
+    """
+    sample = db.query(DBProfileSample).filter_by(id=sample_id).first()
+    if not sample:
+        return None
+    
+    sample.reference_text = reference_text
+    db.commit()
+    db.refresh(sample)
+    
+    return ProfileSampleResponse.model_validate(sample)
+
+
 async def create_voice_prompt_for_profile(
     profile_id: str,
     db: Session,

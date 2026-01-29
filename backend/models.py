@@ -32,6 +32,11 @@ class ProfileSampleCreate(BaseModel):
     reference_text: str = Field(..., min_length=1, max_length=1000)
 
 
+class ProfileSampleUpdate(BaseModel):
+    """Request model for updating a profile sample."""
+    reference_text: str = Field(..., min_length=1, max_length=1000)
+
+
 class ProfileSampleResponse(BaseModel):
     """Response model for profile sample."""
     id: str

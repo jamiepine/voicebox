@@ -539,7 +539,10 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
         return;
       }
 
-      if (e.key === 'Escape') {
+      if (e.key === ' ') {
+        e.preventDefault();
+        handlePlayPause();
+      } else if (e.key === 'Escape') {
         setSelectedClipId(null);
       } else if (e.key === 's' || e.key === 'S') {
         if (selectedClipId) {
@@ -561,7 +564,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedClipId, handleSplit, handleDuplicate, handleDelete, setSelectedClipId]);
+  }, [selectedClipId, handleSplit, handleDuplicate, handleDelete, setSelectedClipId, handlePlayPause]);
 
   // Add global mouse listeners for trimming
   useEffect(() => {
@@ -701,7 +704,13 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
         <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 mt-2">
           {/* Play controls - left side */}
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePlayPause}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={handlePlayPause}
+              title="Play/Pause (Space)"
+            >
               {isCurrentlyPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
             <Button

@@ -98,6 +98,24 @@ export function useDeleteSample() {
   });
 }
 
+export function useUpdateSample() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ sampleId, referenceText }: { sampleId: string; referenceText: string }) =>
+      apiClient.updateProfileSample(sampleId, referenceText),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({
+        queryKey: ['profiles', data.profile_id, 'samples'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['profiles', data.profile_id],
+      });
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+    },
+  });
+}
+
 export function useExportProfile() {
   return useMutation({
     mutationFn: async (profileId: string) => {

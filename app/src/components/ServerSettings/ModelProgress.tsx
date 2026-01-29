@@ -12,11 +12,10 @@ interface ModelProgressProps {
 
 export function ModelProgress({ modelName, displayName }: ModelProgressProps) {
   const [progress, setProgress] = useState<ModelProgressType | null>(null);
-  const [isSubscribed, setIsSubscribed] = useState(false);
   const serverUrl = useServerStore((state) => state.serverUrl);
 
   useEffect(() => {
-    if (!serverUrl || isSubscribed) return;
+    if (!serverUrl) return;
 
     // Subscribe to progress updates via Server-Sent Events
     const eventSource = new EventSource(`${serverUrl}/models/progress/${modelName}`);
@@ -29,7 +28,6 @@ export function ModelProgress({ modelName, displayName }: ModelProgressProps) {
         // Close connection if complete or error
         if (data.status === 'complete' || data.status === 'error') {
           eventSource.close();
-          setIsSubscribed(false);
         }
       } catch (error) {
         console.error('Error parsing progress event:', error);
@@ -39,16 +37,12 @@ export function ModelProgress({ modelName, displayName }: ModelProgressProps) {
     eventSource.onerror = (error) => {
       console.error('SSE error:', error);
       eventSource.close();
-      setIsSubscribed(false);
     };
-
-    setIsSubscribed(true);
 
     return () => {
       eventSource.close();
-      setIsSubscribed(false);
     };
-  }, [serverUrl, modelName, isSubscribed]);
+  }, [serverUrl, modelName]);
 
   // Don't render if no progress or if complete/error and some time has passed
   if (

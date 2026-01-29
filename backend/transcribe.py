@@ -162,9 +162,10 @@ class WhisperModel:
             # Set language if provided
             forced_decoder_ids = None
             if language:
-                lang_code = "en" if language == "en" else "zh"
+                # Support all languages from frontend: en, zh, ja, ko, de, fr, ru, pt, es, it
+                # Whisper supports these and many more
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
-                    language=lang_code,
+                    language=language,
                     task="transcribe",
                 )
             
@@ -221,9 +222,10 @@ class WhisperModel:
             # Set language if provided
             forced_decoder_ids = None
             if language:
-                lang_code = "en" if language == "en" else "zh"
+                # Support all languages from frontend: en, zh, ja, ko, de, fr, ru, pt, es, it
+                # Whisper supports these and many more
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
-                    language=lang_code,
+                    language=language,
                     task="transcribe",
                 )
             
