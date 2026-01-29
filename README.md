@@ -22,12 +22,22 @@
 
 <p align="center">
   <a href="https://voicebox.sh">
-    <img src=".github/assets/screenshot.webp" alt="Voicebox App Screenshot" width="800" />
+    <img src="landing/public/assets/app-screenshot-1.webp" alt="Voicebox App Screenshot" width="800" />
   </a>
 </p>
 
 <p align="center">
   <em>Click the image above to watch the demo video on <a href="https://voicebox.sh">voicebox.sh</a></em>
+</p>
+
+<br/>
+
+<p align="center">
+  <img src="landing/public/assets/app-screenshot-2.webp" alt="Voicebox Screenshot 2" width="800" />
+</p>
+
+<p align="center">
+  <img src="landing/public/assets/app-screenshot-3.webp" alt="Voicebox Screenshot 3" width="800" />
 </p>
 
 <br/>

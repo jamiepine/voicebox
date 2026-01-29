@@ -99,7 +99,7 @@ export default function Home() {
               <div className="flex justify-center lg:hidden my-8">
                 <div className="w-full max-w-2xl">
                   <Image
-                    src="/VoiceBoxAppScreenshot.webp"
+                    src="/assets/app-screenshot-2.webp"
                     alt="Voicebox Application Screenshot"
                     width={1920}
                     height={1080}
@@ -180,7 +180,7 @@ export default function Home() {
             <div className="hidden lg:block relative">
               <div className="absolute right-0 top-0 -mt-10 w-[200%] -mr-[100%]">
                 <Image
-                  src="/VoiceBoxAppScreenshot.webp"
+                  src="/assets/app-screenshot-2.webp"
                   alt="Voicebox Application Screenshot"
                   width={1920}
                   height={1080}
@@ -188,6 +188,41 @@ export default function Home() {
                   priority
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Screenshots Section */}
+      <section className="py-12 sm:py-16 md:py-20">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="w-full">
+              <Image
+                src="/assets/app-screenshot-1.webp"
+                alt="Voicebox Screenshot 1"
+                width={1920}
+                height={1080}
+                className="w-full h-auto rounded-lg shadow-lg"
+              />
+            </div>
+            <div className="w-full">
+              <Image
+                src="/assets/app-screenshot-2.webp"
+                alt="Voicebox Screenshot 2"
+                width={1920}
+                height={1080}
+                className="w-full h-auto rounded-lg shadow-lg"
+              />
+            </div>
+            <div className="w-full">
+              <Image
+                src="/assets/app-screenshot-3.webp"
+                alt="Voicebox Screenshot 3"
+                width={1920}
+                height={1080}
+                className="w-full h-auto rounded-lg shadow-lg"
+              />
             </div>
           </div>
         </div>
@@ -207,7 +242,7 @@ export default function Home() {
                 controls
                 playsInline
                 preload="metadata"
-                poster="/VoiceBoxAppScreenshot.webp"
+                poster="/assets/app-screenshot-1.webp"
               >
                 <source
                   src="/voicebox-demo.webm"
