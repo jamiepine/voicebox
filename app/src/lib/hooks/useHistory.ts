@@ -33,11 +33,14 @@ export function useExportGeneration() {
   return useMutation({
     mutationFn: async ({ generationId, text }: { generationId: string; text: string }) => {
       const blob = await apiClient.exportGeneration(generationId);
-      
+
       // Create safe filename from text
-      const safeText = text.substring(0, 30).replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const safeText = text
+        .substring(0, 30)
+        .replace(/[^a-z0-9]/gi, '-')
+        .toLowerCase();
       const filename = `generation-${safeText}.voicebox.zip`;
-      
+
       if (isTauri()) {
         // Use Tauri's native save dialog
         try {
@@ -51,7 +54,7 @@ export function useExportGeneration() {
               },
             ],
           });
-          
+
           if (filePath) {
             // Write file using Tauri's filesystem API
             const { writeBinaryFile } = await import('@tauri-apps/plugin-fs');
@@ -81,7 +84,7 @@ export function useExportGeneration() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-      
+
       return blob;
     },
   });
@@ -91,11 +94,14 @@ export function useExportGenerationAudio() {
   return useMutation({
     mutationFn: async ({ generationId, text }: { generationId: string; text: string }) => {
       const blob = await apiClient.exportGenerationAudio(generationId);
-      
+
       // Create safe filename from text
-      const safeText = text.substring(0, 30).replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const safeText = text
+        .substring(0, 30)
+        .replace(/[^a-z0-9]/gi, '-')
+        .toLowerCase();
       const filename = `${safeText}.wav`;
-      
+
       if (isTauri()) {
         // Use Tauri's native save dialog
         try {
@@ -109,7 +115,7 @@ export function useExportGenerationAudio() {
               },
             ],
           });
-          
+
           if (filePath) {
             // Write file using Tauri's filesystem API
             const { writeBinaryFile } = await import('@tauri-apps/plugin-fs');
@@ -139,7 +145,7 @@ export function useExportGenerationAudio() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-      
+
       return blob;
     },
   });

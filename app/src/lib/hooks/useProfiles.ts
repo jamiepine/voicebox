@@ -120,12 +120,12 @@ export function useExportProfile() {
   return useMutation({
     mutationFn: async (profileId: string) => {
       const blob = await apiClient.exportProfile(profileId);
-      
+
       // Get profile name for filename
       const profile = await apiClient.getProfile(profileId);
       const safeName = profile.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
       const filename = `profile-${safeName}.voicebox.zip`;
-      
+
       if (isTauri()) {
         // Use Tauri's native save dialog
         try {
@@ -139,7 +139,7 @@ export function useExportProfile() {
               },
             ],
           });
-          
+
           if (filePath) {
             // Write file using Tauri's filesystem API
             const { writeBinaryFile } = await import('@tauri-apps/plugin-fs');
@@ -169,7 +169,7 @@ export function useExportProfile() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-      
+
       return blob;
     },
   });
