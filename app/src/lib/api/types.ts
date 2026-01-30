@@ -12,6 +12,7 @@ export interface VoiceProfileResponse {
   name: string;
   description?: string;
   language: string;
+  avatar_path?: string;
   created_at: string;
   updated_at: string;
 }

@@ -165,6 +165,32 @@ class ApiClient {
     return response.json();
   }
 
+  async uploadAvatar(profileId: string, file: File): Promise<VoiceProfileResponse> {
+    const url = `${this.getBaseUrl()}/profiles/${profileId}/avatar`;
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: response.statusText,
+      }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async deleteAvatar(profileId: string): Promise<void> {
+    await this.request<void>(`/profiles/${profileId}/avatar`, {
+      method: 'DELETE',
+    });
+  }
+
   // Generation
   async generateSpeech(data: GenerationRequest): Promise<GenerationResponse> {
     return this.request<GenerationResponse>('/generate', {

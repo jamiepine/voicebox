@@ -21,6 +21,7 @@ from .database import (
     ProfileSample as DBProfileSample,
 )
 from .utils.audio import validate_reference_audio, load_audio, save_audio
+from .utils.images import validate_image, process_avatar
 from .tts import get_tts_model
 from . import config
 
@@ -307,23 +308,23 @@ async def create_voice_prompt_for_profile(
 ) -> dict:
     """
     Create a combined voice prompt from all samples in a profile.
-    
+
     Args:
         profile_id: Profile ID
         db: Database session
         use_cache: Whether to use cached prompts
-        
+
     Returns:
         Voice prompt dictionary
     """
     # Get all samples for profile
     samples = db.query(DBProfileSample).filter_by(profile_id=profile_id).all()
-    
+
     if not samples:
         raise ValueError(f"No samples found for profile {profile_id}")
-    
+
     tts_model = get_tts_model()
-    
+
     if len(samples) == 1:
         # Single sample - use directly
         sample = samples[0]
@@ -337,19 +338,19 @@ async def create_voice_prompt_for_profile(
         # Multiple samples - combine them
         audio_paths = [s.audio_path for s in samples]
         reference_texts = [s.reference_text for s in samples]
-        
+
         # Combine audio
         combined_audio, combined_text = await tts_model.combine_voice_prompts(
             audio_paths,
             reference_texts,
         )
-        
+
         # Save combined audio temporarily
         import tempfile
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             save_audio(combined_audio, tmp.name, 24000)
             tmp_path = tmp.name
-        
+
         try:
             # Create prompt from combined audio
             voice_prompt, _ = await tts_model.create_voice_prompt(
@@ -361,3 +362,99 @@ async def create_voice_prompt_for_profile(
         finally:
             # Clean up temp file
             Path(tmp_path).unlink(missing_ok=True)
+
+
+async def upload_avatar(
+    profile_id: str,
+    image_path: str,
+    db: Session,
+) -> VoiceProfileResponse:
+    """
+    Upload and process avatar image for a profile.
+
+    Args:
+        profile_id: Profile ID
+        image_path: Path to uploaded image file
+        db: Database session
+
+    Returns:
+        Updated profile
+    """
+    # Validate profile exists
+    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not profile:
+        raise ValueError(f"Profile {profile_id} not found")
+
+    # Validate image
+    is_valid, error_msg = validate_image(image_path)
+    if not is_valid:
+        raise ValueError(error_msg)
+
+    # Delete existing avatar if present
+    if profile.avatar_path:
+        old_avatar = Path(profile.avatar_path)
+        if old_avatar.exists():
+            old_avatar.unlink()
+
+    # Determine file extension from uploaded file
+    from PIL import Image
+    with Image.open(image_path) as img:
+        # Normalize JPEG variants (MPO is multi-picture format from some cameras)
+        img_format = img.format
+        if img_format in ('MPO', 'JPG'):
+            img_format = 'JPEG'
+        
+        ext_map = {
+            'PNG': '.png',
+            'JPEG': '.jpg',
+            'WEBP': '.webp'
+        }
+        ext = ext_map.get(img_format, '.png')
+
+    # Save processed image to profile directory
+    profile_dir = _get_profiles_dir() / profile_id
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    output_path = profile_dir / f"avatar{ext}"
+
+    process_avatar(image_path, str(output_path))
+
+    # Update database
+    profile.avatar_path = str(output_path)
+    profile.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(profile)
+
+    return VoiceProfileResponse.model_validate(profile)
+
+
+async def delete_avatar(
+    profile_id: str,
+    db: Session,
+) -> bool:
+    """
+    Delete avatar image for a profile.
+
+    Args:
+        profile_id: Profile ID
+        db: Database session
+
+    Returns:
+        True if deleted, False if not found or no avatar
+    """
+    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not profile or not profile.avatar_path:
+        return False
+
+    # Delete avatar file
+    avatar_path = Path(profile.avatar_path)
+    if avatar_path.exists():
+        avatar_path.unlink()
+
+    # Update database
+    profile.avatar_path = None
+    profile.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return True

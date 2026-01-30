@@ -188,15 +188,7 @@ export function SampleList({ profileId }: SampleListProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Audio Samples</h3>
-        <Button type="button" size="sm" onClick={() => setUploadOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Sample
-        </Button>
-      </div>
-
+    <div className="space-y-4 pt-4">
       {samples && samples.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed rounded-lg">
           <Volume2 className="h-8 w-8 text-muted-foreground/50 mb-2" />
@@ -303,6 +295,11 @@ export function SampleList({ profileId }: SampleListProps) {
           })}
         </div>
       )}
+
+      <Button type="button" variant="outline" className="w-full" onClick={() => setUploadOpen(true)}>
+        <Plus className="mr-2 h-4 w-4" />
+        Add Sample
+      </Button>
 
       <SampleUpload profileId={profileId} open={uploadOpen} onOpenChange={setUploadOpen} />
     </div>

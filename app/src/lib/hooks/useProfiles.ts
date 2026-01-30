@@ -185,3 +185,32 @@ export function useImportProfile() {
     },
   });
 }
+
+export function useUploadAvatar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ profileId, file }: { profileId: string; file: File }) =>
+      apiClient.uploadAvatar(profileId, file),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.invalidateQueries({
+        queryKey: ['profiles', variables.profileId],
+      });
+    },
+  });
+}
+
+export function useDeleteAvatar() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (profileId: string) => apiClient.deleteAvatar(profileId),
+    onSuccess: (_, profileId) => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.invalidateQueries({
+        queryKey: ['profiles', profileId],
+      });
+    },
+  });
+}

@@ -21,3 +21,4 @@ numpy>=1.24.0
 
 # Utilities
 python-multipart>=0.0.6
+Pillow>=10.0.0

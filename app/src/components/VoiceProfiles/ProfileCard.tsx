@@ -1,5 +1,6 @@
 import { Download, Edit, Mic, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { useServerStore } from '@/stores/serverStore';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,14 +24,20 @@ interface ProfileCardProps {
 
 export function ProfileCard({ profile }: ProfileCardProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const deleteProfile = useDeleteProfile();
   const exportProfile = useExportProfile();
   const setEditingProfileId = useUIStore((state) => state.setEditingProfileId);
   const setProfileDialogOpen = useUIStore((state) => state.setProfileDialogOpen);
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
   const setSelectedProfileId = useUIStore((state) => state.setSelectedProfileId);
+  const serverUrl = useServerStore((state) => state.serverUrl);
 
   const isSelected = selectedProfileId === profile.id;
+
+  const avatarUrl = profile.avatar_path
+    ? `${serverUrl}/profiles/${profile.id}/avatar`
+    : null;
 
   const handleSelect = () => {
     setSelectedProfileId(isSelected ? null : profile.id);
@@ -67,8 +74,20 @@ export function ProfileCard({ profile }: ProfileCardProps) {
       >
         <CardHeader className="p-3 pb-2">
           <CardTitle className="flex items-center gap-1.5 text-base font-medium">
-            <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-              <Mic className="h-3.5 w-3.5 text-muted-foreground" />
+            <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
+              {avatarUrl && !avatarError ? (
+                <img
+                  src={avatarUrl}
+                  alt={`${profile.name} avatar`}
+                  className={cn(
+                    'h-full w-full object-cover transition-all duration-200',
+                    !isSelected && 'grayscale'
+                  )}
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <Mic className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
             </div>
             <span className="break-words">{profile.name}</span>
           </CardTitle>

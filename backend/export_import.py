@@ -75,6 +75,16 @@ def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
     zip_buffer = io.BytesIO()
     
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        # Check if profile has avatar
+        has_avatar = False
+        if profile.avatar_path:
+            avatar_path = Path(profile.avatar_path)
+            if avatar_path.exists():
+                has_avatar = True
+                # Add avatar to ZIP root with original extension
+                avatar_ext = avatar_path.suffix
+                zip_file.write(avatar_path, f"avatar{avatar_ext}")
+
         # Create manifest.json
         manifest = {
             "version": "1.0",
@@ -82,30 +92,31 @@ def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
                 "name": profile.name,
                 "description": profile.description,
                 "language": profile.language,
-            }
+            },
+            "has_avatar": has_avatar,
         }
         zip_file.writestr("manifest.json", json.dumps(manifest, indent=2))
-        
+
         # Create samples.json mapping
         samples_data = {}
         profile_dir = _get_profiles_dir() / profile_id
-        
+
         for sample in samples:
             # Get filename from audio_path (should be {sample_id}.wav)
             audio_path = Path(sample.audio_path)
             filename = audio_path.name
-            
+
             # Read audio file
             if not audio_path.exists():
                 raise ValueError(f"Audio file not found: {audio_path}")
-            
+
             # Add to samples directory in ZIP
             zip_path = f"samples/{filename}"
             zip_file.write(audio_path, zip_path)
-            
+
             # Map filename to reference text
             samples_data[filename] = sample.reference_text
-        
+
         zip_file.writestr("samples.json", json.dumps(samples_data, indent=2))
     
     zip_buffer.seek(0)
@@ -168,11 +179,31 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
             )
             
             profile = await create_profile(profile_create, db)
-            
+
             # Extract and add samples
             profile_dir = _get_profiles_dir() / profile.id
             profile_dir.mkdir(parents=True, exist_ok=True)
-            
+
+            # Handle avatar if present
+            avatar_files = [f for f in namelist if f.startswith("avatar.")]
+            if avatar_files:
+                try:
+                    avatar_file = avatar_files[0]
+                    # Extract to temporary file
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(suffix=Path(avatar_file).suffix, delete=False) as tmp:
+                        tmp.write(zip_file.read(avatar_file))
+                        tmp_path = tmp.name
+
+                    try:
+                        from .profiles import upload_avatar
+                        await upload_avatar(profile.id, tmp_path, db)
+                    finally:
+                        Path(tmp_path).unlink(missing_ok=True)
+                except Exception as e:
+                    # Avatar import is optional - continue even if it fails
+                    pass
+
             for filename, reference_text in samples_data.items():
                 # Validate filename
                 if not filename.endswith('.wav'):

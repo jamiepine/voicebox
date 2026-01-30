@@ -17,11 +17,12 @@ Base = declarative_base()
 class VoiceProfile(Base):
     """Voice profile database model."""
     __tablename__ = "profiles"
-    
+
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, unique=True, nullable=False)
     description = Column(Text)
     language = Column(String, default="en")
+    avatar_path = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -276,6 +277,16 @@ def _run_migrations(engine):
             conn.execute(text("ALTER TABLE story_items ADD COLUMN trim_end_ms INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
             print("Added trim_end_ms column to story_items")
+
+    # Migration: Add avatar_path to profiles table
+    if 'profiles' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('profiles')}
+        if 'avatar_path' not in columns:
+            print("Migrating profiles: adding avatar_path column")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE profiles ADD COLUMN avatar_path VARCHAR"))
+                conn.commit()
+                print("Added avatar_path column to profiles")
 
 
 def get_db():

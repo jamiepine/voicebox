@@ -20,6 +20,7 @@ class VoiceProfileResponse(BaseModel):
     name: str
     description: Optional[str]
     language: str
+    avatar_path: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

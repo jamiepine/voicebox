@@ -112,7 +112,6 @@ export function FloatingGenerateBox({
     }
   }, [selectedProfileId, profiles, setSelectedProfileId]);
 
-
   // Auto-resize textarea based on content (only when expanded)
   useEffect(() => {
     if (!isExpanded) {

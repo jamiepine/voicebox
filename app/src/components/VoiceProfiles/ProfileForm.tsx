@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mic, Monitor, Upload, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Edit2, Mic, Monitor, Upload, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -36,14 +36,17 @@ import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
 import {
   useAddSample,
   useCreateProfile,
+  useDeleteAvatar,
   useProfile,
   useUpdateProfile,
+  useUploadAvatar,
 } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
 import { isTauri } from '@/lib/tauri';
 import { formatAudioDuration, getAudioDuration } from '@/lib/utils/audio';
 import { type ProfileFormDraft, useUIStore } from '@/stores/uiStore';
+import { useServerStore } from '@/stores/serverStore';
 import { AudioSampleRecording } from './AudioSampleRecording';
 import { AudioSampleSystem } from './AudioSampleSystem';
 import { AudioSampleUpload } from './AudioSampleUpload';
@@ -57,6 +60,7 @@ const baseProfileSchema = z.object({
   language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
   sampleFile: z.instanceof(File).optional(),
   referenceText: z.string().max(1000).optional(),
+  avatarFile: z.instanceof(File).optional(),
 });
 
 const profileSchema = baseProfileSchema.refine(
@@ -108,13 +112,18 @@ export function ProfileForm() {
   const createProfile = useCreateProfile();
   const updateProfile = useUpdateProfile();
   const addSample = useAddSample();
+  const uploadAvatar = useUploadAvatar();
+  const deleteAvatar = useDeleteAvatar();
   const transcribe = useTranscription();
   const { toast } = useToast();
   const [sampleMode, setSampleMode] = useState<'upload' | 'record' | 'system'>('record');
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
   const [isValidatingAudio, setIsValidatingAudio] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const { isPlaying, playPause, cleanup: cleanupAudio } = useAudioPlayer();
   const isCreating = !editingProfileId;
+  const serverUrl = useServerStore((state) => state.serverUrl);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -124,10 +133,12 @@ export function ProfileForm() {
       language: 'en',
       sampleFile: undefined,
       referenceText: '',
+      avatarFile: undefined,
     },
   });
 
   const selectedFile = form.watch('sampleFile');
+  const selectedAvatarFile = form.watch('avatarFile');
 
   // Validate audio duration when file is selected
   useEffect(() => {
@@ -244,6 +255,19 @@ export function ProfileForm() {
     }
   }, [systemRecordingError, toast]);
 
+  // Handle avatar preview
+  useEffect(() => {
+    if (selectedAvatarFile instanceof File) {
+      const url = URL.createObjectURL(selectedAvatarFile);
+      setAvatarPreview(url);
+      return () => URL.revokeObjectURL(url);
+    } else if (editingProfile?.avatar_path) {
+      setAvatarPreview(`${serverUrl}/profiles/${editingProfile.id}/avatar`);
+    } else {
+      setAvatarPreview(null);
+    }
+  }, [selectedAvatarFile, editingProfile, serverUrl]);
+
   // Restore form state from draft or editing profile
   useEffect(() => {
     if (editingProfile) {
@@ -253,6 +277,7 @@ export function ProfileForm() {
         language: editingProfile.language as LanguageCode,
         sampleFile: undefined,
         referenceText: undefined,
+        avatarFile: undefined,
       });
     } else if (profileFormDraft && open) {
       // Restore from draft when opening in create mode
@@ -262,6 +287,7 @@ export function ProfileForm() {
         language: profileFormDraft.language as LanguageCode,
         referenceText: profileFormDraft.referenceText,
         sampleFile: undefined,
+        avatarFile: undefined,
       });
       setSampleMode(profileFormDraft.sampleMode);
       // Restore the file if we have it saved
@@ -285,8 +311,10 @@ export function ProfileForm() {
         language: 'en',
         sampleFile: undefined,
         referenceText: undefined,
+        avatarFile: undefined,
       });
       setSampleMode('record');
+      setAvatarPreview(null);
     }
   }, [editingProfile, profileFormDraft, open, form]);
 
@@ -330,6 +358,52 @@ export function ProfileForm() {
     playPause(file);
   }
 
+  function handleAvatarFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: 'Invalid file type',
+          description: 'Please select an image file (PNG, JPG, or WebP)',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          title: 'File too large',
+          description: 'Image must be less than 5MB',
+          variant: 'destructive',
+        });
+        return;
+      }
+      form.setValue('avatarFile', file);
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    if (editingProfileId && editingProfile?.avatar_path) {
+      try {
+        await deleteAvatar.mutateAsync(editingProfileId);
+        toast({
+          title: 'Avatar removed',
+          description: 'Avatar image has been removed successfully.',
+        });
+      } catch (error) {
+        toast({
+          title: 'Failed to remove avatar',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        });
+      }
+    }
+    form.setValue('avatarFile', undefined);
+    setAvatarPreview(null);
+    if (avatarInputRef.current) {
+      avatarInputRef.current.value = '';
+    }
+  }
+
   async function onSubmit(data: ProfileFormValues) {
     try {
       if (editingProfileId) {
@@ -342,6 +416,23 @@ export function ProfileForm() {
             language: data.language,
           },
         });
+
+        // Handle avatar upload/update if file changed
+        if (data.avatarFile) {
+          try {
+            await uploadAvatar.mutateAsync({
+              profileId: editingProfileId,
+              file: data.avatarFile,
+            });
+          } catch (avatarError) {
+            toast({
+              title: 'Avatar upload failed',
+              description: avatarError instanceof Error ? avatarError.message : 'Failed to upload avatar',
+              variant: 'destructive',
+            });
+          }
+        }
+
         toast({
           title: 'Voice updated',
           description: `"${data.name}" has been updated successfully.`,
@@ -418,6 +509,23 @@ export function ProfileForm() {
             file: sampleFile,
             referenceText: referenceText,
           });
+
+          // Handle avatar upload if provided
+          if (data.avatarFile) {
+            try {
+              await uploadAvatar.mutateAsync({
+                profileId: profile.id,
+                file: data.avatarFile,
+              });
+            } catch (avatarError) {
+              toast({
+                title: 'Avatar upload failed',
+                description: avatarError instanceof Error ? avatarError.message : 'Failed to upload avatar',
+                variant: 'destructive',
+              });
+            }
+          }
+
           toast({
             title: 'Profile created',
             description: `"${data.name}" has been created with a sample.`,
@@ -670,6 +778,58 @@ export function ProfileForm() {
 
                 {/* Right column: Profile info */}
                 <div className="space-y-4">
+                  {/* Avatar Upload */}
+                  <FormField
+                    control={form.control}
+                    name="avatarFile"
+                    render={() => (
+                      <FormItem>
+                        <FormControl>
+                          <div className="flex justify-center pt-4 pb-2">
+                            <div className="relative group">
+                              <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden border-2 border-border">
+                                {avatarPreview ? (
+                                  <img
+                                    src={avatarPreview}
+                                    alt="Avatar preview"
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <Mic className="h-10 w-10 text-muted-foreground" />
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => avatarInputRef.current?.click()}
+                                className="absolute inset-0 rounded-full bg-accent/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                              >
+                                <Edit2 className="h-6 w-6 text-accent-foreground" />
+                              </button>
+                              {(avatarPreview || editingProfile?.avatar_path) && (
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveAvatar}
+                                  disabled={deleteAvatar.isPending}
+                                  className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/90 transition-colors shadow-sm"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              ref={avatarInputRef}
+                              type="file"
+                              accept="image/png,image/jpeg,image/webp"
+                              onChange={handleAvatarFileChange}
+                              className="hidden"
+                            />
+                          </div>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
                   <FormField
                     control={form.control}
                     name="name"

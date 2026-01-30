@@ -1,6 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Mic, MoreHorizontal, Play, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { StoryItemDetail } from '@/lib/api/types';
 import { cn } from '@/lib/utils/cn';
 import { useStoryStore } from '@/stores/storyStore';
+import { useServerStore } from '@/stores/serverStore';
 
 interface StoryChatItemProps {
   item: StoryItemDetail;
@@ -33,6 +35,10 @@ export function StoryChatItem({
   isDragging,
 }: StoryChatItemProps) {
   const seek = useStoryStore((state) => state.seek);
+  const serverUrl = useServerStore((state) => state.serverUrl);
+  const [avatarError, setAvatarError] = useState(false);
+
+  const avatarUrl = `${serverUrl}/profiles/${item.profile_id}/avatar`;
 
   // Check if this item is currently playing based on timecode
   const itemStartMs = item.start_time_ms;
@@ -72,10 +78,22 @@ export function StoryChatItem({
         </button>
       )}
 
-      {/* Voice Icon */}
+      {/* Voice Avatar */}
       <div className="shrink-0">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-          <Mic className="h-5 w-5 text-muted-foreground" />
+        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
+          {!avatarError ? (
+            <img
+              src={avatarUrl}
+              alt={`${item.profile_name} avatar`}
+              className={cn(
+                'h-full w-full object-cover transition-all duration-200',
+                !isCurrentlyPlaying && 'grayscale'
+              )}
+              onError={() => setAvatarError(true)}
+            />
+          ) : (
+            <Mic className="h-5 w-5 text-muted-foreground" />
+          )}
         </div>
       </div>
 

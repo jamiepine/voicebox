@@ -296,6 +296,61 @@ async def update_profile_sample(
     return sample
 
 
+@app.post("/profiles/{profile_id}/avatar", response_model=models.VoiceProfileResponse)
+async def upload_profile_avatar(
+    profile_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Upload or update avatar image for a profile."""
+    # Save uploaded file to temp location
+    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        profile = await profiles.upload_avatar(profile_id, tmp_path, db)
+        return profile
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    finally:
+        # Clean up temp file
+        Path(tmp_path).unlink(missing_ok=True)
+
+
+@app.get("/profiles/{profile_id}/avatar")
+async def get_profile_avatar(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """Get avatar image for a profile."""
+    profile = await profiles.get_profile(profile_id, db)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    if not profile.avatar_path:
+        raise HTTPException(status_code=404, detail="No avatar found for this profile")
+
+    avatar_path = Path(profile.avatar_path)
+    if not avatar_path.exists():
+        raise HTTPException(status_code=404, detail="Avatar file not found")
+
+    return FileResponse(avatar_path)
+
+
+@app.delete("/profiles/{profile_id}/avatar")
+async def delete_profile_avatar(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """Delete avatar image for a profile."""
+    success = await profiles.delete_avatar(profile_id, db)
+    if not success:
+        raise HTTPException(status_code=404, detail="Profile not found or no avatar to delete")
+    return {"message": "Avatar deleted successfully"}
+
+
 @app.get("/profiles/{profile_id}/export")
 async def export_profile(
     profile_id: str,
