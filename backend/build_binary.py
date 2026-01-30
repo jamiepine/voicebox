@@ -80,7 +80,7 @@ def build_server():
             '--hidden-import', 'mlx.nn',
             '--hidden-import', 'mlx_audio',
             '--hidden-import', 'mlx_audio.tts',
-            '--hidden-import', 'mlx_audio.asr',
+            '--hidden-import', 'mlx_audio.stt',
             '--collect-submodules', 'mlx',
             '--collect-submodules', 'mlx_audio',
             # Collect MLX data files including Metal shader libraries (.metallib)

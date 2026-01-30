@@ -85,21 +85,31 @@ class PyTorchTTSBackend:
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
         try:
-            from qwen_tts import Qwen3TTSModel
-            
-            # Get model path (local or HuggingFace Hub ID)
-            model_path = self._get_model_path(model_size)
-            
-            # Set up progress tracking
+            # IMPORTANT: Set up progress tracking BEFORE importing qwen_tts
+            # This ensures tqdm is patched before any HuggingFace Hub imports
             progress_manager = get_progress_manager()
             model_name = f"qwen-tts-{model_size}"
-            
+
+            # Set up progress callback and tracker
+            progress_callback = create_hf_progress_callback(model_name, progress_manager)
+            tracker = HFProgressTracker(progress_callback)
+
+            # Patch tqdm BEFORE importing qwen_tts
+            tracker_context = tracker.patch_download()
+            tracker_context.__enter__()
+
+            # NOW import qwen_tts - it will use our patched tqdm
+            from qwen_tts import Qwen3TTSModel
+
+            # Get model path (local or HuggingFace Hub ID)
+            model_path = self._get_model_path(model_size)
+
             print(f"Loading TTS model {model_size} on {self.device}...")
-            
+
             # Start tracking download task
             task_manager = get_task_manager()
             task_manager.start_download(model_name)
-            
+
             # Initialize progress state to show download has started
             progress_manager.update_progress(
                 model_name=model_name,
@@ -108,19 +118,17 @@ class PyTorchTTSBackend:
                 filename="",
                 status="downloading",
             )
-            
-            # Set up progress callback
-            progress_callback = create_hf_progress_callback(model_name, progress_manager)
-            tracker = HFProgressTracker(progress_callback)
-            
-            # Use progress tracker during download
-            with tracker.patch_download():
-                # Load the model - downloads will happen automatically with progress tracking
+
+            # Load the model (tqdm is already patched from above)
+            try:
                 self.model = Qwen3TTSModel.from_pretrained(
                     model_path,
                     device_map=self.device,
                     torch_dtype=torch.float32 if self.device == "cpu" else torch.bfloat16,
                 )
+            finally:
+                # Exit the patch context
+                tracker_context.__exit__(None, None, None)
             
             # Mark as complete
             progress_manager.mark_complete(model_name)
@@ -314,40 +322,61 @@ class PyTorchSTTBackend:
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the Whisper model.
-        
+
         Args:
             model_size: Model size (tiny, base, small, medium, large)
         """
+        print(f"[DEBUG] load_model_async called with size: {model_size}")
         if model_size is None:
             model_size = self.model_size
-        
+
+        print(f"[DEBUG] Model already loaded? {self.model is not None}, current size: {self.model_size}, requested: {model_size}")
         if self.model is not None and self.model_size == model_size:
+            print(f"[DEBUG] Early return - model already loaded")
             return
-        
+
+        print(f"[DEBUG] Calling asyncio.to_thread for _load_model_sync")
         # Run blocking load in thread pool
         await asyncio.to_thread(self._load_model_sync, model_size)
+        print(f"[DEBUG] asyncio.to_thread completed")
     
     # Alias for compatibility
     load_model = load_model_async
     
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
+        print(f"[DEBUG] _load_model_sync called for Whisper {model_size}")
         try:
-            from transformers import WhisperProcessor, WhisperForConditionalGeneration
-            
-            model_name = f"openai/whisper-{model_size}"
-            
-            # Set up progress tracking
+            # IMPORTANT: Set up progress tracking BEFORE importing transformers
+            # This ensures tqdm is patched before any HuggingFace Hub imports
             progress_manager = get_progress_manager()
             progress_model_name = f"whisper-{model_size}"
-            
+
+            # Set up progress callback and tracker
+            progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
+            tracker = HFProgressTracker(progress_callback)
+
+            # Patch tqdm BEFORE importing transformers
+            print("[DEBUG] Starting tqdm patch BEFORE transformers import")
+            tracker_context = tracker.patch_download()
+            tracker_context.__enter__()
+            print("[DEBUG] tqdm patched, now importing transformers")
+
+            # NOW import transformers - it will use our patched tqdm
+            from transformers import WhisperProcessor, WhisperForConditionalGeneration
+
+            model_name = f"openai/whisper-{model_size}"
+            print(f"[DEBUG] Model name: {model_name}")
+
             # Start tracking download task
             task_manager = get_task_manager()
             task_manager.start_download(progress_model_name)
-            
+            print(f"[DEBUG] Task manager started download")
+
             print(f"Loading Whisper model {model_size} on {self.device}...")
-            
+
             # Initialize progress state to show download has started
+            print(f"[DEBUG] Calling update_progress...")
             progress_manager.update_progress(
                 model_name=progress_model_name,
                 current=0,
@@ -355,15 +384,15 @@ class PyTorchSTTBackend:
                 filename="",
                 status="downloading",
             )
-            
-            # Set up progress callback
-            progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
-            tracker = HFProgressTracker(progress_callback)
-            
-            # Use progress tracker during download
-            with tracker.patch_download():
+            print(f"[DEBUG] update_progress called, listeners: {len(progress_manager._listeners.get(progress_model_name, []))}")
+
+            # Load models (tqdm is already patched from above)
+            try:
                 self.processor = WhisperProcessor.from_pretrained(model_name)
                 self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
+            finally:
+                # Exit the patch context
+                tracker_context.__exit__(None, None, None)
             
             self.model.to(self.device)
             self.model_size = model_size

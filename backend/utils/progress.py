@@ -65,7 +65,7 @@ class ProgressManager:
     ):
         """
         Update progress for a model download.
-        
+
         Thread-safe: can be called from background threads.
 
         Args:
@@ -89,16 +89,26 @@ class ProgressManager:
             "status": status,
             "timestamp": datetime.now().isoformat(),
         }
-        
+
+        print(f"[DEBUG] update_progress called: {model_name}, {progress_pct:.1f}%")
+
         # Thread-safe update of progress dict
         with self._lock:
             self._progress[model_name] = progress_data
 
         # Notify all listeners (thread-safe)
         listener_count = len(self._listeners.get(model_name, []))
+        print(f"[DEBUG] Listener count for {model_name}: {listener_count}")
+        print(f"[DEBUG] All listeners: {list(self._listeners.keys())}")
+        print(f"[DEBUG] Main loop set: {self._main_loop is not None}")
+        if self._main_loop:
+            print(f"[DEBUG] Main loop running: {self._main_loop.is_running()}")
+
         if listener_count > 0:
             logger.debug(f"Notifying {listener_count} listeners for {model_name}: {progress_pct:.1f}% ({filename})")
+            print(f"[DEBUG] About to notify listeners...")
             self._notify_listeners_threadsafe(model_name, progress_data)
+            print(f"[DEBUG] Notified listeners")
         else:
             logger.debug(f"No listeners for {model_name}, progress update stored: {progress_pct:.1f}%")
     

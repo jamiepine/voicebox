@@ -1393,7 +1393,11 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     async def download_in_background():
         """Download model in background without blocking the HTTP request."""
         try:
-            await asyncio.to_thread(config["load_func"])
+            # Call the load function (which may be async)
+            result = config["load_func"]()
+            # If it's a coroutine, await it
+            if asyncio.iscoroutine(result):
+                await result
             task_manager.complete_download(request.model_name)
         except Exception as e:
             task_manager.error_download(request.model_name, str(e))

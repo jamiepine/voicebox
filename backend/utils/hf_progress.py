@@ -29,8 +29,9 @@ class HFProgressTracker:
         
         class TrackedTqdm(original_tqdm):
             """A tqdm subclass that reports progress to our tracker."""
-            
+
             def __init__(self, *args, **kwargs):
+                print(f"[DEBUG TrackedTqdm] __init__ called with desc: {kwargs.get('desc', '')}")
                 # Extract filename from desc before passing to parent
                 desc = kwargs.get("desc", "")
                 if not desc and args:
@@ -79,8 +80,9 @@ class HFProgressTracker:
                     }
             
             def update(self, n=1):
+                print(f"[DEBUG TrackedTqdm] update called with n={n}")
                 result = super().update(n)
-                
+
                 # Report progress
                 with tracker._lock:
                     if id(self) in tracker._active_tqdms:
@@ -118,11 +120,13 @@ class HFProgressTracker:
     @contextmanager
     def patch_download(self):
         """Context manager to patch tqdm for progress tracking."""
+        print("[DEBUG HFProgressTracker] patch_download called")
         try:
             import tqdm as tqdm_module
-            
+
             # Store original tqdm class
             self._original_tqdm_class = tqdm_module.tqdm
+            print(f"[DEBUG HFProgressTracker] Original tqdm class: {self._original_tqdm_class}")
             
             # Reset totals
             with self._lock:
@@ -135,18 +139,22 @@ class HFProgressTracker:
             
             # Create our tracked tqdm class
             tracked_tqdm = self._create_tracked_tqdm_class()
-            
+            print(f"[DEBUG HFProgressTracker] Created TrackedTqdm class: {tracked_tqdm}")
+
             # Patch tqdm.tqdm
             tqdm_module.tqdm = tracked_tqdm
-            
+            print(f"[DEBUG HFProgressTracker] Patched tqdm.tqdm")
+
             # Also patch tqdm.auto.tqdm if it exists (used by huggingface_hub)
             self._original_tqdm_auto = None
             if hasattr(tqdm_module, "auto") and hasattr(tqdm_module.auto, "tqdm"):
                 self._original_tqdm_auto = tqdm_module.auto.tqdm
                 tqdm_module.auto.tqdm = tracked_tqdm
+                print(f"[DEBUG HFProgressTracker] Patched tqdm.auto.tqdm")
             
             # Patch in sys.modules to catch already-imported references
             self._patched_modules = {}
+            patched_count = 0
             for module_name in list(sys.modules.keys()):
                 if "huggingface" in module_name or module_name.startswith("tqdm"):
                     try:
@@ -159,8 +167,11 @@ class HFProgressTracker:
                             ):
                                 self._patched_modules[module_name] = attr
                                 setattr(module, "tqdm", tracked_tqdm)
+                                patched_count += 1
+                                print(f"[DEBUG HFProgressTracker] Patched {module_name}.tqdm")
                     except (AttributeError, TypeError):
                         pass
+            print(f"[DEBUG HFProgressTracker] Patched {patched_count} modules in sys.modules")
             
             yield
             

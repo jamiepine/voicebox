@@ -341,21 +341,34 @@ class MLXSTTBackend:
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
         try:
-            from mlx_audio.asr import load
-            
-            # MLX Whisper model naming
-            model_name = f"mlx-community/whisper-{model_size}"
-            
-            # Set up progress tracking
+            # IMPORTANT: Set up progress tracking BEFORE importing mlx_audio
+            # This ensures tqdm is patched before any HuggingFace Hub imports
             progress_manager = get_progress_manager()
             progress_model_name = f"whisper-{model_size}"
+
+            # Set up progress callback and tracker
+            progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
+            tracker = HFProgressTracker(progress_callback)
+
+            # Patch tqdm BEFORE importing mlx_audio
+            # This is critical because mlx_audio imports huggingface_hub which imports tqdm
+            print("[DEBUG] Starting tqdm patch BEFORE mlx_audio import")
+            tracker_context = tracker.patch_download()
+            tracker_context.__enter__()
+            print("[DEBUG] tqdm patched, now importing mlx_audio")
+
+            # NOW import mlx_audio - it will use our patched tqdm
+            from mlx_audio.stt import load
+
+            # MLX Whisper uses the standard OpenAI models
+            model_name = f"openai/whisper-{model_size}"
             
             # Start tracking download task
             task_manager = get_task_manager()
             task_manager.start_download(progress_model_name)
-            
+
             print(f"Loading MLX Whisper model {model_size}...")
-            
+
             # Initialize progress state
             progress_manager.update_progress(
                 model_name=progress_model_name,
@@ -364,14 +377,13 @@ class MLXSTTBackend:
                 filename="",
                 status="downloading",
             )
-            
-            # Set up progress callback
-            progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
-            tracker = HFProgressTracker(progress_callback)
-            
-            # Use progress tracker during download
-            with tracker.patch_download():
+
+            # Load the model (tqdm is already patched from above)
+            try:
                 self.model = load(model_name)
+            finally:
+                # Exit the patch context
+                tracker_context.__exit__(None, None, None)
             
             self.model_size = model_size
             
