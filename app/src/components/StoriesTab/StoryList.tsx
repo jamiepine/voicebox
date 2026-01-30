@@ -1,14 +1,5 @@
 import { Plus, BookOpen, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +10,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,18 +26,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import {
-  useStories,
-  useCreateStory,
-  useUpdateStory,
-  useDeleteStory,
-} from '@/lib/hooks/useStories';
-import { useStoryStore } from '@/stores/storyStore';
+import { useStories, useCreateStory, useUpdateStory, useDeleteStory } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/format';
+import { useStoryStore } from '@/stores/storyStore';
 
 export function StoryList() {
   const { data: stories, isLoading } = useStories();
@@ -49,7 +44,11 @@ export function StoryList() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editingStory, setEditingStory] = useState<{ id: string; name: string; description?: string } | null>(null);
+  const [editingStory, setEditingStory] = useState<{
+    id: string;
+    name: string;
+    description?: string;
+  } | null>(null);
   const [deletingStoryId, setDeletingStoryId] = useState<string | null>(null);
   const [newStoryName, setNewStoryName] = useState('');
   const [newStoryDescription, setNewStoryDescription] = useState('');
@@ -213,7 +212,9 @@ export function StoryList() {
                     </p>
                   )}
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span>{story.item_count} {story.item_count === 1 ? 'item' : 'items'}</span>
+                    <span>
+                      {story.item_count} {story.item_count === 1 ? 'item' : 'items'}
+                    </span>
                     <span>•</span>
                     <span>{formatDate(story.updated_at)}</span>
                   </div>
@@ -300,9 +301,7 @@ export function StoryList() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Story</DialogTitle>
-            <DialogDescription>
-              Update the story name and description.
-            </DialogDescription>
+            <DialogDescription>Update the story name and description.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -347,7 +346,8 @@ export function StoryList() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the story and all its items. This action cannot be undone.
+              This will permanently delete the story and all its items. This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
