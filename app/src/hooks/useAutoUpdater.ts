@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlatform } from '@/platform/PlatformContext';
 import type { UpdateStatus } from '@/platform/types';
 
@@ -7,9 +7,8 @@ export type { UpdateStatus };
 
 export function useAutoUpdater(checkOnMount = false) {
   const platform = usePlatform();
-  const [status, setStatus] = useState<UpdateStatus>(
-    platform.updater.getStatus(),
-  );
+  const [status, setStatus] = useState<UpdateStatus>(platform.updater.getStatus());
+  const hasCheckedRef = useRef(false);
 
   // Subscribe to updater status changes
   useEffect(() => {
@@ -17,25 +16,32 @@ export function useAutoUpdater(checkOnMount = false) {
       setStatus(newStatus);
     });
     return unsubscribe;
-  }, [platform]);
+    // Empty dependency array - platform is stable from context
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.updater.subscribe]);
 
   const checkForUpdates = useCallback(async () => {
     await platform.updater.checkForUpdates();
-  }, [platform]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.updater.checkForUpdates]);
 
   const downloadAndInstall = useCallback(async () => {
     await platform.updater.downloadAndInstall();
-  }, [platform]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.updater.downloadAndInstall]);
 
   const restartAndInstall = useCallback(async () => {
     await platform.updater.restartAndInstall();
-  }, [platform]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.updater.restartAndInstall]);
 
   useEffect(() => {
-    if (checkOnMount && platform.metadata.isTauri) {
+    if (checkOnMount && platform.metadata.isTauri && !hasCheckedRef.current) {
+      hasCheckedRef.current = true;
       checkForUpdates();
     }
-  }, [checkOnMount, checkForUpdates, platform.metadata.isTauri]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.metadata.isTauricheckOnMountcheckForUpdates]);
 
   return {
     status,

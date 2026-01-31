@@ -58,6 +58,46 @@ class PyTorchTTSBackend:
         
         return hf_model_map[model_size]
     
+    def _is_model_cached(self, model_size: str) -> bool:
+        """
+        Check if the model is already cached locally AND fully downloaded.
+        
+        Args:
+            model_size: Model size to check
+            
+        Returns:
+            True if model is fully cached, False if missing or incomplete
+        """
+        try:
+            from huggingface_hub import constants as hf_constants
+            model_path = self._get_model_path(model_size)
+            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_path.replace("/", "--"))
+            
+            if not repo_cache.exists():
+                return False
+            
+            # Check for .incomplete files - if any exist, download is still in progress
+            blobs_dir = repo_cache / "blobs"
+            if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
+                print(f"[_is_model_cached] Found .incomplete files for {model_size}, treating as not cached")
+                return False
+            
+            # Check that actual model weight files exist in snapshots
+            snapshots_dir = repo_cache / "snapshots"
+            if snapshots_dir.exists():
+                has_weights = (
+                    any(snapshots_dir.rglob("*.safetensors")) or
+                    any(snapshots_dir.rglob("*.bin"))
+                )
+                if not has_weights:
+                    print(f"[_is_model_cached] No model weights found for {model_size}, treating as not cached")
+                    return False
+            
+            return True
+        except Exception as e:
+            print(f"[_is_model_cached] Error checking cache for {model_size}: {e}")
+            return False
+    
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the TTS model with automatic downloading from HuggingFace Hub.
@@ -85,20 +125,24 @@ class PyTorchTTSBackend:
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
         try:
-            # IMPORTANT: Set up progress tracking BEFORE importing qwen_tts
-            # This ensures tqdm is patched before any HuggingFace Hub imports
             progress_manager = get_progress_manager()
+            task_manager = get_task_manager()
             model_name = f"qwen-tts-{model_size}"
 
+            # Check if model is already cached
+            is_cached = self._is_model_cached(model_size)
+
             # Set up progress callback and tracker
+            # If cached: filter out non-download progress (like "Segment 1/1" during generation)
+            # If not cached: report all progress (we're actually downloading)
             progress_callback = create_hf_progress_callback(model_name, progress_manager)
-            tracker = HFProgressTracker(progress_callback)
+            tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
             # Patch tqdm BEFORE importing qwen_tts
             tracker_context = tracker.patch_download()
             tracker_context.__enter__()
 
-            # NOW import qwen_tts - it will use our patched tqdm
+            # Import qwen_tts
             from qwen_tts import Qwen3TTSModel
 
             # Get model path (local or HuggingFace Hub ID)
@@ -106,20 +150,21 @@ class PyTorchTTSBackend:
 
             print(f"Loading TTS model {model_size} on {self.device}...")
 
-            # Start tracking download task
-            task_manager = get_task_manager()
-            task_manager.start_download(model_name)
+            # Only track download progress if model is NOT cached
+            if not is_cached:
+                # Start tracking download task
+                task_manager.start_download(model_name)
 
-            # Initialize progress state to show download has started
-            progress_manager.update_progress(
-                model_name=model_name,
-                current=0,
-                total=1,  # Set to 1 initially, will be updated by callback
-                filename="",
-                status="downloading",
-            )
+                # Initialize progress state so SSE endpoint has initial data to send
+                progress_manager.update_progress(
+                    model_name=model_name,
+                    current=0,
+                    total=0,  # Will be updated once actual total is known
+                    filename="Connecting to HuggingFace...",
+                    status="downloading",
+                )
 
-            # Load the model (tqdm is already patched from above)
+            # Load the model (tqdm is patched, but filters out non-download progress)
             try:
                 self.model = Qwen3TTSModel.from_pretrained(
                     model_path,
@@ -130,9 +175,10 @@ class PyTorchTTSBackend:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
             
-            # Mark as complete
-            progress_manager.mark_complete(model_name)
-            task_manager.complete_download(model_name)
+            # Only mark download as complete if we were tracking it
+            if not is_cached:
+                progress_manager.mark_complete(model_name)
+                task_manager.complete_download(model_name)
             
             self._current_model_size = model_size
             self.model_size = model_size
@@ -321,6 +367,46 @@ class PyTorchSTTBackend:
         """Check if model is loaded."""
         return self.model is not None
     
+    def _is_model_cached(self, model_size: str) -> bool:
+        """
+        Check if the Whisper model is already cached locally AND fully downloaded.
+        
+        Args:
+            model_size: Model size to check
+            
+        Returns:
+            True if model is fully cached, False if missing or incomplete
+        """
+        try:
+            from huggingface_hub import constants as hf_constants
+            model_name = f"openai/whisper-{model_size}"
+            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
+            
+            if not repo_cache.exists():
+                return False
+            
+            # Check for .incomplete files - if any exist, download is still in progress
+            blobs_dir = repo_cache / "blobs"
+            if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
+                print(f"[_is_model_cached] Found .incomplete files for whisper-{model_size}, treating as not cached")
+                return False
+            
+            # Check that actual model weight files exist in snapshots
+            snapshots_dir = repo_cache / "snapshots"
+            if snapshots_dir.exists():
+                has_weights = (
+                    any(snapshots_dir.rglob("*.safetensors")) or
+                    any(snapshots_dir.rglob("*.bin"))
+                )
+                if not has_weights:
+                    print(f"[_is_model_cached] No model weights found for whisper-{model_size}, treating as not cached")
+                    return False
+            
+            return True
+        except Exception as e:
+            print(f"[_is_model_cached] Error checking cache for whisper-{model_size}: {e}")
+            return False
+    
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the Whisper model.
@@ -349,14 +435,18 @@ class PyTorchSTTBackend:
         """Synchronous model loading."""
         print(f"[DEBUG] _load_model_sync called for Whisper {model_size}")
         try:
-            # IMPORTANT: Set up progress tracking BEFORE importing transformers
-            # This ensures tqdm is patched before any HuggingFace Hub imports
             progress_manager = get_progress_manager()
+            task_manager = get_task_manager()
             progress_model_name = f"whisper-{model_size}"
 
+            # Check if model is already cached
+            is_cached = self._is_model_cached(model_size)
+
             # Set up progress callback and tracker
+            # If cached: filter out non-download progress
+            # If not cached: report all progress (we're actually downloading)
             progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
-            tracker = HFProgressTracker(progress_callback)
+            tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
             # Patch tqdm BEFORE importing transformers
             print("[DEBUG] Starting tqdm patch BEFORE transformers import")
@@ -364,31 +454,29 @@ class PyTorchSTTBackend:
             tracker_context.__enter__()
             print("[DEBUG] tqdm patched, now importing transformers")
 
-            # NOW import transformers - it will use our patched tqdm
+            # Import transformers
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
             model_name = f"openai/whisper-{model_size}"
             print(f"[DEBUG] Model name: {model_name}")
 
-            # Start tracking download task
-            task_manager = get_task_manager()
-            task_manager.start_download(progress_model_name)
-            print(f"[DEBUG] Task manager started download")
-
             print(f"Loading Whisper model {model_size} on {self.device}...")
 
-            # Initialize progress state to show download has started
-            print(f"[DEBUG] Calling update_progress...")
-            progress_manager.update_progress(
-                model_name=progress_model_name,
-                current=0,
-                total=1,  # Set to 1 initially, will be updated by callback
-                filename="",
-                status="downloading",
-            )
-            print(f"[DEBUG] update_progress called, listeners: {len(progress_manager._listeners.get(progress_model_name, []))}")
+            # Only track download progress if model is NOT cached
+            if not is_cached:
+                # Start tracking download task
+                task_manager.start_download(progress_model_name)
 
-            # Load models (tqdm is already patched from above)
+                # Initialize progress state so SSE endpoint has initial data to send
+                progress_manager.update_progress(
+                    model_name=progress_model_name,
+                    current=0,
+                    total=0,  # Will be updated once actual total is known
+                    filename="Connecting to HuggingFace...",
+                    status="downloading",
+                )
+
+            # Load models (tqdm is patched, but filters out non-download progress)
             try:
                 self.processor = WhisperProcessor.from_pretrained(model_name)
                 self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
@@ -396,12 +484,13 @@ class PyTorchSTTBackend:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
             
+            # Only mark download as complete if we were tracking it
+            if not is_cached:
+                progress_manager.mark_complete(progress_model_name)
+                task_manager.complete_download(progress_model_name)
+            
             self.model.to(self.device)
             self.model_size = model_size
-            
-            # Mark as complete
-            progress_manager.mark_complete(progress_model_name)
-            task_manager.complete_download(progress_model_name)
             
             print(f"Whisper model {model_size} loaded successfully")
             

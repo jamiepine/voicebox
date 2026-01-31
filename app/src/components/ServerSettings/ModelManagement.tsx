@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Loader2, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +17,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
-import { ModelProgress } from './ModelProgress';
 
 export function ModelManagement() {
   const { toast } = useToast();
@@ -27,15 +26,36 @@ export function ModelManagement() {
 
   const { data: modelStatus, isLoading } = useQuery({
     queryKey: ['modelStatus'],
-    queryFn: () => apiClient.getModelStatus(),
+    queryFn: async () => {
+      console.log('[Query] Fetching model status');
+      const result = await apiClient.getModelStatus();
+      console.log('[Query] Model status fetched:', result);
+      return result;
+    },
     refetchInterval: 5000, // Refresh every 5 seconds
   });
+
+  // Callbacks for download completion
+  const handleDownloadComplete = useCallback(() => {
+    console.log('[ModelManagement] Download complete, clearing state');
+    setDownloadingModel(null);
+    setDownloadingDisplayName(null);
+    queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
+  }, [queryClient]);
+
+  const handleDownloadError = useCallback(() => {
+    console.log('[ModelManagement] Download error, clearing state');
+    setDownloadingModel(null);
+    setDownloadingDisplayName(null);
+  }, []);
 
   // Use progress toast hook for the downloading model
   useModelDownloadToast({
     modelName: downloadingModel || '',
     displayName: downloadingDisplayName || '',
     enabled: !!downloadingModel && !!downloadingDisplayName,
+    onComplete: handleDownloadComplete,
+    onError: handleDownloadError,
   });
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -45,44 +65,69 @@ export function ModelManagement() {
     sizeMb?: number;
   } | null>(null);
 
-  const downloadMutation = useMutation({
-    mutationFn: (modelName: string) => {
+  const handleDownload = async (modelName: string) => {
+    console.log('[Download] Button clicked for:', modelName, 'at', new Date().toISOString());
+    
+    // Find display name
+    const model = modelStatus?.models.find((m) => m.model_name === modelName);
+    const displayName = model?.display_name || modelName;
+    
+    try {
+      // IMPORTANT: Call the API FIRST before setting state
+      // Setting state enables the SSE EventSource in useModelDownloadToast,
+      // which can block/delay the download fetch due to HTTP/1.1 connection limits
+      console.log('[Download] Calling download API for:', modelName);
+      const result = await apiClient.triggerModelDownload(modelName);
+      console.log('[Download] Download API responded:', result);
+      
+      // NOW set state to enable SSE tracking (after download has started on backend)
       setDownloadingModel(modelName);
-      // Find display name from model status
-      const model = modelStatus?.models.find((m) => m.model_name === modelName);
-      setDownloadingDisplayName(model?.display_name || modelName);
-      return apiClient.triggerModelDownload(modelName);
-    },
-    onSuccess: () => {
-      // Download completed - clear state and refetch status
-      setDownloadingModel(null);
-      setDownloadingDisplayName(null);
+      setDownloadingDisplayName(displayName);
+      
+      // Download initiated successfully - state will be cleared when SSE reports completion
+      // or by the polling interval detecting the model is downloaded
       queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
-    },
-    onError: (error: Error) => {
+    } catch (error) {
+      console.error('[Download] Download failed:', error);
       setDownloadingModel(null);
       setDownloadingDisplayName(null);
       toast({
         title: 'Download failed',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
-    },
-  });
+    }
+  };
 
   const deleteMutation = useMutation({
-    mutationFn: (modelName: string) => apiClient.deleteModel(modelName),
-    onSuccess: () => {
+    mutationFn: async (modelName: string) => {
+      console.log('[Delete] Deleting model:', modelName);
+      const result = await apiClient.deleteModel(modelName);
+      console.log('[Delete] Model deleted successfully:', modelName);
+      return result;
+    },
+    onSuccess: async (_data, _modelName) => {
+      console.log('[Delete] onSuccess - showing toast and invalidating queries');
       toast({
         title: 'Model deleted',
         description: `${modelToDelete?.displayName || 'Model'} has been deleted successfully.`,
       });
       setDeleteDialogOpen(false);
       setModelToDelete(null);
-      // Refetch status to update UI
-      queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
+      // Invalidate AND explicitly refetch to ensure UI updates
+      // Using refetchType: 'all' ensures we refetch even if the query is stale
+      console.log('[Delete] Invalidating modelStatus query');
+      await queryClient.invalidateQueries({ 
+        queryKey: ['modelStatus'],
+        refetchType: 'all',
+      });
+      // Also explicitly refetch to guarantee fresh data
+      console.log('[Delete] Explicitly refetching modelStatus query');
+      await queryClient.refetchQueries({ queryKey: ['modelStatus'] });
+      console.log('[Delete] Query refetched');
     },
     onError: (error: Error) => {
+      console.log('[Delete] onError:', error);
       toast({
         title: 'Delete failed',
         description: error.message,
@@ -124,7 +169,7 @@ export function ModelManagement() {
                     <ModelItem
                       key={model.model_name}
                       model={model}
-                      onDownload={() => downloadMutation.mutate(model.model_name)}
+                      onDownload={() => handleDownload(model.model_name)}
                       onDelete={() => {
                         setModelToDelete({
                           name: model.model_name,
@@ -152,7 +197,7 @@ export function ModelManagement() {
                     <ModelItem
                       key={model.model_name}
                       model={model}
-                      onDownload={() => downloadMutation.mutate(model.model_name)}
+                      onDownload={() => handleDownload(model.model_name)}
                       onDelete={() => {
                         setModelToDelete({
                           name: model.model_name,
@@ -168,21 +213,6 @@ export function ModelManagement() {
               </div>
             </div>
 
-            {/* Progress indicators */}
-            <div className="pt-4 border-t">
-              <h3 className="text-sm font-semibold mb-3 text-muted-foreground">
-                Download Progress
-              </h3>
-              <div className="space-y-2">
-                {modelStatus.models.map((model) => (
-                  <ModelProgress
-                    key={model.model_name}
-                    modelName={model.model_name}
-                    displayName={model.display_name}
-                  />
-                ))}
-              </div>
-            </div>
           </div>
         ) : null}
       </CardContent>
@@ -235,16 +265,20 @@ interface ModelItemProps {
     model_name: string;
     display_name: string;
     downloaded: boolean;
+    downloading?: boolean;  // From server - true if download in progress
     size_mb?: number;
     loaded: boolean;
   };
   onDownload: () => void;
   onDelete: () => void;
-  isDownloading: boolean;
+  isDownloading: boolean;  // Local state - true if user just clicked download
   formatSize: (sizeMb?: number) => string;
 }
 
 function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: ModelItemProps) {
+  // Use server's downloading state OR local state (for immediate feedback before server updates)
+  const showDownloading = model.downloading || isDownloading;
+  
   return (
     <div className="flex items-center justify-between p-3 border rounded-lg">
       <div className="flex-1">
@@ -255,20 +289,21 @@ function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: M
               Loaded
             </Badge>
           )}
-          {model.downloaded && !model.loaded && (
+          {/* Only show Downloaded if actually downloaded AND not downloading */}
+          {model.downloaded && !model.loaded && !showDownloading && (
             <Badge variant="secondary" className="text-xs">
               Downloaded
             </Badge>
           )}
         </div>
-        {model.downloaded && model.size_mb && (
+        {model.downloaded && model.size_mb && !showDownloading && (
           <div className="text-xs text-muted-foreground mt-1">
             Size: {formatSize(model.size_mb)}
           </div>
         )}
       </div>
       <div className="flex items-center gap-2">
-        {model.downloaded ? (
+        {model.downloaded && !showDownloading ? (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <span>Ready</span>
@@ -283,19 +318,15 @@ function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: M
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
+        ) : showDownloading ? (
+          <Button size="sm" variant="outline" disabled>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Downloading...
+          </Button>
         ) : (
-          <Button size="sm" onClick={onDownload} disabled={isDownloading} variant="outline">
-            {isDownloading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Downloading...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </>
-            )}
+          <Button size="sm" onClick={onDownload} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Download
           </Button>
         )}
       </div>

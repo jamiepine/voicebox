@@ -1156,11 +1156,14 @@ async def get_model_progress(model_name: str):
 @app.get("/models/status", response_model=models.ModelStatusListResponse)
 async def get_model_status():
     """Get status of all available models."""
-    from huggingface_hub import hf_hub_download, constants as hf_constants
+    from huggingface_hub import constants as hf_constants
     from pathlib import Path
-    import os
     
     backend_type = get_backend_type()
+    task_manager = get_task_manager()
+    
+    # Get set of currently downloading model names
+    active_download_names = {task.model_name for task in task_manager.get_active_downloads()}
     
     # Try to import scan_cache_dir (might not be available in older versions)
     try:
@@ -1189,10 +1192,11 @@ async def get_model_status():
     if backend_type == "mlx":
         tts_1_7b_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
         tts_0_6b_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"  # Fallback to 1.7B
-        whisper_base_id = "mlx-community/whisper-base"
-        whisper_small_id = "mlx-community/whisper-small"
-        whisper_medium_id = "mlx-community/whisper-medium"
-        whisper_large_id = "mlx-community/whisper-large"
+        # MLX backend uses openai/whisper-* models, not mlx-community
+        whisper_base_id = "openai/whisper-base"
+        whisper_small_id = "openai/whisper-small"
+        whisper_medium_id = "openai/whisper-medium"
+        whisper_large_id = "openai/whisper-large"
     else:
         tts_1_7b_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         tts_0_6b_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
@@ -1246,6 +1250,13 @@ async def get_model_status():
         },
     ]
     
+    # Build a mapping of model_name -> hf_repo_id so we can check if shared repos are downloading
+    model_to_repo = {cfg["model_name"]: cfg["hf_repo_id"] for cfg in model_configs}
+    
+    # Get the set of hf_repo_ids that are currently being downloaded
+    # This handles the case where multiple models share the same repo (e.g., 0.6B and 1.7B on MLX)
+    active_download_repos = {model_to_repo.get(name) for name in active_download_names if name in model_to_repo}
+    
     # Get HuggingFace cache info (if available)
     cache_info = None
     if use_scan_cache:
@@ -1268,13 +1279,37 @@ async def get_model_status():
                 repo_id = config["hf_repo_id"]
                 for repo in cache_info.repos:
                     if repo.repo_id == repo_id:
-                        downloaded = True
-                        # Calculate size from cache info
+                        # Check if actual model weight files exist (not just config files)
+                        # scan_cache_dir only shows completed files, so check if any are model weights
+                        has_model_weights = False
+                        for rev in repo.revisions:
+                            for f in rev.files:
+                                fname = f.file_name.lower()
+                                if fname.endswith(('.safetensors', '.bin', '.pt', '.pth', '.npz')):
+                                    has_model_weights = True
+                                    break
+                            if has_model_weights:
+                                break
+                        
+                        # Also check for .incomplete files in blobs directory (downloads in progress)
+                        has_incomplete = False
                         try:
-                            total_size = sum(revision.size_on_disk for revision in repo.revisions)
-                            size_mb = total_size / (1024 * 1024)
+                            cache_dir = hf_constants.HF_HUB_CACHE
+                            blobs_dir = Path(cache_dir) / ("models--" + repo_id.replace("/", "--")) / "blobs"
+                            if blobs_dir.exists():
+                                has_incomplete = any(blobs_dir.glob("*.incomplete"))
                         except Exception:
                             pass
+                        
+                        # Only mark as downloaded if we have model weights AND no incomplete files
+                        if has_model_weights and not has_incomplete:
+                            downloaded = True
+                            # Calculate size from cache info
+                            try:
+                                total_size = sum(revision.size_on_disk for revision in repo.revisions)
+                                size_mb = total_size / (1024 * 1024)
+                            except Exception:
+                                pass
                         break
             
             # Method 2: Fallback to checking cache directory directly (using HuggingFace's OS-specific cache location)
@@ -1284,42 +1319,40 @@ async def get_model_status():
                     repo_cache = Path(cache_dir) / ("models--" + config["hf_repo_id"].replace("/", "--"))
                     
                     if repo_cache.exists():
-                        # Check for model files (bin, safetensors, or other common model files)
-                        # MLX models may use .npz or .safetensors
-                        has_model_files = (
-                            any(repo_cache.rglob("*.bin")) or
-                            any(repo_cache.rglob("*.safetensors")) or
-                            any(repo_cache.rglob("*.pt")) or
-                            any(repo_cache.rglob("*.pth")) or
-                            any(repo_cache.rglob("*.npz")) or
-                            any(repo_cache.rglob("model.safetensors.index.json")) or
-                            any(repo_cache.rglob("pytorch_model.bin.index.json"))
-                        )
+                        # Check for .incomplete files - if any exist, download is still in progress
+                        blobs_dir = repo_cache / "blobs"
+                        has_incomplete = blobs_dir.exists() and any(blobs_dir.glob("*.incomplete"))
                         
-                        if has_model_files:
-                            downloaded = True
-                            # Calculate size
-                            try:
-                                total_size = sum(f.stat().st_size for f in repo_cache.rglob("*") if f.is_file())
-                                size_mb = total_size / (1024 * 1024)
-                            except Exception:
-                                pass
+                        if not has_incomplete:
+                            # Check for actual model weight files (not just index files)
+                            # in the snapshots directory (symlinks to completed blobs)
+                            snapshots_dir = repo_cache / "snapshots"
+                            has_model_files = False
+                            if snapshots_dir.exists():
+                                has_model_files = (
+                                    any(snapshots_dir.rglob("*.bin")) or
+                                    any(snapshots_dir.rglob("*.safetensors")) or
+                                    any(snapshots_dir.rglob("*.pt")) or
+                                    any(snapshots_dir.rglob("*.pth")) or
+                                    any(snapshots_dir.rglob("*.npz"))
+                                )
+                            
+                            if has_model_files:
+                                downloaded = True
+                                # Calculate size (exclude .incomplete files)
+                                try:
+                                    total_size = sum(
+                                        f.stat().st_size for f in repo_cache.rglob("*") 
+                                        if f.is_file() and not f.name.endswith('.incomplete')
+                                    )
+                                    size_mb = total_size / (1024 * 1024)
+                                except Exception:
+                                    pass
                 except Exception:
                     pass
             
-            # Method 3: Try to check if model can be loaded locally (last resort)
-            if not downloaded:
-                try:
-                    # Try to download with local_files_only=True to check if cached
-                    hf_hub_download(
-                        repo_id=config["hf_repo_id"],
-                        filename="config.json",  # Try a common file
-                        local_files_only=True,
-                    )
-                    downloaded = True
-                except Exception:
-                    # File not found locally, model not downloaded
-                    pass
+            # Method 3 removed - checking for config.json is too lenient
+            # Methods 1 and 2 properly verify that model weight files exist
             
             # Check if loaded in memory
             try:
@@ -1327,10 +1360,19 @@ async def get_model_status():
             except Exception:
                 loaded = False
             
+            # Check if this model (or its shared repo) is currently being downloaded
+            is_downloading = config["hf_repo_id"] in active_download_repos
+            
+            # If downloading, don't report as downloaded (partial files exist)
+            if is_downloading:
+                downloaded = False
+                size_mb = None  # Don't show partial size during download
+            
             statuses.append(models.ModelStatus(
                 model_name=config["model_name"],
                 display_name=config["display_name"],
                 downloaded=downloaded,
+                downloading=is_downloading,
                 size_mb=size_mb,
                 loaded=loaded,
             ))
@@ -1341,10 +1383,14 @@ async def get_model_status():
             except Exception:
                 loaded = False
             
+            # Check if this model (or its shared repo) is currently being downloaded
+            is_downloading = config["hf_repo_id"] in active_download_repos
+            
             statuses.append(models.ModelStatus(
                 model_name=config["model_name"],
                 display_name=config["display_name"],
                 downloaded=False,  # Assume not downloaded if check failed
+                downloading=is_downloading,
                 size_mb=None,
                 loaded=loaded,
             ))
@@ -1358,6 +1404,7 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     import asyncio
     
     task_manager = get_task_manager()
+    progress_manager = get_progress_manager()
     
     model_configs = {
         "qwen-tts-1.7B": {
@@ -1405,6 +1452,18 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
 
     # Start tracking download
     task_manager.start_download(request.model_name)
+    
+    # Initialize progress state so SSE endpoint has initial data to send.
+    # This fixes a race condition where the frontend connects to SSE before
+    # any progress callbacks have fired (especially for large models like Qwen
+    # where huggingface_hub takes time to fetch metadata for all files).
+    progress_manager.update_progress(
+        model_name=request.model_name,
+        current=0,
+        total=0,  # Will be updated once actual total is known
+        filename="Connecting to HuggingFace...",
+        status="downloading",
+    )
 
     # Start download in background task (don't await)
     asyncio.create_task(download_in_background())

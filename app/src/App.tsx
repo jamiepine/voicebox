@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
 import { RouterProvider } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
 import ShinyText from '@/components/ShinyText';
 import { TitleBarDragRegion } from '@/components/TitleBarDragRegion';
+import { useAutoUpdater } from '@/hooks/useAutoUpdater';
 import { TOP_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import { cn } from '@/lib/utils/cn';
+import { usePlatform } from '@/platform/PlatformContext';
 import { router } from '@/router';
 import { useServerStore } from '@/stores/serverStore';
-import { usePlatform } from '@/platform/PlatformContext';
 
 const LOADING_MESSAGES = [
   'Warming up tensors...',
@@ -38,6 +39,9 @@ function App() {
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const serverStartingRef = useRef(false);
 
+  // Automatically check for app updates on startup and show toast notifications
+  useAutoUpdater({ checkOnMount: true, showToast: true });
+
   // Sync stored setting to Rust on startup
   useEffect(() => {
     if (platform.metadata.isTauri) {
@@ -46,14 +50,18 @@ function App() {
         console.error('Failed to sync initial setting to Rust:', error);
       });
     }
-  }, [platform]);
+    // Empty dependency array - platform is stable from context, only run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.metadata.isTauri, platform.lifecycle]);
 
   // Setup lifecycle callbacks
   useEffect(() => {
     platform.lifecycle.onServerReady = () => {
       setServerReady(true);
     };
-  }, [platform]);
+    // Empty dependency array - platform is stable from context, only run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.lifecycle]);
 
   // Setup window close handler and auto-start server when running in Tauri (production only)
   useEffect(() => {
@@ -111,7 +119,9 @@ function App() {
       // Window close event handles server shutdown based on setting
       serverStartingRef.current = false;
     };
-  }, [platform]);
+    // Empty dependency array - platform is stable from context, only run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform.metadata.isTauri, platform.lifecycle]);
 
   // Cycle through loading messages every 3 seconds
   useEffect(() => {

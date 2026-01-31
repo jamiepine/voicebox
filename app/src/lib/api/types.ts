@@ -96,6 +96,7 @@ export interface ModelStatus {
   model_name: string;
   display_name: string;
   downloaded: boolean;
+  downloading: boolean;  // True if download is in progress
   size_mb?: number;
   loaded: boolean;
 }

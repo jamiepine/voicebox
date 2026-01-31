@@ -134,6 +134,7 @@ class ModelStatus(BaseModel):
     model_name: str
     display_name: str
     downloaded: bool
+    downloading: bool = False  # True if download is in progress
     size_mb: Optional[float] = None
     loaded: bool = False
 

@@ -16,11 +16,17 @@ class ProgressManager:
     Thread-safe: can be called from background threads (e.g., via asyncio.to_thread).
     """
     
+    # Throttle settings to prevent overwhelming SSE clients
+    THROTTLE_INTERVAL_SECONDS = 0.5  # Minimum time between updates
+    THROTTLE_PROGRESS_DELTA = 1.0    # Minimum progress change (%) to force update
+    
     def __init__(self):
         self._progress: Dict[str, Dict] = {}
         self._listeners: Dict[str, list] = {}
         self._lock = threading.Lock()  # Thread-safe lock for progress dict
         self._main_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._last_notify_time: Dict[str, float] = {}  # Last notification time per model
+        self._last_notify_progress: Dict[str, float] = {}  # Last notified progress per model
     
     def _set_main_loop(self, loop: asyncio.AbstractEventLoop):
         """Set the main event loop for thread-safe operations."""
@@ -67,6 +73,10 @@ class ProgressManager:
         Update progress for a model download.
 
         Thread-safe: can be called from background threads.
+        
+        Progress updates are throttled to prevent overwhelming SSE clients.
+        Updates are sent at most every THROTTLE_INTERVAL_SECONDS, or when
+        progress changes by at least THROTTLE_PROGRESS_DELTA percent.
 
         Args:
             model_name: Name of the model (e.g., "qwen-tts-1.7B", "whisper-base")
@@ -76,9 +86,17 @@ class ProgressManager:
             status: Status string (downloading, extracting, complete, error)
         """
         import logging
+        import time
         logger = logging.getLogger(__name__)
 
-        progress_pct = (current / total * 100) if total > 0 else 0
+        # Calculate progress percentage, clamped to 0-100 range
+        # This prevents crazy percentages from edge cases like:
+        # - current > total temporarily during aggregation
+        # - mixing file-count progress with byte-count progress
+        if total > 0:
+            progress_pct = min(100.0, max(0.0, (current / total * 100)))
+        else:
+            progress_pct = 0
 
         progress_data = {
             "model_name": model_name,
@@ -90,25 +108,38 @@ class ProgressManager:
             "timestamp": datetime.now().isoformat(),
         }
 
-        print(f"[DEBUG] update_progress called: {model_name}, {progress_pct:.1f}%")
-
-        # Thread-safe update of progress dict
+        # Thread-safe update of progress dict (always update internal state)
         with self._lock:
             self._progress[model_name] = progress_data
 
+        # Check if we should notify listeners (throttling)
+        current_time = time.time()
+        last_time = self._last_notify_time.get(model_name, 0)
+        last_progress = self._last_notify_progress.get(model_name, -100)
+        
+        time_delta = current_time - last_time
+        progress_delta = abs(progress_pct - last_progress)
+        
+        # Always notify for complete/error status, or if throttle conditions are met
+        should_notify = (
+            status in ("complete", "error") or
+            time_delta >= self.THROTTLE_INTERVAL_SECONDS or
+            progress_delta >= self.THROTTLE_PROGRESS_DELTA
+        )
+        
+        if not should_notify:
+            return  # Skip this update (throttled)
+        
+        # Update throttle tracking
+        self._last_notify_time[model_name] = current_time
+        self._last_notify_progress[model_name] = progress_pct
+
         # Notify all listeners (thread-safe)
         listener_count = len(self._listeners.get(model_name, []))
-        print(f"[DEBUG] Listener count for {model_name}: {listener_count}")
-        print(f"[DEBUG] All listeners: {list(self._listeners.keys())}")
-        print(f"[DEBUG] Main loop set: {self._main_loop is not None}")
-        if self._main_loop:
-            print(f"[DEBUG] Main loop running: {self._main_loop.is_running()}")
 
         if listener_count > 0:
             logger.debug(f"Notifying {listener_count} listeners for {model_name}: {progress_pct:.1f}% ({filename})")
-            print(f"[DEBUG] About to notify listeners...")
             self._notify_listeners_threadsafe(model_name, progress_data)
-            print(f"[DEBUG] Notified listeners")
         else:
             logger.debug(f"No listeners for {model_name}, progress update stored: {progress_pct:.1f}%")
     

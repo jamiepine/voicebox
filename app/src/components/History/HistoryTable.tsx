@@ -1,6 +1,13 @@
-import { AudioWaveform, Download, FileArchive, Loader2, MoreHorizontal, Play, Trash2 } from 'lucide-react';
+import {
+  AudioWaveform,
+  Download,
+  FileArchive,
+  Loader2,
+  MoreHorizontal,
+  Play,
+  Trash2,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import type { HistoryResponse } from '@/lib/api/types';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -19,6 +26,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
+import type { HistoryResponse } from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import {
   useDeleteGeneration,
@@ -50,7 +58,11 @@ export function HistoryTable() {
   const limit = 20;
   const { toast } = useToast();
 
-  const { data: historyData, isLoading, isFetching } = useHistory({
+  const {
+    data: historyData,
+    isLoading,
+    isFetching,
+  } = useHistory({
     limit,
     offset: page * limit,
   });
@@ -280,6 +292,7 @@ export function HistoryTable() {
                     <Textarea
                       value={gen.text}
                       className="flex-1 resize-none text-sm text-muted-foreground select-text"
+                      readOnly
                     />
                   </div>
 

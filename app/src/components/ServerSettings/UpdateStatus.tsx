@@ -13,9 +13,10 @@ export function UpdateStatus() {
   const [currentVersion, setCurrentVersion] = useState<string>('');
 
   useEffect(() => {
-    platform.metadata.getVersion()
+    platform.metadata
+      .getVersion()
       .then(setCurrentVersion)
-      .catch(() => setCurrentVersion('0.1.0'));
+      .catch(() => setCurrentVersion('Unknown'));
   }, [platform]);
 
   return (

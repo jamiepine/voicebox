@@ -13,7 +13,7 @@
     },
     "app": {
       "name": "@voicebox/app",
-      "version": "0.1.9",
+      "version": "0.1.11",
       "dependencies": {
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/sortable": "^10.0.0",
@@ -68,7 +68,7 @@
     },
     "landing": {
       "name": "@voicebox/landing",
-      "version": "0.1.9",
+      "version": "0.1.11",
       "dependencies": {
         "@radix-ui/react-separator": "^1.1.8",
         "@radix-ui/react-slot": "^1.2.4",
@@ -93,10 +93,14 @@
     },
     "tauri": {
       "name": "@voicebox/tauri",
-      "version": "0.1.9",
+      "version": "0.1.11",
       "dependencies": {
         "@tauri-apps/api": "^2.0.0",
+        "@tauri-apps/plugin-dialog": "^2.0.0",
+        "@tauri-apps/plugin-fs": "^2.0.0",
+        "@tauri-apps/plugin-process": "^2.0.0",
         "@tauri-apps/plugin-shell": "^2.0.0",
+        "@tauri-apps/plugin-updater": "^2.0.0",
       },
       "devDependencies": {
         "@tailwindcss/vite": "^4.1.18",
@@ -112,7 +116,7 @@
     },
     "web": {
       "name": "@voicebox/web",
-      "version": "0.1.9",
+      "version": "0.1.11",
       "dependencies": {
         "@tanstack/react-query": "^5.0.0",
         "react": "^18.3.0",

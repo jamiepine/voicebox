@@ -8,14 +8,23 @@ import { useServerStore } from '@/stores/serverStore';
 interface ModelProgressProps {
   modelName: string;
   displayName: string;
+  /** Only connect to SSE when actively downloading - prevents connection exhaustion */
+  isDownloading?: boolean;
 }
 
-export function ModelProgress({ modelName, displayName }: ModelProgressProps) {
+export function ModelProgress({ modelName, displayName, isDownloading = false }: ModelProgressProps) {
   const [progress, setProgress] = useState<ModelProgressType | null>(null);
   const serverUrl = useServerStore((state) => state.serverUrl);
 
   useEffect(() => {
-    if (!serverUrl) return;
+    // IMPORTANT: Only connect to SSE when this specific model is downloading
+    // Opening SSE connections for all models exhausts HTTP/1.1 connection limits (6 per origin)
+    // which causes other fetches (like the download trigger) to be queued/blocked
+    if (!serverUrl || !isDownloading) {
+      return;
+    }
+
+    console.log(`[ModelProgress] Connecting SSE for ${modelName}`);
 
     // Subscribe to progress updates via Server-Sent Events
     const eventSource = new EventSource(`${serverUrl}/models/progress/${modelName}`);
@@ -27,6 +36,7 @@ export function ModelProgress({ modelName, displayName }: ModelProgressProps) {
 
         // Close connection if complete or error
         if (data.status === 'complete' || data.status === 'error') {
+          console.log(`[ModelProgress] Download ${data.status} for ${modelName}, closing SSE`);
           eventSource.close();
         }
       } catch (error) {
@@ -35,14 +45,15 @@ export function ModelProgress({ modelName, displayName }: ModelProgressProps) {
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE error:', error);
+      console.error(`[ModelProgress] SSE error for ${modelName}:`, error);
       eventSource.close();
     };
 
     return () => {
+      console.log(`[ModelProgress] Cleanup - closing SSE for ${modelName}`);
       eventSource.close();
     };
-  }, [serverUrl, modelName]);
+  }, [serverUrl, modelName, isDownloading]);
 
   // Don't render if no progress or if complete/error and some time has passed
   if (
