@@ -6,7 +6,114 @@ on:
     tags:
       - "v*"
 
+env:
+  PROVIDER_VERSION: "1.0.0"
+
 jobs:
+  # ============================================
+  # Build TTS Providers (uploaded to R2, not GitHub)
+  # ============================================
+  build-providers:
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # PyTorch CPU provider (Windows)
+          - platform: "windows-latest"
+            provider: "pytorch-cpu"
+            python-version: "3.12"
+          # PyTorch CUDA provider (Windows) - large binary, uploaded to R2
+          - platform: "windows-latest"
+            provider: "pytorch-cuda"
+            python-version: "3.12"
+          # PyTorch CPU provider (Linux)
+          - platform: "ubuntu-22.04"
+            provider: "pytorch-cpu"
+            python-version: "3.12"
+          # PyTorch CUDA provider (Linux) - large binary, uploaded to R2
+          - platform: "ubuntu-22.04"
+            provider: "pytorch-cuda"
+            python-version: "3.12"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm-dev
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install Python dependencies (CPU)
+        if: matrix.provider == 'pytorch-cpu'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r providers/pytorch-cpu/requirements.txt
+          pip install -r backend/requirements.txt
+
+      - name: Install Python dependencies (CUDA)
+        if: matrix.provider == 'pytorch-cuda'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+          pip install -r providers/pytorch-cuda/requirements.txt
+          pip install -r backend/requirements.txt
+
+      - name: Build provider binary
+        shell: bash
+        run: |
+          cd providers/${{ matrix.provider }}
+          python build.py
+
+      - name: Upload provider to R2
+        shell: bash
+        env:
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+        run: |
+          # Install AWS CLI (compatible with R2)
+          pip install awscli
+
+          # Configure AWS CLI for R2
+          aws configure set aws_access_key_id $R2_ACCESS_KEY_ID
+          aws configure set aws_secret_access_key $R2_SECRET_ACCESS_KEY
+          aws configure set region auto
+
+          # Determine binary name based on platform
+          if [ "${{ matrix.platform }}" == "windows-latest" ]; then
+            BINARY_NAME="tts-provider-${{ matrix.provider }}.exe"
+            BINARY_PATH="providers/${{ matrix.provider }}/dist/tts-provider-${{ matrix.provider }}.exe"
+          else
+            BINARY_NAME="tts-provider-${{ matrix.provider }}"
+            BINARY_PATH="providers/${{ matrix.provider }}/dist/tts-provider-${{ matrix.provider }}"
+          fi
+
+          # Add platform suffix for clarity
+          if [ "${{ matrix.platform }}" == "windows-latest" ]; then
+            UPLOAD_NAME="tts-provider-${{ matrix.provider }}-windows.exe"
+          else
+            UPLOAD_NAME="tts-provider-${{ matrix.provider }}-linux"
+          fi
+
+          # Upload to R2 (bucket: voicebox)
+          aws s3 cp "$BINARY_PATH" "s3://voicebox/providers/v${{ env.PROVIDER_VERSION }}/$UPLOAD_NAME" \
+            --endpoint-url "$R2_ENDPOINT"
+
+          echo "Uploaded $UPLOAD_NAME to R2"
+
+  # ============================================
+  # Build Main App (without bundled TTS on Win/Linux)
+  # ============================================
   release:
     permissions:
       contents: write
@@ -14,22 +121,26 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # macOS Apple Silicon - MLX bundled (works out of the box)
           - platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
             python-version: "3.12"
             backend: "mlx"
+          # macOS Intel - PyTorch bundled (smaller user base, keep simple)
           - platform: "macos-15-intel"
             args: "--target x86_64-apple-darwin"
             python-version: "3.12"
             backend: "pytorch"
+          # Linux - No TTS bundled, providers downloaded separately
           # - platform: 'ubuntu-22.04'
           #   args: ''
           #   python-version: '3.12'
-          #   backend: 'pytorch'
+          #   backend: 'none'
+          # Windows - No TTS bundled, providers downloaded separately
           - platform: "windows-latest"
             args: ""
             python-version: "3.12"
-            backend: "pytorch"
+            backend: "none"
 
     runs-on: ${{ matrix.platform }}
 
@@ -55,22 +166,26 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
-      - name: Install Python dependencies
+      - name: Install Python dependencies (with TTS)
+        if: matrix.backend != 'none'
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r backend/requirements.txt
 
+      - name: Install Python dependencies (without TTS)
+        if: matrix.backend == 'none'
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          # Install base requirements without PyTorch/Qwen-TTS
+          pip install fastapi uvicorn sqlalchemy librosa soundfile numpy httpx
+          pip install huggingface_hub  # For Whisper downloads
+
       - name: Install MLX dependencies (Apple Silicon only)
         if: matrix.backend == 'mlx'
         run: |
           pip install -r backend/requirements-mlx.txt
-
-      # - name: Install PyTorch with CUDA (Windows only)
-      #   if: matrix.platform == 'windows-latest'
-      #   run: |
-      #     pip install torch --index-url https://download.pytorch.org/whl/cu121 --force-reinstall --no-deps
-      #     pip install torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
       - name: Build Python server (Linux/macOS)
         if: matrix.platform != 'windows-latest'
@@ -148,10 +263,15 @@ jobs:
             See the assets below to download and install this version.
 
             ### Installation
-            - **macOS (Apple Silicon)**: Download the `aarch64.dmg` file - uses MLX for fast native inference
+            - **macOS (Apple Silicon)**: Download the `aarch64.dmg` file - uses MLX for fast native inference (works out of the box)
             - **macOS (Intel)**: Download the `x64.dmg` file - uses PyTorch
-            - **Windows**: Download the `.msi` installer
-            - **Linux**: Download the `.AppImage` or `.deb` package
+            - **Windows**: Download the `.msi` installer - requires downloading a TTS provider on first use
+            - **Linux**: Download the `.AppImage` or `.deb` package - requires downloading a TTS provider on first use
+
+            ### TTS Providers (Windows/Linux)
+            Windows and Linux users will be prompted to download a TTS provider on first launch:
+            - **PyTorch CPU** (~300MB) - Works on any system
+            - **PyTorch CUDA** (~2.4GB) - 4-5x faster on NVIDIA GPUs
 
             The app includes automatic updates - future updates will be installed automatically.
           releaseDraft: true

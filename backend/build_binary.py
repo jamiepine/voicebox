@@ -30,7 +30,7 @@ def build_server():
         args.extend(['--paths', str(qwen_tts_path)])
         print(f"Using local qwen_tts source from: {qwen_tts_path}")
 
-    # Add common hidden imports
+    # Add common hidden imports (always included)
     args.extend([
         '--hidden-import', 'backend',
         '--hidden-import', 'backend.main',
@@ -42,38 +42,30 @@ def build_server():
         '--hidden-import', 'backend.tts',
         '--hidden-import', 'backend.transcribe',
         '--hidden-import', 'backend.platform_detect',
-        '--hidden-import', 'backend.backends',
-        '--hidden-import', 'backend.backends.pytorch_backend',
+        '--hidden-import', 'backend.providers',
+        '--hidden-import', 'backend.providers.base',
+        '--hidden-import', 'backend.providers.bundled',
+        '--hidden-import', 'backend.providers.types',
         '--hidden-import', 'backend.utils.audio',
         '--hidden-import', 'backend.utils.cache',
         '--hidden-import', 'backend.utils.progress',
         '--hidden-import', 'backend.utils.hf_progress',
         '--hidden-import', 'backend.utils.validation',
-        '--hidden-import', 'torch',
-        '--hidden-import', 'transformers',
         '--hidden-import', 'fastapi',
         '--hidden-import', 'uvicorn',
         '--hidden-import', 'sqlalchemy',
         '--hidden-import', 'librosa',
         '--hidden-import', 'soundfile',
-        '--hidden-import', 'qwen_tts',
-        '--hidden-import', 'qwen_tts.inference',
-        '--hidden-import', 'qwen_tts.inference.qwen3_tts_model',
-        '--hidden-import', 'qwen_tts.inference.qwen3_tts_tokenizer',
-        '--hidden-import', 'qwen_tts.core',
-        '--hidden-import', 'qwen_tts.cli',
-        '--copy-metadata', 'qwen-tts',
-        '--collect-submodules', 'qwen_tts',
-        '--collect-data', 'qwen_tts',
         # Fix for pkg_resources and jaraco namespace packages
         '--hidden-import', 'pkg_resources.extern',
         '--collect-submodules', 'jaraco',
     ])
 
-    # Add MLX-specific imports if building on Apple Silicon
+    # Platform-specific TTS backend handling
     if is_apple_silicon():
-        print("Building for Apple Silicon - including MLX dependencies")
+        print("Building for Apple Silicon - including MLX dependencies (bundled)")
         args.extend([
+            '--hidden-import', 'backend.backends',
             '--hidden-import', 'backend.backends.mlx_backend',
             '--hidden-import', 'mlx',
             '--hidden-import', 'mlx.core',
@@ -88,7 +80,13 @@ def build_server():
             '--collect-data', 'mlx_audio',
         ])
     else:
-        print("Building for non-Apple Silicon platform - PyTorch only")
+        print("Building for Windows/Linux - excluding PyTorch/Qwen-TTS (providers downloaded separately)")
+        # Note: PyTorch and Qwen-TTS are NOT included - users will download providers separately
+        # Only include backend abstraction (no actual TTS implementation)
+        args.extend([
+            '--hidden-import', 'backend.backends',
+            '--hidden-import', 'backend.backends.pytorch_backend',  # Keep for reference, but won't work without PyTorch
+        ])
 
     args.extend([
         '--noconfirm',

@@ -199,6 +199,77 @@ class ApiClient {
     });
   }
 
+  // Providers
+  async listProviders(): Promise<{
+    providers: Array<{
+      type: string;
+      name: string;
+      installed: boolean;
+      size_mb: number | null;
+    }>;
+    installed: string[];
+  }> {
+    return this.request('/providers');
+  }
+
+  async getActiveProvider(): Promise<{
+    provider: string;
+    health: {
+      status: string;
+      provider: string;
+      version: string | null;
+      model: string | null;
+      device: string | null;
+    };
+    status: {
+      model_loaded: boolean;
+      model_size: string | null;
+      available_sizes: string[];
+      gpu_available: boolean | null;
+      vram_used_mb: number | null;
+    };
+  }> {
+    return this.request('/providers/active');
+  }
+
+  async startProvider(providerType: string): Promise<{
+    message: string;
+    provider: {
+      status: string;
+      provider: string;
+      version: string | null;
+      model: string | null;
+      device: string | null;
+    };
+  }> {
+    return this.request('/providers/start', {
+      method: 'POST',
+      body: JSON.stringify({ provider_type: providerType }),
+    });
+  }
+
+  async stopProvider(): Promise<{ message: string }> {
+    return this.request('/providers/stop', {
+      method: 'POST',
+    });
+  }
+
+  async downloadProvider(providerType: string): Promise<{
+    message: string;
+    provider_type: string;
+  }> {
+    return this.request('/providers/download', {
+      method: 'POST',
+      body: JSON.stringify({ provider_type: providerType }),
+    });
+  }
+
+  async deleteProvider(providerType: string): Promise<{ message: string }> {
+    return this.request(`/providers/${providerType}`, {
+      method: 'DELETE',
+    });
+  }
+
   // History
   async listHistory(query?: HistoryQuery): Promise<HistoryListResponse> {
     const params = new URLSearchParams();

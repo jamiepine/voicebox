@@ -29,6 +29,8 @@ from .utils.progress import get_progress_manager
 from .utils.tasks import get_task_manager
 from .utils.cache import clear_voice_prompt_cache
 from .platform_detect import get_backend_type
+from .providers import get_provider_manager
+from .providers.types import ProviderType
 
 app = FastAPI(
     title="voicebox API",
@@ -74,7 +76,7 @@ async def health():
     from pathlib import Path
     import os
 
-    tts_model = tts.get_tts_model()
+    tts_model = await tts.get_tts_model_async()
     backend_type = get_backend_type()
 
     # Check for GPU availability (CUDA or MPS)
@@ -549,7 +551,7 @@ async def generate_speech(
         )
         
         # Generate audio
-        tts_model = tts.get_tts_model()
+        tts_model = await tts.get_tts_model_async()
         # Load the requested model size if different from current (async to not block)
         model_size = data.model_size or "1.7B"
 
@@ -1113,8 +1115,8 @@ async def get_sample_audio(sample_id: str, db: Session = Depends(get_db)):
 async def load_model(model_size: str = "1.7B"):
     """Manually load TTS model."""
     try:
-        tts_model = tts.get_tts_model()
-        await tts_model.load_model_async(model_size)
+        tts_model = await tts.get_tts_model_async()
+        await tts_model.load_model(model_size)
         return {"message": f"Model {model_size} loaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1172,10 +1174,10 @@ async def get_model_status():
     except ImportError:
         use_scan_cache = False
     
-    def check_tts_loaded(model_size: str):
+    async def check_tts_loaded(model_size: str):
         """Check if TTS model is loaded with specific size."""
         try:
-            tts_model = tts.get_tts_model()
+            tts_model = await tts.get_tts_model_async()
             return tts_model.is_loaded() and getattr(tts_model, 'model_size', None) == model_size
         except Exception:
             return False
@@ -1211,14 +1213,14 @@ async def get_model_status():
             "display_name": "Qwen TTS 1.7B",
             "hf_repo_id": tts_1_7b_id,
             "model_size": "1.7B",
-            "check_loaded": lambda: check_tts_loaded("1.7B"),
+            "check_loaded": lambda: check_tts_loaded("1.7B"),  # Async function
         },
         {
             "model_name": "qwen-tts-0.6B",
             "display_name": "Qwen TTS 0.6B",
             "hf_repo_id": tts_0_6b_id,
             "model_size": "0.6B",
-            "check_loaded": lambda: check_tts_loaded("0.6B"),
+            "check_loaded": lambda: check_tts_loaded("0.6B"),  # Async function
         },
         {
             "model_name": "whisper-base",
@@ -1356,7 +1358,11 @@ async def get_model_status():
             
             # Check if loaded in memory
             try:
-                loaded = config["check_loaded"]()
+                check_func = config["check_loaded"]
+                if asyncio.iscoroutinefunction(check_func):
+                    loaded = await check_func()
+                else:
+                    loaded = check_func()
             except Exception:
                 loaded = False
             
@@ -1379,7 +1385,11 @@ async def get_model_status():
         except Exception as e:
             # If check fails, try to at least check if loaded
             try:
-                loaded = config["check_loaded"]()
+                check_func = config["check_loaded"]
+                if asyncio.iscoroutinefunction(check_func):
+                    loaded = await check_func()
+                else:
+                    loaded = check_func()
             except Exception:
                 loaded = False
             
@@ -1406,14 +1416,24 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     task_manager = get_task_manager()
     progress_manager = get_progress_manager()
     
+    async def load_tts_model_1_7b():
+        """Load 1.7B TTS model."""
+        tts_model = await tts.get_tts_model_async()
+        await tts_model.load_model("1.7B")
+    
+    async def load_tts_model_0_6b():
+        """Load 0.6B TTS model."""
+        tts_model = await tts.get_tts_model_async()
+        await tts_model.load_model("0.6B")
+    
     model_configs = {
         "qwen-tts-1.7B": {
             "model_size": "1.7B",
-            "load_func": lambda: tts.get_tts_model().load_model("1.7B"),
+            "load_func": load_tts_model_1_7b,
         },
         "qwen-tts-0.6B": {
             "model_size": "0.6B",
-            "load_func": lambda: tts.get_tts_model().load_model("0.6B"),
+            "load_func": load_tts_model_0_6b,
         },
         "whisper-base": {
             "model_size": "base",
@@ -1472,6 +1492,171 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     return {"message": f"Model {request.model_name} download started"}
 
 
+# ============================================
+# PROVIDER ENDPOINTS
+# ============================================
+
+@app.get("/providers")
+async def list_providers():
+    """List all available provider types."""
+    manager = get_provider_manager()
+    installed = await manager.list_installed()
+    
+    # Get info for all known provider types
+    all_providers = [
+        "bundled-mlx",
+        "bundled-pytorch",
+        "pytorch-cpu",
+        "pytorch-cuda",
+        "remote",
+        "openai",
+    ]
+    
+    providers_info = []
+    for provider_type in all_providers:
+        info = await manager.get_provider_info(provider_type)
+        providers_info.append(info)
+    
+    return {
+        "providers": providers_info,
+        "installed": installed,
+    }
+
+
+@app.get("/providers/installed")
+async def list_installed_providers():
+    """List installed provider types."""
+    manager = get_provider_manager()
+    installed = await manager.list_installed()
+    return {"installed": installed}
+
+
+@app.get("/providers/active")
+async def get_active_provider():
+    """Get information about the currently active provider."""
+    manager = get_provider_manager()
+    provider = await manager.get_active_provider()
+    
+    health = await provider.health()
+    status = await provider.status()
+    
+    return {
+        "provider": health["provider"],
+        "health": health,
+        "status": status,
+    }
+
+
+@app.post("/providers/start")
+async def start_provider(data: dict):
+    """Start a specific provider."""
+    provider_type = data.get("provider_type")
+    if not provider_type:
+        raise HTTPException(status_code=400, detail="provider_type is required")
+    
+    manager = get_provider_manager()
+    try:
+        await manager.start_provider(provider_type)
+        provider = await manager.get_active_provider()
+        health = await provider.health()
+        return {
+            "message": f"Provider {provider_type} started",
+            "provider": health,
+        }
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/providers/stop")
+async def stop_provider():
+    """Stop the currently active provider."""
+    manager = get_provider_manager()
+    await manager.stop_provider()
+    return {"message": "Provider stopped"}
+
+
+@app.post("/providers/download")
+async def download_provider_endpoint(data: dict):
+    """Download a provider binary."""
+    from .providers.installer import download_provider
+    
+    provider_type = data.get("provider_type")
+    if not provider_type:
+        raise HTTPException(status_code=400, detail="provider_type is required")
+    
+    if provider_type not in ["pytorch-cpu", "pytorch-cuda"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provider type {provider_type} cannot be downloaded"
+        )
+    
+    try:
+        # Start download in background
+        asyncio.create_task(download_provider(provider_type))
+        return {
+            "message": f"Provider {provider_type} download started",
+            "provider_type": provider_type,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/providers/download/progress/{provider_type}")
+async def get_provider_download_progress(provider_type: str):
+    """Get provider download progress via Server-Sent Events."""
+    from fastapi.responses import StreamingResponse
+    from .utils.progress import get_progress_manager
+    
+    progress_manager = get_progress_manager()
+    
+    async def event_generator():
+        """Generate SSE events for provider download progress."""
+        import asyncio
+        import json
+        
+        last_progress = None
+        
+        while True:
+            progress = progress_manager.get_progress(provider_type)
+            
+            if progress and progress != last_progress:
+                yield f"data: {json.dumps(progress)}\n\n"
+                last_progress = progress
+                
+                if progress.get("status") in ["complete", "error"]:
+                    break
+            
+            await asyncio.sleep(0.5)
+    
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.delete("/providers/{provider_type}")
+async def delete_provider_endpoint(provider_type: str):
+    """Delete an installed provider."""
+    from .providers.installer import delete_provider
+    
+    if provider_type not in ["pytorch-cpu", "pytorch-cuda"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Provider type {provider_type} cannot be deleted"
+        )
+    
+    deleted = delete_provider(provider_type)
+    
+    if deleted:
+        return {"message": f"Provider {provider_type} deleted successfully"}
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Provider {provider_type} not found"
+        )
+
+
 @app.delete("/models/{model_name}")
 async def delete_model(model_name: str):
     """Delete a downloaded model from the HuggingFace cache."""
@@ -1522,9 +1707,9 @@ async def delete_model(model_name: str):
     try:
         # Check if model is loaded and unload it first
         if config["model_type"] == "tts":
-            tts_model = tts.get_tts_model()
-            if tts_model.is_loaded() and tts_model.model_size == config["model_size"]:
-                tts.unload_tts_model()
+            tts_model = await tts.get_tts_model_async()
+            if tts_model.is_loaded() and getattr(tts_model, 'model_size', None) == config["model_size"]:
+                tts_model.unload_model()
         elif config["model_type"] == "whisper":
             whisper_model = transcribe.get_whisper_model()
             if whisper_model.is_loaded() and whisper_model.model_size == config["model_size"]:

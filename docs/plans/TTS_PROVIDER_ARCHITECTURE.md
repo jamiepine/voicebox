@@ -10,14 +10,17 @@
 
 Split the monolithic backend into modular components:
 
-1. **Main App** (~150-200MB): Tauri + FastAPI backend + Whisper + UI/profiles/history
-2. **TTS Providers** (downloadable plugins): Separate executables for model inference
+1. **Main App**:
+   - Windows/Linux (~150MB): Tauri + FastAPI backend + Whisper + UI/profiles/history
+   - macOS (~300MB): Same + MLX bundled for simplicity
+2. **TTS Providers** (Windows/Linux only): Downloadable executables for PyTorch CPU/CUDA inference
 
 This architecture solves:
 
 - ✅ GitHub 2GB release artifact limit
-- ✅ Frequent app updates without re-downloading large python binaries
-- ✅ User choice of compute backend (CPU/GPU/Cloud)
+- ✅ Frequent app updates without re-downloading large python binaries (Windows/Linux)
+- ✅ User choice of compute backend (CPU/GPU/Cloud) on Windows/Linux
+- ✅ Simplified out-of-the-box experience on macOS
 - ✅ External provider support (OpenAI, custom servers)
 - ✅ Future extensibility
 
@@ -25,6 +28,7 @@ This architecture solves:
 
 ## Architecture Diagram
 
+### Windows / Linux
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  Voicebox App (Tauri + Backend)           ~150MB        │
@@ -39,27 +43,43 @@ This architecture solves:
                                           │
                             HTTP/IPC      │
                                           │
-         ┌────────────────────────────────┼─────────────────┐
-         │                                │                 │
-         ▼                                ▼                 ▼
-┌─────────────────┐      ┌─────────────────┐   ┌──────────────────┐
-│ TTS Provider:   │      │ TTS Provider:   │   │ TTS Provider:    │
-│ PyTorch CPU     │      │ PyTorch CUDA    │   │ MLX (Apple)      │
-│                 │      │                 │   │                  │
-│ ~300MB          │      │ ~2.4GB          │   │ ~800MB           │
-│                 │      │                 │   │                  │
-│ Local inference │      │ GPU inference   │   │ Metal inference  │
-└─────────────────┘      └─────────────────┘   └──────────────────┘
-         │                        │                     │
-         └────────────────────────┴─────────────────────┘
-                                  │
-                    ┌─────────────▼──────────────┐
-                    │  Future Providers:         │
-                    │  • Remote Server           │
-                    │  • OpenAI API              │
-                    │  • ElevenLabs              │
-                    │  • Custom Docker Container │
-                    └────────────────────────────┘
+                    ┌─────────────────────┴─────────────────┐
+                    │                                       │
+                    ▼                                       ▼
+       ┌─────────────────────┐              ┌─────────────────────┐
+       │ TTS Provider:       │              │ TTS Provider:       │
+       │ PyTorch CPU         │              │ PyTorch CUDA        │
+       │                     │              │                     │
+       │ ~300MB              │              │ ~2.4GB              │
+       │                     │              │                     │
+       │ Local inference     │              │ GPU inference       │
+       └─────────────────────┘              └─────────────────────┘
+                    │                                       │
+                    └───────────────┬───────────────────────┘
+                                    │
+                      ┌─────────────▼──────────────┐
+                      │  Future Providers:         │
+                      │  • Remote Server           │
+                      │  • OpenAI API              │
+                      │  • ElevenLabs              │
+                      │  • Custom Docker Container │
+                      └────────────────────────────┘
+```
+
+### macOS
+```
+┌─────────────────────────────────────────────────────────┐
+│  Voicebox App (Tauri + Backend)           ~300MB        │
+│  ├─ UI Layer (React)                                    │
+│  ├─ Backend (FastAPI)                                   │
+│  │  ├─ Voice Profiles                                   │
+│  │  ├─ Generation History                               │
+│  │  ├─ Audio Editing / Stories                          │
+│  │  └─ MLX Backend (bundled)                            │
+│  └─ Whisper (bundled, tiny ~50MB)                       │
+│                                                          │
+│  No provider downloads needed - works out of the box    │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -91,18 +111,20 @@ This architecture solves:
 
 #### 1. Main App (voicebox.exe / .app / .AppImage)
 
-**Size:** ~100-150MB
+**Windows/Linux Size:** ~100-150MB
+**macOS Size:** ~300-350MB (includes MLX)
 
 **Includes:**
 
 - Tauri runtime + React UI
-- FastAPI backend (pure Python, no PyTorch)
+- FastAPI backend (pure Python, no PyTorch on Windows/Linux)
 - Whisper model (tiny, ~50MB)
 - SQLite database
 - Profile/history/audio editing logic
-- Provider management system
+- Provider management system (Windows/Linux only)
+- **MLX backend (macOS only, bundled)**
 
-**Does NOT include:**
+**Does NOT include (Windows/Linux only):**
 
 - PyTorch (CPU or CUDA)
 - TTS models (Qwen3-TTS)
@@ -147,23 +169,7 @@ This architecture solves:
 
 ---
 
-#### 4. TTS Provider: MLX
-
-**Binary:** `tts-provider-mlx`
-**Size:** ~150MB
-
-**Includes:**
-
-- MLX framework
-- MLX-optimized Qwen3-TTS
-- Metal acceleration
-
-**Platform:** macOS only (Apple Silicon)
-**Download source:** Cloudflare R2
-
----
-
-#### 5. TTS Provider: Remote
+#### 4. TTS Provider: Remote
 
 **Binary:** None (built-in config)
 **Size:** 0MB
@@ -182,7 +188,7 @@ This architecture solves:
 
 ---
 
-#### 6. TTS Provider: OpenAI
+#### 5. TTS Provider: OpenAI
 
 **Binary:** None (API wrapper)
 **Size:** 0MB
@@ -296,7 +302,10 @@ Model status.
 
 ```python
 class ProviderManager:
-    """Manages TTS provider lifecycle."""
+    """Manages TTS provider lifecycle (Windows/Linux only).
+
+    Note: macOS uses bundled MLX backend directly, no provider management needed.
+    """
 
     def __init__(self):
         self.active_provider: Optional[Provider] = None
@@ -308,8 +317,6 @@ class ProviderManager:
             return await self._start_local_provider("tts-provider-pytorch-cpu.exe")
         elif provider_type == "pytorch-cuda":
             return await self._start_local_provider("tts-provider-pytorch-cuda.exe")
-        elif provider_type == "mlx":
-            return await self._start_local_provider("tts-provider-mlx")
         elif provider_type == "remote":
             return self.config["remote_url"]
         elif provider_type == "openai":
@@ -434,15 +441,14 @@ class OpenAIProvider(TTSProvider):
 
 ```python
 class ProviderInstaller:
-    """Handles provider download and installation."""
+    """Handles provider download and installation (Windows/Linux only)."""
 
     async def download_provider(self, provider_type: str):
         """Download provider binary from R2."""
 
         binary_name = {
             "pytorch-cpu": "tts-provider-pytorch-cpu.exe",
-            "pytorch-cuda": "tts-provider-pytorch-cuda.exe",
-            "mlx": "tts-provider-mlx"
+            "pytorch-cuda": "tts-provider-pytorch-cuda.exe"
         }[provider_type]
 
         download_url = f"https://downloads.voicebox.sh/providers/v{PROVIDER_VERSION}/{binary_name}"
@@ -525,41 +531,35 @@ export function ProviderSettings() {
 						)}
 					</div>
 
-					{/* PyTorch CPU */}
-					<div className="flex items-center justify-between">
-						<div className="flex items-center space-x-2">
-							<RadioGroupItem value="pytorch-cpu" id="cpu" />
-							<Label htmlFor="cpu">
-								<div className="font-medium">PyTorch CPU</div>
-								<div className="text-sm text-muted-foreground">
-									Works on any system, slower inference
-								</div>
-							</Label>
-						</div>
-						{!installedProviders?.includes("pytorch-cpu") && (
-							<Button onClick={() => downloadProvider("pytorch-cpu")} size="sm">
-								Download (300MB)
-							</Button>
-						)}
-					</div>
-
-					{/* MLX (macOS only) */}
-					{isMacOS && (
+					{/* PyTorch CPU (Windows/Linux only) */}
+					{!isMacOS && (
 						<div className="flex items-center justify-between">
 							<div className="flex items-center space-x-2">
-								<RadioGroupItem value="mlx" id="mlx" />
-								<Label htmlFor="mlx">
-									<div className="font-medium">MLX (Apple Silicon)</div>
+								<RadioGroupItem value="pytorch-cpu" id="cpu" />
+								<Label htmlFor="cpu">
+									<div className="font-medium">PyTorch CPU</div>
 									<div className="text-sm text-muted-foreground">
-										Optimized for M1/M2/M3 chips
+										Works on any system, slower inference
 									</div>
 								</Label>
 							</div>
-							{!installedProviders?.includes("mlx") && (
-								<Button onClick={() => downloadProvider("mlx")} size="sm">
-									Download (800MB)
+							{!installedProviders?.includes("pytorch-cpu") && (
+								<Button onClick={() => downloadProvider("pytorch-cpu")} size="sm">
+									Download (300MB)
 								</Button>
 							)}
+						</div>
+					)}
+
+					{/* MLX bundled (macOS only) */}
+					{isMacOS && (
+						<div className="p-3 bg-muted rounded-md">
+							<div className="text-sm">
+								<div className="font-medium">MLX (Apple Silicon)</div>
+								<div className="text-muted-foreground mt-1">
+									Bundled with the app - optimized for M1/M2/M3 chips
+								</div>
+							</div>
 						</div>
 					)}
 
@@ -608,14 +608,18 @@ export function ProviderSettings() {
 ```
 voicebox/
 ├── backend/
-│   ├── main.py                    # Main FastAPI app (no TTS code)
+│   ├── main.py                    # Main FastAPI app (no TTS on Win/Linux)
+│   ├── backends/
+│   │   ├── __init__.py            # Backend abstraction (existing)
+│   │   ├── pytorch_backend.py     # PyTorch backend (existing, for reference)
+│   │   └── mlx_backend.py         # MLX backend (bundled in macOS build only)
 │   ├── providers/
-│   │   ├── __init__.py            # ProviderManager
-│   │   ├── base.py                # TTSProvider ABC
+│   │   ├── __init__.py            # ProviderManager (Windows/Linux)
+│   │   ├── base.py                # TTSProvider Protocol
 │   │   ├── local.py               # LocalProvider (subprocess)
 │   │   ├── remote.py              # RemoteProvider (HTTP)
 │   │   ├── openai.py              # OpenAIProvider (API wrapper)
-│   │   └── installer.py           # Provider download logic
+│   │   └── installer.py           # Provider download logic (Windows/Linux)
 │   ├── profiles.py                # Voice profile management
 │   ├── history.py                 # Generation history
 │   ├── transcribe.py              # Whisper (still bundled)
@@ -628,27 +632,22 @@ voicebox/
 │   │   ├── requirements.txt       # torch (CPU), qwen-tts, transformers
 │   │   └── build.spec             # PyInstaller spec
 │   │
-│   ├── pytorch-cuda/
-│   │   ├── main.py                # FastAPI server for TTS
-│   │   ├── tts_backend.py         # PyTorch TTS logic
-│   │   ├── requirements.txt       # torch+cu121, qwen-tts, transformers
-│   │   └── build.spec             # PyInstaller spec
-│   │
-│   └── mlx/
+│   └── pytorch-cuda/
 │       ├── main.py                # FastAPI server for TTS
-│       ├── mlx_backend.py         # MLX TTS logic
-│       ├── requirements.txt       # mlx, qwen-tts-mlx
+│       ├── tts_backend.py         # PyTorch TTS logic
+│       ├── requirements.txt       # torch+cu121, qwen-tts, transformers
 │       └── build.spec             # PyInstaller spec
 │
 ├── app/                           # Frontend (Tauri + React)
 │   └── src/
 │       └── components/
 │           └── ServerSettings/
-│               └── ProviderSettings.tsx
+│               └── ProviderSettings.tsx  # Only shown on Windows/Linux
 │
 └── tauri/
     └── src-tauri/
-        └── tauri.conf.json        # No externalBin for providers
+        └── tauri.conf.json        # No externalBin for providers (Windows/Linux)
+                                   # MLX bundled in macOS build
 ```
 
 ---
@@ -671,33 +670,35 @@ voicebox/
 
 ### Phase 2: Build Provider Binaries
 
-**Goal:** Create standalone TTS provider executables
+**Goal:** Create standalone TTS provider executables (Windows/Linux only)
 
 1. Create separate PyInstaller specs for each provider
 2. Build provider executables:
    - `tts-provider-pytorch-cpu.exe` (~300MB)
    - `tts-provider-pytorch-cuda.exe` (~2.4GB)
-   - `tts-provider-mlx` (~800MB, macOS)
 3. Test subprocess communication
 4. Upload providers to Cloudflare R2
 
 **Result:** Provider binaries exist but aren't used yet
 
+**Note:** macOS keeps MLX bundled in main app - no separate provider needed
+
 ---
 
 ### Phase 3: Remove PyTorch from Main App
 
-**Goal:** Split main app from providers
+**Goal:** Split main app from providers (Windows/Linux only)
 
-1. Exclude PyTorch/Qwen3-TTS from main app PyInstaller spec
-2. Main app now requires provider download
+1. Exclude PyTorch/Qwen3-TTS from Windows/Linux main app PyInstaller spec
+2. Windows/Linux app now requires provider download
 3. Update GitHub CI to build multiple artifacts:
-   - `voicebox-{version}-{platform}.exe` (~150MB)
+   - `voicebox-{version}-windows.exe` (~150MB, no TTS)
+   - `voicebox-{version}-linux.AppImage` (~150MB, no TTS)
+   - `voicebox-{version}-macos.app` (~300MB, MLX bundled)
    - `tts-provider-pytorch-cpu-{version}.exe`
    - `tts-provider-pytorch-cuda-{version}.exe`
-   - `tts-provider-mlx-{version}` (macOS)
 
-**Result:** Main app is small, providers downloaded separately
+**Result:** Windows/Linux apps are small with downloadable providers, macOS app is self-contained
 
 ---
 
@@ -767,7 +768,7 @@ async def check_provider_compatibility(provider_version: str) -> bool:
 
 ## User Flows
 
-### First-Time Setup
+### First-Time Setup (Windows/Linux)
 
 1. User downloads and installs Voicebox (~150MB)
 2. App launches → detects no TTS provider installed
@@ -784,10 +785,6 @@ async def check_provider_compatibility(provider_version: str) -> bool:
        ✓ Works on any system
        ✗ Slower inference
 
-   [ ] MLX (800MB)             [Download]
-       ✓ Fast on Apple Silicon
-       ✗ macOS only (M1/M2/M3)
-
    [ ] Remote Server
        URL: ___________________
 
@@ -799,19 +796,31 @@ async def check_provider_compatibility(provider_version: str) -> bool:
 5. Provider installs to AppData/Application Support
 6. App starts provider → ready to use
 
+### First-Time Setup (macOS)
+
+1. User downloads and installs Voicebox (~300MB with MLX bundled)
+2. App launches → MLX backend is ready immediately
+3. No provider setup needed - works out of the box
+
 ---
 
 ### App Update Flow (No Provider Change)
 
 **Scenario:** Bug fix in UI, no backend changes
 
+**Windows/Linux:**
 1. User gets update notification: "Voicebox v0.2.1 available"
 2. Downloads update (~150MB, not 2.4GB!)
 3. Installs and restarts
 4. **Provider stays the same** (no re-download needed)
 5. App starts using existing provider
 
-**User experience:** Fast updates, no multi-GB downloads
+**macOS:**
+1. User gets update notification: "Voicebox v0.2.1 available"
+2. Downloads update (~300MB with MLX bundled)
+3. Installs and restarts - ready to use
+
+**User experience:** Fast updates, no multi-GB downloads (especially for CUDA users)
 
 ---
 
@@ -846,9 +855,10 @@ async def check_provider_compatibility(provider_version: str) -> bool:
 
 | Benefit                       | Details                                                   |
 | ----------------------------- | --------------------------------------------------------- |
-| **GitHub Releases Work**      | Main app ~150MB << 2GB limit                              |
+| **GitHub Releases Work**      | Main app ~150MB (Win/Linux), ~300MB (macOS) << 2GB limit  |
 | **Fast Updates**              | UI/feature updates don't require re-downloading providers |
-| **User Choice**               | CPU, CUDA, MLX, OpenAI, remote server                     |
+| **User Choice**               | CPU, CUDA, OpenAI, remote server (Win/Linux)              |
+| **macOS Simplicity**          | MLX bundled - works immediately, no provider setup needed |
 | **External Provider Support** | Users can run their own TTS servers                       |
 | **Bandwidth Savings**         | Only download provider once, app updates are small        |
 | **Future-Proof**              | Easy to add new providers (ElevenLabs, custom models)     |
