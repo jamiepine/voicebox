@@ -2,3 +2,13 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 @import 'fumadocs-openapi/css/preset.css';
+
+:root {
+  --color-fd-primary: hsl(43, 50%, 50%);
+  --color-fd-primary-foreground: hsl(222.2, 47.4%, 11.2%);
+}
+
+.dark {
+  --color-fd-primary: hsl(43, 50%, 45%);
+  --color-fd-primary-foreground: hsl(0, 0%, 95%);
+}

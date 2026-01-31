@@ -259,7 +259,11 @@ When adding new API endpoints:
   </Step>
 
   <Step title="Update Docs">
-    Add documentation in `/docs/api/`
+    The API documentation is automatically generated from the OpenAPI schema. Ensure your endpoint has proper docstrings and type hints, then regenerate the docs:
+    
+    ```bash
+    bun run generate:api
+    ```
   </Step>
 </Steps>
 

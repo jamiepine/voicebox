@@ -34,6 +34,10 @@ app = FastAPI(
     title="voicebox API",
     description="Production-quality Qwen3-TTS voice cloning API",
     version=__version__,
+    servers=[
+        {"url": "http://localhost:8000", "description": "Local development server"},
+        {"url": "http://localhost:17493", "description": "Production server"},
+    ],
 )
 
 # CORS middleware
