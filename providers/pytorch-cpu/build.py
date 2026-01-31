@@ -56,10 +56,6 @@ def build_provider():
         '--hidden-import', 'librosa',
     ])
     
-    # Platform-specific extensions
-    if platform.system() == "Windows":
-        args[2] = 'tts-provider-pytorch-cpu.exe'
-    
     args.extend([
         '--noconfirm',
         '--clean',

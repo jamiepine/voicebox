@@ -58,10 +58,6 @@ def build_provider():
         '--hidden-import', 'librosa',
     ])
     
-    # Platform-specific extensions
-    if platform.system() == "Windows":
-        args[2] = 'tts-provider-pytorch-cuda.exe'
-    
     args.extend([
         '--noconfirm',
         '--clean',

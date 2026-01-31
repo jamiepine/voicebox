@@ -25,6 +25,7 @@ class LocalProvider:
         """
         self.base_url = base_url.rstrip('/')
         self.client = httpx.AsyncClient(timeout=300.0)  # 5 minute timeout for generation
+        self._current_model_size = "1.7B"  # Default model size
     
     async def generate(
         self,
@@ -42,7 +43,7 @@ class LocalProvider:
                 "voice_prompt": voice_prompt,
                 "language": language,
                 "seed": seed,
-                "model_size": "1.7B",  # TODO: Make configurable
+                "model_size": self._current_model_size,
             }
         )
         response.raise_for_status()
@@ -116,9 +117,9 @@ class LocalProvider:
     
     async def load_model(self, model_size: str) -> None:
         """Load TTS model."""
-        # Model loading is handled automatically by the provider server
-        # when generate() is called, so this is a no-op
-        pass
+        # Track the requested model size - the provider server will load it
+        # when generate() is called with this size
+        self._current_model_size = model_size
     
     def unload_model(self) -> None:
         """Unload model to free memory."""
