@@ -1514,7 +1514,7 @@ async def list_providers():
     
     # Get info for all known provider types
     all_providers = [
-        "bundled-mlx",
+        "apple-mlx",
         "bundled-pytorch",
         "pytorch-cpu",
         "pytorch-cuda",

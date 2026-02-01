@@ -25,7 +25,7 @@ const isMacOS = () => navigator.platform.toLowerCase().includes('mac');
 
 type ProviderType =
   | 'auto'
-  | 'bundled-mlx'
+  | 'apple-mlx'
   | 'bundled-pytorch'
   | 'pytorch-cpu'
   | 'pytorch-cuda'
@@ -286,14 +286,14 @@ export function ProviderSettings() {
             {/* MLX bundled (macOS Apple Silicon only) */}
             {isMacOS() && (
               <div className="flex items-center space-x-3 py-2">
-                <RadioGroupItem value="bundled-mlx" id="mlx" />
+                <RadioGroupItem value="apple-mlx" id="mlx" />
                 <Label htmlFor="mlx" className="flex-1 cursor-pointer">
                   <div className="font-medium">MLX (Apple Silicon)</div>
                   <div className="text-sm text-muted-foreground">
                     Bundled with the app - optimized for M-series chips
                   </div>
                 </Label>
-                {currentProvider === 'bundled-mlx' && (
+                {currentProvider === 'apple-mlx' && (
                   <Badge variant="outline" className="ml-2">
                     Active
                   </Badge>

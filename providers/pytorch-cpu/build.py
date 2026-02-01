@@ -61,7 +61,6 @@ def build_provider():
         '--exclude-module', 'torch.utils.tensorboard',
         '--exclude-module', 'tensorboard',
         '--exclude-module', 'triton',
-        '--exclude-module', 'torch.distributed',
         '--exclude-module', 'torch._dynamo',
         '--exclude-module', 'torch._inductor',
         '--exclude-module', 'torch.testing',

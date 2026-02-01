@@ -3,6 +3,7 @@ Provider management system for TTS providers.
 """
 
 from typing import Optional
+import asyncio
 import platform
 from pathlib import Path
 
@@ -50,7 +51,7 @@ class ProviderManager:
         Args:
             provider_type: Type of provider to start
         """
-        if provider_type == "bundled-mlx":
+        if provider_type == "apple-mlx":
             # Use bundled MLX provider
             self.active_provider = self._get_default_provider()
         elif provider_type in ["pytorch-cpu", "pytorch-cuda"]:
@@ -61,8 +62,15 @@ class ProviderManager:
                 # Find a free port
                 port = self._get_free_port()
 
-                # Start provider subprocess
+                # Start provider subprocess with stdout/stderr capture
                 from ..config import get_data_dir
+                import logging
+                logger = logging.getLogger(__name__)
+
+                logger.info(f"Starting provider {provider_type} on port {port}")
+                logger.info(f"Provider binary: {provider_path}")
+                logger.info(f"Data directory: {get_data_dir()}")
+
                 process = subprocess.Popen(
                     [
                         str(provider_path),
@@ -71,16 +79,49 @@ class ProviderManager:
                     ],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,
                 )
 
                 # Wait for provider to be ready
                 base_url = f"http://127.0.0.1:{port}"
-                await self._wait_for_provider_health(base_url, timeout=30)
+                try:
+                    await self._wait_for_provider_health(base_url, timeout=30)
+                except TimeoutError as e:
+                    # Capture subprocess output for debugging
+                    stdout_lines = []
+                    stderr_lines = []
+
+                    # Try to read available output
+                    import select
+                    try:
+                        if process.stdout and select.select([process.stdout], [], [], 0)[0]:
+                            stdout_lines = process.stdout.readlines()
+                        if process.stderr and select.select([process.stderr], [], [], 0)[0]:
+                            stderr_lines = process.stderr.readlines()
+                    except Exception:
+                        # select might not work on all platforms
+                        pass
+
+                    logger.error(f"Provider failed to start. Stdout: {stdout_lines}")
+                    logger.error(f"Provider failed to start. Stderr: {stderr_lines}")
+
+                    # Terminate the process
+                    process.terminate()
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+
+                    raise
 
                 # Create LocalProvider instance
                 self.active_provider = LocalProvider(base_url)
                 self._provider_process = process
                 self._provider_port = port
+
+                # Start background task to log subprocess output
+                asyncio.create_task(self._log_subprocess_output(process))
             else:
                 # No external binary, use bundled provider (if available)
                 if provider_type == "pytorch-cpu":
@@ -131,7 +172,7 @@ class ProviderManager:
 
         if system == "Darwin" and machine == "arm64":
             # Apple Silicon gets MLX
-            installed.append("bundled-mlx")
+            installed.append("apple-mlx")
 
         # PyTorch CPU is available on all platforms (check if bundled or downloaded)
         # For now, assume it's bundled on macOS Intel, Windows, Linux
@@ -163,7 +204,7 @@ class ProviderManager:
         Returns:
             Provider information dictionary
         """
-        if provider_type in ["bundled-mlx", "bundled-pytorch"]:
+        if provider_type in ["apple-mlx", "bundled-pytorch"]:
             return {
                 "type": provider_type,
                 "name": "Bundled Provider",
@@ -203,7 +244,7 @@ class ProviderManager:
         """Wait for provider to become healthy."""
         import httpx
         import asyncio
-        
+
         start_time = asyncio.get_event_loop().time()
         while True:
             try:
@@ -213,11 +254,31 @@ class ProviderManager:
                         return
             except Exception:
                 pass
-            
+
             if asyncio.get_event_loop().time() - start_time > timeout:
                 raise TimeoutError(f"Provider did not become healthy within {timeout} seconds")
-            
+
             await asyncio.sleep(0.5)
+
+    async def _log_subprocess_output(self, process: subprocess.Popen) -> None:
+        """Log subprocess stdout and stderr."""
+        import logging
+        logger = logging.getLogger(__name__)
+
+        async def read_stream(stream, prefix):
+            if stream:
+                loop = asyncio.get_event_loop()
+                while True:
+                    line = await loop.run_in_executor(None, stream.readline)
+                    if not line:
+                        break
+                    logger.info(f"{prefix}: {line.rstrip()}")
+
+        await asyncio.gather(
+            read_stream(process.stdout, "Provider stdout"),
+            read_stream(process.stderr, "Provider stderr"),
+            return_exceptions=True,
+        )
 
 
 # Global provider manager instance

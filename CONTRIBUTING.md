@@ -14,16 +14,19 @@ Thank you for your interest in contributing to Voicebox! This document provides 
 ### Prerequisites
 
 - **[Bun](https://bun.sh)** - Fast JavaScript runtime and package manager
+
   ```bash
   curl -fsSL https://bun.sh/install | bash
   ```
 
 - **[Python 3.11+](https://python.org)** - For backend development
+
   ```bash
   python --version  # Should be 3.11 or higher
   ```
 
 - **[Rust](https://rustup.rs)** - For Tauri desktop app (installed automatically by Tauri CLI)
+
   ```bash
   rustc --version  # Check if installed
   ```
@@ -37,41 +40,46 @@ Thank you for your interest in contributing to Voicebox! This document provides 
 **Manual setup (required for Windows):**
 
 1. **Fork and clone the repository**
+
    ```bash
    git clone https://github.com/YOUR_USERNAME/voicebox.git
    cd voicebox
    ```
 
 2. **Install JavaScript dependencies**
+
    ```bash
    bun install
    ```
+
    This installs dependencies for:
+
    - `app/` - Shared React frontend
    - `tauri/` - Tauri desktop wrapper
    - `web/` - Web deployment wrapper
 
 3. **Set up Python backend**
+
    ```bash
    cd backend
-   
+
    # Create virtual environment
    python -m venv venv
-   
+
    # Activate virtual environment
    source venv/bin/activate  # On macOS/Linux
    # or
    venv\Scripts\activate  # On Windows
-   
+
    # Install Python dependencies
    pip install -r requirements.txt
-   
+
    # Install MLX dependencies (Apple Silicon only - for faster inference)
    # On Apple Silicon, this enables native Metal acceleration
    if [[ $(uname -m) == "arm64" ]]; then
      pip install -r requirements-mlx.txt
    fi
-   
+
    # Install Qwen3-TTS (required for voice synthesis)
    pip install git+https://github.com/QwenLM/Qwen3-TTS.git
    ```
@@ -81,19 +89,24 @@ Thank you for your interest in contributing to Voicebox! This document provides 
    Development requires two terminals: one for the Python backend, one for the Tauri app.
 
    **Terminal 1: Backend server** (start this first)
+
    ```bash
    cd backend
    source venv/bin/activate  # Activate venv if not already active
    bun run dev:server
    # Or manually: uvicorn main:app --reload --port 17493
    ```
+
    Backend will be available at `http://localhost:17493`
 
    **Terminal 2: Desktop app**
+
    ```bash
    bun run dev
    ```
+
    This will:
+
    - Create a placeholder sidecar binary (for Tauri compilation)
    - Start Vite dev server on port 5173
    - Launch Tauri window pointing to localhost:5173
@@ -104,26 +117,132 @@ Thank you for your interest in contributing to Voicebox! This document provides 
    > The bundled server binary is only used in production builds.
 
    **Optional: Web app**
+
    ```bash
    bun run dev:web
    ```
+
    Web app will be available at `http://localhost:5174`
 
 ### Model Downloads
 
 Models are automatically downloaded from HuggingFace Hub on first use:
+
 - **Whisper** (transcription): Auto-downloads on first transcription
 - **Qwen3-TTS** (voice cloning): Auto-downloads on first generation (~2-4GB)
 
 First-time usage will be slower due to model downloads, but subsequent runs will use cached models.
 
+### TTS Provider Development
+
+Voicebox uses a modular provider system to support different inference backends. Understanding this architecture is important when working on TTS features.
+
+#### Provider Types
+
+**Bundled Providers** — Included with the app binary:
+
+- `apple-mlx` — Bundled with macOS Apple Silicon builds (`.dmg` for aarch64)
+  - Uses MLX for native Metal acceleration
+  - Configured in `.github/workflows/release.yml` with `backend: "mlx"`
+
+**Hybrid Provider:**
+
+- `pytorch-cpu` — Can be bundled OR downloaded depending on platform
+  - **Bundled** with macOS Intel builds (`.dmg` for x64)
+    - Configured in `.github/workflows/release.yml` with `backend: "pytorch"`
+  - **Downloaded** on first use for Windows/Linux builds (~300MB)
+  - Falls back to bundled version if external binary not found
+
+**External-Only Providers:**
+
+- `pytorch-cuda` — NVIDIA GPU-accelerated provider (~2.4GB)
+  - Windows/Linux only (no NVIDIA GPUs on macOS)
+  - Downloaded on demand, not bundled
+  - Optional for users with CUDA-capable GPUs
+
+#### Provider Architecture
+
+```
+backend/providers/
+├── __init__.py         # ProviderManager - lifecycle management
+├── base.py             # TTSProvider protocol
+├── bundled.py          # BundledProvider - wraps built-in backends
+├── local.py            # LocalProvider - wraps external subprocess
+├── installer.py        # Download and install external providers
+└── types.py            # Provider type definitions
+
+providers/
+├── pytorch-cpu/        # External PyTorch CPU provider
+│   ├── main.py         # FastAPI server
+│   ├── build.py        # PyInstaller build script
+│   └── build_and_install.py  # Build and install locally
+└── pytorch-cuda/       # External PyTorch CUDA provider
+    ├── main.py
+    ├── build.py
+    └── build_and_install.py
+```
+
+**How it works:**
+
+1. **Bundled providers** run in-process within the main backend
+2. **External providers** run as separate subprocess servers
+3. **LocalProvider** communicates with external providers via HTTP
+4. **ProviderManager** handles starting/stopping and health checks
+
+#### Building Providers Locally
+
+When developing provider features, you'll need to build and test external providers:
+
+**Build a single provider:**
+
+```bash
+cd providers/pytorch-cpu
+python build_and_install.py
+```
+
+**Build all providers:**
+
+```bash
+bun run build:providers
+```
+
+This script:
+
+- Builds the provider binary with PyInstaller
+- Detects your platform (Windows/macOS/Linux)
+- Copies to the correct location:
+  - macOS: `~/Library/Application Support/voicebox/providers/`
+  - Windows: `%APPDATA%\voicebox\providers\`
+  - Linux: `~/.local/share/voicebox/providers/`
+- Sets executable permissions on Unix
+
+**Testing provider changes:**
+
+1. Make changes to `providers/pytorch-cpu/main.py`
+2. Run `bun run build:providers`
+3. Restart the Voicebox app
+4. Select the provider in Settings → TTS Provider
+
+#### Provider Binary Distribution
+
+For production releases, provider binaries are:
+
+1. Built by GitHub Actions for all platforms
+2. Uploaded to Cloudflare R2 at `downloads.voicebox.sh/providers/v{VERSION}/`
+3. Downloaded on-demand by users based on their platform and GPU
+
+See `.github/workflows/release.yml` for the build matrix.
+
 ### Building
 
 **Build everything (recommended):**
+
 ```bash
 bun run build
 ```
+
 This automatically:
+
 1. Builds the Python server binary (`./scripts/build-server.sh`)
 2. Builds the Tauri desktop app (`cd tauri && bun run tauri build`)
 
@@ -132,12 +251,22 @@ Creates platform-specific installers (`.dmg`, `.msi`, `.AppImage`) in `tauri/src
 **Note:** The build process detects your platform and includes the appropriate backend (MLX for Apple Silicon, PyTorch for others).
 
 **Build server binary only:**
+
 ```bash
 bun run build:server
 # or
 ./scripts/build-server.sh
 ```
+
 Creates platform-specific binary in `tauri/src-tauri/binaries/`
+
+**Build provider binaries (for development):**
+
+```bash
+bun run build:providers
+```
+
+Builds all external provider binaries and installs them to the system provider directory. See [TTS Provider Development](#tts-provider-development) for details.
 
 **Building with local Qwen3-TTS development version:**
 
@@ -151,34 +280,41 @@ bun run build:server
 This makes PyInstaller use your local qwen-tts version instead of the pip-installed package. Useful when testing changes to the TTS library before they're published to PyPI or when using an editable install (`pip install -e`).
 
 **Build web app:**
+
 ```bash
 cd web
 bun run build
 ```
+
 Output in `web/dist/`
 
 ### Generate OpenAPI Client
 
 After starting the backend server:
+
 ```bash
 ./scripts/generate-api.sh
 ```
+
 This downloads the OpenAPI schema and generates the TypeScript client in `app/src/lib/api/`
 
 ### Convert Assets to Web Formats
 
 To optimize images and videos for the web, run:
+
 ```bash
 bun run convert:assets
 ```
 
 This script:
+
 - Converts PNG → WebP (better compression, same quality)
 - Converts MOV → WebM (VP9 codec, smaller file size)
 - Processes files in `landing/public/` and `docs/public/`
 - **Deletes original files** after successful conversion
 
 **Requirements:** Install `webp` and `ffmpeg`:
+
 ```bash
 brew install webp ffmpeg
 ```
@@ -225,6 +361,7 @@ git push origin feature/your-feature-name
 ```
 
 Then create a pull request on GitHub with:
+
 - Clear description of changes
 - Screenshots (for UI changes)
 - Reference to related issues
@@ -370,21 +507,23 @@ Currently, testing is primarily manual. When adding tests:
 Releases are managed by maintainers:
 
 1. **Bump version using bumpversion:**
+
    ```bash
    # Install bumpversion (if not already installed)
    pip install bumpversion
-   
+
    # Bump patch version (0.1.0 -> 0.1.1)
    bumpversion patch
-   
+
    # Or bump minor version (0.1.0 -> 0.2.0)
    bumpversion minor
-   
+
    # Or bump major version (0.1.0 -> 1.0.0)
    bumpversion major
    ```
-   
+
    This automatically:
+
    - Updates version numbers in all files (`tauri.conf.json`, `Cargo.toml`, all `package.json` files, `backend/main.py`)
    - Creates a git commit with the version bump
    - Creates a git tag (e.g., `v0.1.1`, `v0.2.0`)
@@ -392,6 +531,7 @@ Releases are managed by maintainers:
 2. **Update CHANGELOG.md** with release notes
 
 3. **Push commits and tags:**
+
    ```bash
    git push
    git push --tags

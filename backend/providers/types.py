@@ -8,7 +8,7 @@ from enum import Enum
 
 class ProviderType(str, Enum):
     """Available provider types."""
-    BUNDLED_MLX = "bundled-mlx"
+    BUNDLED_MLX = "apple-mlx"
     BUNDLED_PYTORCH = "bundled-pytorch"
     PYTORCH_CPU = "pytorch-cpu"
     PYTORCH_CUDA = "pytorch-cuda"
