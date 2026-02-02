@@ -221,7 +221,6 @@ export function ProviderSettings() {
                 </Label>
               </div>
               <div className="flex items-center gap-2">
-                {currentProvider === 'pytorch-cuda' && <Badge variant="outline">Active</Badge>}
                 {!installedProviders.includes('pytorch-cuda') && (
                   <Button
                     onClick={() => handleDownload('pytorch-cuda')}
@@ -274,7 +273,6 @@ export function ProviderSettings() {
                 </Label>
               </div>
               <div className="flex items-center gap-2">
-                {currentProvider === 'pytorch-cpu' && <Badge variant="outline">Active</Badge>}
                 {!installedProviders.includes('pytorch-cpu') && (
                   <Button
                     onClick={() => handleDownload('pytorch-cpu')}
@@ -325,11 +323,6 @@ export function ProviderSettings() {
                     Bundled with the app - optimized for M-series chips
                   </div>
                 </Label>
-                {currentProvider === 'apple-mlx' && (
-                  <Badge variant="outline" className="ml-2">
-                    Active
-                  </Badge>
-                )}
               </div>
             )}
 
