@@ -1650,6 +1650,92 @@ def _get_gpu_status() -> str:
     return "None (CPU only)"
 
 
+# ============================================
+# SETTINGS ENDPOINTS
+# ============================================
+
+@app.get("/api/settings")
+async def get_settings(db: Session = Depends(get_db)):
+    """Get all settings."""
+    from .database import Settings
+    settings = db.query(Settings).all()
+    return {
+        "settings": {s.key: s.value for s in settings}
+    }
+
+
+@app.get("/api/settings/{key}")
+async def get_setting(key: str, db: Session = Depends(get_db)):
+    """Get a specific setting."""
+    from .database import Settings
+    setting = db.query(Settings).filter(Settings.key == key).first()
+    if not setting:
+        raise HTTPException(status_code=404, detail=f"Setting '{key}' not found")
+    return {"key": key, "value": setting.value}
+
+
+@app.put("/api/settings/{key}")
+async def update_setting(
+    key: str, 
+    data: dict,
+    db: Session = Depends(get_db)
+):
+    """Update a setting value."""
+    from .database import Settings
+    
+    if "value" not in data:
+        raise HTTPException(status_code=400, detail="Missing 'value' field")
+    
+    setting = db.query(Settings).filter(Settings.key == key).first()
+    
+    if not setting:
+        # Create new setting if it doesn't exist
+        setting = Settings(key=key, value=data["value"])
+        db.add(setting)
+    else:
+        setting.value = data["value"]
+    
+    db.commit()
+    db.refresh(setting)
+    
+    # If TTS backend changed, need to reload the backend
+    if key == "tts_backend":
+        from .backends import reload_backend
+        try:
+            reload_backend()
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Setting updated but failed to reload backend: {str(e)}"
+            )
+    
+    return {"key": key, "value": setting.value, "reload_required": key == "tts_backend"}
+
+
+@app.get("/api/settings/backend/options")
+async def get_backend_options():
+    """Get available TTS backend options."""
+    return {
+        "options": [
+            {
+                "value": "chatterbox_turbo",
+                "label": "Chatterbox Turbo",
+                "description": "Fast, high-quality TTS (4GB download on first use, uses MPS on Apple Silicon)"
+            },
+            {
+                "value": "qwen",
+                "label": "Qwen TTS", 
+                "description": "Alternative TTS model with MLX support"
+            }
+        ]
+    }
+
+
+# ============================================
+# UTILITIES & STARTUP/SHUTDOWN
+# ============================================
+
+
 @app.on_event("startup")
 async def startup_event():
     """Run on application startup."""

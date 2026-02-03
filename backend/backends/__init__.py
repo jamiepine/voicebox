@@ -115,6 +115,15 @@ _tts_backend: Optional[TTSBackend] = None
 _stt_backend: Optional[STTBackend] = None
 
 
+
+
+def reload_backend():
+    """Force reload the TTS backend (useful when settings change)."""
+    global _tts_backend
+    _tts_backend = None
+    return get_tts_backend()
+
+
 def get_tts_backend() -> TTSBackend:
     """
     Get or create TTS backend instance based on platform.
@@ -127,7 +136,17 @@ def get_tts_backend() -> TTSBackend:
     if _tts_backend is None:
         backend_type = get_backend_type()
         
-        if backend_type == "mlx":
+        # Check for Chatterbox configuration (dynamic from database)
+        from ..config import get_tts_backend_type
+        tts_model_type = get_tts_backend_type()
+        
+        if "chatterbox" in tts_model_type:
+            # Use Chatterbox PyTorch backend (works on CPU/CUDA/MPS)
+            from .chatterbox_backend import ChatterboxPyTorchBackend
+            _tts_backend = ChatterboxPyTorchBackend(model_size="turbo")
+            print("Initialized Chatterbox PyTorch Backend (Turbo)")
+                
+        elif backend_type == "mlx":
             from .mlx_backend import MLXTTSBackend
             _tts_backend = MLXTTSBackend()
         else:

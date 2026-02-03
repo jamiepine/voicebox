@@ -9,7 +9,7 @@ alembic>=1.13.0
 
 # ML models
 torch>=2.1.0
-transformers>=4.36.0
+transformers>=4.46.0
 accelerate>=0.26.0
 huggingface_hub>=0.20.0
 qwen-tts>=0.0.5
@@ -21,4 +21,7 @@ numpy>=1.24.0
 
 # Utilities
 python-multipart>=0.0.6
-Pillow>=10.0.0
+
+# Chatterbox TTS
+chatterbox-tts @ git+https://github.com/jimihford/chatterbox.git@spacy-pkuseg-optional
+resemble-perth

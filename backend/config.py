@@ -5,6 +5,34 @@ Handles data directory configuration for production bundling.
 """
 
 from pathlib import Path
+import os
+
+# Default TTS model type
+
+def get_tts_backend_type() -> str:
+    """Get TTS backend type from database settings."""
+    try:
+        # Try to import here to avoid circular dependency
+        from .database import SessionLocal, Settings
+        
+        if SessionLocal is not None:
+            db = SessionLocal()
+            try:
+                setting = db.query(Settings).filter(Settings.key == "tts_backend").first()
+                if setting:
+                    return setting.value
+            finally:
+                db.close()
+    except Exception:
+        pass  # Database not initialized yet, use default
+    
+    # Default if database not ready
+    return "chatterbox_turbo"
+
+
+# Keep for backward compatibility during initialization
+TTS_MODEL_TYPE = get_tts_backend_type()
+
 
 # Default data directory (used in development)
 _data_dir = Path("data")

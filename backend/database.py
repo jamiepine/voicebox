@@ -107,6 +107,15 @@ class ChannelDeviceMapping(Base):
     device_id = Column(String, nullable=False)  # OS device identifier
 
 
+class Settings(Base):
+    """Application settings."""
+    __tablename__ = "settings"
+    
+    key = Column(String, primary_key=True)
+    value = Column(Text, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class ProfileChannelMapping(Base):
     """Mapping between voice profiles and audio channels (many-to-many)."""
     __tablename__ = "profile_channel_mappings"
@@ -162,6 +171,17 @@ def init_db():
                 db.add(mapping)
             
             db.commit()
+    
+        # Initialize default settings if they don't exist
+        default_settings = {
+            "tts_backend": "chatterbox_turbo",  # or "qwen"
+        }
+        for key, value in default_settings.items():
+            existing = db.query(Settings).filter(Settings.key == key).first()
+            if not existing:
+                setting = Settings(key=key, value=value)
+                db.add(setting)
+        db.commit()
     finally:
         db.close()
 
