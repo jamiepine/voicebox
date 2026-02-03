@@ -14,8 +14,8 @@ pub use linux::*;
 
 use std::sync::{Arc, Mutex};
 
-#[cfg(target_os = "macos")]
-use screencapturekit::stream::sc_stream::SCStream;
+// #[cfg(target_os = "macos")]
+// use screencapturekit::stream::sc_stream::SCStream;
 
 pub struct AudioCaptureState {
     pub samples: Arc<Mutex<Vec<f32>>>,
@@ -23,8 +23,8 @@ pub struct AudioCaptureState {
     pub channels: Arc<Mutex<u16>>,
     pub stop_tx: Arc<Mutex<Option<tokio::sync::mpsc::Sender<()>>>>,
     pub error: Arc<Mutex<Option<String>>>,
-    #[cfg(target_os = "macos")]
-    pub stream: Arc<Mutex<Option<SCStream>>>,
+    // #[cfg(target_os = "macos")]
+    // pub stream: Arc<Mutex<Option<SCStream>>>,
 }
 
 impl AudioCaptureState {
@@ -35,8 +35,8 @@ impl AudioCaptureState {
             channels: Arc::new(Mutex::new(2)),
             stop_tx: Arc::new(Mutex::new(None)),
             error: Arc::new(Mutex::new(None)),
-            #[cfg(target_os = "macos")]
-            stream: Arc::new(Mutex::new(None)),
+            // #[cfg(target_os = "macos")]
+            // stream: Arc::new(Mutex::new(None)),
         }
     }
 
