@@ -183,7 +183,7 @@ export function ProviderSettings() {
       <Card>
         <CardHeader>
           <CardTitle>TTS Provider</CardTitle>
-          <CardDescription>Choose how Voicebox generates speech</CardDescription>
+          <CardDescription>Choose how Voicebox generates speech.</CardDescription>
         </CardHeader>
         <CardContent className="relative">
           {isStarting && (
@@ -209,9 +209,9 @@ export function ProviderSettings() {
                   htmlFor="cuda"
                   className={`flex-1 ${isMacOS() || isStarting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 >
-                  <div className="font-medium">PyTorch CUDA (NVIDIA GPU)</div>
+                  <div className="font-medium">PyTorch CUDA</div>
                   <div className="text-sm text-muted-foreground">
-                    {isMacOS() ? 'Not available on macOS' : '4-5x faster inference on NVIDIA GPUs'}
+                    NVIDIA GPU-accelerated provider
                   </div>
                 </Label>
               </div>
@@ -312,20 +312,20 @@ export function ProviderSettings() {
             </div>
 
             {/* MLX bundled (macOS Apple Silicon only) */}
-            {isMacOS() && (
-              <div className="flex items-center space-x-3 py-2">
-                <RadioGroupItem value="apple-mlx" id="mlx" disabled={isStarting} />
-                <Label
-                  htmlFor="mlx"
-                  className={`flex-1 ${isStarting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                >
-                  <div className="font-medium">MLX (Apple Silicon)</div>
-                  <div className="text-sm text-muted-foreground">
-                    Bundled with the app - optimized for M-series chips
-                  </div>
-                </Label>
-              </div>
-            )}
+            <div className="flex items-center space-x-3 py-2">
+              <RadioGroupItem value="apple-mlx" id="mlx" disabled={isStarting || !isMacOS()} />
+              <Label
+                htmlFor="mlx"
+                className={`flex-1 ${isStarting ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <div className="font-medium">Apple MLX</div>
+                <div className="text-sm text-muted-foreground">
+                  {isMacOS()
+                    ? 'Bundled with this version, optimized for Apple Silicon'
+                    : 'Only available on Apple Silicon'}
+                </div>
+              </Label>
+            </div>
 
             {/* Remote */}
             <div className="space-y-2 py-2 opacity-50">
@@ -334,7 +334,7 @@ export function ProviderSettings() {
                 <Label htmlFor="remote" className="flex-1 cursor-not-allowed">
                   <div className="font-medium">Remote Server</div>
                   <div className="text-sm text-muted-foreground">
-                    Connect to your own TTS server (coming soon)
+                    Connect to your own TTS server
                   </div>
                 </Label>
               </div>
@@ -346,13 +346,15 @@ export function ProviderSettings() {
                 <RadioGroupItem value="openai" id="openai" disabled />
                 <Label htmlFor="openai" className="flex-1 cursor-not-allowed">
                   <div className="font-medium">OpenAI API</div>
-                  <div className="text-sm text-muted-foreground">
-                    Use OpenAI's TTS API (coming soon)
-                  </div>
+                  <div className="text-sm text-muted-foreground">Use OpenAI's TTS API</div>
                 </Label>
               </div>
             </div>
           </RadioGroup>
+          <p className="text-xs text-muted-foreground mt-5">
+            Note: PyTorch and MLX use different versions of the same model. When switching between
+            them, you will need to redownload the model.
+          </p>
         </CardContent>
       </Card>
 
