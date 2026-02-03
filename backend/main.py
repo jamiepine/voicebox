@@ -76,6 +76,8 @@ async def health():
 
     tts_model = tts.get_tts_model()
     backend_type = get_backend_type()
+    # Get active TTS backend type (e.g. "chatterbox_turbo", "qwen", etc.)
+    tts_backend = config.get_tts_backend_type()
 
     # Check for GPU availability (CUDA or MPS)
     has_cuda = torch.cuda.is_available()
@@ -155,6 +157,7 @@ async def health():
         gpu_type=gpu_type,
         vram_used_mb=vram_used,
         backend_type=backend_type,
+        tts_backend=tts_backend,
     )
 
 
@@ -551,17 +554,23 @@ async def generate_speech(
         # Generate audio
         tts_model = tts.get_tts_model()
         # Load the requested model size if different from current (async to not block)
+        # Load the requested model size if different from current (async to not block)
         model_size = data.model_size or "1.7B"
 
         # Check if model needs to be downloaded first
         model_path = tts_model._get_model_path(model_size)
+        
+        # Determine model name for download tracking
+        model_name = f"qwen-tts-{model_size}"
+        if model_size in ["turbo", "standard", "multilingual"]:
+            model_name = f"chatterbox-{model_size}"
+
         if model_path.startswith("Qwen/"):
             # Model not cached - check if it exists remotely or needs download
             from huggingface_hub import constants as hf_constants
             repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_path.replace("/", "--"))
             if not repo_cache.exists():
                 # Start download in background
-                model_name = f"qwen-tts-{model_size}"
 
                 async def download_model_background():
                     try:
@@ -1249,6 +1258,39 @@ async def get_model_status():
             "check_loaded": lambda: check_whisper_loaded("large"),
         },
     ]
+
+    # Add Chatterbox models if using Chatterbox backend
+    tts_backend_type = config.get_tts_backend_type()
+    if "chatterbox" in tts_backend_type:
+        # Prepend Chatterbox models
+        chatterbox_models = [
+            {
+                "model_name": "chatterbox-turbo",
+                "display_name": "Chatterbox Turbo",
+                "hf_repo_id": "chatterbox-turbo", # Internal ID
+                "model_size": "turbo",
+                "check_loaded": lambda: check_tts_loaded("turbo"),
+            },
+            {
+                "model_name": "chatterbox-standard",
+                "display_name": "Chatterbox Standard",
+                "hf_repo_id": "chatterbox-standard", # Internal ID
+                "model_size": "standard",
+                "check_loaded": lambda: check_tts_loaded("standard"),
+            },
+            {
+                "model_name": "chatterbox-multilingual",
+                "display_name": "Chatterbox Multilingual",
+                "hf_repo_id": "chatterbox-multilingual", # Internal ID
+                "model_size": "multilingual",
+                "check_loaded": lambda: check_tts_loaded("multilingual"),
+            },
+        ]
+        # Filter out Qwen models if using Chatterbox
+        model_configs = chatterbox_models + [m for m in model_configs if not m["model_name"].startswith("qwen")]
+    else:
+        # Keep Qwen models
+        pass
     
     # Build a mapping of model_name -> hf_repo_id so we can check if shared repos are downloading
     model_to_repo = {cfg["model_name"]: cfg["hf_repo_id"] for cfg in model_configs}
@@ -1268,7 +1310,7 @@ async def get_model_status():
     
     statuses = []
     
-    for config in model_configs:
+    for model_cfg in model_configs:
         try:
             downloaded = False
             size_mb = None
@@ -1276,7 +1318,7 @@ async def get_model_status():
             
             # Method 1: Try using scan_cache_dir if available
             if cache_info:
-                repo_id = config["hf_repo_id"]
+                repo_id = model_cfg["hf_repo_id"]
                 for repo in cache_info.repos:
                     if repo.repo_id == repo_id:
                         # Check if actual model weight files exist (not just config files)
@@ -1316,7 +1358,7 @@ async def get_model_status():
             if not downloaded:
                 try:
                     cache_dir = hf_constants.HF_HUB_CACHE
-                    repo_cache = Path(cache_dir) / ("models--" + config["hf_repo_id"].replace("/", "--"))
+                    repo_cache = Path(cache_dir) / ("models--" + model_cfg["hf_repo_id"].replace("/", "--"))
                     
                     if repo_cache.exists():
                         # Check for .incomplete files - if any exist, download is still in progress
@@ -1356,12 +1398,12 @@ async def get_model_status():
             
             # Check if loaded in memory
             try:
-                loaded = config["check_loaded"]()
+                loaded = model_cfg["check_loaded"]()
             except Exception:
                 loaded = False
             
             # Check if this model (or its shared repo) is currently being downloaded
-            is_downloading = config["hf_repo_id"] in active_download_repos
+            is_downloading = model_cfg["hf_repo_id"] in active_download_repos
             
             # If downloading, don't report as downloaded (partial files exist)
             if is_downloading:
@@ -1369,8 +1411,8 @@ async def get_model_status():
                 size_mb = None  # Don't show partial size during download
             
             statuses.append(models.ModelStatus(
-                model_name=config["model_name"],
-                display_name=config["display_name"],
+                model_name=model_cfg["model_name"],
+                display_name=model_cfg["display_name"],
                 downloaded=downloaded,
                 downloading=is_downloading,
                 size_mb=size_mb,
@@ -1379,16 +1421,16 @@ async def get_model_status():
         except Exception as e:
             # If check fails, try to at least check if loaded
             try:
-                loaded = config["check_loaded"]()
+                loaded = model_cfg["check_loaded"]()
             except Exception:
                 loaded = False
             
             # Check if this model (or its shared repo) is currently being downloaded
-            is_downloading = config["hf_repo_id"] in active_download_repos
+            is_downloading = model_cfg["hf_repo_id"] in active_download_repos
             
             statuses.append(models.ModelStatus(
-                model_name=config["model_name"],
-                display_name=config["display_name"],
+                model_name=model_cfg["model_name"],
+                display_name=model_cfg["display_name"],
                 downloaded=False,  # Assume not downloaded if check failed
                 downloading=is_downloading,
                 size_mb=None,
@@ -1430,6 +1472,19 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
         "whisper-large": {
             "model_size": "large",
             "load_func": lambda: transcribe.get_whisper_model().load_model("large"),
+        },
+        # Chatterbox models
+        "chatterbox-turbo": {
+            "model_size": "turbo",
+            "load_func": lambda: tts.get_tts_model().load_model("turbo"),
+        },
+        "chatterbox-standard": {
+            "model_size": "standard",
+            "load_func": lambda: tts.get_tts_model().load_model("standard"),
+        },
+        "chatterbox-multilingual": {
+            "model_size": "multilingual",
+            "load_func": lambda: tts.get_tts_model().load_model("multilingual"),
         },
     }
     
@@ -1510,6 +1565,22 @@ async def delete_model(model_name: str):
             "hf_repo_id": "openai/whisper-large",
             "model_size": "large",
             "model_type": "whisper",
+        },
+        # Chatterbox models
+        "chatterbox-turbo": {
+            "hf_repo_id": "chatterbox-turbo",
+            "model_size": "turbo",
+            "model_type": "tts",
+        },
+        "chatterbox-standard": {
+            "hf_repo_id": "chatterbox-standard",
+            "model_size": "standard",
+            "model_type": "tts",
+        },
+        "chatterbox-multilingual": {
+            "hf_repo_id": "chatterbox-multilingual",
+            "model_size": "multilingual",
+            "model_type": "tts",
         },
     }
     

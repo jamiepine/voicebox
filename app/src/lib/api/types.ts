@@ -33,7 +33,8 @@ export interface GenerationRequest {
   text: string;
   language: LanguageCode;
   seed?: number;
-  model_size?: '1.7B' | '0.6B';
+  model_size?: '1.7B' | '0.6B' | 'turbo' | 'standard' | 'multilingual';
+  instruct?: string;
 }
 
 export interface GenerationResponse {
@@ -44,6 +45,7 @@ export interface GenerationResponse {
   audio_path: string;
   duration: number;
   seed?: number;
+  instruct?: string;
   created_at: string;
 }
 
@@ -79,6 +81,8 @@ export interface HealthResponse {
   model_size?: string;
   gpu_available: boolean;
   vram_used_mb?: number;
+  backend_type?: string;
+  tts_backend?: string;
 }
 
 export interface ModelProgress {

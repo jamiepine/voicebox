@@ -14,7 +14,7 @@ const generationSchema = z.object({
   text: z.string().min(1, 'Text is required').max(5000),
   language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
   seed: z.number().int().optional(),
-  modelSize: z.enum(['1.7B', '0.6B']).optional(),
+  modelSize: z.enum(['1.7B', '0.6B', 'turbo', 'standard', 'multilingual']).optional(),
   instruct: z.string().max(500).optional(),
 });
 
@@ -67,8 +67,15 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
     try {
       setIsGenerating(true);
 
-      const modelName = `qwen-tts-${data.modelSize}`;
-      const displayName = data.modelSize === '1.7B' ? 'Qwen TTS 1.7B' : 'Qwen TTS 0.6B';
+      const isChatterbox = ['turbo', 'standard', 'multilingual'].includes(data.modelSize || '');
+      const modelName = isChatterbox ? `chatterbox-${data.modelSize}` : `qwen-tts-${data.modelSize}`;
+
+      let displayName = '';
+      if (isChatterbox) {
+        displayName = `Chatterbox ${data.modelSize?.charAt(0).toUpperCase()}${data.modelSize?.slice(1)}`;
+      } else {
+        displayName = data.modelSize === '1.7B' ? 'Qwen TTS 1.7B' : 'Qwen TTS 0.6B';
+      }
 
       try {
         const modelStatus = await apiClient.getModelStatus();

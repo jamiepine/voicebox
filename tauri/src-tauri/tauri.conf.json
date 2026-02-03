@@ -11,8 +11,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "createUpdaterArtifacts": true,
+    "targets": [
+      "app"
+    ],
+    "createUpdaterArtifacts": false,
     "externalBin": [
       "binaries/voicebox-server"
     ],
