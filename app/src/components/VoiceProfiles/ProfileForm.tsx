@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Edit2, Mic, Monitor, Upload, X } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Edit02Icon, Mic01Icon, DeskIcon, Upload01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -635,7 +636,7 @@ export function ProfileForm() {
                     setSampleMode('record');
                   }}
                 >
-                  <X className="h-3 w-3 mr-1" />
+                  <HugeiconsIcon icon={Cancel01Icon} size={12} className="h-3 w-3 mr-1" />
                   Discard
                 </Button>
               </div>
@@ -668,16 +669,16 @@ export function ProfileForm() {
                           className={`grid w-full ${platform.metadata.isTauri && isSystemAudioSupported ? 'grid-cols-3' : 'grid-cols-2'}`}
                         >
                           <TabsTrigger value="upload" className="flex items-center gap-2">
-                            <Upload className="h-4 w-4 shrink-0" />
+                            <HugeiconsIcon icon={Upload01Icon} size={16} className="h-4 w-4 shrink-0" />
                             Upload
                           </TabsTrigger>
                           <TabsTrigger value="record" className="flex items-center gap-2">
-                            <Mic className="h-4 w-4 shrink-0" />
+                            <HugeiconsIcon icon={Mic01Icon} size={16} className="h-4 w-4 shrink-0" />
                             Record
                           </TabsTrigger>
                           {platform.metadata.isTauri && isSystemAudioSupported && (
                             <TabsTrigger value="system" className="flex items-center gap-2">
-                              <Monitor className="h-4 w-4 shrink-0" />
+                              <HugeiconsIcon icon={DeskIcon} size={16} className="h-4 w-4 shrink-0" />
                               System Audio
                             </TabsTrigger>
                           )}
@@ -798,7 +799,7 @@ export function ProfileForm() {
                                     className="h-full w-full object-cover"
                                   />
                                 ) : (
-                                  <Mic className="h-10 w-10 text-muted-foreground" />
+                                  <HugeiconsIcon icon={Mic01Icon} size={40} className="h-10 w-10 text-muted-foreground" />
                                 )}
                               </div>
                               <button
@@ -806,7 +807,7 @@ export function ProfileForm() {
                                 onClick={() => avatarInputRef.current?.click()}
                                 className="absolute inset-0 rounded-full bg-accent/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
                               >
-                                <Edit2 className="h-6 w-6 text-accent-foreground" />
+                                <HugeiconsIcon icon={Edit02Icon} size={24} className="h-6 w-6 text-accent-foreground" />
                               </button>
                               {(avatarPreview || editingProfile?.avatar_path) && (
                                 <button
@@ -815,7 +816,7 @@ export function ProfileForm() {
                                   disabled={deleteAvatar.isPending}
                                   className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-background/60 backdrop-blur-sm text-muted-foreground flex items-center justify-center hover:bg-background/80 hover:text-foreground transition-colors shadow-sm border border-border/50"
                                 >
-                                  <X className="h-3.5 w-3.5" />
+                                  <HugeiconsIcon icon={Cancel01Icon} size={14} className="h-3.5 w-3.5" />
                                 </button>
                               )}
                             </div>

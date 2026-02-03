@@ -5,14 +5,20 @@ description: "Download and install Voicebox on macOS, Windows, or Linux"
 
 ## Download
 
-Voicebox is available for macOS and Windows, with Linux builds coming soon.
+Voicebox is available for macOS, Windows, and Linux.
 
-<CardGroup cols={2}>
+<CardGroup cols={4}>
   <Card title="macOS" icon="apple">
     Download for Apple Silicon or Intel Macs
   </Card>
   <Card title="Windows" icon="windows">
     Download MSI installer or Setup executable
+  </Card>
+  <Card title="Linux" icon="linux">
+    Download AppImage or Deb package
+  </Card>
+  <Card title="Docker" icon="docker" href="/overview/docker">
+    Run with web UI in a container
   </Card>
 </CardGroup>
 
@@ -60,8 +66,33 @@ Voicebox is available for macOS and Windows, with Linux builds coming soon.
 
 ### Linux
 
+<Tabs>
+  <Tab title="AppImage">
+    Download: [voicebox_x86_64.AppImage](https://github.com/jamiepine/voicebox/releases/latest)
+
+    ```bash
+    # Make executable
+    chmod +x voicebox_x86_64.AppImage
+
+    # Run
+    ./voicebox_x86_64.AppImage
+    ```
+  </Tab>
+  <Tab title="Debian/Ubuntu">
+    Download: [voicebox_amd64.deb](https://github.com/jamiepine/voicebox/releases/latest)
+
+    ```bash
+    # Install
+    sudo dpkg -i voicebox_amd64.deb
+
+    # Run
+    voicebox
+    ```
+  </Tab>
+</Tabs>
+
 <Note>
-  Linux builds are coming soon. Currently blocked by GitHub runner disk space limitations.
+  For headless server deployments, use [Docker](/overview/docker) instead of the desktop app.
 </Note>
 
 ## First Launch

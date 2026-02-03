@@ -91,11 +91,6 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         instruct: data.instruct || undefined,
       });
 
-      toast({
-        title: 'Generation complete!',
-        description: `Audio generated (${result.duration.toFixed(2)}s)`,
-      });
-
       const audioUrl = apiClient.getAudioUrl(result.id);
       setAudioWithAutoPlay(audioUrl, result.id, selectedProfileId, data.text.substring(0, 50));
 

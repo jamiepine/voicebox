@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  voicebox:
+    image: ghcr.io/jamiepine/voicebox:latest-cuda
+    container_name: voicebox
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - voicebox-data:/app/data
+      - huggingface-cache:/root/.cache/huggingface
+    environment:
+      - GPU_MEMORY_FRACTION=0.8
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  voicebox-data:
+    driver: local
+  huggingface-cache:
+    driver: local

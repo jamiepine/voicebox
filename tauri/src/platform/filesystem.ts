@@ -1,4 +1,4 @@
-import type { PlatformFilesystem, FileFilter } from '@/platform/types';
+import type { FileFilter, PlatformFilesystem } from '@/platform/types';
 
 export const tauriFilesystem: PlatformFilesystem = {
   async saveFile(filename: string, blob: Blob, filters?: FileFilter[]) {
@@ -36,6 +36,17 @@ export const tauriFilesystem: PlatformFilesystem = {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+    }
+  },
+
+  async openFolder(path: string): Promise<boolean> {
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell');
+      await open(path);
+      return true;
+    } catch (error) {
+      console.error('Failed to open folder:', error);
+      return false;
     }
   },
 };

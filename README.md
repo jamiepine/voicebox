@@ -76,16 +76,39 @@ Download a voice model, clone any voice from a few seconds of audio, and compose
 
 ## Download
 
-Voicebox is available now for macOS and Windows.
+### Desktop App
 
-| Platform | Download |
-|----------|----------|
-| macOS (Apple Silicon) | [voicebox_aarch64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/download/v0.1.0/voicebox_aarch64.app.tar.gz) |
-| macOS (Intel) | [voicebox_x64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/download/v0.1.0/voicebox_x64.app.tar.gz) |
-| Windows (MSI) | [voicebox_0.1.0_x64_en-US.msi](https://github.com/jamiepine/voicebox/releases/download/v0.1.0/voicebox_0.1.0_x64_en-US.msi) |
-| Windows (Setup) | [voicebox_0.1.0_x64-setup.exe](https://github.com/jamiepine/voicebox/releases/download/v0.1.0/voicebox_0.1.0_x64-setup.exe) |
+| Platform              | Download                                                                                                                    |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| macOS (Apple Silicon) | [Download latest release](https://github.com/jamiepine/voicebox/releases/latest)   |
+| macOS (Intel)         | [Download latest release](https://github.com/jamiepine/voicebox/releases/latest)           |
+| Windows (MSI)         | [Download latest release](https://github.com/jamiepine/voicebox/releases/latest) |
+| Windows (Setup)       | [Download latest release](https://github.com/jamiepine/voicebox/releases/latest) |
+| Linux (AppImage)      | [Download latest release](https://github.com/jamiepine/voicebox/releases/latest) |
+| Linux (Deb)           | [Download latest release](https://github.com/jamiepine/voicebox/releases/latest) |
 
-> **Linux builds coming soon** — Currently blocked by GitHub runner disk space limitations.
+### Docker
+
+Run Voicebox with the web UI in Docker - perfect for servers and headless deployments:
+
+```bash
+# CPU-only (supports amd64 and arm64)
+docker run -p 8000:8000 -v voicebox-data:/app/data \
+  ghcr.io/jamiepine/voicebox:latest
+
+# NVIDIA GPU (recommended for performance)
+docker run --gpus all -p 8000:8000 -v voicebox-data:/app/data \
+  ghcr.io/jamiepine/voicebox:latest-cuda
+```
+
+Or use Docker Compose:
+```bash
+docker compose up -d
+```
+
+Open http://localhost:8000 to access the web UI.
+
+See [Docker Deployment Guide](docs/overview/docker.mdx) for cloud deployments, GPU setup, and more.
 
 ---
 
@@ -137,9 +160,10 @@ Create multi-voice narratives, podcasts, and conversations with a timeline-based
 
 ### Flexible Deployment
 
-- **Local mode** — Everything runs on your machine
-- **Remote mode** — Connect to a GPU server on your network
-- **One-click server** — Turn any machine into a Voicebox server
+- **Desktop app** — Native apps for macOS, Windows, and Linux
+- **Docker** — Deploy to servers with the web UI included
+- **Remote mode** — Connect desktop app to a remote GPU server
+- **Cloud ready** — Deploy to AWS, GCP, DigitalOcean, or any cloud provider
 
 ---
 
@@ -176,23 +200,43 @@ Full API documentation available at `http://localhost:8000/docs` when running.
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Desktop App | Tauri (Rust) |
-| Frontend | React, TypeScript, Tailwind CSS |
-| State | Zustand, React Query |
-| Backend | FastAPI (Python) |
-| Voice Model | Qwen3-TTS (PyTorch or MLX) |
-| Transcription | Whisper (PyTorch or MLX) |
+| Layer            | Technology                                          |
+| ---------------- | --------------------------------------------------- |
+| Desktop App      | Tauri (Rust)                                        |
+| Frontend         | React, TypeScript, Tailwind CSS                     |
+| State            | Zustand, React Query                                |
+| Backend          | FastAPI (Python)                                    |
+| Voice Model      | Qwen3-TTS (PyTorch or MLX)                          |
+| Transcription    | Whisper (PyTorch or MLX)                            |
 | Inference Engine | MLX (Apple Silicon) / PyTorch (Windows/Linux/Intel) |
-| Database | SQLite |
-| Audio | WaveSurfer.js, librosa |
+| Database         | SQLite                                              |
+| Audio            | WaveSurfer.js, librosa                              |
 
 **Why this stack?**
 
 - **Tauri over Electron** — 10x smaller bundle, native performance, lower memory
 - **FastAPI** — Async Python with automatic OpenAPI schema generation
 - **Type-safe end-to-end** — Generated TypeScript client from OpenAPI spec
+
+### TTS Provider Architecture
+
+Voicebox uses a modular provider system to support different inference backends:
+
+- **`apple-mlx`** — Bundled with macOS Apple Silicon builds
+
+  - Uses MLX with native Metal acceleration (4-5x faster)
+  - Works out of the box, no download required
+
+- **`pytorch-cpu`** — Universal CPU provider (bundled or downloaded)
+
+  - Bundled with Windows and macOS Intel builds
+  - Downloaded on first use for Linux (~300MB)
+
+- **`pytorch-cuda`** — Optional NVIDIA GPU-accelerated provider
+  - Windows/Linux only (~2.4GB)
+  - 4-5x faster inference on CUDA-capable GPUs
+
+macOS and Windows builds work out of the box with bundled providers. Linux users download a provider on first launch. The app automatically detects your hardware and recommends the best option. All downloadable providers are distributed via Cloudflare R2 for fast, global delivery.
 
 ---
 
@@ -202,13 +246,13 @@ Voicebox is the beginning of something bigger. Here's what's coming:
 
 ### Coming Soon
 
-| Feature | Description |
-|---------|-------------|
-| **Real-time Synthesis** | Stream audio as it generates, word by word |
-| **Conversation Mode** | Multi-speaker dialogues with automatic turn-taking |
-| **Voice Effects** | Pitch shift, reverb, M3GAN-style effects |
-| **Timeline Editor** | Audio studio with word-level precision editing |
-| **More Models** | XTTS, Bark, and other open-source voice models |
+| Feature                 | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| **Real-time Synthesis** | Stream audio as it generates, word by word         |
+| **Conversation Mode**   | Multi-speaker dialogues with automatic turn-taking |
+| **Voice Effects**       | Pitch shift, reverb, M3GAN-style effects           |
+| **Timeline Editor**     | Audio studio with word-level precision editing     |
+| **More Models**         | XTTS, Bark, and other open-source voice models     |
 
 ### Future Vision
 
@@ -260,9 +304,10 @@ cd backend && pip install -r requirements.txt && cd ..
 bun run dev
 ```
 
-**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org). 
+**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org).
 
-**Performance:** 
+**Performance:**
+
 - **Apple Silicon (M1/M2/M3)**: Uses MLX backend with native Metal acceleration for 4-5x faster inference
 - **Windows/Linux/Intel Mac**: Uses PyTorch backend (CUDA GPU recommended, CPU supported but slower)
 

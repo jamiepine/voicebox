@@ -1,29 +1,30 @@
-import { useServerStore } from '@/stores/serverStore';
 import type { LanguageCode } from '@/lib/constants/languages';
+import { useServerStore } from '@/stores/serverStore';
 import type {
-  VoiceProfileCreate,
-  VoiceProfileResponse,
-  ProfileSampleResponse,
+  ActiveTasksResponse,
+  FolderPathsResponse,
   GenerationRequest,
   GenerationResponse,
-  HistoryQuery,
-  HistoryListResponse,
-  HistoryResponse,
-  TranscriptionResponse,
   HealthResponse,
-  ModelStatusListResponse,
+  HistoryListResponse,
+  HistoryQuery,
+  HistoryResponse,
   ModelDownloadRequest,
-  ActiveTasksResponse,
+  ModelStatusListResponse,
+  ProfileSampleResponse,
   StoryCreate,
-  StoryResponse,
   StoryDetailResponse,
+  StoryItemBatchUpdate,
   StoryItemCreate,
   StoryItemDetail,
-  StoryItemBatchUpdate,
-  StoryItemReorder,
   StoryItemMove,
-  StoryItemTrim,
+  StoryItemReorder,
   StoryItemSplit,
+  StoryItemTrim,
+  StoryResponse,
+  TranscriptionResponse,
+  VoiceProfileCreate,
+  VoiceProfileResponse,
 } from './types';
 
 class ApiClient {
@@ -55,6 +56,11 @@ class ApiClient {
   // Health
   async getHealth(): Promise<HealthResponse> {
     return this.request<HealthResponse>('/health');
+  }
+
+  // System
+  async getSystemFolders(): Promise<FolderPathsResponse> {
+    return this.request<FolderPathsResponse>('/system/folders');
   }
 
   // Profiles
@@ -199,6 +205,77 @@ class ApiClient {
     });
   }
 
+  // Providers
+  async listProviders(): Promise<{
+    providers: Array<{
+      type: string;
+      name: string;
+      installed: boolean;
+      size_mb: number | null;
+    }>;
+    installed: string[];
+  }> {
+    return this.request('/providers');
+  }
+
+  async getActiveProvider(): Promise<{
+    provider: string;
+    health: {
+      status: string;
+      provider: string;
+      version: string | null;
+      model: string | null;
+      device: string | null;
+    };
+    status: {
+      model_loaded: boolean;
+      model_size: string | null;
+      available_sizes: string[];
+      gpu_available: boolean | null;
+      vram_used_mb: number | null;
+    };
+  }> {
+    return this.request('/providers/active');
+  }
+
+  async startProvider(providerType: string): Promise<{
+    message: string;
+    provider: {
+      status: string;
+      provider: string;
+      version: string | null;
+      model: string | null;
+      device: string | null;
+    };
+  }> {
+    return this.request('/providers/start', {
+      method: 'POST',
+      body: JSON.stringify({ provider_type: providerType }),
+    });
+  }
+
+  async stopProvider(): Promise<{ message: string }> {
+    return this.request('/providers/stop', {
+      method: 'POST',
+    });
+  }
+
+  async downloadProvider(providerType: string): Promise<{
+    message: string;
+    provider_type: string;
+  }> {
+    return this.request('/providers/download', {
+      method: 'POST',
+      body: JSON.stringify({ provider_type: providerType }),
+    });
+  }
+
+  async deleteProvider(providerType: string): Promise<{ message: string }> {
+    return this.request(`/providers/${providerType}`, {
+      method: 'DELETE',
+    });
+  }
+
   // History
   async listHistory(query?: HistoryQuery): Promise<HistoryListResponse> {
     const params = new URLSearchParams();
@@ -251,7 +328,15 @@ class ApiClient {
     return response.blob();
   }
 
-  async importGeneration(file: File): Promise<{ id: string; profile_id: string; profile_name: string; text: string; message: string }> {
+  async importGeneration(
+    file: File,
+  ): Promise<{
+    id: string;
+    profile_id: string;
+    profile_name: string;
+    text: string;
+    message: string;
+  }> {
     const url = `${this.getBaseUrl()}/history/import`;
     const formData = new FormData();
     formData.append('file', file);
@@ -310,7 +395,12 @@ class ApiClient {
   }
 
   async triggerModelDownload(modelName: string): Promise<{ message: string }> {
-    console.log('[API] triggerModelDownload called for:', modelName, 'at', new Date().toISOString());
+    console.log(
+      '[API] triggerModelDownload called for:',
+      modelName,
+      'at',
+      new Date().toISOString(),
+    );
     const result = await this.request<{ message: string }>('/models/download', {
       method: 'POST',
       body: JSON.stringify({ model_name: modelName } as ModelDownloadRequest),
@@ -343,10 +433,7 @@ class ApiClient {
     return this.request('/channels');
   }
 
-  async createChannel(data: {
-    name: string;
-    device_ids: string[];
-  }): Promise<{
+  async createChannel(data: { name: string; device_ids: string[] }): Promise<{
     id: string;
     name: string;
     is_default: boolean;
@@ -388,10 +475,7 @@ class ApiClient {
     return this.request(`/channels/${channelId}/voices`);
   }
 
-  async setChannelVoices(
-    channelId: string,
-    profileIds: string[],
-  ): Promise<{ message: string }> {
+  async setChannelVoices(channelId: string, profileIds: string[]): Promise<{ message: string }> {
     return this.request(`/channels/${channelId}/voices`, {
       method: 'PUT',
       body: JSON.stringify({ profile_ids: profileIds }),
@@ -402,10 +486,7 @@ class ApiClient {
     return this.request(`/profiles/${profileId}/channels`);
   }
 
-  async setProfileChannels(
-    profileId: string,
-    channelIds: string[],
-  ): Promise<{ message: string }> {
+  async setProfileChannels(profileId: string, channelIds: string[]): Promise<{ message: string }> {
     return this.request(`/profiles/${profileId}/channels`, {
       method: 'PUT',
       body: JSON.stringify({ channel_ids: channelIds }),
@@ -468,21 +549,33 @@ class ApiClient {
     });
   }
 
-  async moveStoryItem(storyId: string, itemId: string, data: StoryItemMove): Promise<StoryItemDetail> {
+  async moveStoryItem(
+    storyId: string,
+    itemId: string,
+    data: StoryItemMove,
+  ): Promise<StoryItemDetail> {
     return this.request<StoryItemDetail>(`/stories/${storyId}/items/${itemId}/move`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
-  async trimStoryItem(storyId: string, itemId: string, data: StoryItemTrim): Promise<StoryItemDetail> {
+  async trimStoryItem(
+    storyId: string,
+    itemId: string,
+    data: StoryItemTrim,
+  ): Promise<StoryItemDetail> {
     return this.request<StoryItemDetail>(`/stories/${storyId}/items/${itemId}/trim`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
-  async splitStoryItem(storyId: string, itemId: string, data: StoryItemSplit): Promise<StoryItemDetail[]> {
+  async splitStoryItem(
+    storyId: string,
+    itemId: string,
+    data: StoryItemSplit,
+  ): Promise<StoryItemDetail[]> {
     return this.request<StoryItemDetail[]>(`/stories/${storyId}/items/${itemId}/split`, {
       method: 'POST',
       body: JSON.stringify(data),

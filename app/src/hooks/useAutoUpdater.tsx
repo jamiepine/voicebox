@@ -1,4 +1,5 @@
-import { Download, RefreshCw } from 'lucide-react';
+import { Download01Icon, Refresh01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { ToastAction } from '@/components/ui/toast';
@@ -73,7 +74,7 @@ export function useAutoUpdater(options: boolean | UseAutoUpdaterOptions = false)
     }
     // Empty dependency array - only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platform.metadata.isTauricheckOnMountcheckForUpdates]);
+  }, [platform.metadata.isTauri, checkOnMount, checkForUpdates]);
 
   // Show toast when update is available
   useEffect(() => {
@@ -132,7 +133,7 @@ export function useAutoUpdater(options: boolean | UseAutoUpdaterOptions = false)
     toastUpdateRef.current({
       title: (
         <div className="flex items-center gap-2">
-          <Download className="h-4 w-4 animate-pulse" />
+          <HugeiconsIcon icon={Download01Icon} size={16} className="h-4 w-4 animate-pulse" />
           <span>Downloading Update</span>
         </div>
       ),
@@ -174,7 +175,7 @@ export function useAutoUpdater(options: boolean | UseAutoUpdaterOptions = false)
       duration: Infinity,
       action: (
         <ToastAction altText="Restart now" onClick={handleRestartNow}>
-          <RefreshCw className="h-3 w-3 mr-1" />
+          <HugeiconsIcon icon={Refresh01Icon} size={12} className="h-3 w-3 mr-1" />
           Restart Now
         </ToastAction>
       ),

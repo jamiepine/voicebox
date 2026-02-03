@@ -1,0 +1,10 @@
+torch>=2.0.0 --index-url https://download.pytorch.org/whl/cu121
+torchvision>=0.15.0 --index-url https://download.pytorch.org/whl/cu121
+torchaudio>=2.0.0 --index-url https://download.pytorch.org/whl/cu121
+transformers>=4.30.0
+qwen-tts>=0.0.5
+fastapi>=0.100.0
+uvicorn>=0.23.0
+soundfile>=0.12.0
+numpy>=1.24.0
+librosa>=0.10.0

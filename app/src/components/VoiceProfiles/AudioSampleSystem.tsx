@@ -1,4 +1,5 @@
-import { Mic, Monitor, Pause, Play, Square } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Mic01Icon, DeskIcon, PauseIcon, PlayIcon, SquareIcon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormItem, FormMessage } from '@/components/ui/form';
 import { formatAudioDuration } from '@/lib/utils/audio';
@@ -35,7 +36,7 @@ export function AudioSampleSystem({
           {!isRecording && !file && (
             <div className="flex flex-col items-center justify-center gap-4 p-4 border-2 border-dashed rounded-lg min-h-[180px]">
               <Button type="button" onClick={onStart} size="lg" className="flex items-center gap-2">
-                <Monitor className="h-5 w-5" />
+                <HugeiconsIcon icon={DeskIcon} size={20} className="h-5 w-5" />
                 Start Capture
               </Button>
               <p className="text-sm text-muted-foreground text-center">
@@ -60,7 +61,7 @@ export function AudioSampleSystem({
                 variant="destructive"
                 className="flex items-center gap-2"
               >
-                <Square className="h-4 w-4" />
+                <HugeiconsIcon icon={SquareIcon} size={16} className="h-4 w-4" />
                 Stop Capture
               </Button>
               <p className="text-sm text-muted-foreground text-center">
@@ -72,13 +73,13 @@ export function AudioSampleSystem({
           {file && !isRecording && (
             <div className="flex flex-col items-center justify-center gap-4 p-4 border-2 border-primary rounded-lg bg-primary/5 min-h-[180px]">
               <div className="flex items-center gap-2">
-                <Monitor className="h-5 w-5 text-primary" />
+                <HugeiconsIcon icon={DeskIcon} size={20} className="h-5 w-5 text-primary" />
                 <span className="font-medium">Capture complete</span>
               </div>
               <p className="text-sm text-muted-foreground text-center">File: {file.name}</p>
               <div className="flex gap-2">
                 <Button type="button" size="icon" variant="outline" onClick={onPlayPause}>
-                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  {isPlaying ? <HugeiconsIcon icon={PauseIcon} size={16} className="h-4 w-4" /> : <HugeiconsIcon icon={PlayIcon} size={16} className="h-4 w-4" />}
                 </Button>
                 <Button
                   type="button"
@@ -87,7 +88,7 @@ export function AudioSampleSystem({
                   disabled={isTranscribing}
                   className="flex items-center gap-2"
                 >
-                  <Mic className="h-4 w-4" />
+                  <HugeiconsIcon icon={Mic01Icon} size={16} className="h-4 w-4" />
                   {isTranscribing ? 'Transcribing...' : 'Transcribe'}
                 </Button>
                 <Button

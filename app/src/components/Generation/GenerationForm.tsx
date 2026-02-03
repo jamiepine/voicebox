@@ -1,4 +1,6 @@
-import { Loader2, Mic } from 'lucide-react';
+import { Mic01Icon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Icon } from '@iconify/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -46,7 +48,11 @@ export function GenerationForm() {
               <FormLabel>Voice Profile</FormLabel>
               {selectedProfile ? (
                 <div className="mt-2 p-3 border rounded-md bg-muted/50 flex items-center gap-2">
-                  <Mic className="h-4 w-4 text-muted-foreground" />
+                  <HugeiconsIcon
+                    icon={Mic01Icon}
+                    size={16}
+                    className="h-4 w-4 text-muted-foreground"
+                  />
                   <span className="font-medium">{selectedProfile.name}</span>
                   <span className="text-sm text-muted-foreground">{selectedProfile.language}</span>
                 </div>
@@ -170,14 +176,10 @@ export function GenerationForm() {
               />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isPending || !selectedProfileId}
-            >
+            <Button type="submit" className="w-full" disabled={isPending || !selectedProfileId}>
               {isPending ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Icon icon="svg-spinners:ring-resize" className="mr-2 h-4 w-4 animate-spin" />
                   Generating...
                 </>
               ) : (

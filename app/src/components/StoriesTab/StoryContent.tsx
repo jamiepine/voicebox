@@ -13,7 +13,8 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { Download, Plus } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Download01Icon, Add01Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -271,7 +272,7 @@ export function StoryContent() {
           <Popover open={isAddOpen} onOpenChange={setIsAddOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
-                <Plus className="mr-2 h-4 w-4" />
+                <HugeiconsIcon icon={Add01Icon} size={16} className="mr-2 h-4 w-4" />
                 Add
               </Button>
             </PopoverTrigger>
@@ -316,7 +317,7 @@ export function StoryContent() {
               onClick={handleExportAudio}
               disabled={exportAudio.isPending}
             >
-              <Download className="mr-2 h-4 w-4" />
+              <HugeiconsIcon icon={Download01Icon} size={16} className="mr-2 h-4 w-4" />
               Export Audio
             </Button>
           )}

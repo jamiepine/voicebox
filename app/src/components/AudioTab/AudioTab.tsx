@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, CheckCircle2, Edit, Plus, Speaker, Trash2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckmarkCircle01Icon, CheckmarkCircle02Icon, Edit01Icon, Add01Icon, SpeakerIcon, Delete01Icon } from '@hugeicons/core-free-icons';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -135,7 +136,7 @@ export function AudioTab() {
       <div className="flex items-center justify-between mb-6 shrink-0">
         <h2 className="text-2xl font-bold">Audio Channels</h2>
         <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+          <HugeiconsIcon icon={Add01Icon} size={16} className="h-4 w-4 mr-2" />
           New Channel
         </Button>
       </div>
@@ -150,13 +151,13 @@ export function AudioTab() {
         >
           {allChannels.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-muted rounded-md">
-              <Speaker className="h-12 w-12 text-muted-foreground mb-4" />
+              <HugeiconsIcon icon={SpeakerIcon} size={48} className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">
                 No audio channels yet. Create your first channel to route voices to specific
                 devices.
               </p>
               <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
+                <HugeiconsIcon icon={Add01Icon} size={16} className="h-4 w-4 mr-2" />
                 Create Channel
               </Button>
             </div>
@@ -178,7 +179,7 @@ export function AudioTab() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-3">
                           <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                            <Speaker className="h-4 w-4 text-muted-foreground" />
+                            <HugeiconsIcon icon={SpeakerIcon} size={16} className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div className="flex items-center gap-2 min-w-0">
                             <h3 className="font-semibold text-base truncate">{channel.name}</h3>
@@ -235,7 +236,7 @@ export function AudioTab() {
                               setEditingChannel(channel.id);
                             }}
                           >
-                            <Edit className="h-4 w-4" />
+                            <HugeiconsIcon icon={Edit01Icon} size={16} className="h-4 w-4" />
                           </Button>
                           <Button
                             variant="ghost"
@@ -248,7 +249,7 @@ export function AudioTab() {
                               }
                             }}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <HugeiconsIcon icon={Delete01Icon} size={16} className="h-4 w-4" />
                           </Button>
                         </div>
                       )}
@@ -325,10 +326,10 @@ export function AudioTab() {
                           isConnected ? 'bg-accent border-accent' : 'border-muted-foreground/30',
                         )}
                       >
-                        {isConnected && <Check className="h-3 w-3 text-accent-foreground" />}
+                        {isConnected && <HugeiconsIcon icon={CheckmarkCircle01Icon} size={12} className="h-3 w-3 text-accent-foreground" />}
                       </div>
                     ) : device.is_default ? (
-                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
+                      <HugeiconsIcon icon={CheckmarkCircle02Icon} size={16} className="h-4 w-4 text-primary shrink-0" />
                     ) : null}
                     <span className={cn('truncate flex-1', device.is_default && 'font-medium')}>
                       {device.name}
@@ -339,7 +340,7 @@ export function AudioTab() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12 border-2 border-dashed border-muted rounded-md">
-              <CheckCircle2 className="h-12 w-12 text-muted-foreground mb-4" />
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} size={48} className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground text-center">
                 {platform.metadata.isTauri ? 'No audio devices found' : 'Audio device selection requires Tauri'}
               </p>
@@ -494,7 +495,7 @@ function CreateChannelDialog({ open, onOpenChange, devices, onCreate }: CreateCh
                           setSelectedDevices(selectedDevices.filter((id) => id !== deviceId))
                         }
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <HugeiconsIcon icon={Delete01Icon} size={12} className="h-3 w-3" />
                       </Button>
                     </div>
                   );
@@ -602,7 +603,7 @@ function EditChannelDialog({
                           setSelectedDevices(selectedDevices.filter((id) => id !== deviceId))
                         }
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <HugeiconsIcon icon={Delete01Icon} size={12} className="h-3 w-3" />
                       </Button>
                     </div>
                   );
@@ -648,7 +649,7 @@ function EditChannelDialog({
                           setSelectedVoices(selectedVoices.filter((id) => id !== profileId))
                         }
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <HugeiconsIcon icon={Delete01Icon} size={12} className="h-3 w-3" />
                       </Button>
                     </div>
                   );

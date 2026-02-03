@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Check } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckmarkCircle01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils/cn';
 
 export interface CheckboxProps {
@@ -34,7 +35,7 @@ const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
         )}
         {...props}
       >
-        {checked && <Check className="h-3 w-3 text-accent-foreground" />}
+        {checked && <HugeiconsIcon icon={CheckmarkCircle01Icon} size={12} className="h-3 w-3 text-accent-foreground" />}
       </button>
     );
   },

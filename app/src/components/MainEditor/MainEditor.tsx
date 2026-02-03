@@ -1,4 +1,5 @@
-import { Sparkles, Upload } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { SparklesIcon, Upload01Icon } from '@hugeicons/core-free-icons';
 import { useRef, useState } from 'react';
 import { FloatingGenerateBox } from '@/components/Generation/FloatingGenerateBox';
 import { HistoryTable } from '@/components/History/HistoryTable';
@@ -89,7 +90,7 @@ export function MainEditor() {
             <h2 className="text-2xl font-bold">Voicebox</h2>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleImportClick}>
-                <Upload className="mr-2 h-4 w-4" />
+                <HugeiconsIcon icon={Upload01Icon} size={16} className="mr-2 h-4 w-4" />
                 Import Voice
               </Button>
               <input
@@ -100,7 +101,7 @@ export function MainEditor() {
                 className="hidden"
               />
               <Button onClick={() => setDialogOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
+                <HugeiconsIcon icon={SparklesIcon} size={16} className="mr-2 h-4 w-4" />
                 Create Voice
               </Button>
             </div>

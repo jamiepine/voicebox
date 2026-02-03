@@ -1,4 +1,5 @@
-import { Mic, Sparkles } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Mic01Icon, SparklesIcon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useProfiles } from '@/lib/hooks/useProfiles';
@@ -30,12 +31,12 @@ export function ProfileList() {
         {allProfiles.length === 0 ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Mic className="h-12 w-12 text-muted-foreground mb-4" />
+              <HugeiconsIcon icon={Mic01Icon} size={48} className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">
                 No voice profiles yet. Create your first profile to get started.
               </p>
               <Button onClick={() => setDialogOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
+                <HugeiconsIcon icon={SparklesIcon} size={16} className="mr-2 h-4 w-4" />
                 Create Voice
               </Button>
             </CardContent>

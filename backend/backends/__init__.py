@@ -118,22 +118,37 @@ _stt_backend: Optional[STTBackend] = None
 def get_tts_backend() -> TTSBackend:
     """
     Get or create TTS backend instance based on platform.
-    
+
     Returns:
         TTS backend instance (MLX or PyTorch)
+
+    Raises:
+        ImportError: If required dependencies (mlx or torch) are not available
     """
     global _tts_backend
-    
+
     if _tts_backend is None:
         backend_type = get_backend_type()
-        
+
         if backend_type == "mlx":
-            from .mlx_backend import MLXTTSBackend
-            _tts_backend = MLXTTSBackend()
+            try:
+                from .mlx_backend import MLXTTSBackend
+                _tts_backend = MLXTTSBackend()
+            except ImportError as e:
+                raise ImportError(
+                    f"MLX backend dependencies not available. "
+                    f"Please install mlx and mlx_audio or download a provider. Error: {e}"
+                )
         else:
-            from .pytorch_backend import PyTorchTTSBackend
-            _tts_backend = PyTorchTTSBackend()
-    
+            try:
+                from .pytorch_backend import PyTorchTTSBackend
+                _tts_backend = PyTorchTTSBackend()
+            except ImportError as e:
+                raise ImportError(
+                    f"PyTorch backend dependencies not available. "
+                    f"Please download a TTS provider (pytorch-cpu or pytorch-cuda) from the Downloads page. Error: {e}"
+                )
+
     return _tts_backend
 
 

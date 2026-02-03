@@ -1,4 +1,6 @@
 import { ConnectionForm } from '@/components/ServerSettings/ConnectionForm';
+import { DataFolders } from '@/components/ServerSettings/DataFolders';
+import { ProviderSettings } from '@/components/ServerSettings/ProviderSettings';
 import { ServerStatus } from '@/components/ServerSettings/ServerStatus';
 import { UpdateStatus } from '@/components/ServerSettings/UpdateStatus';
 import { usePlatform } from '@/platform/PlatformContext';
@@ -11,6 +13,8 @@ export function ServerTab() {
         <ConnectionForm />
         <ServerStatus />
       </div>
+      <ProviderSettings />
+      <DataFolders />
       {platform.metadata.isTauri && <UpdateStatus />}
       <div className="py-8 text-center text-sm text-muted-foreground">
         Created by{' '}

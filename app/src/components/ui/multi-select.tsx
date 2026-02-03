@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowDown01Icon, CheckmarkCircle01Icon } from '@hugeicons/core-free-icons';
 import { cn } from '@/lib/utils/cn';
 import {
   DropdownMenu,
@@ -36,7 +37,7 @@ const MultiSelectCheckboxItem = React.forwardRef<
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <Check className="h-4 w-4" />
+        <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} className="h-4 w-4" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -78,7 +79,7 @@ export function MultiSelect({
           )}
         >
           <span className="line-clamp-1">{displayText}</span>
-          <ChevronDown className="h-4 w-4 opacity-50" />
+          <HugeiconsIcon icon={ArrowDown01Icon} size={16} className="h-4 w-4 opacity-50" />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

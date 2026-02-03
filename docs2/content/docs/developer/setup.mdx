@@ -1,0 +1,245 @@
+---
+title: "Development Setup"
+description: "Set up your local development environment for Voicebox"
+---
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+<CardGroup cols={3}>
+	<Card title="Bun" icon="package">
+		[Download Bun](https://bun.sh) ```bash curl -fsSL https://bun.sh/install |
+		bash ```
+	</Card>
+	<Card title="Python 3.11+" icon="python">
+		[Download Python](https://python.org) ```bash python --version ```
+	</Card>
+	<Card title="Rust" icon="rust">
+		[Install Rust](https://rustup.rs) ```bash rustc --version ```
+	</Card>
+</CardGroup>
+
+## Clone the Repository
+
+```bash
+git clone https://github.com/jamiepine/voicebox.git
+cd voicebox
+```
+
+## Quick Setup (Recommended)
+
+The easiest way to get started is using the Makefile:
+
+```bash
+# Setup everything
+make setup
+
+# Start development
+make dev
+```
+
+<Note>
+	The Makefile is available on macOS and Linux. Windows users should follow the
+	manual setup below.
+</Note>
+
+## Manual Setup
+
+### 1. Install JavaScript Dependencies
+
+```bash
+bun install
+```
+
+This installs dependencies for:
+
+- `app/` - Shared React frontend
+- `tauri/` - Tauri desktop wrapper
+- `web/` - Web deployment wrapper
+
+### 2. Set Up Python Backend
+
+```bash
+cd backend
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # macOS/Linux
+# or
+venv\Scripts\activate  # Windows
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Install MLX dependencies (Apple Silicon only - for faster inference)
+# On Apple Silicon, this enables native Metal acceleration
+if [[ $(uname -m) == "arm64" ]]; then
+  pip install -r requirements-mlx.txt
+fi
+
+# Install Qwen3-TTS
+pip install git+https://github.com/QwenLM/Qwen3-TTS.git
+```
+
+## Running in Development
+
+Development requires **two terminals**: one for the Python backend, one for the Tauri app.
+
+<Tabs>
+  <Tab title="Terminal 1: Backend">
+    Start the Python server first:
+
+    ```bash
+    cd backend
+    source venv/bin/activate  # Activate venv
+    bun run dev:server
+    ```
+
+    Or manually:
+    ```bash
+    uvicorn main:app --reload --port 17493
+    ```
+
+    Backend will be available at `http://localhost:17493`
+
+  </Tab>
+
+  <Tab title="Terminal 2: Desktop App">
+    Then start the Tauri app:
+
+    ```bash
+    bun run dev
+    ```
+
+    This will:
+    - Create a placeholder sidecar binary
+    - Start Vite dev server on port 5173
+    - Launch Tauri window
+    - Enable hot reload
+
+  </Tab>
+</Tabs>
+
+<Info>
+	In dev mode, the app connects to your manually-started Python server. The
+	bundled server binary is only used in production builds.
+</Info>
+
+### Optional: Web App
+
+```bash
+bun run dev:web
+```
+
+Web app will be available at `http://localhost:5174`
+
+## Model Downloads
+
+Models are automatically downloaded from HuggingFace Hub on first use:
+
+- **Whisper** (transcription): Auto-downloads on first transcription
+- **Qwen3-TTS** (voice cloning): Auto-downloads on first generation (~2-4GB)
+
+<Warning>
+	First-time usage will be slower due to model downloads, but subsequent runs
+	will use cached models.
+</Warning>
+
+## Project Structure
+
+```
+voicebox/
+├── app/              # Shared React frontend
+│   └── src/
+│       ├── components/   # UI components
+│       ├── lib/          # Utilities and API client
+│       └── hooks/        # React hooks
+├── backend/          # Python FastAPI server
+│   ├── main.py       # API routes
+│   ├── tts.py        # Voice synthesis
+│   └── database.py   # SQLite operations
+├── tauri/            # Desktop app wrapper
+│   └── src-tauri/    # Rust backend
+├── web/              # Web deployment
+├── landing/          # Marketing website
+└── scripts/          # Build & release scripts
+```
+
+## Available Make Commands
+
+Run `make help` to see all available commands:
+
+```bash
+make setup          # Install all dependencies
+make dev            # Start development servers
+make dev-web        # Start web development server
+make build          # Build desktop app
+make build-web      # Build web app
+make clean          # Clean build artifacts
+make test           # Run tests
+```
+
+## Generate OpenAPI Client
+
+After starting the backend server, generate the TypeScript API client:
+
+```bash
+./scripts/generate-api.sh
+# or
+bun run generate:api
+```
+
+This downloads the OpenAPI schema and generates the TypeScript client in `app/src/lib/api/`
+
+## Next Steps
+
+<CardGroup cols={2}>
+	<Card
+		title="Architecture"
+		icon="diagram-project"
+		href="/development/architecture"
+	>
+		Understand the system architecture
+	</Card>
+	<Card
+		title="Contributing"
+		icon="code-pull-request"
+		href="/development/contributing"
+	>
+		Read the contribution guidelines
+	</Card>
+	<Card title="Building" icon="hammer" href="/development/building">
+		Learn how to build production releases
+	</Card>
+	<Card title="API Reference" icon="code" href="/api-reference">
+		Explore the REST API
+	</Card>
+</CardGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Backend won't start">
+    - Check Python version (must be 3.11+)
+    - Ensure virtual environment is activated
+    - Verify all dependencies are installed: `pip install -r requirements.txt`
+    - Check if port 17493 is available
+  </Accordion>
+
+{" "}
+<Accordion title="Tauri build fails">
+	- Ensure Rust is installed: `rustc --version` - Clean the build: `cd
+	tauri/src-tauri && cargo clean` - Try rebuilding: `bun run dev`
+</Accordion>
+
+  <Accordion title="OpenAPI client generation fails">
+    - Ensure backend is running: `curl http://localhost:17493/openapi.json`
+    - Check network connectivity
+    - Verify the backend is accessible at localhost:17493
+  </Accordion>
+</AccordionGroup>
+
+See the full [Troubleshooting Guide](/guides/troubleshooting) for more issues and solutions.

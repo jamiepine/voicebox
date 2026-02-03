@@ -11,10 +11,6 @@ class WebUpdater implements PlatformUpdater {
 
   private subscribers: Set<(status: UpdateStatus) => void> = new Set();
 
-  private notifySubscribers() {
-    this.subscribers.forEach((callback) => callback(this.status));
-  }
-
   subscribe(callback: (status: UpdateStatus) => void): () => void {
     this.subscribers.add(callback);
     callback(this.status);

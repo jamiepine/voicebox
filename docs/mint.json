@@ -40,7 +40,7 @@
     {
       "group": "Getting Started",
       "icon": "rocket",
-      "pages": ["overview/introduction", "overview/installation", "overview/quick-start"]
+      "pages": ["overview/introduction", "overview/installation", "overview/docker", "overview/quick-start"]
     },
     {
       "group": "Features",

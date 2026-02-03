@@ -423,43 +423,30 @@ fn is_process_running(pid: u32) -> bool {
     false
 }
 
-/// Kill entire Windows process tree by enumerating children
+/// Kill entire Windows process tree using taskkill's built-in /T flag
+/// This is more reliable than WMIC-based enumeration (WMIC is deprecated on Windows 11)
 #[cfg(windows)]
 fn kill_windows_process_tree(parent_pid: u32) -> Result<(), String> {
     use std::process::Command;
 
-    // Find all child processes using WMIC
-    let output = Command::new("wmic")
-        .args([
-            "process",
-            "where",
-            &format!("ParentProcessId={}", parent_pid),
-            "get",
-            "ProcessId"
-        ])
+    // taskkill with /T kills the entire process tree
+    // /F = force, /T = tree (kill child processes)
+    let result = Command::new("taskkill")
+        .args(["/PID", &parent_pid.to_string(), "/T", "/F"])
         .output();
 
-    if let Ok(output) = output {
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        for line in output_str.lines().skip(1) { // Skip header
-            if let Ok(child_pid) = line.trim().parse::<u32>() {
-                println!("Found child process: {}", child_pid);
-                // Recursively kill child's children
-                let _ = kill_windows_process_tree(child_pid);
-                // Kill the child
-                let _ = Command::new("taskkill")
-                    .args(["/PID", &child_pid.to_string(), "/F"])
-                    .output();
+    match result {
+        Ok(output) => {
+            if output.status.success() {
+                println!("Successfully killed process tree for PID {}", parent_pid);
+            } else {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                eprintln!("taskkill stderr: {}", stderr);
             }
+            Ok(())
         }
+        Err(e) => Err(format!("Failed to run taskkill: {}", e))
     }
-
-    // Kill the parent process
-    let _ = Command::new("taskkill")
-        .args(["/PID", &parent_pid.to_string(), "/F"])
-        .output();
-
-    Ok(())
 }
 
 #[command]

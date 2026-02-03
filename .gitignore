@@ -15,6 +15,7 @@ dist/
 build/
 *.egg-info/
 *.egg
+*.spec
 target/
 *.app
 *.dmg

@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit, MoreHorizontal, Plus, Trash2, Mic } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Edit01Icon, MoreHorizontalIcon, Add01Icon, Delete01Icon } from '@hugeicons/core-free-icons';
 import { useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +19,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { ProfileForm } from '@/components/VoiceProfiles/ProfileForm';
+import { ProfileAvatar } from '@/components/VoiceProfiles/ProfileAvatar';
 import { apiClient } from '@/lib/api/client';
 import type { VoiceProfileResponse } from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
@@ -112,7 +114,7 @@ export function VoicesTab() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold">Voices</h1>
           <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+            <HugeiconsIcon icon={Add01Icon} size={16} className="h-4 w-4 mr-2" />
             New Voice
           </Button>
         </div>
@@ -184,9 +186,12 @@ function VoiceRow({
     <TableRow className="cursor-pointer" onClick={onEdit}>
       <TableCell>
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
-            <Mic className="h-4 w-4 text-muted-foreground" />
-          </div>
+          <ProfileAvatar
+            profileId={profile.id}
+            avatarPath={profile.avatar_path}
+            size="md"
+            alt={`${profile.name} avatar`}
+          />
           <div>
             <div className="font-medium">{profile.name}</div>
             {profile.description && (
@@ -214,16 +219,16 @@ function VoiceRow({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon">
-              <MoreHorizontal className="h-4 w-4" />
+              <HugeiconsIcon icon={MoreHorizontalIcon} size={16} className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onClick={onEdit}>
-              <Edit className="h-4 w-4 mr-2" />
+              <HugeiconsIcon icon={Edit01Icon} size={16} className="h-4 w-4 mr-2" />
               Edit
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onDelete} className="text-destructive">
-              <Trash2 className="h-4 w-4 mr-2" />
+              <HugeiconsIcon icon={Delete01Icon} size={16} className="h-4 w-4 mr-2" />
               Delete
             </DropdownMenuItem>
           </DropdownMenuContent>

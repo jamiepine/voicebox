@@ -1,24 +1,31 @@
 # Docker Deployment Guide
 
-**Status:** In Development for v0.2.0
-**Requested By:** Reddit community ([thread](https://reddit.com/r/LocalLLaMA/...))
+**Status:** Implemented
+**Images:** `ghcr.io/jamiepine/voicebox`
 
 ## Overview
 
-Docker support makes Voicebox easier to deploy, especially for:
+Voicebox is available as Docker images with the full web UI included. Images are automatically built and published to GitHub Container Registry on each release.
 
-- **Consistent Environments**: Same setup across dev/staging/prod
-- **GPU Passthrough**: Easy NVIDIA/AMD GPU access
+**What's included:**
+- FastAPI backend with all TTS/Whisper capabilities
+- Complete web UI (same React app as the Tauri desktop version)
+- Provider download system (downloads TTS providers on first use, just like desktop)
+- Multi-architecture support (amd64, arm64 for CPU variant)
+
+Docker support is ideal for:
 - **Server Deployments**: Run on headless Linux servers
-- **Multi-User Setups**: Isolate instances per user/team
+- **GPU Passthrough**: Easy NVIDIA GPU access
+- **Consistent Environments**: Same setup across dev/staging/prod
 - **Cloud Platforms**: Deploy to AWS, GCP, Azure, DigitalOcean
+- **Multi-User Setups**: Isolate instances per user/team
 
 ## Quick Start
 
 ### Using Pre-Built Images (Recommended)
 
 ```bash
-# CPU-only version
+# CPU-only version (supports amd64 and arm64)
 docker run -p 8000:8000 -v voicebox-data:/app/data \
   ghcr.io/jamiepine/voicebox:latest
 
@@ -26,184 +33,80 @@ docker run -p 8000:8000 -v voicebox-data:/app/data \
 docker run --gpus all -p 8000:8000 -v voicebox-data:/app/data \
   ghcr.io/jamiepine/voicebox:latest-cuda
 
-# AMD GPU version (experimental)
-docker run --device=/dev/kfd --device=/dev/dri -p 8000:8000 \
-  -v voicebox-data:/app/data \
-  ghcr.io/jamiepine/voicebox:latest-rocm
+# Specific version (pinned for stability)
+docker run -p 8000:8000 -v voicebox-data:/app/data \
+  ghcr.io/jamiepine/voicebox:0.1.13
 ```
 
 Then open: `http://localhost:8000`
 
+The web UI will load automatically. On first use, you'll be prompted to download a TTS provider (PyTorch CPU ~300MB or PyTorch CUDA ~2.4GB).
+
 ### Using Docker Compose (Easiest)
 
-Create `docker-compose.yml`:
+Use the provided `docker-compose.yml` (CUDA) or `docker-compose.cpu.yml` in the repository root:
 
-```yaml
-version: '3.8'
+```bash
+# CUDA (default)
+docker compose up -d
 
-services:
-  voicebox:
-    image: ghcr.io/jamiepine/voicebox:latest-cuda
-    ports:
-      - "8000:8000"
-    volumes:
-      - voicebox-data:/app/data
-      - huggingface-cache:/root/.cache/huggingface
-    environment:
-      - GPU_MEMORY_FRACTION=0.8  # Use 80% of GPU memory
-      - TTS_MODE=local
-      - WHISPER_MODE=local
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-
-volumes:
-  voicebox-data:
-  huggingface-cache:
+# Or CPU-only
+docker compose -f docker-compose.cpu.yml up -d
 ```
 
-Run:
-```bash
-docker compose up -d
+To pin to a specific version, edit the compose file:
+```yaml
+services:
+  voicebox:
+    image: ghcr.io/jamiepine/voicebox:0.1.13-cuda  # Pinned version
 ```
 
 ## Building From Source
 
-### Basic Dockerfile
-
-```dockerfile
-# Dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    build-essential \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy application
-COPY backend/ /app/backend/
-COPY requirements.txt /app/
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir git+https://github.com/QwenLM/Qwen3-TTS.git
-
-# Create data directory
-RUN mkdir -p /app/data
-
-# Expose port
-EXPOSE 8000
-
-# Run server
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+See `Dockerfile` and `Dockerfile.cuda` in the repository root.
 
 Build and run:
 ```bash
+# Build web UI first
+bun install
+cd web && bun run build && cd ..
+
+# Build CPU image
 docker build -t voicebox .
-docker run -p 8000:8000 -v $(pwd)/data:/app/data voicebox
+docker run -p 8000:8000 -v voicebox-data:/app/data voicebox
+
+# Or build CUDA image
+docker build -f Dockerfile.cuda -t voicebox:cuda .
+docker run --gpus all -p 8000:8000 -v voicebox-data:/app/data voicebox:cuda
 ```
 
-### Multi-Stage Build (Optimized)
+### Architecture
 
-Smaller image size by separating build and runtime:
+The Docker images include:
+- **Backend**: FastAPI server with TTS/Whisper endpoints
+- **Web UI**: Pre-built React app served as static files from the backend
+- **Provider System**: Downloads PyTorch CPU/CUDA providers on first use (same UX as desktop app)
 
-```dockerfile
-# Dockerfile.optimized
-# Stage 1: Build dependencies
-FROM python:3.11-slim AS builder
-
-WORKDIR /build
-
-RUN apt-get update && apt-get install -y \
-    git build-essential && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --target=/build/packages \
-    -r requirements.txt
-
-RUN pip install --no-cache-dir --target=/build/packages \
-    git+https://github.com/QwenLM/Qwen3-TTS.git
-
-# Stage 2: Runtime
-FROM python:3.11-slim
-
-WORKDIR /app
-
-# Install only runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy installed packages from builder
-COPY --from=builder /build/packages /usr/local/lib/python3.11/site-packages/
-
-# Copy application code
-COPY backend/ /app/backend/
-
-# Create data directory
-RUN mkdir -p /app/data
-
-EXPOSE 8000
-
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-Build:
-```bash
-docker build -f Dockerfile.optimized -t voicebox:slim .
-```
+Images are automatically built on release and tagged with both version number and `latest`.
 
 ## GPU Support
 
 ### NVIDIA GPUs (CUDA)
 
-**Dockerfile:**
-```dockerfile
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
-
-# Install Python
-RUN apt-get update && apt-get install -y \
-    python3.11 python3-pip git ffmpeg && \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Install PyTorch with CUDA support
-COPY backend/requirements.txt .
-RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-
-# Install other dependencies
-RUN pip3 install -r requirements.txt
-RUN pip3 install git+https://github.com/QwenLM/Qwen3-TTS.git
-
-COPY backend/ /app/backend/
-
-EXPOSE 8000
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
+The CUDA image includes PyTorch with CUDA 12.1 support:
 
 **Run with GPU:**
 ```bash
 docker run --gpus all -p 8000:8000 \
   -v voicebox-data:/app/data \
-  voicebox:cuda
+  ghcr.io/jamiepine/voicebox:latest-cuda
 ```
 
 **Docker Compose with GPU:**
 ```yaml
 services:
   voicebox:
-    image: voicebox:cuda
+    image: ghcr.io/jamiepine/voicebox:latest-cuda
     deploy:
       resources:
         reservations:
@@ -213,47 +116,9 @@ services:
               capabilities: [gpu]
 ```
 
-### AMD GPUs (ROCm) - Experimental
+### AMD GPUs (ROCm)
 
-**Dockerfile:**
-```dockerfile
-FROM rocm/dev-ubuntu-22.04:6.0
-
-# Install Python
-RUN apt-get update && apt-get install -y \
-    python3.11 python3-pip git ffmpeg && \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
-
-# Install PyTorch with ROCm support
-COPY backend/requirements.txt .
-RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm6.0
-
-# Install other dependencies
-RUN pip3 install -r requirements.txt
-RUN pip3 install git+https://github.com/QwenLM/Qwen3-TTS.git
-
-# Set ROCm environment variables
-ENV HSA_OVERRIDE_GFX_VERSION=10.3.0
-ENV ROCM_PATH=/opt/rocm
-
-COPY backend/ /app/backend/
-
-EXPOSE 8000
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-**Run with AMD GPU:**
-```bash
-docker run --device=/dev/kfd --device=/dev/dri \
-  --group-add video --ipc=host --cap-add=SYS_PTRACE \
-  --security-opt seccomp=unconfined \
-  -p 8000:8000 -v voicebox-data:/app/data \
-  voicebox:rocm
-```
-
-**Note:** ROCm support varies by GPU model. Works best on Linux. See [AMD ROCm docs](https://rocm.docs.amd.com) for compatibility.
+ROCm support is not currently available in pre-built images. If you need ROCm, build a custom image using the ROCm base and PyTorch ROCm builds.
 
 ## Volume Mounts
 
@@ -734,13 +599,27 @@ docker logs -f voicebox
 docker compose logs -f voicebox
 ```
 
-## Next Steps
+## Updates
 
-- [ ] Publish official images to GitHub Container Registry
-- [ ] Add Kubernetes Helm charts
-- [ ] Create Docker Desktop extension
-- [ ] Add automated vulnerability scanning
-- [ ] Support ARM64 builds for Raspberry Pi / Apple Silicon
+Docker images are automatically built and published on each GitHub release. To update:
+
+```bash
+# Pull latest
+docker pull ghcr.io/jamiepine/voicebox:latest
+docker compose up -d
+
+# Or pin to a specific version
+docker pull ghcr.io/jamiepine/voicebox:0.1.13
+```
+
+For automatic updates, use [Watchtower](https://containrrr.dev/watchtower/).
+
+## Future Enhancements
+
+- Kubernetes Helm charts
+- Docker Desktop extension
+- Automated vulnerability scanning
+- ROCm image variant
 
 ## Contributing
 

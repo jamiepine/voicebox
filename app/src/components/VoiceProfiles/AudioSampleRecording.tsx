@@ -1,4 +1,5 @@
-import { Mic, Pause, Play, Square } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Mic01Icon, PauseIcon, PlayIcon, SquareIcon } from '@hugeicons/core-free-icons';
 import { memo, useEffect, useState } from 'react';
 import { Visualizer } from 'react-sound-visualizer';
 import { Button } from '@/components/ui/button';
@@ -95,7 +96,7 @@ export function AudioSampleRecording({
                 size="lg"
                 className="relative z-10 flex items-center gap-2"
               >
-                <Mic className="h-5 w-5" />
+                <HugeiconsIcon icon={Mic01Icon} size={20} className="h-5 w-5" />
                 Start Recording
               </Button>
               <p className="relative z-10 text-sm text-muted-foreground text-center">
@@ -122,7 +123,7 @@ export function AudioSampleRecording({
                 onClick={onStop}
                 className="relative z-10 flex items-center gap-2 bg-accent text-accent-foreground hover:bg-accent/90"
               >
-                <Square className="h-4 w-4" />
+                <HugeiconsIcon icon={SquareIcon} size={16} className="h-4 w-4" />
                 Stop Recording
               </Button>
               <p className="relative z-10 text-sm text-muted-foreground text-center">
@@ -134,13 +135,13 @@ export function AudioSampleRecording({
           {file && !isRecording && (
             <div className="flex flex-col items-center justify-center gap-4 p-4 border-2 border-primary rounded-lg bg-primary/5 min-h-[180px]">
               <div className="flex items-center gap-2">
-                <Mic className="h-5 w-5 text-primary" />
+                <HugeiconsIcon icon={Mic01Icon} size={20} className="h-5 w-5 text-primary" />
                 <span className="font-medium">Recording complete</span>
               </div>
               <p className="text-sm text-muted-foreground text-center">File: {file.name}</p>
               <div className="flex gap-2">
                 <Button type="button" size="icon" variant="outline" onClick={onPlayPause}>
-                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  {isPlaying ? <HugeiconsIcon icon={PauseIcon} size={16} className="h-4 w-4" /> : <HugeiconsIcon icon={PlayIcon} size={16} className="h-4 w-4" />}
                 </Button>
                 <Button
                   type="button"
@@ -149,7 +150,7 @@ export function AudioSampleRecording({
                   disabled={isTranscribing}
                   className="flex items-center gap-2"
                 >
-                  <Mic className="h-4 w-4" />
+                  <HugeiconsIcon icon={Mic01Icon} size={16} className="h-4 w-4" />
                   {isTranscribing ? 'Transcribing...' : 'Transcribe'}
                 </Button>
                 <Button

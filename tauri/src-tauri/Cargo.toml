@@ -1,6 +1,6 @@
 [package]
 name = "voicebox"
-version = "0.1.12"
+version = "0.1.13"
 description = "A production-quality desktop app for Qwen3-TTS voice cloning and generation"
 authors = ["you"]
 license = ""

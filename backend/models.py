@@ -170,6 +170,13 @@ class ActiveTasksResponse(BaseModel):
     generations: List[ActiveGenerationTask]
 
 
+class FolderPathsResponse(BaseModel):
+    """Response model for system folder paths."""
+    data_dir: str
+    models_dir: str
+    providers_dir: str
+
+
 class AudioChannelCreate(BaseModel):
     """Request model for creating an audio channel."""
     name: str = Field(..., min_length=1, max_length=100)

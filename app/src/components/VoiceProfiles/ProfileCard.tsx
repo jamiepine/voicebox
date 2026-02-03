@@ -1,4 +1,5 @@
-import { Download, Edit, Mic, Trash2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Download01Icon, Edit01Icon, Delete01Icon } from '@hugeicons/core-free-icons';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,10 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { ProfileAvatar } from '@/components/VoiceProfiles/ProfileAvatar';
 import type { VoiceProfileResponse } from '@/lib/api/types';
 import { useDeleteProfile, useExportProfile } from '@/lib/hooks/useProfiles';
 import { cn } from '@/lib/utils/cn';
-import { useServerStore } from '@/stores/serverStore';
 import { useUIStore } from '@/stores/uiStore';
 
 interface ProfileCardProps {
@@ -24,18 +25,14 @@ interface ProfileCardProps {
 
 export function ProfileCard({ profile }: ProfileCardProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
   const deleteProfile = useDeleteProfile();
   const exportProfile = useExportProfile();
   const setEditingProfileId = useUIStore((state) => state.setEditingProfileId);
   const setProfileDialogOpen = useUIStore((state) => state.setProfileDialogOpen);
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
   const setSelectedProfileId = useUIStore((state) => state.setSelectedProfileId);
-  const serverUrl = useServerStore((state) => state.serverUrl);
 
   const isSelected = selectedProfileId === profile.id;
-
-  const avatarUrl = profile.avatar_path ? `${serverUrl}/profiles/${profile.id}/avatar` : null;
 
   const handleSelect = () => {
     setSelectedProfileId(isSelected ? null : profile.id);
@@ -72,21 +69,13 @@ export function ProfileCard({ profile }: ProfileCardProps) {
       >
         <CardHeader className="p-3 pb-2">
           <CardTitle className="flex items-center gap-1.5 text-base font-medium">
-            <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center shrink-0 overflow-hidden">
-              {avatarUrl && !avatarError ? (
-                <img
-                  src={avatarUrl}
-                  alt={`${profile.name} avatar`}
-                  className={cn(
-                    'h-full w-full object-cover transition-all duration-200',
-                    !isSelected && 'grayscale',
-                  )}
-                  onError={() => setAvatarError(true)}
-                />
-              ) : (
-                <Mic className="h-3.5 w-3.5 text-muted-foreground" />
-              )}
-            </div>
+            <ProfileAvatar
+              profileId={profile.id}
+              avatarPath={profile.avatar_path}
+              size="sm"
+              grayscale={!isSelected}
+              alt={`${profile.name} avatar`}
+            />
             <span className="break-words">{profile.name}</span>
           </CardTitle>
         </CardHeader>
@@ -101,13 +90,13 @@ export function ProfileCard({ profile }: ProfileCardProps) {
           </div>
           <div className="flex gap-0.5 justify-end items-end mt-auto">
             <CircleButton
-              icon={Download}
+              icon={(props) => <HugeiconsIcon icon={Download01Icon} size={14} {...props} />}
               onClick={handleExport}
               disabled={exportProfile.isPending}
               aria-label="Export profile"
             />
             <CircleButton
-              icon={Edit}
+              icon={(props) => <HugeiconsIcon icon={Edit01Icon} size={14} {...props} />}
               onClick={(e) => {
                 e.stopPropagation();
                 handleEdit();
@@ -115,7 +104,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
               aria-label="Edit profile"
             />
             <CircleButton
-              icon={Trash2}
+              icon={(props) => <HugeiconsIcon icon={Delete01Icon} size={14} {...props} />}
               onClick={handleDeleteClick}
               disabled={deleteProfile.isPending}
               aria-label="Delete profile"

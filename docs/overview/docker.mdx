@@ -1,0 +1,403 @@
+---
+title: "Docker Deployment"
+description: "Run Voicebox in Docker with the web UI for server deployments"
+---
+
+## Overview
+
+Voicebox is available as Docker images that include both the backend API and web UI. Run the full Voicebox experience in a container with a single command.
+
+**What's included:**
+- FastAPI backend with all TTS/Whisper capabilities
+- Complete web UI (same React app as the desktop version)
+- Provider download system (downloads PyTorch on first use)
+- Multi-architecture support (amd64, arm64)
+
+## Quick Start
+
+<Tabs>
+  <Tab title="NVIDIA GPU">
+    ```bash
+    docker run --gpus all -p 8000:8000 \
+      -v voicebox-data:/app/data \
+      ghcr.io/jamiepine/voicebox:latest-cuda
+    ```
+
+    Then open http://localhost:8000 to access the web UI.
+  </Tab>
+
+  <Tab title="CPU Only">
+    ```bash
+    docker run -p 8000:8000 \
+      -v voicebox-data:/app/data \
+      ghcr.io/jamiepine/voicebox:latest
+    ```
+
+    Then open http://localhost:8000 to access the web UI.
+  </Tab>
+
+  <Tab title="Docker Compose">
+    Clone the repo or download `docker-compose.yml`:
+
+    ```bash
+    # CUDA variant (default)
+    docker compose up -d
+
+    # CPU-only variant
+    docker compose -f docker-compose-cpu.yml up -d
+    ```
+
+    Then open http://localhost:8000 to access the web UI.
+  </Tab>
+</Tabs>
+
+<Note>
+  On first launch, you'll be prompted to download a TTS provider (PyTorch CPU ~300MB or PyTorch CUDA ~2.4GB). This happens once and is cached in the `huggingface-cache` volume.
+</Note>
+
+## Available Images
+
+Images are automatically built and published to GitHub Container Registry on each release.
+
+| Image | Description | Platforms |
+|-------|-------------|-----------|
+| `ghcr.io/jamiepine/voicebox:latest` | Latest CPU-only release | linux/amd64, linux/arm64 |
+| `ghcr.io/jamiepine/voicebox:0.1.13` | Specific version (CPU) | linux/amd64, linux/arm64 |
+| `ghcr.io/jamiepine/voicebox:latest-cuda` | Latest with NVIDIA GPU support | linux/amd64 |
+| `ghcr.io/jamiepine/voicebox:0.1.13-cuda` | Specific version (CUDA) | linux/amd64 |
+
+<Tip>
+  Pin to a specific version in production to avoid unexpected updates:
+  ```yaml
+  image: ghcr.io/jamiepine/voicebox:0.1.13-cuda
+  ```
+</Tip>
+
+## Docker Compose Examples
+
+### GPU Deployment (Recommended)
+
+```yaml
+version: '3.8'
+
+services:
+  voicebox:
+    image: ghcr.io/jamiepine/voicebox:latest-cuda
+    container_name: voicebox
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - voicebox-data:/app/data
+      - huggingface-cache:/root/.cache/huggingface
+    environment:
+      - GPU_MEMORY_FRACTION=0.8
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  voicebox-data:
+  huggingface-cache:
+```
+
+### CPU Deployment
+
+```yaml
+version: '3.8'
+
+services:
+  voicebox:
+    image: ghcr.io/jamiepine/voicebox:latest
+    container_name: voicebox
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - voicebox-data:/app/data
+      - huggingface-cache:/root/.cache/huggingface
+    environment:
+      - LOG_LEVEL=info
+
+volumes:
+  voicebox-data:
+  huggingface-cache:
+```
+
+## Volume Mounts
+
+<CardGroup cols={2}>
+  <Card title="voicebox-data" icon="database">
+    Stores voice profiles, generated audio, and database
+  </Card>
+  <Card title="huggingface-cache" icon="download">
+    Caches downloaded TTS/Whisper models (saves re-downloading)
+  </Card>
+</CardGroup>
+
+<Warning>
+  Always mount `/app/data` to preserve your voice profiles and generations across container restarts.
+</Warning>
+
+## Environment Variables
+
+Configure Voicebox behavior with environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GPU_MEMORY_FRACTION` | `0.9` | Fraction of GPU memory to use (0.0-1.0) |
+| `LOG_LEVEL` | `info` | Logging level: `debug`, `info`, `warning`, `error` |
+| `DATA_DIR` | `/app/data` | Directory for profiles and generations |
+
+Example:
+```bash
+docker run -e GPU_MEMORY_FRACTION=0.8 \
+           -e LOG_LEVEL=debug \
+           -p 8000:8000 \
+           ghcr.io/jamiepine/voicebox:latest-cuda
+```
+
+## Cloud Deployment
+
+### AWS EC2
+
+<Steps>
+  <Step title="Launch GPU Instance">
+    Use g4dn.xlarge or p3.2xlarge with NVIDIA GPU
+  </Step>
+
+  <Step title="Install Docker & NVIDIA Container Toolkit">
+    ```bash
+    # Install Docker
+    curl -fsSL https://get.docker.com -o get-docker.sh
+    sudo sh get-docker.sh
+
+    # Install NVIDIA Container Toolkit
+    distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    curl -s -L https://nvidia.github.io/libnvidia-container/$distribution/libnvidia-container.list | \
+      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+    sudo apt-get update
+    sudo apt-get install -y nvidia-container-toolkit
+    sudo systemctl restart docker
+    ```
+  </Step>
+
+  <Step title="Deploy">
+    ```bash
+    docker run -d --gpus all -p 8000:8000 \
+      -v voicebox-data:/app/data \
+      --restart unless-stopped \
+      ghcr.io/jamiepine/voicebox:latest-cuda
+    ```
+  </Step>
+</Steps>
+
+### DigitalOcean
+
+<Steps>
+  <Step title="Create GPU Droplet">
+    ```bash
+    doctl compute droplet create voicebox \
+      --size gpu-h100x1-80gb \
+      --image ubuntu-22-04-x64 \
+      --region nyc3
+    ```
+  </Step>
+
+  <Step title="SSH and Deploy">
+    ```bash
+    ssh root@<droplet-ip>
+    curl -fsSL https://get.docker.com | sh
+    docker run -d --gpus all -p 80:8000 \
+      ghcr.io/jamiepine/voicebox:latest-cuda
+    ```
+  </Step>
+</Steps>
+
+### Fly.io
+
+Create `fly.toml`:
+
+```toml
+app = "voicebox"
+
+[build]
+  image = "ghcr.io/jamiepine/voicebox:latest"
+
+[[services]]
+  http_checks = []
+  internal_port = 8000
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+[mounts]
+  source = "voicebox_data"
+  destination = "/app/data"
+```
+
+Deploy:
+```bash
+fly launch
+fly deploy
+```
+
+## Updates
+
+Docker images are automatically built and published on each GitHub release.
+
+<Tabs>
+  <Tab title="Latest Tag">
+    Always get the newest version:
+
+    ```bash
+    docker pull ghcr.io/jamiepine/voicebox:latest
+    docker compose up -d
+    ```
+  </Tab>
+
+  <Tab title="Pinned Version">
+    Update to a specific version:
+
+    ```yaml
+    services:
+      voicebox:
+        image: ghcr.io/jamiepine/voicebox:0.1.13-cuda
+    ```
+
+    ```bash
+    docker compose pull
+    docker compose up -d
+    ```
+  </Tab>
+
+  <Tab title="Automatic Updates">
+    Use Watchtower for automatic updates:
+
+    ```yaml
+    services:
+      voicebox:
+        image: ghcr.io/jamiepine/voicebox:latest-cuda
+        # ... other config ...
+
+      watchtower:
+        image: containrrr/watchtower
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+        command: --interval 3600 # Check hourly
+    ```
+  </Tab>
+</Tabs>
+
+## GPU Requirements
+
+### NVIDIA GPU
+
+Requires:
+- **Docker version:** 19.03+
+- **NVIDIA Driver:** 450.80.02+
+- **NVIDIA Container Toolkit:** Installed and configured
+
+Verify GPU access:
+```bash
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+```
+
+If this works, Voicebox will detect and use your GPU automatically.
+
+### AMD GPU (ROCm)
+
+AMD GPU support via ROCm is not currently available in pre-built images. If you need ROCm support, build a custom image using the ROCm base.
+
+## Troubleshooting
+
+### GPU Not Detected
+
+<Accordion title="Check NVIDIA Docker">
+  ```bash
+  # Verify NVIDIA Container Toolkit is installed
+  docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
+  ```
+
+  If this fails, reinstall NVIDIA Container Toolkit.
+</Accordion>
+
+<Accordion title="Insufficient GPU Memory">
+  Reduce GPU memory usage:
+
+  ```bash
+  docker run -e GPU_MEMORY_FRACTION=0.5 \
+    --gpus all -p 8000:8000 \
+    ghcr.io/jamiepine/voicebox:latest-cuda
+  ```
+
+  Or use CPU-only mode:
+  ```bash
+  docker run -p 8000:8000 \
+    ghcr.io/jamiepine/voicebox:latest
+  ```
+</Accordion>
+
+<Accordion title="Port Already in Use">
+  Change the host port:
+
+  ```bash
+  docker run -p 8080:8000 ghcr.io/jamiepine/voicebox:latest
+  ```
+
+  Then open http://localhost:8080
+</Accordion>
+
+<Accordion title="Permission Errors">
+  Run with specific user:
+
+  ```bash
+  docker run --user $(id -u):$(id -g) \
+    -v $(pwd)/data:/app/data \
+    ghcr.io/jamiepine/voicebox:latest
+  ```
+</Accordion>
+
+## Building From Source
+
+If you need to customize the Docker image:
+
+```bash
+# Clone the repo
+git clone https://github.com/jamiepine/voicebox.git
+cd voicebox
+
+# Build web UI
+bun install
+cd web && bun run build && cd ..
+
+# Build Docker image
+docker build -t voicebox:custom .
+
+# Or CUDA variant
+docker build -f Dockerfile.cuda -t voicebox:custom-cuda .
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api/overview">
+    Integrate Voicebox into your applications
+  </Card>
+  <Card title="Remote Mode" icon="server" href="/overview/remote-mode">
+    Connect desktop app to Docker backend
+  </Card>
+</CardGroup>

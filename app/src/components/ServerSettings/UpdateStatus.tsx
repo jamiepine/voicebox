@@ -1,4 +1,5 @@
-import { AlertCircle, Download, RefreshCw } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AlertCircleIcon, Download01Icon, Refresh01Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,21 +37,21 @@ export function UpdateStatus() {
             variant="outline"
             size="sm"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${status.checking ? 'animate-spin' : ''}`} />
+            <HugeiconsIcon icon={Refresh01Icon} size={16} className={`h-4 w-4 mr-2 ${status.checking ? 'animate-spin' : ''}`} />
             Check for Updates
           </Button>
         </div>
 
         {status.checking && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <RefreshCw className="h-4 w-4 animate-spin" />
+            <HugeiconsIcon icon={Refresh01Icon} size={16} className="h-4 w-4 animate-spin" />
             Checking for updates...
           </div>
         )}
 
         {status.error && (
           <div className="flex items-center gap-2 text-sm text-destructive">
-            <AlertCircle className="h-4 w-4" />
+            <HugeiconsIcon icon={AlertCircleIcon} size={16} className="h-4 w-4" />
             {status.error}
           </div>
         )}
@@ -65,7 +66,7 @@ export function UpdateStatus() {
               <Badge>New</Badge>
             </div>
             <Button onClick={downloadAndInstall} className="w-full" size="sm">
-              <Download className="h-4 w-4 mr-2" />
+              <HugeiconsIcon icon={Download01Icon} size={16} className="h-4 w-4 mr-2" />
               Download Update
             </Button>
           </div>
@@ -75,7 +76,7 @@ export function UpdateStatus() {
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
-                <Download className="h-4 w-4" />
+                <HugeiconsIcon icon={Download01Icon} size={16} className="h-4 w-4" />
                 Downloading update...
               </div>
               {status.downloadProgress !== undefined && (
@@ -109,7 +110,7 @@ export function UpdateStatus() {
               your convenience.
             </div>
             <Button onClick={restartAndInstall} className="w-full" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <HugeiconsIcon icon={Refresh01Icon} size={16} className="h-4 w-4 mr-2" />
               Restart Now
             </Button>
           </div>

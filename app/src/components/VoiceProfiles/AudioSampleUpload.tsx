@@ -1,4 +1,5 @@
-import { Mic, Pause, Play, Upload } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Mic01Icon, PauseIcon, PlayIcon, Upload01Icon } from '@hugeicons/core-free-icons';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormItem, FormMessage } from '@/components/ui/form';
@@ -89,7 +90,7 @@ export function AudioSampleUpload({
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2"
                 >
-                  <Upload className="h-5 w-5" />
+                  <HugeiconsIcon icon={Upload01Icon} size={20} className="h-5 w-5" />
                   Choose File
                 </Button>
                 <p className="text-sm text-muted-foreground text-center">
@@ -99,7 +100,7 @@ export function AudioSampleUpload({
             ) : (
               <>
                 <div className="flex items-center gap-2">
-                  <Upload className="h-5 w-5 text-primary" />
+                  <HugeiconsIcon icon={Upload01Icon} size={20} className="h-5 w-5 text-primary" />
                   <span className="font-medium">File uploaded</span>
                 </div>
                 <p className="text-sm text-muted-foreground text-center">File: {file.name}</p>
@@ -111,7 +112,7 @@ export function AudioSampleUpload({
                     onClick={onPlayPause}
                     disabled={isValidating}
                   >
-                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    {isPlaying ? <HugeiconsIcon icon={PauseIcon} size={16} className="h-4 w-4" /> : <HugeiconsIcon icon={PlayIcon} size={16} className="h-4 w-4" />}
                   </Button>
                   <Button
                     type="button"
@@ -120,7 +121,7 @@ export function AudioSampleUpload({
                     disabled={isTranscribing || isValidating || isDisabled}
                     className="flex items-center gap-2"
                   >
-                    <Mic className="h-4 w-4" />
+                    <HugeiconsIcon icon={Mic01Icon} size={16} className="h-4 w-4" />
                     {isTranscribing ? 'Transcribing...' : 'Transcribe'}
                   </Button>
                   <Button

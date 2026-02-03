@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Mic, Monitor, Upload } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Mic01Icon, DeskIcon, Upload01Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
@@ -236,16 +237,16 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
                 className={`grid w-full ${platform.metadata.isTauri && isSystemAudioSupported ? 'grid-cols-3' : 'grid-cols-2'}`}
               >
                 <TabsTrigger value="upload" className="flex items-center gap-2">
-                  <Upload className="h-4 w-4 shrink-0" />
+                  <HugeiconsIcon icon={Upload01Icon} size={16} className="h-4 w-4 shrink-0" />
                   Upload
                 </TabsTrigger>
                 <TabsTrigger value="record" className="flex items-center gap-2">
-                  <Mic className="h-4 w-4 shrink-0" />
+                  <HugeiconsIcon icon={Mic01Icon} size={16} className="h-4 w-4 shrink-0" />
                   Record
                 </TabsTrigger>
                 {platform.metadata.isTauri && isSystemAudioSupported && (
                   <TabsTrigger value="system" className="flex items-center gap-2">
-                    <Monitor className="h-4 w-4 shrink-0" />
+                    <HugeiconsIcon icon={DeskIcon} size={16} className="h-4 w-4 shrink-0" />
                     System Audio
                   </TabsTrigger>
                 )}

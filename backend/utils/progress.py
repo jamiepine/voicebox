@@ -49,11 +49,17 @@ class ProgressManager:
                     queue.put_nowait(progress_data.copy())
                 except RuntimeError:
                     # Not in async context (running in background thread)
-                    # Use call_soon_threadsafe to safely put on queue
+                    # Use asyncio.run_coroutine_threadsafe for better PyInstaller compatibility
                     if self._main_loop and self._main_loop.is_running():
-                        self._main_loop.call_soon_threadsafe(
-                            lambda q=queue, d=progress_data.copy(): q.put_nowait(d) if not q.full() else None
-                        )
+                        async def put_data_async():
+                            try:
+                                queue.put_nowait(progress_data.copy())
+                            except asyncio.QueueFull:
+                                pass  # Queue full, drop update
+                        try:
+                            asyncio.run_coroutine_threadsafe(put_data_async(), self._main_loop)
+                        except Exception as e:
+                            logger.warning(f"Failed to schedule progress update: {e}")
                     else:
                         logger.debug(f"No main loop available for {model_name}, skipping notification")
             except asyncio.QueueFull:

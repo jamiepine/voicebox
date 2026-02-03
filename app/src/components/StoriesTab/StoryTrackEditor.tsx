@@ -1,14 +1,15 @@
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Copy,
-  GripHorizontal,
-  Minus,
-  Pause,
-  Play,
-  Plus,
-  Scissors,
-  Square,
-  Trash2,
-} from 'lucide-react';
+  Copy01Icon,
+  DragDropHorizontalIcon,
+  RemoveIcon,
+  PauseIcon,
+  PlayIcon,
+  Add01Icon,
+  Scissor01Icon,
+  SquareIcon,
+  Delete01Icon,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '@/components/ui/button';
@@ -723,7 +724,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           onMouseDown={handleResizeStart}
           aria-label="Resize track editor"
         >
-          <GripHorizontal className="h-3 w-3 text-muted-foreground/50 group-hover:text-muted-foreground" />
+          <HugeiconsIcon icon={DragDropHorizontalIcon} size={12} className="h-3 w-3 text-muted-foreground/50 group-hover:text-muted-foreground" />
         </button>
 
         {/* Toolbar */}
@@ -737,7 +738,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
               onClick={handlePlayPause}
               title="Play/Pause (Space)"
             >
-              {isCurrentlyPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {isCurrentlyPlaying ? <HugeiconsIcon icon={PauseIcon} size={16} className="h-4 w-4" /> : <HugeiconsIcon icon={PlayIcon} size={16} className="h-4 w-4" />}
             </Button>
             <Button
               variant="ghost"
@@ -746,7 +747,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
               onClick={handleStop}
               disabled={!isCurrentlyPlaying}
             >
-              <Square className="h-3 w-3" />
+              <HugeiconsIcon icon={SquareIcon} size={12} className="h-3 w-3" />
             </Button>
             <span className="text-xs text-muted-foreground tabular-nums ml-2">
               {formatTime(currentTimeMs)} / {formatTime(totalDurationMs)}
@@ -763,7 +764,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 onClick={handleSplit}
                 title="Split at playhead (S)"
               >
-                <Scissors className="h-4 w-4" />
+                <HugeiconsIcon icon={Scissor01Icon} size={16} className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -772,7 +773,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 onClick={handleDuplicate}
                 title="Duplicate (Cmd/Ctrl+D)"
               >
-                <Copy className="h-4 w-4" />
+                <HugeiconsIcon icon={Copy01Icon} size={16} className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -781,7 +782,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 onClick={handleDelete}
                 title="Delete (Delete/Backspace)"
               >
-                <Trash2 className="h-4 w-4" />
+                <HugeiconsIcon icon={Delete01Icon} size={16} className="h-4 w-4" />
               </Button>
             </div>
           )}
@@ -790,10 +791,10 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Zoom:</span>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleZoomOut}>
-              <Minus className="h-3 w-3" />
+              <HugeiconsIcon icon={RemoveIcon} size={12} className="h-3 w-3" />
             </Button>
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleZoomIn}>
-              <Plus className="h-3 w-3" />
+              <HugeiconsIcon icon={Add01Icon} size={12} className="h-3 w-3" />
             </Button>
           </div>
         </div>
@@ -837,7 +838,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
               type="button"
               className="h-6 border-b bg-muted/20 sticky top-0 z-10 cursor-pointer text-left"
               style={{ width: `${timelineWidth}px` }}
-              onClick={handleTimelineClick}
+              onClick={(e) => handleTimelineClick(e as unknown as React.MouseEvent<HTMLDivElement>)}
               aria-label="Seek timeline"
             >
               {timeMarkers.map((ms) => (
@@ -878,7 +879,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
               <button
                 type="button"
                 className="absolute inset-0 z-0 cursor-pointer"
-                onClick={handleTimelineClick}
+                onClick={(e) => handleTimelineClick(e as unknown as React.MouseEvent<HTMLDivElement>)}
                 aria-label="Seek timeline"
               />
 

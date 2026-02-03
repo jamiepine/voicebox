@@ -1,5 +1,14 @@
+import {
+  Book01Icon,
+  Mic01Icon,
+  PackageIcon,
+  ServerStack01Icon,
+  SpeakerIcon,
+  VolumeHighIcon,
+} from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Icon } from '@iconify/react';
 import { Link, useMatchRoute } from '@tanstack/react-router';
-import { Box, BookOpen, Loader2, Mic, Server, Speaker, Volume2 } from 'lucide-react';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
 import { cn } from '@/lib/utils/cn';
 import { useGenerationStore } from '@/stores/generationStore';
@@ -10,12 +19,12 @@ interface SidebarProps {
 }
 
 const tabs = [
-  { id: 'main', path: '/', icon: Volume2, label: 'Generate' },
-  { id: 'stories', path: '/stories', icon: BookOpen, label: 'Stories' },
-  { id: 'voices', path: '/voices', icon: Mic, label: 'Voices' },
-  { id: 'audio', path: '/audio', icon: Speaker, label: 'Audio' },
-  { id: 'models', path: '/models', icon: Box, label: 'Models' },
-  { id: 'server', path: '/server', icon: Server, label: 'Server' },
+  { id: 'main', path: '/', icon: VolumeHighIcon, label: 'Generate' },
+  { id: 'stories', path: '/stories', icon: Book01Icon, label: 'Stories' },
+  { id: 'voices', path: '/voices', icon: Mic01Icon, label: 'Voices' },
+  { id: 'audio', path: '/audio', icon: SpeakerIcon, label: 'Audio' },
+  { id: 'models', path: '/models', icon: PackageIcon, label: 'Models' },
+  { id: 'server', path: '/server', icon: ServerStack01Icon, label: 'Server' },
 ];
 
 export function Sidebar({ isMacOS }: SidebarProps) {
@@ -42,9 +51,7 @@ export function Sidebar({ isMacOS }: SidebarProps) {
           const Icon = tab.icon;
           // For index route, use exact match; for others, use default matching
           const isActive =
-            tab.path === '/'
-              ? matchRoute({ to: '/', exact: true })
-              : matchRoute({ to: tab.path });
+            tab.path === '/' ? matchRoute({ to: '/' }) : matchRoute({ to: tab.path });
 
           return (
             <Link
@@ -58,7 +65,7 @@ export function Sidebar({ isMacOS }: SidebarProps) {
               title={tab.label}
               aria-label={tab.label}
             >
-              <Icon className="h-5 w-5" />
+              <HugeiconsIcon icon={Icon} size={20} className="h-5 w-5" />
             </Link>
           );
         })}
@@ -75,7 +82,7 @@ export function Sidebar({ isMacOS }: SidebarProps) {
             isPlayerVisible ? 'mb-[120px]' : 'mb-0',
           )}
         >
-          <Loader2 className="h-6 w-6 text-accent animate-spin" />
+          <Icon icon="svg-spinners:ring-resize" className="h-6 w-6 text-accent animate-spin" />
         </div>
       )}
     </div>

@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+
+# Build outputs
+build/
+*.egg-info/
+.eggs/
+target/
+
+# Keep web/dist for the Docker image
+!web/dist
+
+# Development
+.git/
+.github/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Data and logs
+data/
+*.log
+*.sqlite
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+docs/
+landing/
+mlx-test/
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Keep these out
+.env
+.env.local
+*.pem
+*.key
+credentials.json

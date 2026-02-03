@@ -1,0 +1,297 @@
+---
+title: "Creating Voice Profiles"
+description: "Advanced guide to creating high-quality voice profiles"
+---
+
+## Overview
+
+Voice profiles are the foundation of voice cloning in Voicebox. This guide covers best practices for creating professional-quality voice profiles.
+
+## Quick Start
+
+<Steps>
+	<Step title="Prepare Audio">10-30 seconds of clear speech</Step>
+	<Step title="Create Profile">**Profiles** → **+ New Profile**</Step>
+	<Step title="Upload Sample">Add your audio file</Step>
+	<Step title="Generate">Use the profile to generate speech</Step>
+</Steps>
+
+## Audio Requirements
+
+### Ideal Sample Characteristics
+
+<CardGroup cols={2}>
+  <Card title="Duration" icon="clock">
+    **10-30 seconds**
+
+    Too short: Poor quality
+    Too long: Unnecessary
+
+  </Card>
+  <Card title="Clarity" icon="volume">
+    **Clear speech**
+
+    No background noise
+    No music or overlapping voices
+
+  </Card>
+  <Card title="Quality" icon="sparkles">
+    **High fidelity**
+
+    44.1kHz or 48kHz sample rate
+    Minimal compression
+
+  </Card>
+  <Card title="Content" icon="microphone">
+    **Natural speech**
+
+    Conversational tone
+    Complete sentences
+
+  </Card>
+</CardGroup>
+
+### File Formats
+
+Supported formats:
+
+- **WAV** (recommended) - Lossless quality
+- **MP3** - Acceptable, minimal compression
+- **M4A** - Acceptable
+- **FLAC** - Lossless alternative
+
+<Tip>Use WAV for best results. Avoid heavily compressed formats.</Tip>
+
+## Recording Tips
+
+### Environment
+
+<AccordionGroup>
+  <Accordion title="Quiet Space">
+    - Record in a quiet room
+    - Turn off fans, AC, appliances
+    - Close windows to reduce outside noise
+    - Use soft furnishings to reduce echo
+  </Accordion>
+
+{" "}
+<Accordion title="Microphone Placement">
+	- 6-12 inches from mouth - Slight angle to reduce plosives (p, b, t) - Use a
+	pop filter if available - Maintain consistent distance
+</Accordion>
+
+  <Accordion title="Recording Settings">
+    - 44.1kHz or 48kHz sample rate
+    - 16-bit or 24-bit depth
+    - Mono is fine (stereo will be converted)
+    - Avoid automatic gain control
+  </Accordion>
+</AccordionGroup>
+
+### Speaking
+
+- **Natural pace** - Don't rush or speak too slowly
+- **Clear articulation** - Pronounce words clearly
+- **Consistent volume** - Maintain steady loudness
+- **Normal tone** - Speak as you normally would
+- **Complete sentences** - Avoid fragments or "ums"
+
+## Multiple Samples
+
+Adding multiple samples can significantly improve quality:
+
+### Why Multiple Samples?
+
+<CardGroup cols={2}>
+	<Card title="Robustness" icon="shield">
+		Model learns a more complete representation
+	</Card>
+	<Card title="Versatility" icon="palette">
+		Handles different speaking styles better
+	</Card>
+	<Card title="Quality" icon="star">
+		Reduces artifacts and improves naturalness
+	</Card>
+	<Card title="Consistency" icon="check">
+		More reliable across different texts
+	</Card>
+</CardGroup>
+
+### Sample Variety
+
+Consider adding samples with:
+
+1. **Different tones**
+
+   - Casual conversation
+   - Professional/formal
+   - Excited/enthusiastic
+   - Calm/serious
+
+2. **Different content**
+
+   - Narratives
+   - Questions
+   - Statements
+   - Emotions (happy, sad, neutral)
+
+3. **Different recording conditions**
+   - Studio quality
+   - Phone call quality (if needed)
+   - Room acoustics
+
+<Warning>
+	All samples should be from the **same speaker**. Mixing voices will produce
+	poor results.
+</Warning>
+
+## Processing Existing Audio
+
+If you have existing audio (podcasts, videos, etc.):
+
+### Extracting Clean Segments
+
+<Steps>
+  <Step title="Find Clean Speech">
+    Look for segments with:
+    - Just the target speaker
+    - No background music
+    - Minimal noise
+  </Step>
+
+{" "}
+<Step title="Use Audio Editor">
+	Tools like Audacity or Adobe Audition: - Cut out clean 10-30s segments -
+	Remove silence at start/end - Normalize volume if needed
+</Step>
+
+  <Step title="Export as WAV">
+    Save as high-quality WAV file
+  </Step>
+</Steps>
+
+### Noise Reduction
+
+If you have light background noise:
+
+```
+1. Use noise reduction in Audacity:
+   - Select noise-only section
+   - Get Noise Profile
+   - Select full audio
+   - Apply noise reduction (gentle settings)
+
+2. Avoid over-processing:
+   - Can introduce artifacts
+   - May reduce voice quality
+```
+
+## Testing & Iteration
+
+### Test Your Profile
+
+After creating a profile:
+
+<Steps>
+  <Step title="Generate Test">
+    Generate a simple phrase:
+    ```
+    "Hello, this is a test of my voice profile."
+    ```
+  </Step>
+
+{" "}
+<Step title="Evaluate Quality">
+	Listen for: - Natural tone - Clear pronunciation - Proper prosody - Lack of
+	artifacts
+</Step>
+
+  <Step title="Iterate">
+    If quality is poor:
+    - Add more samples
+    - Try different source audio
+    - Check sample quality
+  </Step>
+</Steps>
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Robotic Voice">
+    **Cause**: Poor quality samples or too short
+
+    **Fix**: Use longer, higher quality samples
+
+  </Accordion>
+
+  <Accordion title="Wrong Tone">
+    **Cause**: Sample tone doesn't match desired output
+
+    **Fix**: Record samples in the style you want to generate
+
+  </Accordion>
+
+  <Accordion title="Artifacts/Glitches">
+    **Cause**: Background noise or audio issues in samples
+
+    **Fix**: Clean up samples or re-record in quieter environment
+
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Tips
+
+### Celebrity/Character Voices
+
+For cloning public figures or characters:
+
+1. **Legal considerations** - Ensure you have rights or it's fair use
+2. **Source quality** - Find high-quality interview audio or clean clips
+3. **Consistency** - Use clips where they speak similarly
+4. **Multiple samples** - Very important for recognizable voices
+
+### Accent & Dialect
+
+The model will preserve accent and dialect:
+
+- British English will generate British English
+- Southern accent will produce Southern accent
+- Regional pronunciations will be maintained
+
+### Emotion Transfer
+
+The emotional tone of samples affects generation:
+
+- Energetic samples → Energetic output
+- Calm samples → Calm output
+- Mix samples for versatile profile
+
+## Managing Profiles
+
+### Organization
+
+- **Descriptive names** - "John Smith - Professional Narrator"
+- **Add descriptions** - Note recording conditions, use cases
+- **Language tags** - Mark the primary language
+- **Archive unused** - Keep profile list manageable
+
+### Export/Import
+
+- **Export** profiles to share or backup
+- **Import** from colleagues or teammates
+- Profiles include voice embeddings, not original audio
+
+## Next Steps
+
+<CardGroup cols={2}>
+	<Card
+		title="Generate Speech"
+		icon="waveform"
+		href="/overview/generating-speech"
+	>
+		Use your profile to generate speech
+	</Card>
+	<Card title="Build Stories" icon="film" href="/overview/building-stories">
+		Create multi-voice narratives
+	</Card>
+</CardGroup>

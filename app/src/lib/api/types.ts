@@ -34,6 +34,7 @@ export interface GenerationRequest {
   language: LanguageCode;
   seed?: number;
   model_size?: '1.7B' | '0.6B';
+  instruct?: string;
 }
 
 export interface GenerationResponse {
@@ -125,6 +126,12 @@ export interface ActiveGenerationTask {
 export interface ActiveTasksResponse {
   downloads: ActiveDownloadTask[];
   generations: ActiveGenerationTask[];
+}
+
+export interface FolderPathsResponse {
+  data_dir: string;
+  models_dir: string;
+  providers_dir: string;
 }
 
 export interface StoryCreate {

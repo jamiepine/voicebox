@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Pause, Play, Repeat, Volume2, VolumeX, X } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { PauseIcon, PlayIcon, RepeatIcon, VolumeHighIcon, VolumeMuteIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '@/components/ui/button';
@@ -459,7 +460,7 @@ export function AudioPlayer() {
     // Use double requestAnimationFrame to ensure DOM is fully rendered
     let rafId1: number;
     let rafId2: number;
-    let timeoutId: number | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     rafId1 = requestAnimationFrame(() => {
       rafId2 = requestAnimationFrame(() => {
@@ -832,7 +833,7 @@ export function AudioPlayer() {
             className="shrink-0"
             title={duration === 0 && !isLoading ? 'Audio not loaded' : ''}
           >
-            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+            {isPlaying ? <HugeiconsIcon icon={PauseIcon} size={20} className="h-5 w-5" /> : <HugeiconsIcon icon={PlayIcon} size={20} className="h-5 w-5" />}
           </Button>
 
           {/* Waveform */}
@@ -873,7 +874,7 @@ export function AudioPlayer() {
             className={isLooping ? 'text-primary' : ''}
             title="Toggle loop"
           >
-            <Repeat className="h-4 w-4" />
+            <HugeiconsIcon icon={RepeatIcon} size={16} className="h-4 w-4" />
           </Button>
 
           {/* Volume Control */}
@@ -884,7 +885,7 @@ export function AudioPlayer() {
               onClick={() => setVolume(volume > 0 ? 0 : 1)}
               className="h-8 w-8"
             >
-              {volume > 0 ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+              {volume > 0 ? <HugeiconsIcon icon={VolumeHighIcon} size={16} className="h-4 w-4" /> : <HugeiconsIcon icon={VolumeMuteIcon} size={16} className="h-4 w-4" />}
             </Button>
             <Slider
               value={[volume * 100]}
@@ -903,7 +904,7 @@ export function AudioPlayer() {
             className="shrink-0"
             title="Close player"
           >
-            <X className="h-5 w-5" />
+            <HugeiconsIcon icon={Cancel01Icon} size={20} className="h-5 w-5" />
           </Button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Mic, MoreHorizontal, Play, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { DragDropVerticalIcon, MoreHorizontalIcon, PlayIcon, Delete01Icon } from '@hugeicons/core-free-icons';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,10 +10,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
+import { ProfileAvatar } from '@/components/VoiceProfiles/ProfileAvatar';
 import type { StoryItemDetail } from '@/lib/api/types';
 import { cn } from '@/lib/utils/cn';
 import { useStoryStore } from '@/stores/storyStore';
-import { useServerStore } from '@/stores/serverStore';
 
 interface StoryChatItemProps {
   item: StoryItemDetail;
@@ -35,10 +35,6 @@ export function StoryChatItem({
   isDragging,
 }: StoryChatItemProps) {
   const seek = useStoryStore((state) => state.seek);
-  const serverUrl = useServerStore((state) => state.serverUrl);
-  const [avatarError, setAvatarError] = useState(false);
-
-  const avatarUrl = `${serverUrl}/profiles/${item.profile_id}/avatar`;
 
   // Check if this item is currently playing based on timecode
   const itemStartMs = item.start_time_ms;
@@ -74,27 +70,18 @@ export function StoryChatItem({
           className="shrink-0 cursor-grab active:cursor-grabbing touch-none text-muted-foreground hover:text-foreground transition-colors"
           {...dragHandleProps}
         >
-          <GripVertical className="h-5 w-5" />
+          <HugeiconsIcon icon={DragDropVerticalIcon} size={20} className="h-5 w-5" />
         </button>
       )}
 
       {/* Voice Avatar */}
       <div className="shrink-0">
-        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-          {!avatarError ? (
-            <img
-              src={avatarUrl}
-              alt={`${item.profile_name} avatar`}
-              className={cn(
-                'h-full w-full object-cover transition-all duration-200',
-                !isCurrentlyPlaying && 'grayscale'
-              )}
-              onError={() => setAvatarError(true)}
-            />
-          ) : (
-            <Mic className="h-5 w-5 text-muted-foreground" />
-          )}
-        </div>
+        <ProfileAvatar
+          profileId={item.profile_id}
+          size="lg"
+          grayscale={!isCurrentlyPlaying}
+          alt={`${item.profile_name} avatar`}
+        />
       </div>
 
       {/* Content */}
@@ -119,16 +106,16 @@ export function StoryChatItem({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Actions">
-              <MoreHorizontal className="h-4 w-4" />
+              <HugeiconsIcon icon={MoreHorizontalIcon} size={16} className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handlePlay}>
-              <Play className="mr-2 h-4 w-4" />
+              <HugeiconsIcon icon={PlayIcon} size={16} className="mr-2 h-4 w-4" />
               Play from here
             </DropdownMenuItem>
             <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
+              <HugeiconsIcon icon={Delete01Icon} size={16} className="mr-2 h-4 w-4" />
               Remove from Story
             </DropdownMenuItem>
           </DropdownMenuContent>

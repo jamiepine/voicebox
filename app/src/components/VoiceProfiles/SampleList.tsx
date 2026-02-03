@@ -1,4 +1,5 @@
-import { Check, Edit, Pause, Play, Plus, Trash2, Volume2, X } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckmarkCircle01Icon, Edit01Icon, PauseIcon, PlayIcon, Add01Icon, Delete01Icon, VolumeHighIcon, Cancel01Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { CircleButton } from '@/components/ui/circle-button';
@@ -103,7 +104,7 @@ function MiniSamplePlayer({ audioUrl }: MiniSamplePlayerProps) {
           onClick={handlePlayPause}
           disabled={isLoading}
         >
-          {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
+          {isPlaying ? <HugeiconsIcon icon={PauseIcon} size={14} className="h-3.5 w-3.5" /> : <HugeiconsIcon icon={PlayIcon} size={14} className="h-3.5 w-3.5 ml-0.5" />}
         </Button>
 
         <div className="flex-1 min-w-0 flex items-center gap-2">
@@ -129,7 +130,7 @@ function MiniSamplePlayer({ audioUrl }: MiniSamplePlayerProps) {
           onClick={handleStop}
           title="Stop"
         >
-          <X className="h-3.5 w-3.5" />
+          <HugeiconsIcon icon={Cancel01Icon} size={14} className="h-3.5 w-3.5" />
         </Button>
       </div>
     </div>
@@ -209,7 +210,7 @@ export function SampleList({ profileId }: SampleListProps) {
     <div className="space-y-4 pt-4">
       {samples && samples.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-8 text-center border border-dashed rounded-lg">
-          <Volume2 className="h-8 w-8 text-muted-foreground/50 mb-2" />
+          <HugeiconsIcon icon={VolumeHighIcon} size={32} className="h-8 w-8 text-muted-foreground/50 mb-2" />
           <p className="text-sm text-muted-foreground">No samples yet</p>
           <p className="text-xs text-muted-foreground/70 mt-1">
             Add your first audio sample to get started
@@ -232,7 +233,7 @@ export function SampleList({ profileId }: SampleListProps) {
                   /* Edit Mode */
                   <div className="p-4 space-y-3">
                     <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                      <Edit className="h-3 w-3" />
+                      <HugeiconsIcon icon={Edit01Icon} size={12} className="h-3 w-3" />
                       <span>Editing transcription</span>
                     </div>
                     <Textarea
@@ -250,7 +251,7 @@ export function SampleList({ profileId }: SampleListProps) {
                         onClick={handleCancelEdit}
                         disabled={updateSample.isPending}
                       >
-                        <X className="h-4 w-4 mr-1" />
+                        <HugeiconsIcon icon={Cancel01Icon} size={16} className="h-4 w-4 mr-1" />
                         Cancel
                       </Button>
                       <Button
@@ -259,7 +260,7 @@ export function SampleList({ profileId }: SampleListProps) {
                         onClick={() => handleSaveEdit(sample.id)}
                         disabled={updateSample.isPending}
                       >
-                        <Check className="h-4 w-4 mr-1" />
+                        <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} className="h-4 w-4 mr-1" />
                         {updateSample.isPending ? 'Saving...' : 'Save'}
                       </Button>
                     </div>
@@ -278,12 +279,12 @@ export function SampleList({ profileId }: SampleListProps) {
                       {/* Action Buttons */}
                       <div className="shrink-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                         <CircleButton
-                          icon={Edit}
+                          icon={(props) => <HugeiconsIcon icon={Edit01Icon} size={14} {...props} />}
                           title="Edit transcription"
                           onClick={() => handleStartEdit(sample.id, sample.reference_text)}
                         />
                         <CircleButton
-                          icon={Trash2}
+                          icon={(props) => <HugeiconsIcon icon={Delete01Icon} size={14} {...props} />}
                           title="Delete sample"
                           onClick={() => handleDeleteClick(sample.id)}
                           disabled={deleteSample.isPending}
@@ -312,7 +313,7 @@ export function SampleList({ profileId }: SampleListProps) {
         className="w-full"
         onClick={() => setUploadOpen(true)}
       >
-        <Plus className="mr-2 h-4 w-4" />
+        <HugeiconsIcon icon={Add01Icon} size={16} className="mr-2 h-4 w-4" />
         Add Sample
       </Button>
 

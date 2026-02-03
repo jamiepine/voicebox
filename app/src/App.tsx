@@ -40,7 +40,7 @@ function App() {
   const serverStartingRef = useRef(false);
 
   // Automatically check for app updates on startup and show toast notifications
-  useAutoUpdater({ checkOnMount: true, showToast: true });
+  useAutoUpdater(true);
 
   // Sync stored setting to Rust on startup
   useEffect(() => {
@@ -82,8 +82,7 @@ function App() {
       console.log('Dev mode: Skipping auto-start of server (run it separately)');
       setServerReady(true); // Mark as ready so UI doesn't show loading screen
       // Mark that server was not started by app (so we don't try to stop it on close)
-      // @ts-expect-error - adding property to window
-      window.__voiceboxServerStartedByApp = false;
+      (window as any).__voiceboxServerStartedByApp = false;
       return;
     }
 
@@ -103,14 +102,12 @@ function App() {
         useServerStore.getState().setServerUrl(serverUrl);
         setServerReady(true);
         // Mark that we started the server (so we know to stop it on close)
-        // @ts-expect-error - adding property to window
-        window.__voiceboxServerStartedByApp = true;
+        (window as any).__voiceboxServerStartedByApp = true;
       })
       .catch((error) => {
         console.error('Failed to auto-start server:', error);
         serverStartingRef.current = false;
-        // @ts-expect-error - adding property to window
-        window.__voiceboxServerStartedByApp = false;
+        (window as any).__voiceboxServerStartedByApp = false;
       });
 
     // Cleanup: stop server on actual unmount (not StrictMode remount)

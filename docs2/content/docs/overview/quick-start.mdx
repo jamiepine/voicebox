@@ -1,0 +1,166 @@
+---
+title: "Quick Start"
+description: "Get started with Voicebox in 5 minutes"
+---
+
+This guide will walk you through creating your first voice profile and generating speech.
+
+## Prerequisites
+
+Make sure you have [installed Voicebox](/overview/installation) and launched the app.
+
+## Step 1: Create a Voice Profile
+
+Voice profiles are the foundation of Voicebox. Each profile contains voice samples that the AI uses to clone the voice.
+
+<Steps>
+  <Step title="Navigate to Profiles">
+    Click the **Profiles** tab in the sidebar
+  </Step>
+
+  <Step title="Create New Profile">
+    Click the **+ New Profile** button
+
+    Fill in the details:
+    - **Name:** A descriptive name (e.g., "John Smith")
+    - **Language:** Select the primary language
+    - **Description:** Optional notes about the voice
+
+  </Step>
+
+  <Step title="Add Voice Sample">
+    You have two options:
+
+    **Option A: Upload Audio**
+    - Click **Upload Sample**
+    - Select an audio file (WAV, MP3, or M4A)
+    - Ideal length: 10-30 seconds of clear speech
+
+    **Option B: Record Live**
+    - Click **Record Sample**
+    - Speak clearly for 10-30 seconds
+    - Click stop when finished
+
+  </Step>
+
+  <Step title="Save Profile">
+    Click **Create Profile** to save
+  </Step>
+</Steps>
+
+<Tip>
+	For best results, use clean audio with minimal background noise and consistent
+	speaking tone.
+</Tip>
+
+## Step 2: Generate Speech
+
+Now let's use your new voice profile to generate speech.
+
+<Steps>
+  <Step title="Go to Generation">
+    Click the **Generate** tab in the sidebar
+  </Step>
+
+{" "}
+<Step title="Select Voice Profile">
+	Choose your newly created profile from the dropdown
+</Step>
+
+  <Step title="Enter Text">
+    Type or paste the text you want to generate:
+
+    ```
+    Hello! This is my first voice generation with Voicebox.
+    ```
+
+  </Step>
+
+  <Step title="Generate">
+    Click **Generate** and wait a few seconds
+
+    <Note>
+      First generation may take longer due to model initialization. Subsequent generations will be faster.
+    </Note>
+
+  </Step>
+
+  <Step title="Play & Download">
+    - Click **Play** to preview the audio
+    - Click **Download** to save the audio file
+    - The generation is also saved to your **History**
+  </Step>
+</Steps>
+
+## Step 3: Build a Story (Optional)
+
+The Stories Editor lets you create multi-voice narratives with a timeline-based interface.
+
+<Steps>
+  <Step title="Create New Story">
+    Navigate to **Stories** and click **+ New Story**
+  </Step>
+
+{" "}
+<Step title="Add Voice Tracks">
+	Click **+ Add Track** to create tracks for different speakers
+</Step>
+
+{" "}
+<Step title="Add Audio Clips">
+	- Drag generated audio from your History - Or generate new clips directly in
+	the timeline - Arrange clips on the timeline
+</Step>
+
+  <Step title="Edit & Export">
+    - Trim clips by dragging edges
+    - Adjust timing and spacing
+    - Click **Export** to render the final audio
+  </Step>
+</Steps>
+
+## What's Next?
+
+<CardGroup cols={2}>
+	<Card
+		title="Voice Cloning Guide"
+		icon="microphone"
+		href="/overview/creating-voice-profiles"
+	>
+		Learn advanced techniques for high-quality voice cloning
+	</Card>
+	<Card title="API Integration" icon="code" href="/api-reference">
+		Integrate Voicebox into your own applications
+	</Card>
+	<Card title="Stories Editor" icon="film" href="/overview/stories-editor">
+		Master the multi-track timeline editor
+	</Card>
+	<Card title="Remote Mode" icon="server" href="/overview/remote-mode">
+		Connect to a GPU server for faster generation
+	</Card>
+</CardGroup>
+
+## Tips for Success
+
+<AccordionGroup>
+  <Accordion title="Getting the Best Voice Quality">
+    - Use 10-30 seconds of clear, consistent speech
+    - Avoid background noise and echo
+    - Multiple samples from the same speaker improve quality
+    - Match the speaking style you want to generate
+  </Accordion>
+
+{" "}
+<Accordion title="Improving Generation Speed">
+	- Use a CUDA-capable GPU for 5-10x faster generation - Enable voice prompt
+	caching for repeated generations - Consider running the backend on a remote
+	GPU server
+</Accordion>
+
+  <Accordion title="Troubleshooting Common Issues">
+    - **Server won't start:** Check if port 17493 is available
+    - **Poor audio quality:** Try adding more voice samples
+    - **Slow generation:** Verify GPU acceleration is enabled
+    - See the full [Troubleshooting Guide](/overview/troubleshooting) for more
+  </Accordion>
+</AccordionGroup>

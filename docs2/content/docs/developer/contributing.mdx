@@ -1,0 +1,336 @@
+---
+title: "Contributing"
+description: "How to contribute to Voicebox"
+---
+
+Thank you for your interest in contributing to Voicebox! This guide will help you get started.
+
+## Code of Conduct
+
+- Be respectful and inclusive
+- Welcome newcomers and help them learn
+- Focus on constructive feedback
+- Respect different viewpoints and experiences
+
+## Getting Started
+
+Before you start contributing, make sure you have:
+
+1. **Read the documentation** to understand how Voicebox works
+2. **Set up your development environment** - see [Development Setup](/development/setup)
+3. **Explored the codebase** to understand the project structure
+4. **Checked existing issues** to see if someone else is working on something similar
+
+## Ways to Contribute
+
+<CardGroup cols={2}>
+	<Card title="Report Bugs" icon="bug">
+		Found a bug? Open an issue with reproduction steps
+	</Card>
+	<Card title="Request Features" icon="lightbulb">
+		Have an idea? Start a discussion or open an issue
+	</Card>
+	<Card title="Improve Docs" icon="book">
+		Fix typos, add examples, or clarify instructions
+	</Card>
+	<Card title="Write Code" icon="code">
+		Fix bugs, add features, or optimize performance
+	</Card>
+</CardGroup>
+
+## Development Workflow
+
+### 1. Fork & Clone
+
+```bash
+# Fork the repository on GitHub
+# Then clone your fork
+git clone https://github.com/YOUR_USERNAME/voicebox.git
+cd voicebox
+```
+
+### 2. Create a Branch
+
+Use descriptive branch names:
+
+```bash
+# For features
+git checkout -b feature/voice-effects
+
+# For bug fixes
+git checkout -b fix/audio-playback-issue
+
+# For documentation
+git checkout -b docs/api-examples
+```
+
+### 3. Make Your Changes
+
+Follow these guidelines:
+
+<AccordionGroup>
+  <Accordion title="Code Style">
+    **TypeScript/React:**
+    - Use TypeScript strict mode
+    - Prefer functional components with hooks
+    - Use named exports
+    - Format with Biome (runs automatically)
+
+    **Python:**
+    - Follow PEP 8
+    - Use type hints
+    - Use async/await for I/O
+    - Document functions with docstrings
+
+    **Rust:**
+    - Follow Rust conventions
+    - Use meaningful names
+    - Handle errors explicitly
+    - Run `rustfmt`
+
+  </Accordion>
+
+  <Accordion title="Commit Messages">
+    Write clear, descriptive commit messages:
+
+    ```bash
+    # Good
+    git commit -m "Add voice profile export feature"
+    git commit -m "Fix audio playback stopping after 30 seconds"
+
+    # Avoid
+    git commit -m "Update code"
+    git commit -m "Fix bug"
+    ```
+
+    Format:
+    - Use imperative mood ("Add feature" not "Added feature")
+    - Keep first line under 50 characters
+    - Add detailed description if needed
+
+  </Accordion>
+
+  <Accordion title="Testing">
+    - Test your changes manually in the app
+    - Ensure backend API endpoints work
+    - Check for TypeScript/Python errors
+    - Verify UI components render correctly
+    - Add automated tests when possible
+  </Accordion>
+</AccordionGroup>
+
+### 4. Push & Create PR
+
+```bash
+# Push your branch
+git push origin feature/your-feature-name
+
+# Then create a pull request on GitHub
+```
+
+## Pull Request Guidelines
+
+When creating a pull request:
+
+<Steps>
+  <Step title="Use a Clear Title">
+    Examples:
+    - "Add voice profile export functionality"
+    - "Fix audio playback stopping after 30 seconds"
+    - "Improve generation speed with caching"
+  </Step>
+
+{" "}
+<Step title="Provide Description">
+	Include: - What changes you made - Why you made them - How to test them -
+	Screenshots (for UI changes) - Reference related issues
+</Step>
+
+{" "}
+<Step title="Update Documentation">
+	- Update relevant docs if behavior changes - Add API documentation for new
+	endpoints - Update README if needed
+</Step>
+
+  <Step title="Check the Checklist">
+    - [ ] Code follows style guidelines
+    - [ ] Documentation updated
+    - [ ] Changes tested
+    - [ ] No breaking changes (or documented)
+    - [ ] CHANGELOG.md updated
+  </Step>
+</Steps>
+
+## Project Structure
+
+Understanding the codebase:
+
+```
+voicebox/
+├── app/              # Shared React frontend
+│   ├── src/
+│   │   ├── components/   # UI components
+│   │   ├── lib/          # Utilities and API client
+│   │   ├── hooks/        # React hooks
+│   │   └── stores/       # Zustand state stores
+├── backend/          # Python FastAPI server
+│   ├── main.py       # API routes
+│   ├── tts.py        # Voice synthesis logic
+│   ├── database.py   # SQLite operations
+│   └── models.py     # Pydantic models
+├── tauri/            # Desktop app wrapper
+│   └── src-tauri/    # Rust backend
+├── web/              # Web deployment
+├── landing/          # Marketing website
+└── scripts/          # Build & release scripts
+```
+
+## Areas for Contribution
+
+### Bug Fixes
+
+- Check [existing issues](https://github.com/jamiepine/voicebox/issues) for bugs
+- Test your fix thoroughly
+- Add regression tests if possible
+
+### New Features
+
+- Check the [roadmap](https://github.com/jamiepine/voicebox#roadmap) for planned features
+- Discuss major features in an issue first
+- Keep features focused and well-scoped
+
+### Documentation
+
+- Improve clarity and fix typos
+- Add code examples
+- Create tutorials or guides
+- Document API endpoints
+
+### UI/UX Improvements
+
+- Improve accessibility
+- Enhance visual design
+- Optimize performance
+- Add animations/transitions
+
+### Infrastructure
+
+- Improve build process
+- Add CI/CD improvements
+- Optimize bundle size
+- Add testing infrastructure
+
+## API Development
+
+When adding new API endpoints:
+
+<Steps>
+  <Step title="Add Route">
+    In `backend/main.py`:
+
+    ```python
+    @app.post("/api/new-endpoint")
+    async def new_endpoint(data: RequestModel) -> ResponseModel:
+        """Endpoint description."""
+        # Implementation
+        return response
+    ```
+
+  </Step>
+
+  <Step title="Create Models">
+    In `backend/models.py`:
+
+    ```python
+    class RequestModel(BaseModel):
+        field: str
+
+    class ResponseModel(BaseModel):
+        result: str
+    ```
+
+  </Step>
+
+  <Step title="Regenerate Client">
+    ```bash
+    bun run generate:api
+    ```
+
+    This updates the TypeScript client with type-safe bindings.
+
+  </Step>
+
+  <Step title="Update Docs">
+    The API documentation is automatically generated from the OpenAPI schema. Ensure your endpoint has proper docstrings and type hints, then regenerate the docs:
+    
+    ```bash
+    bun run generate:api
+    ```
+  </Step>
+</Steps>
+
+## Testing
+
+Currently testing is primarily manual. When adding tests:
+
+**Backend:**
+
+```bash
+cd backend
+pytest
+```
+
+**Frontend:**
+
+```bash
+bun run test
+```
+
+**E2E (future):**
+
+```bash
+bun run test:e2e
+```
+
+## Release Process
+
+Releases are managed by maintainers using `bumpversion`:
+
+```bash
+# Bump version (patch, minor, or major)
+bumpversion patch
+
+# Push with tags
+git push && git push --tags
+```
+
+GitHub Actions automatically builds and publishes releases when tags are pushed.
+
+## Community
+
+- **GitHub Issues:** Bug reports and feature requests
+- **GitHub Discussions:** General questions and ideas
+- **Discord:** Real-time chat (coming soon)
+
+## Recognition
+
+Contributors are recognized in:
+
+- [CHANGELOG.md](https://github.com/jamiepine/voicebox/blob/main/CHANGELOG.md)
+- GitHub contributor list
+- Release notes
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
+
+## Questions?
+
+If you have questions:
+
+1. Check the [documentation](/overview/introduction)
+2. Search [existing issues](https://github.com/jamiepine/voicebox/issues)
+3. Open a new issue or discussion
+4. See [CONTRIBUTING.md](https://github.com/jamiepine/voicebox/blob/main/CONTRIBUTING.md) in the repo
+
+Thank you for contributing to Voicebox! 🎉

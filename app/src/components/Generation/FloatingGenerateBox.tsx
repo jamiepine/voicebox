@@ -1,6 +1,8 @@
+import { SparklesIcon, TextSquareIcon } from '@hugeicons/core-free-icons';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Icon } from '@iconify/react';
 import { useMatchRoute } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
@@ -298,13 +300,13 @@ export function FloatingGenerateBox({
                   <Button
                     type="submit"
                     disabled={isPending || !selectedProfileId}
-                    className="h-10 w-10 rounded-full bg-accent hover:bg-accent/90 hover:scale-105 text-accent-foreground shadow-lg hover:shadow-accent/50 transition-all duration-200"
+                    className="h-10 w-10 rounded-full bg-accent hover:bg-accent/90 hover:scale-105 text-accent-foreground shadow-lg transition-all duration-200"
                     size="icon"
                   >
                     {isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Icon icon="svg-spinners:ring-resize" className="h-4 w-4 animate-spin" />
                     ) : (
-                      <Sparkles className="h-4 w-4" />
+                      <HugeiconsIcon icon={SparklesIcon} size={16} className="h-4 w-4" />
                     )}
                   </Button>
                   <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
@@ -337,7 +339,7 @@ export function FloatingGenerateBox({
                               : 'bg-card border border-border hover:bg-background/50',
                           )}
                         >
-                          <SlidersHorizontal className="h-4 w-4" />
+                          <HugeiconsIcon icon={TextSquareIcon} size={16} className="h-4 w-4" />
                         </Button>
                         <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                           Fine tune instructions
