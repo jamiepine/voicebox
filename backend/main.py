@@ -74,6 +74,19 @@ async def shutdown():
     return {"message": "Shutting down..."}
 
 
+@app.get("/system/folders", response_model=models.FolderPathsResponse)
+async def get_system_folders():
+    """Get system folder paths for data, models, and providers."""
+    from huggingface_hub import constants as hf_constants
+    from .providers.installer import _get_providers_dir
+    
+    return models.FolderPathsResponse(
+        data_dir=str(config.get_data_dir().absolute()),
+        models_dir=str(Path(hf_constants.HF_HUB_CACHE).absolute()),
+        providers_dir=str(_get_providers_dir().absolute()),
+    )
+
+
 @app.get("/health", response_model=models.HealthResponse)
 async def health():
     """Health check endpoint."""

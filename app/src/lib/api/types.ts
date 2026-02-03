@@ -128,6 +128,12 @@ export interface ActiveTasksResponse {
   generations: ActiveGenerationTask[];
 }
 
+export interface FolderPathsResponse {
+  data_dir: string;
+  models_dir: string;
+  providers_dir: string;
+}
+
 export interface StoryCreate {
   name: string;
   description?: string;

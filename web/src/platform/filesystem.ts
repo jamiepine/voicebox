@@ -12,4 +12,10 @@ export const webFilesystem: PlatformFilesystem = {
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
   },
+
+  async openFolder(_path: string): Promise<boolean> {
+    // Browsers cannot open local folders for security reasons
+    // The UI will show the path as a read-only text instead
+    return false;
+  },
 };

@@ -56,7 +56,7 @@
   },
   "plugins": {
     "shell": {
-      "open": true
+      "open": "^((mailto:\\w+)|(tel:\\w+)|(https?://\\w+)|(/[^\\s]+)|([a-zA-Z]:\\\\[^\\s]*)).*"
     },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUxRENBQkRBQjdBNTM1OTIKUldTU05hVzMycXZjNGJGcUxmcVVocll2QjdSaTJNdlFxR2M3VDJsMnVvbDdyZGRPMmRlOW9aWTcK",

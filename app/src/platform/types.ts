@@ -10,6 +10,13 @@ export interface FileFilter {
 
 export interface PlatformFilesystem {
   saveFile(filename: string, blob: Blob, filters?: FileFilter[]): Promise<void>;
+  /**
+   * Open a folder in the native file explorer.
+   * On web, this is a no-op since browsers cannot open folders.
+   * @param path - The absolute path to the folder to open
+   * @returns true if the folder was opened, false if not supported
+   */
+  openFolder(path: string): Promise<boolean>;
 }
 
 export interface UpdateStatus {

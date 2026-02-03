@@ -27,4 +27,15 @@ export const tauriFilesystem: PlatformFilesystem = {
       document.body.removeChild(a);
     }
   },
+
+  async openFolder(path: string): Promise<boolean> {
+    try {
+      const { open } = await import('@tauri-apps/plugin-shell');
+      await open(path);
+      return true;
+    } catch (error) {
+      console.error('Failed to open folder:', error);
+      return false;
+    }
+  },
 };

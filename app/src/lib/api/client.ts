@@ -14,6 +14,7 @@ import type {
   ModelStatusListResponse,
   ModelDownloadRequest,
   ActiveTasksResponse,
+  FolderPathsResponse,
   StoryCreate,
   StoryResponse,
   StoryDetailResponse,
@@ -55,6 +56,11 @@ class ApiClient {
   // Health
   async getHealth(): Promise<HealthResponse> {
     return this.request<HealthResponse>('/health');
+  }
+
+  // System
+  async getSystemFolders(): Promise<FolderPathsResponse> {
+    return this.request<FolderPathsResponse>('/system/folders');
   }
 
   // Profiles
