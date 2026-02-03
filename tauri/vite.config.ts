@@ -8,14 +8,14 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '../app/src'),
-      react: path.resolve(__dirname, '../app/node_modules/react'),
-      'react-dom': path.resolve(__dirname, '../app/node_modules/react-dom'),
-      '@tanstack/react-query': path.resolve(__dirname, '../app/node_modules/@tanstack/react-query'),
+      react: path.resolve(__dirname, '../node_modules/react'),
+      'react-dom': path.resolve(__dirname, '../node_modules/react-dom'),
+      '@tanstack/react-query': path.resolve(__dirname, '../node_modules/@tanstack/react-query'),
       '@tanstack/react-query-devtools': path.resolve(
         __dirname,
-        '../app/node_modules/@tanstack/react-query-devtools',
+        '../node_modules/@tanstack/react-query-devtools',
       ),
-      zustand: path.resolve(__dirname, '../app/node_modules/zustand'),
+      zustand: path.resolve(__dirname, '../node_modules/zustand'),
     },
     dedupe: ['react', 'react-dom', '@tanstack/react-query', 'zustand'],
   },

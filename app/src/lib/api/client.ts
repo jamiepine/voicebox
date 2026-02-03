@@ -24,6 +24,9 @@ import type {
   StoryItemMove,
   StoryItemTrim,
   StoryItemSplit,
+  BackendOptionsResponse,
+  BackendSettingResponse,
+  UpdateBackendResponse,
 } from './types';
 
 class ApiClient {
@@ -507,6 +510,26 @@ class ApiClient {
     }
 
     return response.blob();
+  }
+
+  // Settings
+  async getSettings(): Promise<{ settings: Record<string, string> }> {
+    return this.request<{ settings: Record<string, string> }>('/api/settings');
+  }
+
+  async getSetting(key: string): Promise<BackendSettingResponse> {
+    return this.request<BackendSettingResponse>(`/api/settings/${key}`);
+  }
+
+  async updateSetting(key: string, value: string): Promise<UpdateBackendResponse> {
+    return this.request<UpdateBackendResponse>(`/api/settings/${key}`, {
+      method: 'PUT',
+      body: JSON.stringify({ value }),
+    });
+  }
+
+  async getBackendOptions(): Promise<BackendOptionsResponse> {
+    return this.request<BackendOptionsResponse>('/api/settings/backend/options');
   }
 }
 

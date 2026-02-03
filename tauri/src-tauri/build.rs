@@ -54,7 +54,7 @@ fn main() {
                     "--target-device",
                     "mac",
                     "--minimum-deployment-target",
-                    "11.0",
+                    "14.0",
                     "--platform",
                     "macosx",
                     &icon_source,

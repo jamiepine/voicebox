@@ -65,6 +65,13 @@ def build_server():
         '--copy-metadata', 'qwen-tts',
         '--collect-submodules', 'qwen_tts',
         '--collect-data', 'qwen_tts',
+        '--hidden-import', 'backend.backends.chatterbox_backend',
+        '--hidden-import', 'backend.settings',
+        '--hidden-import', 'chatterbox',
+        '--hidden-import', 'resemble_perth',
+        '--collect-submodules', 'chatterbox',
+        '--collect-submodules', 'resemble_perth',
+        '--collect-data', 'chatterbox',
         # Fix for pkg_resources and jaraco namespace packages
         '--hidden-import', 'pkg_resources.extern',
         '--collect-submodules', 'jaraco',

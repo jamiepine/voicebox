@@ -1,3 +1,4 @@
+import { BackendSelector } from '@/components/ServerSettings/BackendSelector';
 import { ConnectionForm } from '@/components/ServerSettings/ConnectionForm';
 import { ServerStatus } from '@/components/ServerSettings/ServerStatus';
 import { UpdateStatus } from '@/components/ServerSettings/UpdateStatus';
@@ -11,6 +12,7 @@ export function ServerTab() {
         <ConnectionForm />
         <ServerStatus />
       </div>
+      <BackendSelector />
       {platform.metadata.isTauri && <UpdateStatus />}
       <div className="py-8 text-center text-sm text-muted-foreground">
         Created by{' '}

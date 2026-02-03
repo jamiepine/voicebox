@@ -202,3 +202,24 @@ export interface StoryItemTrim {
 export interface StoryItemSplit {
   split_time_ms: number;
 }
+
+export interface BackendOption {
+  value: string;
+  label: string;
+  description: string;
+}
+
+export interface BackendOptionsResponse {
+  options: BackendOption[];
+}
+
+export interface BackendSettingResponse {
+  key: string;
+  value: string;
+}
+
+export interface UpdateBackendResponse {
+  key: string;
+  value: string;
+  reload_required: boolean;
+}
