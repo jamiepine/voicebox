@@ -68,10 +68,11 @@ def build_server():
         '--hidden-import', 'backend.backends.chatterbox_backend',
         '--hidden-import', 'backend.settings',
         '--hidden-import', 'chatterbox',
-        '--hidden-import', 'resemble_perth',
+        '--hidden-import', 'perth',
         '--collect-submodules', 'chatterbox',
-        '--collect-submodules', 'resemble_perth',
+        '--collect-submodules', 'perth',
         '--collect-data', 'chatterbox',
+        '--collect-data', 'perth',
         # Fix for pkg_resources and jaraco namespace packages
         '--hidden-import', 'pkg_resources.extern',
         '--collect-submodules', 'jaraco',

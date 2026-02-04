@@ -7,6 +7,7 @@ absolute imports instead of relative imports.
 
 import sys
 import logging
+import multiprocessing
 
 # Set up logging FIRST, before any imports that might fail
 logging.basicConfig(
@@ -44,6 +45,16 @@ except Exception as e:
     sys.exit(1)
 
 if __name__ == "__main__":
+    # Required for PyInstaller + multiprocessing
+    multiprocessing.freeze_support()
+    
+    # Force 'spawn' start method on macOS for consistency
+    if sys.platform == 'darwin':
+        try:
+            multiprocessing.set_start_method('spawn', force=True)
+        except RuntimeError:
+            pass
+
     try:
         parser = argparse.ArgumentParser(description="voicebox backend server")
         parser.add_argument(
@@ -64,7 +75,9 @@ if __name__ == "__main__":
             default=None,
             help="Data directory for database, profiles, and generated audio",
         )
-        args = parser.parse_args()
+        args, unknown = parser.parse_known_args()
+        if unknown:
+            logger.info(f"Ignoring unknown arguments: {unknown}")
         logger.info(f"Parsed arguments: host={args.host}, port={args.port}, data_dir={args.data_dir}")
 
         # Set data directory if provided

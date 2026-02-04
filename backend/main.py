@@ -22,6 +22,9 @@ import uuid
 import asyncio
 import signal
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 from . import database, models, profiles, history, tts, transcribe, config, export_import, channels, stories, __version__
 from .database import get_db, Generation as DBGeneration, VoiceProfile as DBVoiceProfile
@@ -624,10 +627,13 @@ async def generate_speech(
         
         return generation
         
-    except ValueError as e:
+    except HTTPException:
         task_manager.complete_generation(generation_id)
-        raise HTTPException(status_code=400, detail=str(e))
+        raise
     except Exception as e:
+        import traceback
+        logger.error("Error in generate_speech:")
+        traceback.print_exc()
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=500, detail=str(e))
 
