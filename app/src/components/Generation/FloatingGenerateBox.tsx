@@ -21,6 +21,8 @@ import { cn } from '@/lib/utils/cn';
 import { useStoryStore } from '@/stores/storyStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useServerHealth } from '@/lib/hooks/useServer'; // Import hook
+import { usePlayerStore } from '@/stores/playerStore'; // Restore player store
+import { apiClient } from '@/lib/api/client'; // Restore API client
 
 interface FloatingGenerateBoxProps {
   isPlayerOpen?: boolean;
@@ -47,6 +49,7 @@ export function FloatingGenerateBox({
   const addStoryItem = useAddStoryItem();
   const { toast } = useToast();
   const { data: serverHealth } = useServerHealth();
+  const setAudioWithAutoPlay = usePlayerStore((state) => state.setAudioWithAutoPlay);
 
   // Calculate if track editor is visible (on stories route with items)
   const hasTrackEditor = isStoriesRoute && currentStory && currentStory.items.length > 0;
@@ -54,28 +57,37 @@ export function FloatingGenerateBox({
   const { form, handleSubmit, isPending } = useGenerationForm({
     onSuccess: async (generationId) => {
       setIsExpanded(false);
-      // If on stories route and a story is selected, add generation to story
-      if (isStoriesRoute && selectedStoryId && generationId) {
-        try {
-          await addStoryItem.mutateAsync({
-            storyId: selectedStoryId,
-            data: { generation_id: generationId },
-          });
-          toast({
-            title: 'Added to story',
-            description: `Generation added to "${currentStory?.name || 'story'}"`,
-          });
-        } catch (error) {
-          toast({
-            title: 'Failed to add to story',
-            description:
-              error instanceof Error ? error.message : 'Could not add generation to story',
-            variant: 'destructive',
-          });
-        }
-      }
+      // Auto-play the newly generated audio
+      setTimeout(() => {
+        setAudioWithAutoPlay(
+          apiClient.getAudioUrl(generationId),
+          generationId,
+          currentStory?.items.find((i) => i.generation_id === generationId)?.id ?? null,
+        );
+      }, 100);
     },
   });
+
+  // Sync model size with active backend
+  useEffect(() => {
+    if (serverHealth?.tts_backend) {
+      const isChatterbox = serverHealth.tts_backend.includes('chatterbox');
+      const currentModel = form.getValues('modelSize');
+
+      if (isChatterbox) {
+        // If we are on chatterbox but have a qwen model selected (or None), switch to turbo
+        if (!currentModel || ['1.7B', '0.6B'].includes(currentModel)) {
+          form.setValue('modelSize', 'turbo');
+        }
+      } else {
+        // If we are on qwen but have a chatterbox model selected, switch to 1.7B
+        if (!currentModel || ['turbo', 'standard', 'multilingual'].includes(currentModel)) {
+          form.setValue('modelSize', '1.7B');
+        }
+      }
+    }
+  }, [serverHealth?.tts_backend, form]);
+
 
   // Click away handler to collapse the box
   useEffect(() => {

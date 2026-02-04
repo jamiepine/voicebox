@@ -8,7 +8,8 @@ export function useServerHealth() {
   return useQuery({
     queryKey: ['server', 'health', serverUrl],
     queryFn: () => apiClient.getHealth(),
-    refetchInterval: 30000, // Check every 30 seconds
+    refetchInterval: 5000, // Check every 5 seconds for backend changes
+    refetchOnMount: 'always', // Always refetch on mount
     retry: 1,
   });
 }
