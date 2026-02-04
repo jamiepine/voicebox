@@ -12,7 +12,8 @@ APP_DIR := app
 
 # Python (prefer 3.12, fallback to 3.13, then python3)
 PYTHON := $(shell command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3)
-VENV := $(CURDIR)/$(BACKEND_DIR)/venv
+# Use root .venv if it exists, otherwise use backend/venv
+VENV := $(shell if [ -d ".venv" ]; then echo ".venv"; else echo "$(BACKEND_DIR)/venv"; fi)
 VENV_BIN := $(VENV)/bin
 PIP := $(VENV_BIN)/pip
 PYTHON_VENV := $(VENV_BIN)/python

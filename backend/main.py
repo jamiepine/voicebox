@@ -1265,21 +1265,21 @@ async def get_model_status():
             {
                 "model_name": "chatterbox-turbo",
                 "display_name": "Chatterbox Turbo",
-                "hf_repo_id": "chatterbox-turbo", # Internal ID
+                "hf_repo_id": "ResembleAI/chatterbox-turbo",
                 "model_size": "turbo",
                 "check_loaded": lambda: check_tts_loaded("turbo"),
             },
             {
                 "model_name": "chatterbox-standard",
                 "display_name": "Chatterbox Standard",
-                "hf_repo_id": "chatterbox-standard", # Internal ID
+                "hf_repo_id": "ResembleAI/chatterbox",
                 "model_size": "standard",
                 "check_loaded": lambda: check_tts_loaded("standard"),
             },
             {
                 "model_name": "chatterbox-multilingual",
                 "display_name": "Chatterbox Multilingual",
-                "hf_repo_id": "chatterbox-multilingual", # Internal ID
+                "hf_repo_id": "ResembleAI/chatterbox-multilingual",
                 "model_size": "multilingual",
                 "check_loaded": lambda: check_tts_loaded("multilingual"),
             },

@@ -6,7 +6,65 @@ from pathlib import Path
 
 from . import TTSBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
-from ..utils.audio import normalize_audio, load_audio
+from ..utils.audio import normalize_audio, load_audio, save_audio
+import types
+
+def patch_chatterbox():
+    """
+    Monkey-patch chatterbox to force float32 on MPS.
+    MPS doesn't support float64, and chatterbox sometimes defaults to it.
+    """
+    try:
+        # Patch torch.Tensor.to globally to catch all float64 -> MPS moves
+        original_to = torch.Tensor.to
+        
+        def patched_to(self, *args, **kwargs):
+            device = None
+            dtype = None
+            
+            # Extract device and dtype from args/kwargs
+            if args:
+                if isinstance(args[0], (torch.device, str)):
+                    device = args[0]
+                elif isinstance(args[0], torch.dtype):
+                    dtype = args[0]
+                
+                if len(args) > 1 and isinstance(args[1], torch.dtype):
+                    dtype = args[1]
+            
+            device = kwargs.get('device', device)
+            dtype = kwargs.get('dtype', dtype)
+            
+            # Trigger: moving to MPS or already on MPS with float64
+            is_mps = False
+            if device:
+                is_mps = (isinstance(device, str) and 'mps' in device) or \
+                         (isinstance(device, torch.device) and device.type == 'mps')
+            else:
+                is_mps = (self.device.type == 'mps')
+                
+            if is_mps:
+                if dtype == torch.float64:
+                    kwargs['dtype'] = torch.float32
+                elif dtype is None and self.dtype == torch.float64:
+                    # If no dtype specified but we are float64, force float32
+                    kwargs['dtype'] = torch.float32
+            
+            return original_to(self, *args, **kwargs)
+            
+        torch.Tensor.to = patched_to
+        print("Chatterbox: Global torch.Tensor.to monkey-patch applied.")
+
+    except Exception as e:
+        print(f"Warning: Failed to monkey-patch chatterbox: {e}")
+
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"Warning: Failed to monkey-patch chatterbox: {e}")
+
+# Apply patch immediately
+patch_chatterbox()
 
 class ChatterboxPyTorchBackend:
     """PyTorch-based Chatterbox TTS backend."""
@@ -37,32 +95,46 @@ class ChatterboxPyTorchBackend:
             HuggingFace Hub model ID
         """
         # Chatterbox models are hosted on HuggingFace
-        # Map model size to HF repo name
         hf_model_map = {
-            "turbo": "ResembleAI/resemble-enhance",  # Placeholder - need actual repo
-            "standard": "chatterbox/standard",  # Placeholder - need actual repo
-            "multilingual": "chatterbox/multilingual",  # Placeholder - need actual repo
+            "turbo": "ResembleAI/chatterbox-turbo",
+            "standard": "ResembleAI/chatterbox",
+            "multilingual": "ResembleAI/chatterbox-multilingual",
         }
         
-        # For now, return a non-HF identifier since we need to find the actual repo names
-        # This will skip the download check in main.py and let the model load directly
-        return f"chatterbox-{model_size}"
+        return hf_model_map.get(model_size, "ResembleAI/chatterbox-turbo")
     
     def _is_model_cached(self, model_size: str) -> bool:
         """
-        Check if Chatterbox model is cached.
-        For now, always return True to skip download check since we need to determine
-        the actual HuggingFace repo names used by chatterbox-tts.
+        Check if Chatterbox model is cached in HuggingFace Hub.
         
         Args:
             model_size: Model size to check
             
         Returns:
-            True (skips download check for now)
+            True if model files are found in cache
         """
-        # TODO: Once we know the actual HF repo names, implement proper cache checking
-        # similar to PyTorchTTSBackend._is_model_cached()
-        return True
+        model_path = self._get_model_path(model_size)
+        
+        try:
+            from huggingface_hub import scan_cache_dir
+            cache_info = scan_cache_dir()
+            
+            # Find the repo in cache
+            for repo in cache_info.repos:
+                if repo.repo_id == model_path:
+                    # Check if there are any revisions with files
+                    if repo.revisions:
+                        # For extra safety, check for .incomplete files
+                        for revision in repo.revisions:
+                            for file in revision.files:
+                                if file.file_name.endswith(".incomplete"):
+                                    return False
+                                # Chatterbox uses .safetensors or .bin
+                                if file.file_name.endswith(".safetensors") or file.file_name.endswith(".bin"):
+                                    return True
+            return False
+        except Exception:
+            return False
         
     async def load_model_async(self, model_size: Optional[str] = None):
         """Lazy load the Chatterbox model."""
@@ -143,7 +215,7 @@ class ChatterboxPyTorchBackend:
             wav, sr = load_audio(path)
             combined_audio.append(wav)
             
-        mixed = np.concatenate(combined_audio)
+        mixed = np.concatenate(combined_audio).astype(np.float32)
         combined_text = " ".join(reference_texts)
         
         return mixed, combined_text
@@ -160,41 +232,43 @@ class ChatterboxPyTorchBackend:
         await self.load_model_async(None)
         
         def _generate_sync():
-            # Chatterbox infer method
-            # signature: infer(text, ref_audio, ref_text, ...)
+            # Chatterbox generate method
+            # signatures:
+            # Turbo: (text, repetition_penalty=1.2, min_p=0.0, top_p=0.95, audio_prompt_path=None, exaggeration=0.0, cfg_weight=0.0, temperature=0.8, top_k=1000, norm_loudness=True)
+            # Standard: (text, repetition_penalty=1.2, min_p=0.05, top_p=1.0, audio_prompt_path=None, exaggeration=0.5, cfg_weight=0.5, temperature=0.8)
+            # Multilingual: (text, language_id, audio_prompt_path=None, exaggeration=0.5, cfg_weight=0.5, temperature=0.8, repetition_penalty=2.0, min_p=0.05, top_p=1.0)
             
-            ref_audio = voice_prompt.get("ref_audio")
-            ref_text = voice_prompt.get("ref_text", "")
+            audio_prompt_path = voice_prompt.get("ref_audio")
             
-            # Set params
-            # We can expose these in config too, but for now use defaults or from backend config
-            # But the protocol doesn't pass these. Voicebox likely reads env/config globally or we add to signature?
-            # The current protocol doesn't pass temp/etc in generate() args shown in init.
-            # wait, backend protocol from init:
-            # generate(self, text, voice_prompt, language, seed, instruct)
-            
-            # Chatterbox generation
-            # Note: infer() returns audio
-            
-            # Set seed if supported
             if seed is not None:
                 torch.manual_seed(seed)
                 np.random.seed(seed)
                 
-            audio = self.model.infer(
-                text,
-                ref_audio=ref_audio,
-                ref_text=ref_text,
-                language=language if self.model_type == 'multilingual' else None,
-                # skip_ref_generation=True # if we want to skip ?
-            )
-            
-            # audio is usually numpy array or list? check docs/code.
-            # Usually chatterbox returns list of floats or numpy.
-            # Assuming numpy array (N,) or (1, N)
+            try:
+                if self.model_type == 'multilingual':
+                    # Map language code if needed, but chatterbox-multilingual uses specific IDs
+                    # For now, pass language directly as language_id
+                    audio = self.model.generate(
+                        text,
+                        language_id=language,
+                        audio_prompt_path=audio_prompt_path,
+                    )
+                else:
+                    audio = self.model.generate(
+                        text,
+                        audio_prompt_path=audio_prompt_path,
+                    )
+            except Exception as e:
+                import traceback
+                print("--- Chatterbox Generation Error ---")
+                traceback.print_exc()
+                print("-----------------------------------")
+                raise e
             
             if isinstance(audio, list):
-                audio = np.array(audio)
+                audio = np.array(audio).astype(np.float32)
+            elif isinstance(audio, np.ndarray):
+                audio = audio.astype(np.float32)
             
             return audio, 24000 # Chatterbox default sr is 24k
             

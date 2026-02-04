@@ -23,12 +23,32 @@ import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
+import { useModelStatus } from '@/lib/hooks/useModelStatus';
+import { useEffect } from 'react';
 
 export function GenerationForm() {
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
+  const { data: modelStatus } = useModelStatus();
 
   const { form, handleSubmit, isPending } = useGenerationForm();
+
+  // Update default model if it's not in the list
+  useEffect(() => {
+    if (modelStatus?.models && modelStatus.models.length > 0) {
+      const currentModel = form.getValues('modelSize');
+      const isAvailable = modelStatus.models.some(m => m.model_name.includes(currentModel || ''));
+
+      if (!isAvailable) {
+        // Set to first available model if current selection is invalid for this backend
+        const firstModel = modelStatus.models[0];
+        const modelSize = firstModel.model_name.includes('chatterbox')
+          ? firstModel.model_name.split('-')[1]
+          : firstModel.model_name.split('-')[2];
+        form.setValue('modelSize', modelSize as any);
+      }
+    }
+  }, [modelStatus, form]);
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);
@@ -137,8 +157,21 @@ export function GenerationForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="1.7B">Qwen TTS 1.7B (Higher Quality)</SelectItem>
-                        <SelectItem value="0.6B">Qwen TTS 0.6B (Faster)</SelectItem>
+                        {modelStatus?.models.map((model) => {
+                          const value = model.model_name.includes('chatterbox')
+                            ? model.model_name.split('-')[1]
+                            : model.model_name.split('-')[2];
+                          return (
+                            <SelectItem key={model.model_name} value={value}>
+                              {model.display_name} {!model.downloaded && '(Requires Download)'}
+                            </SelectItem>
+                          );
+                        }) || (
+                            <>
+                              <SelectItem value="1.7B">Qwen TTS 1.7B (Higher Quality)</SelectItem>
+                              <SelectItem value="0.6B">Qwen TTS 0.6B (Faster)</SelectItem>
+                            </>
+                          )}
                       </SelectContent>
                     </Select>
                     <FormDescription>Larger models produce better quality</FormDescription>

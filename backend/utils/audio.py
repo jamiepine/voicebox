@@ -64,20 +64,31 @@ def load_audio(
     return audio, sr
 
 
-def save_audio(
-    audio: np.ndarray,
-    path: str,
-    sample_rate: int = 24000,
-) -> None:
+def save_audio(audio: np.ndarray, file_path: str, sample_rate: int = 24000) -> None:
     """
-    Save audio file.
+    Save audio data to file, ensuring float32 for compatibility.
     
     Args:
-        audio: Audio array
-        path: Output path
+        audio: Audio array or tensor
+        file_path: Output path
         sample_rate: Sample rate
     """
-    sf.write(path, audio, sample_rate)
+    # Convert torch tensor to numpy if needed
+    if hasattr(audio, 'cpu') and hasattr(audio, 'numpy'):
+        audio = audio.cpu().numpy()
+    
+    # Ensure numpy array
+    if not isinstance(audio, np.ndarray):
+        audio = np.array(audio)
+        
+    # Ensure float32
+    audio = audio.astype(np.float32)
+
+    # Flatten if 2D (Chatterbox usually returns [1, N])
+    if len(audio.shape) > 1:
+        audio = audio.flatten()
+    
+    sf.write(file_path, audio, sample_rate)
 
 
 def validate_reference_audio(

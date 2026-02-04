@@ -8,17 +8,26 @@ PLATFORM=$(rustc --print host-tuple 2>/dev/null || echo "unknown")
 
 echo "Building voicebox-server for platform: $PLATFORM"
 
+# Find the virtual environment
+VENV_PATH="$(cd "$(dirname "$0")/.." && pwd)/.venv"
+PYTHON_BIN="$VENV_PATH/bin/python3"
+
+if [ ! -f "$PYTHON_BIN" ]; then
+    echo "Error: Python not found in $VENV_PATH"
+    exit 1
+fi
+
 # Build Python binary
 cd backend
 
 # Check if PyInstaller is installed
-if ! python -c "import PyInstaller" 2>/dev/null; then
+if ! "$PYTHON_BIN" -c "import PyInstaller" 2>/dev/null; then
     echo "Installing PyInstaller..."
-    pip install pyinstaller
+    "$PYTHON_BIN" -m pip install pyinstaller
 fi
 
 # Build binary
-python build_binary.py
+"$PYTHON_BIN" build_binary.py
 
 # Create binaries directory if it doesn't exist
 mkdir -p ../tauri/src-tauri/binaries
