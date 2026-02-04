@@ -28,7 +28,7 @@ symphonia = { version = "0.5", features = ["all"] }
 scopeguard = "1.2.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-screencapturekit = { version = "1", features = ["async"] }
+# screencapturekit = { version = "1", features = ["async"] }
 coreaudio-sys = "0.2"
 objc = "0.2"
 core-foundation-sys = "0.8"

@@ -3431,12 +3431,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
-name = "screencapturekit"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ccf069cb109cf8e01ebdca0d55dfce45dbbf669e8c56ed5c62150b056d3ec9f"
-
-[[package]]
 name = "security-framework"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5051,7 +5045,6 @@ dependencies = [
  "objc",
  "reqwest",
  "scopeguard",
- "screencapturekit",
  "serde",
  "serde_json",
  "symphonia",
