@@ -553,8 +553,6 @@ async def generate_speech(
         
         # Generate audio
         tts_model = tts.get_tts_model()
-        # Load the requested model size if different from current (async to not block)
-        # Load the requested model size if different from current (async to not block)
         model_size = data.model_size or "1.7B"
 
         # Check if model needs to be downloaded first
@@ -565,13 +563,12 @@ async def generate_speech(
         if model_size in ["turbo", "standard", "multilingual"]:
             model_name = f"chatterbox-{model_size}"
 
+        # Only check HuggingFace cache for Qwen models (Chatterbox is installed via pip)
         if model_path.startswith("Qwen/"):
-            # Model not cached - check if it exists remotely or needs download
-            from huggingface_hub import constants as hf_constants
-            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_path.replace("/", "--"))
-            if not repo_cache.exists():
+            # Qwen model - check if it needs download
+            is_cached = tts_model._is_model_cached(model_size)
+            if not is_cached:
                 # Start download in background
-
                 async def download_model_background():
                     try:
                         await tts_model.load_model_async(model_size)
@@ -591,6 +588,7 @@ async def generate_speech(
                     }
                 )
 
+        # Load model and generate
         await tts_model.load_model_async(model_size)
         audio, sample_rate = await tts_model.generate(
             data.text,

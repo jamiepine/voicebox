@@ -25,6 +25,44 @@ class ChatterboxPyTorchBackend:
         
     def is_loaded(self) -> bool:
         return self.model is not None
+    
+    def _get_model_path(self, model_size: str) -> str:
+        """
+        Get the HuggingFace Hub model ID for Chatterbox models.
+        
+        Args:
+            model_size: Model size (turbo, standard, multilingual)
+            
+        Returns:
+            HuggingFace Hub model ID
+        """
+        # Chatterbox models are hosted on HuggingFace
+        # Map model size to HF repo name
+        hf_model_map = {
+            "turbo": "ResembleAI/resemble-enhance",  # Placeholder - need actual repo
+            "standard": "chatterbox/standard",  # Placeholder - need actual repo
+            "multilingual": "chatterbox/multilingual",  # Placeholder - need actual repo
+        }
+        
+        # For now, return a non-HF identifier since we need to find the actual repo names
+        # This will skip the download check in main.py and let the model load directly
+        return f"chatterbox-{model_size}"
+    
+    def _is_model_cached(self, model_size: str) -> bool:
+        """
+        Check if Chatterbox model is cached.
+        For now, always return True to skip download check since we need to determine
+        the actual HuggingFace repo names used by chatterbox-tts.
+        
+        Args:
+            model_size: Model size to check
+            
+        Returns:
+            True (skips download check for now)
+        """
+        # TODO: Once we know the actual HF repo names, implement proper cache checking
+        # similar to PyTorchTTSBackend._is_model_cached()
+        return True
         
     async def load_model_async(self, model_size: Optional[str] = None):
         """Lazy load the Chatterbox model."""
