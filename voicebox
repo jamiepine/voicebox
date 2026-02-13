@@ -1,0 +1,8 @@
+#!/bin/bash
+# voicebox CLI launcher
+# Usage: ./voicebox <command> [args]
+# Activate venv and delegate to cli.py
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+source "$DIR/backend/venv/bin/activate"
+python "$DIR/backend/cli.py" "$@"

@@ -542,8 +542,8 @@ class MLXSTTBackend:
             tracker_context = tracker.patch_download()
             tracker_context.__enter__()
 
-            # Import Whisper model class directly (generic load() doesn't support whisper)
-            from mlx_audio.stt.models.whisper import Model as Whisper
+            # Import the proper load function (from_pretrained is deprecated and doesn't load the processor)
+            from mlx_audio.stt import load as stt_load
 
             print(f"Loading MLX Whisper model {model_size}...")
 
@@ -561,9 +561,10 @@ class MLXSTTBackend:
                     status="downloading",
                 )
 
-            # Load the model using from_pretrained (not generic load())
+            # Load the model using stt.load() which properly initializes the HuggingFace processor
+            # This is required for the tokenizer/generate functionality to work
             try:
-                self.model = Whisper.from_pretrained(model_path)
+                self.model = stt_load(model_path)
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
