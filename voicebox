@@ -12,11 +12,13 @@ Configuration (env vars):
 
 import argparse
 import json
+import mimetypes
 import os
 import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -28,6 +30,11 @@ SERVER_BIN = "/Applications/Voicebox.app/Contents/MacOS/voicebox-server"
 DEFAULT_DATA_DIR = Path.home() / "Library/Application Support/sh.voicebox.app"
 PID_FILE = Path.home() / ".voicebox.pid"
 LOG_FILE = Path.home() / ".voicebox.log"
+CONFIG_DIR = Path.home() / ".config" / "voicebox"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+LEGACY_CONFIG_FILE = Path.home() / ".voicebox.json"
+TRANSCRIPT_TEXT_KEYS = ("text", "transcript", "transcription")
+TRANSCRIPT_MODEL_KEYS = ("model", "transcribe_model", "whisper_model", "model_name")
 
 
 def resolve_base_url(args):
@@ -42,6 +49,54 @@ def resolve_base_url(args):
 
 
 # --- HTTP helpers (stdlib only, no requests) ---
+
+
+def parse_error_detail(raw_text, fallback_limit=200):
+    """Extract useful API error detail from raw response text."""
+    try:
+        return json.loads(raw_text).get("detail", raw_text[:fallback_limit])
+    except Exception:
+        return raw_text[:fallback_limit]
+
+
+def print_request_error(err):
+    """Print a normalized request error message and optional connection hint."""
+    if err.status_code is None:
+        print(f"Error: {err.detail}", file=sys.stderr)
+        print("Start it with: voicebox server", file=sys.stderr)
+    else:
+        print(f"Error: {err.status_code} — {err.detail}", file=sys.stderr)
+
+
+def require_file(path_str, label="file"):
+    """Validate and return a file path."""
+    path = Path(path_str)
+    if not path.exists() or not path.is_file():
+        print(f"Error: {label} not found: {path}", file=sys.stderr)
+        sys.exit(1)
+    return path
+
+
+def resolve_transcribe_model(override_model=None):
+    """Get transcribe model from CLI override or saved config."""
+    return override_model or load_cli_config().get("default_transcribe_model")
+
+
+def extract_transcription_payload(result):
+    """Normalize varied transcription payload shapes to (text, used_model)."""
+    used_model = None
+    if isinstance(result, bytes):
+        return result.decode(errors="replace").strip(), used_model
+    if isinstance(result, dict):
+        for key in TRANSCRIPT_MODEL_KEYS:
+            if result.get(key):
+                used_model = result[key]
+                break
+        for key in TRANSCRIPT_TEXT_KEYS:
+            if result.get(key):
+                return str(result[key]).strip(), used_model
+        return json.dumps(result, ensure_ascii=False, indent=2).strip(), used_model
+    return str(result).strip(), used_model
 
 def api(method, base_url, path, json_body=None, file_data=None, timeout=30):
     """Make an API call. Returns (status, parsed_json_or_bytes)."""
@@ -74,13 +129,10 @@ def api(method, base_url, path, json_body=None, file_data=None, timeout=30):
         return resp.status, data
     except urllib.error.HTTPError as e:
         body = e.read().decode(errors="replace")
-        try:
-            detail = json.loads(body).get("detail", body[:200])
-        except Exception:
-            detail = body[:200]
+        detail = parse_error_detail(body)
         print(f"Error: {e.code} — {detail}", file=sys.stderr)
         sys.exit(1)
-    except urllib.error.URLError as e:
+    except urllib.error.URLError:
         print(f"Error: cannot connect to server at {base_url}", file=sys.stderr)
         print("Start it with: voicebox server", file=sys.stderr)
         sys.exit(1)
@@ -89,6 +141,176 @@ def api(method, base_url, path, json_body=None, file_data=None, timeout=30):
 def api_get_json(base_url, path, timeout=30):
     _, data = api("GET", base_url, path, timeout=timeout)
     return data
+
+
+def load_cli_config():
+    """Load CLI config from ~/.config/voicebox/config.json."""
+    config_path = CONFIG_FILE if CONFIG_FILE.exists() else LEGACY_CONFIG_FILE
+    if not config_path.exists():
+        return {}
+    try:
+        data = json.loads(config_path.read_text())
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_cli_config(config):
+    """Persist CLI config to ~/.config/voicebox/config.json."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n")
+
+
+class ApiRequestError(Exception):
+    """Structured API request error for cases where caller handles retries."""
+
+    def __init__(self, status_code, detail):
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+def api_multipart_or_error(base_url, path, fields, file_field_name, file_path, timeout=120):
+    """POST multipart/form-data and raise ApiRequestError on failure."""
+    url = f"{base_url}{path}"
+    boundary = f"----voiceboxboundary{int(time.time())}"
+    file_name = file_path.name
+    content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+
+    body = bytearray()
+    for key, value in fields.items():
+        if value is None:
+            continue
+        body.extend(
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="{key}"\r\n\r\n'
+                f"{value}\r\n"
+            ).encode()
+        )
+
+    body.extend(
+        (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="{file_field_name}"; filename="{file_name}"\r\n'
+            f"Content-Type: {content_type}\r\n\r\n"
+        ).encode()
+    )
+    body.extend(file_path.read_bytes())
+    body.extend(f"\r\n--{boundary}--\r\n".encode())
+
+    req = urllib.request.Request(url, data=bytes(body), method="POST")
+    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = resp.read()
+            ct = resp.headers.get("Content-Type", "")
+            if "application/json" in ct:
+                return resp.status, json.loads(data)
+            return resp.status, data
+    except urllib.error.HTTPError as e:
+        body_txt = e.read().decode(errors="replace")
+        raise ApiRequestError(e.code, parse_error_detail(body_txt))
+    except urllib.error.URLError:
+        raise ApiRequestError(None, f"cannot connect to server at {base_url}")
+
+
+def normalize_audio_sample(input_path, gain_db=0.0):
+    """Create a normalized mono WAV from input_path. Returns temp Path."""
+    if not shutil.which("ffmpeg"):
+        raise RuntimeError("ffmpeg is not installed; cannot auto-normalize clipping")
+
+    fd, temp_name = tempfile.mkstemp(prefix="voicebox-normalized-", suffix=".wav")
+    os.close(fd)
+    out_path = Path(temp_name)
+
+    # loudnorm + limiter reduces clipping; configurable gain_db handles strict detectors.
+    filter_chain = "loudnorm=I=-16:TP=-2:LRA=11,alimiter=limit=-2dB"
+    if gain_db != 0:
+        sign = "+" if gain_db > 0 else ""
+        filter_chain = f"{filter_chain},volume={sign}{gain_db}dB"
+
+    cmd = [
+        "ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        str(input_path),
+        "-af",
+        filter_chain,
+        "-ac",
+        "1",
+        "-ar",
+        "24000",
+        str(out_path),
+    ]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        out_path.unlink(missing_ok=True)
+        err = (proc.stderr or proc.stdout or "ffmpeg normalization failed").strip()
+        raise RuntimeError(err.splitlines()[0] if err else "ffmpeg normalization failed")
+
+    return out_path
+
+
+def print_model_used(label, used_model):
+    if used_model:
+        print(f"{label}: {used_model}", file=sys.stderr)
+    else:
+        print(f"{label}: (not reported by server)", file=sys.stderr)
+
+
+def upload_profile_sample_with_retry(base_url, profile_id, sample_path, reference_text, timeout):
+    """Upload sample and retry with progressively attenuated normalized audio on clipping."""
+    upload_candidates = [sample_path]
+    normalized_paths = []
+    # Progressively reduce gain for strict clipping validators.
+    for gain_db in (0.0, -6.0, -12.0, -18.0):
+        try:
+            normalized = normalize_audio_sample(sample_path, gain_db=gain_db)
+            normalized_paths.append(normalized)
+            upload_candidates.append(normalized)
+        except RuntimeError:
+            break
+
+    try:
+        for idx, candidate in enumerate(upload_candidates):
+            if idx == 1:
+                print(
+                    "Server reported clipping in sample; trying normalized audio...",
+                    file=sys.stderr,
+                )
+            elif idx > 1:
+                gain_steps = ("-6dB", "-12dB", "-18dB")
+                step_label = gain_steps[min(idx - 2, len(gain_steps) - 1)]
+                print(
+                    f"Clipping still detected; retrying with extra attenuation ({step_label})...",
+                    file=sys.stderr,
+                )
+
+            try:
+                _, sample = api_multipart_or_error(
+                    base_url,
+                    f"/profiles/{profile_id}/samples",
+                    fields={"reference_text": reference_text},
+                    file_field_name="file",
+                    file_path=candidate,
+                    timeout=timeout,
+                )
+                if idx > 0:
+                    print("Retry succeeded with normalized audio.", file=sys.stderr)
+                return sample
+            except ApiRequestError as e:
+                detail_lower = str(e.detail).lower()
+                is_clipping = e.status_code == 400 and "clipping" in detail_lower
+                has_more_attempts = idx < len(upload_candidates) - 1
+                if not (is_clipping and has_more_attempts):
+                    raise
+    finally:
+        for p in normalized_paths:
+            p.unlink(missing_ok=True)
 
 
 # --- Subcommands ---
@@ -178,7 +400,39 @@ def _stop_server():
 
 
 def cmd_voices(args):
-    """List all voice profiles."""
+    """List or delete voice profiles."""
+    if args.delete:
+        profiles = api_get_json(args.url, "/profiles")
+        if not profiles:
+            print("No voice profiles found.")
+            return
+
+        target = args.delete.strip().lower()
+        match = [p for p in profiles if p["id"].lower() == target]
+        if not match:
+            exact_name = [p for p in profiles if p["name"].lower() == target]
+            match = exact_name or [p for p in profiles if target in p["name"].lower()]
+
+        if not match:
+            print(f"Error: no voice matching '{args.delete}'.", file=sys.stderr)
+            sys.exit(1)
+        if len(match) > 1:
+            print(f"Error: '{args.delete}' matches multiple voices. Use exact ID.", file=sys.stderr)
+            for p in match:
+                print(f"  - {p['name']} ({p['id']})", file=sys.stderr)
+            sys.exit(1)
+
+        victim = match[0]
+        if not args.yes:
+            confirm = input(f"Delete voice '{victim['name']}' ({victim['id']})? [y/N]: ").strip().lower()
+            if confirm not in ("y", "yes"):
+                print("Cancelled.")
+                return
+
+        api("DELETE", args.url, f"/profiles/{victim['id']}", timeout=30)
+        print(f"Deleted voice: {victim['name']} ({victim['id']})")
+        return
+
     profiles = api_get_json(args.url, "/profiles")
     if not profiles:
         print("No voice profiles found. Import one with: voicebox import <file.zip>")
@@ -191,10 +445,7 @@ def cmd_voices(args):
 
 def cmd_import(args):
     """Import a voice profile from a ZIP file."""
-    zip_path = Path(args.file)
-    if not zip_path.exists():
-        print(f"Error: file not found: {zip_path}", file=sys.stderr)
-        sys.exit(1)
+    zip_path = require_file(args.file)
 
     print(f"Importing {zip_path.name}...")
     file_bytes = zip_path.read_bytes()
@@ -274,6 +525,149 @@ def cmd_health(args):
         print(f"VRAM used:    {h['vram_used_mb']:.0f} MB")
 
 
+def run_transcription(base_url, input_path, language=None, model=None, timeout=600):
+    """Transcribe media using backend Whisper endpoint."""
+    fields = {}
+    if language:
+        fields["language"] = language
+    if model:
+        # Send both names for backend compatibility while API settles.
+        fields["model"] = model
+        fields["transcribe_model"] = model
+
+    try:
+        _, result = api_multipart_or_error(
+            base_url,
+            "/transcribe",
+            fields=fields,
+            file_field_name="file",
+            file_path=input_path,
+            timeout=timeout,
+        )
+    except ApiRequestError as e:
+        print_request_error(e)
+        sys.exit(1)
+
+    return extract_transcription_payload(result)
+
+
+def cmd_config(args):
+    """Manage CLI defaults."""
+    config = load_cli_config()
+
+    if args.set_transcribe_model:
+        config["default_transcribe_model"] = args.set_transcribe_model
+        save_cli_config(config)
+        print(f"Set default transcribe model: {args.set_transcribe_model}")
+        return
+
+    if args.clear_transcribe_model:
+        if "default_transcribe_model" in config:
+            del config["default_transcribe_model"]
+            save_cli_config(config)
+            print("Cleared default transcribe model.")
+        else:
+            print("Default transcribe model was not set.")
+        return
+
+    model = config.get("default_transcribe_model")
+    if model:
+        print(f"default_transcribe_model={model}")
+    else:
+        print("default_transcribe_model=(not set)")
+
+
+def cmd_transcribe(args):
+    """Transcribe an audio/video file with backend Whisper."""
+    input_path = require_file(args.file)
+
+    model = resolve_transcribe_model(args.model)
+    print(f"Transcribing {input_path.name}...")
+    start = time.time()
+    text, used_model = run_transcription(
+        args.url,
+        input_path,
+        language=args.language,
+        model=model,
+        timeout=args.timeout,
+    )
+    elapsed = time.time() - start
+
+    if args.output:
+        Path(args.output).write_text(text + "\n")
+        print(f"Saved transcript: {args.output}")
+    else:
+        print(text)
+
+    print_model_used("Model used", used_model)
+
+    print(f"Done in {elapsed:.1f}s")
+
+
+def cmd_create_voice(args):
+    """Create a new voice profile from an audio sample."""
+    sample_path = require_file(args.file, label="sample file")
+
+    profile_name = args.name or sample_path.stem
+    language = args.language
+    reference_text = args.reference_text
+
+    transcribe_model = resolve_transcribe_model(args.transcribe_model)
+
+    if not reference_text:
+        print(f"Transcribing sample for reference text: {sample_path.name}...")
+        tx_start = time.time()
+        reference_text, used_model = run_transcription(
+            args.url,
+            sample_path,
+            language=language,
+            model=transcribe_model,
+            timeout=args.timeout,
+        )
+        tx_elapsed = time.time() - tx_start
+        if not reference_text:
+            print("Error: transcription returned empty text. Pass --reference-text manually.", file=sys.stderr)
+            sys.exit(1)
+        if args.print_transcript:
+            print("\n--- Transcript ---")
+            print(reference_text)
+            print("--- End Transcript ---\n")
+        print_model_used("Transcription model used", used_model)
+        print(f"Transcription done in {tx_elapsed:.1f}s")
+
+    print(f"Creating profile '{profile_name}' ({language})...")
+    _, profile = api(
+        "POST",
+        args.url,
+        "/profiles",
+        json_body={
+            "name": profile_name,
+            "description": args.description or "",
+            "language": language,
+        },
+        timeout=60,
+    )
+
+    profile_id = profile["id"]
+    print(f"Profile created: {profile_name} ({profile_id})")
+    print("Uploading sample...")
+    try:
+        sample = upload_profile_sample_with_retry(
+            args.url,
+            profile_id,
+            sample_path=sample_path,
+            reference_text=reference_text,
+            timeout=args.timeout,
+        )
+    except ApiRequestError as e:
+        print_request_error(e)
+        sys.exit(1)
+
+    sample_id = sample["id"] if isinstance(sample, dict) and "id" in sample else "(unknown)"
+    print(f"Sample added: {sample_id}")
+    print(f"Done. Voice ready: {profile_name} ({profile_id})")
+
+
 # --- Profile resolution ---
 
 def resolve_profile(base_url, voice_name):
@@ -333,7 +727,9 @@ def main():
     p_server.add_argument("--stop", action="store_true", help="Stop a detached server")
 
     # voices
-    sub.add_parser("voices", help="List voice profiles")
+    p_voices = sub.add_parser("voices", help="List voice profiles (or delete one)")
+    p_voices.add_argument("--delete", "-d", metavar="VOICE", help="Delete voice by ID or name")
+    p_voices.add_argument("--yes", "-y", action="store_true", help="Skip delete confirmation")
 
     # import
     p_import = sub.add_parser("import", help="Import a voice profile from ZIP")
@@ -353,6 +749,35 @@ def main():
     # health
     sub.add_parser("health", help="Check server status")
 
+    # config
+    p_config = sub.add_parser("config", help="Show or set CLI defaults")
+    g_cfg = p_config.add_mutually_exclusive_group()
+    g_cfg.add_argument("--set-transcribe-model", metavar="MODEL", help="Set default transcribe model")
+    g_cfg.add_argument("--clear-transcribe-model", action="store_true", help="Clear default transcribe model")
+
+    # transcribe
+    p_transcribe = sub.add_parser("transcribe", aliases=["stt"], help="Transcribe an audio/video file")
+    p_transcribe.add_argument("file", help="Path to input media (mp3, wav, m4a, mp4, ...)")
+    p_transcribe.add_argument("--language", "-l", help="Language hint (e.g. en)")
+    p_transcribe.add_argument("--model", "-m", help="Transcription model (overrides CLI default)")
+    p_transcribe.add_argument("--output", "-o", help="Save transcript to file instead of stdout")
+    p_transcribe.add_argument("--timeout", type=int, default=600, help="Request timeout seconds (default: 600)")
+
+    # create voice
+    p_create_voice = sub.add_parser(
+        "create-voice",
+        aliases=["clone", "new-voice"],
+        help="Create a voice profile from a sample (auto-transcribes by default)",
+    )
+    p_create_voice.add_argument("file", help="Path to sample audio/video (mp3, wav, m4a, mp4, ...)")
+    p_create_voice.add_argument("--name", "-n", help="Profile name (default: sample filename stem)")
+    p_create_voice.add_argument("--description", "-d", help="Profile description")
+    p_create_voice.add_argument("--language", "-l", default="en", help="Language code (default: en)")
+    p_create_voice.add_argument("--reference-text", "-t", help="Exact spoken text; skips auto-transcribe when set")
+    p_create_voice.add_argument("--transcribe-model", "-m", help="Model used for auto-transcription")
+    p_create_voice.add_argument("--print-transcript", action="store_true", help="Print auto transcript before creating profile")
+    p_create_voice.add_argument("--timeout", type=int, default=600, help="Request timeout seconds (default: 600)")
+
     args = parser.parse_args()
 
     # Resolve URL: --url flag > VOICEBOX_URL > VOICEBOX_HOST:PORT > default
@@ -371,6 +796,12 @@ def main():
         cmd_generate(args)
     elif args.command == "health":
         cmd_health(args)
+    elif args.command == "config":
+        cmd_config(args)
+    elif args.command in ("transcribe", "stt"):
+        cmd_transcribe(args)
+    elif args.command in ("create-voice", "clone", "new-voice"):
+        cmd_create_voice(args)
     else:
         parser.print_help()
 
