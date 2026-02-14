@@ -75,6 +75,21 @@ class GenerationResponse(BaseModel):
         from_attributes = True
 
 
+class GenerationStartResponse(BaseModel):
+    """Response model for async generation start."""
+    generation_id: str
+    status: str = "generating"
+
+
+class GenerationProgressEvent(BaseModel):
+    """SSE event for generation progress."""
+    generation_id: str
+    progress: float  # 0-100
+    status: str  # "generating", "complete", "failed"
+    duration: Optional[float] = None  # set on complete
+    audio_path: Optional[str] = None  # set on complete
+
+
 class HistoryQuery(BaseModel):
     """Query model for generation history."""
     profile_id: Optional[str] = None

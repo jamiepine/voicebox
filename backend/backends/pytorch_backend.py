@@ -306,6 +306,7 @@ class PyTorchTTSBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        progress_callback: Optional[callable] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio from text using voice prompt.
@@ -316,6 +317,7 @@ class PyTorchTTSBackend:
             language: Language code (en or zh)
             seed: Random seed for reproducibility
             instruct: Natural language instruction for speech delivery control
+            progress_callback: Optional callback(progress_pct: float) where 0.0-100.0
 
         Returns:
             Tuple of (audio_array, sample_rate)
@@ -325,6 +327,9 @@ class PyTorchTTSBackend:
 
         def _generate_sync():
             """Run synchronous generation in thread pool."""
+            if progress_callback:
+                progress_callback(0.0)
+
             # Set seed if provided
             if seed is not None:
                 torch.manual_seed(seed)
@@ -337,6 +342,10 @@ class PyTorchTTSBackend:
                 voice_clone_prompt=voice_prompt,
                 instruct=instruct,
             )
+
+            if progress_callback:
+                progress_callback(100.0)
+
             return wavs[0], sample_rate
 
         # Run blocking inference in thread pool to avoid blocking event loop

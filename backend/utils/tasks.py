@@ -23,6 +23,7 @@ class GenerationTask:
     profile_id: str
     text_preview: str  # First 50 chars of text
     started_at: datetime = field(default_factory=datetime.utcnow)
+    progress: float = 0.0  # 0-100
 
 
 class TaskManager:
@@ -59,6 +60,11 @@ class TaskManager:
             text_preview=text_preview,
         )
     
+    def update_generation_progress(self, task_id: str, progress: float) -> None:
+        """Update generation progress."""
+        if task_id in self._active_generations:
+            self._active_generations[task_id].progress = progress
+
     def complete_generation(self, task_id: str) -> None:
         """Mark a generation as complete."""
         if task_id in self._active_generations:

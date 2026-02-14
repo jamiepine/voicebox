@@ -6,7 +6,7 @@ Handles voice cloning, generation history, and server mode.
 
 from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -520,15 +520,118 @@ async def set_profile_channels(
 # GENERATION ENDPOINTS
 # ============================================
 
-@app.post("/generate", response_model=models.GenerationResponse)
+@app.post("/generate")
 async def generate_speech(
     data: models.GenerationRequest,
+    stream: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Generate speech from text using a voice profile."""
+    """Generate speech from text using a voice profile.
+
+    With stream=False (default): blocks and returns GenerationResponse.
+    With stream=True: returns 202 with generation_id, progress via SSE.
+    """
     task_manager = get_task_manager()
     generation_id = str(uuid.uuid4())
-    
+
+    if stream:
+        # --- Async (streaming) mode ---
+        task_manager.start_generation(
+            task_id=generation_id,
+            profile_id=data.profile_id,
+            text=data.text,
+        )
+
+        progress_manager = get_progress_manager()
+
+        # Initialize progress state so SSE endpoint has data immediately
+        progress_manager.update_progress(
+            model_name=generation_id,
+            current=0,
+            total=100,
+            status="generating",
+        )
+
+        async def run_generation():
+            # Create our own DB session — the request-scoped session from
+            # FastAPI's Depends(get_db) will be closed after the 202 response.
+            bg_db = database.SessionLocal()
+            try:
+                def on_progress(pct):
+                    progress_manager.update_progress(
+                        model_name=generation_id,
+                        current=int(pct),
+                        total=100,
+                        status="generating",
+                    )
+                    task_manager.update_generation_progress(generation_id, pct)
+
+                # Get profile
+                profile = await profiles.get_profile(data.profile_id, bg_db)
+                if not profile:
+                    raise ValueError("Profile not found")
+
+                # Create voice prompt from profile
+                voice_prompt = await profiles.create_voice_prompt_for_profile(
+                    data.profile_id,
+                    bg_db,
+                )
+
+                # Generate audio
+                tts_model = tts.get_tts_model()
+                model_size = data.model_size or "1.7B"
+                await tts_model.load_model_async(model_size)
+
+                audio, sample_rate = await tts_model.generate(
+                    data.text,
+                    voice_prompt,
+                    data.language,
+                    data.seed,
+                    data.instruct,
+                    progress_callback=on_progress,
+                )
+
+                # Calculate duration
+                duration = len(audio) / sample_rate
+
+                # Save audio
+                audio_path = config.get_generations_dir() / f"{generation_id}.wav"
+
+                from .utils.audio import save_audio
+                save_audio(audio, str(audio_path), sample_rate)
+
+                # Create history entry
+                await history.create_generation(
+                    profile_id=data.profile_id,
+                    text=data.text,
+                    language=data.language,
+                    audio_path=str(audio_path),
+                    duration=duration,
+                    seed=data.seed,
+                    db=bg_db,
+                    instruct=data.instruct,
+                )
+
+                # Send completion
+                progress_manager.mark_complete(generation_id)
+                task_manager.complete_generation(generation_id)
+
+            except Exception as e:
+                progress_manager.mark_error(generation_id, str(e))
+                task_manager.complete_generation(generation_id)
+            finally:
+                bg_db.close()
+
+        asyncio.create_task(run_generation())
+        return JSONResponse(
+            status_code=202,
+            content=models.GenerationStartResponse(
+                generation_id=generation_id,
+                status="generating",
+            ).model_dump(),
+        )
+
+    # --- Synchronous (blocking) mode — existing behavior ---
     try:
         # Start tracking generation
         task_manager.start_generation(
@@ -536,18 +639,18 @@ async def generate_speech(
             profile_id=data.profile_id,
             text=data.text,
         )
-        
+
         # Get profile
         profile = await profiles.get_profile(data.profile_id, db)
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
-        
+
         # Create voice prompt from profile
         voice_prompt = await profiles.create_voice_prompt_for_profile(
             data.profile_id,
             db,
         )
-        
+
         # Generate audio
         tts_model = tts.get_tts_model()
         # Load the requested model size if different from current (async to not block)
@@ -611,18 +714,38 @@ async def generate_speech(
             db=db,
             instruct=data.instruct,
         )
-        
+
         # Mark generation as complete
         task_manager.complete_generation(generation_id)
-        
+
         return generation
-        
+
     except ValueError as e:
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/generate/progress/{generation_id}")
+async def generation_progress(generation_id: str):
+    """Stream generation progress via Server-Sent Events."""
+    progress_manager = get_progress_manager()
+
+    async def event_generator():
+        async for event in progress_manager.subscribe(generation_id):
+            yield event
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ============================================

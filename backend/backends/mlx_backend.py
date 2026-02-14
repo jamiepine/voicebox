@@ -298,6 +298,7 @@ class MLXTTSBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        progress_callback: Optional[callable] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio from text using voice prompt.
@@ -308,6 +309,7 @@ class MLXTTSBackend:
             language: Language code (en or zh) - may not be fully supported by MLX
             seed: Random seed for reproducibility
             instruct: Natural language instruction (may not be supported by MLX)
+            progress_callback: Optional callback(progress_pct: float) where 0.0-100.0
 
         Returns:
             Tuple of (audio_array, sample_rate)
@@ -321,18 +323,22 @@ class MLXTTSBackend:
             # MLX generate() returns a generator yielding GenerationResult objects
             audio_chunks = []
             sample_rate = 24000
-            
+
+            # Estimate total chunks for progress reporting
+            estimated_chunks = max(1, len(text) // 2)
+            chunk_count = 0
+
             # Set seed if provided (MLX uses numpy random)
             if seed is not None:
                 import mlx.core as mx
                 np.random.seed(seed)
                 mx.random.seed(seed)
-            
+
             # Extract voice prompt info
             ref_audio_path = voice_prompt.get("ref_audio") or voice_prompt.get("ref_audio_path")
             ref_text = voice_prompt.get("ref_text", "")
             ref_audio = None
-            
+
             # Validate that the audio file exists and load it
             if ref_audio_path and Path(ref_audio_path).exists():
                 try:
@@ -350,7 +356,7 @@ class MLXTTSBackend:
                 print(f"Warning: Audio file not found: {ref_audio_path}")
                 print("This may be due to a cached voice prompt referencing a deleted temp file.")
                 print("Regenerating without voice prompt.")
-            
+
             # Check if model supports voice cloning via generate method
             # MLX API may support ref_audio parameter directly
             try:
@@ -364,16 +370,28 @@ class MLXTTSBackend:
                         for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text):
                             audio_chunks.append(np.array(result.audio))
                             sample_rate = result.sample_rate
+                            chunk_count += 1
+                            if progress_callback:
+                                pct = min(95.0, (chunk_count / estimated_chunks) * 100.0)
+                                progress_callback(pct)
                     else:
                         # Fallback: generate without voice cloning
                         for result in self.model.generate(text):
                             audio_chunks.append(np.array(result.audio))
                             sample_rate = result.sample_rate
+                            chunk_count += 1
+                            if progress_callback:
+                                pct = min(95.0, (chunk_count / estimated_chunks) * 100.0)
+                                progress_callback(pct)
                 else:
                     # No voice prompt, generate normally
                     for result in self.model.generate(text):
                         audio_chunks.append(np.array(result.audio))
                         sample_rate = result.sample_rate
+                        chunk_count += 1
+                        if progress_callback:
+                            pct = min(95.0, (chunk_count / estimated_chunks) * 100.0)
+                            progress_callback(pct)
             except Exception as e:
                 # If voice cloning fails, try without it
                 print(f"Warning: Voice cloning failed, generating without voice prompt: {e}")
@@ -382,14 +400,18 @@ class MLXTTSBackend:
                 for result in self.model.generate(text):
                     audio_chunks.append(np.array(result.audio))
                     sample_rate = result.sample_rate
-            
+                    chunk_count += 1
+                    if progress_callback:
+                        pct = min(95.0, (chunk_count / estimated_chunks) * 100.0)
+                        progress_callback(pct)
+
             # Concatenate all chunks
             if audio_chunks:
                 audio = np.concatenate([np.asarray(chunk, dtype=np.float32) for chunk in audio_chunks])
             else:
                 # Fallback: empty audio
                 audio = np.array([], dtype=np.float32)
-            
+
             return audio, sample_rate
 
         # Run blocking inference in thread pool

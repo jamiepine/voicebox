@@ -161,6 +161,8 @@ def cmd_import(args):
 
 def cmd_generate(args):
     """Generate speech from text."""
+    import json as json_lib
+
     # Resolve text input
     if args.text:
         text = args.text
@@ -192,10 +194,57 @@ def cmd_generate(args):
 
     print(f"Generating with voice '{profile['name']}'...")
     start = time.time()
-    resp = api("post", args.url, "/generate", json=payload, timeout=300)
-    result = resp.json()
+
+    # Use streaming mode — start generation asynchronously
+    resp = api("post", args.url, "/generate?stream=true", json=payload, timeout=10)
+    start_data = resp.json()
+    generation_id = start_data["generation_id"]
+
+    # Stream progress via SSE
+    progress_resp = requests.get(
+        f"{args.url}/generate/progress/{generation_id}",
+        stream=True,
+        timeout=300,
+    )
+
+    final_data = None
+    for line in progress_resp.iter_lines():
+        if not line:
+            continue
+        line = line.decode("utf-8") if isinstance(line, bytes) else line
+        if line.startswith("data: "):
+            data_str = line[6:]
+            data = json_lib.loads(data_str)
+            pct = data.get("progress", 0)
+            status = data.get("status", "")
+
+            # Print progress bar
+            bar_len = 20
+            filled = int(pct / 100 * bar_len)
+            bar = "#" * filled + "-" * (bar_len - filled)
+            print(f"\r[{bar}] {pct:.0f}%", end="", flush=True)
+
+            if status in ("complete", "error"):
+                print()  # newline after progress bar
+                final_data = data
+                break
+
     elapsed = time.time() - start
-    print(f"Done in {elapsed:.1f}s (audio duration: {result['duration']:.1f}s)")
+
+    if final_data and final_data.get("status") == "error":
+        error_msg = final_data.get("error", "Unknown error")
+        print(f"Generation failed: {error_msg}", file=sys.stderr)
+        sys.exit(1)
+
+    # Fetch latest history entry to get the generation result
+    history_resp = api("get", args.url, "/history", params={"limit": 1}, timeout=10)
+    history_data = history_resp.json()
+    if history_data["items"]:
+        result = history_data["items"][0]
+        print(f"Done in {elapsed:.1f}s (audio duration: {result['duration']:.1f}s)")
+    else:
+        print(f"Done in {elapsed:.1f}s")
+        result = {"id": generation_id, "duration": 0}
 
     # Download wav then convert to m4a
     tag = str(int(time.time()))[-5:]

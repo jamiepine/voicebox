@@ -220,9 +220,9 @@ class ProgressManager:
             
             if initial_progress:
                 status = initial_progress.get('status')
-                # Only send initial progress if download is actually in progress
-                # Don't send old 'complete' or 'error' status from previous downloads
-                if status in ('downloading', 'extracting'):
+                # Only send initial progress if task is actually in progress
+                # Don't send old 'complete' or 'error' status from previous tasks
+                if status in ('downloading', 'extracting', 'generating'):
                     logger.info(f"Sending initial progress for {model_name}: {status}")
                     yield f"data: {json.dumps(initial_progress)}\n\n"
                 else:
