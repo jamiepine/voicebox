@@ -279,12 +279,12 @@ class MLXTTSBackend:
         
         for audio_path in audio_paths:
             audio, sr = load_audio(audio_path)
-            audio = normalize_audio(audio)
+            audio = normalize_audio(audio, sample_rate=sr)
             combined_audio.append(audio)
-        
+
         # Concatenate audio
         mixed = np.concatenate(combined_audio)
-        mixed = normalize_audio(mixed)
+        mixed = normalize_audio(mixed, sample_rate=sr)
         
         # Combine texts
         combined_text = " ".join(reference_texts)
