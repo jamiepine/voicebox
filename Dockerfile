@@ -8,13 +8,13 @@
 # Run:
 #   docker compose up -d
 
-ARG CUDA=1
+ARG CUDA=0
 
 # --- Base stage ---
 FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS base-cuda
 FROM ubuntu:22.04 AS base-cpu
 
-# --- Pick base based on CUDA arg ---
+# --- Pick base based on CUDA arg --
 FROM base-cuda AS base-1
 FROM base-cpu AS base-0
 FROM base-${CUDA} AS base
@@ -39,7 +39,7 @@ FROM base AS deps
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt ./requirements.txt
 
 ARG CUDA=1
 RUN python3 -m pip install --no-cache-dir --upgrade pip && \
@@ -56,34 +56,15 @@ FROM deps AS app
 WORKDIR /app
 
 # Copy backend source as a package
-COPY __init__.py /app/backend/__init__.py
-COPY main.py /app/backend/main.py
-COPY server.py /app/backend/server.py
-COPY config.py /app/backend/config.py
-COPY database.py /app/backend/database.py
-COPY models.py /app/backend/models.py
-COPY tts.py /app/backend/tts.py
-COPY transcribe.py /app/backend/transcribe.py
-COPY profiles.py /app/backend/profiles.py
-COPY history.py /app/backend/history.py
-COPY export_import.py /app/backend/export_import.py
-COPY channels.py /app/backend/channels.py
-COPY stories.py /app/backend/stories.py
-COPY cli.py /app/backend/cli.py
-COPY backends/ /app/backend/backends/
-COPY utils/ /app/backend/utils/
-
-# Data volume
-RUN mkdir -p /data
-VOLUME /data
+COPY backend/ /app/backend/
 
 # HuggingFace cache — models download here
-ENV HF_HOME=/data/huggingface
+ENV HF_HOME=/app/data/huggingface
 
 EXPOSE 17493
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+HEALTHCHECK --interval=60s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:17493/health || exit 1
 
 ENTRYPOINT ["python3", "-m", "backend.main"]
-CMD ["--host", "0.0.0.0", "--port", "17493", "--data-dir", "/data"]
+CMD ["--host", "0.0.0.0", "--port", "17493", "--data-dir", "/app/data"]

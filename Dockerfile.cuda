@@ -1,0 +1,46 @@
+# Voicebox TTS Server (CUDA)
+
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04 AS base
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 \
+    python3.11-venv \
+    python3.11-dev \
+    python3-pip \
+    libsndfile1 \
+    sox \
+    libsox-fmt-all \
+    ffmpeg \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+
+FROM base AS deps
+
+WORKDIR /app
+
+COPY backend/requirements.txt ./requirements.txt
+
+RUN python3 -m pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install --no-cache-dir -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
+
+FROM deps AS app
+
+WORKDIR /app
+
+COPY backend/ /app/backend/
+
+ENV HF_HOME=/app/data/huggingface
+
+EXPOSE 17493
+
+HEALTHCHECK --interval=60s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:17493/health || exit 1
+
+ENTRYPOINT ["python3", "-m", "backend.main"]
+CMD ["--host", "0.0.0.0", "--port", "17493", "--data-dir", "/app/data"]
