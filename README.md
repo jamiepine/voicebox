@@ -233,7 +233,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup and contribution guide
 
 ```bash
 # Clone the repo
-git clone https://github.com/voicebox-sh/voicebox.git
+git clone https://github.com/jamiepine/voicebox.git
 cd voicebox
 
 # Setup everything
@@ -247,7 +247,7 @@ make dev
 
 ```bash
 # Clone the repo
-git clone https://github.com/voicebox-sh/voicebox.git
+git clone https://github.com/jamiepine/voicebox.git
 cd voicebox
 
 # Install dependencies
@@ -260,7 +260,7 @@ cd backend && pip install -r requirements.txt && cd ..
 bun run dev
 ```
 
-**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org). 
+**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org). [XCode on macOS](https://developer.apple.com/xcode/).
 
 **Performance:** 
 - **Apple Silicon (M1/M2/M3)**: Uses MLX backend with native Metal acceleration for 4-5x faster inference
