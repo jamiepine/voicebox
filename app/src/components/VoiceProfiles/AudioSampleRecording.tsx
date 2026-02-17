@@ -58,6 +58,7 @@ export function AudioSampleRecording({
   // Request microphone access when component mounts
   useEffect(() => {
     if (!showWaveform) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
     let stream: MediaStream | null = null;
 
