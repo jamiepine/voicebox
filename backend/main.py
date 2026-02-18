@@ -542,12 +542,6 @@ async def generate_speech(
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
         
-        # Create voice prompt from profile
-        voice_prompt = await profiles.create_voice_prompt_for_profile(
-            data.profile_id,
-            db,
-        )
-        
         # Generate audio
         tts_model = tts.get_tts_model()
         # Load the requested model size if different from current (async to not block)
@@ -582,7 +576,16 @@ async def generate_speech(
                     }
                 )
 
+        # Load the requested model BEFORE creating voice prompt,
+        # so create_voice_prompt uses the correct model size
         await tts_model.load_model_async(model_size)
+
+        # Create voice prompt from profile
+        voice_prompt = await profiles.create_voice_prompt_for_profile(
+            data.profile_id,
+            db,
+        )
+
         audio, sample_rate = await tts_model.generate(
             data.text,
             voice_prompt,
