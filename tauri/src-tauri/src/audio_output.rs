@@ -292,7 +292,12 @@ impl AudioOutputState {
         let (samples, sample_rate, channels) = self.decode_wav(&audio_data)?;
         eprintln!("Audio decoded: {} samples, {}Hz, {} channels", samples.len(), sample_rate, channels);
 
-        // Find devices by ID
+        // Find devices by ID.
+        // On macOS, list_output_devices() uses CoreAudio which may include devices
+        // (e.g. HDMI/DisplayPort) that cpal cannot open.  We match by the same
+        // name-derived ID scheme used during enumeration so that any device cpal
+        // *can* see is routed correctly.  CoreAudio-only devices will simply not
+        // match and will produce a clear error rather than silent failure.
         eprintln!("Enumerating output devices...");
         let host = Self::host();
         let devices: Vec<Device> = host
