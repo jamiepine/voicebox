@@ -3,6 +3,7 @@ PyTorch backend implementation for TTS and STT.
 """
 
 import logging
+import os
 from typing import Optional, List, Tuple
 import asyncio
 import torch
@@ -11,7 +12,6 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-import os
 from . import TTSBackend, STTBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 from ..utils.audio import normalize_audio, load_audio

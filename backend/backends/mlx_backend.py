@@ -21,12 +21,14 @@ except Exception:
 logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.ERROR)
 logging.getLogger("transformers.convert_slow_tokenizer").setLevel(logging.ERROR)
 
-logger = logging.getLogger(__name__)
-
+import os
+import threading
 from typing import Optional, List, Tuple
 import asyncio
 import numpy as np
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from . import TTSBackend, STTBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
@@ -35,9 +37,6 @@ from ..utils.progress import get_progress_manager
 from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback, hf_offline_for_cached
 from ..utils.tasks import get_task_manager
 from ..utils.idle_timer import IdleTimer
-
-import os
-import threading
 
 # Idle timeouts (seconds). Disabled in serverless mode — the entire
 # worker shuts down instead of unloading individual models.
