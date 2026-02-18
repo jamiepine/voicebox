@@ -254,10 +254,11 @@ class MLXTTSBackend:
         """Unload the model to free memory."""
         self._idle_timer.cancel()
         if self.model is not None:
+            size = self._current_model_size or "unknown"
             del self.model
             self.model = None
             self._current_model_size = None
-            logger.info("MLX TTS model unloaded")
+            logger.info(f"MLX TTS model unloaded ({size})")
 
     async def create_voice_prompt(
         self,
@@ -682,10 +683,11 @@ class MLXSTTBackend:
         """Unload the model to free memory."""
         self._idle_timer.cancel()
         if self.model is not None:
+            size = self._current_model_size or "unknown"
             del self.model
             self.model = None
             self._current_model_size = None
-            logger.info("MLX Whisper model unloaded")
+            logger.info(f"MLX Whisper model unloaded ({size})")
 
     async def transcribe(
         self,

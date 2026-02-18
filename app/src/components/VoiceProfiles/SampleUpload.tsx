@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { useAudioDevices } from '@/lib/hooks/useAudioDevices';
 import { useAudioPlayer } from '@/lib/hooks/useAudioPlayer';
 import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
 import { useAddSample, useProfile } from '@/lib/hooks/useProfiles';
@@ -66,6 +67,8 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
 
   const selectedFile = form.watch('file');
 
+  const { devices: audioDevices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
+
   const {
     isRecording,
     duration,
@@ -75,6 +78,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
     cancelRecording,
   } = useAudioRecording({
     maxDurationSeconds: 29,
+    deviceId: selectedDeviceId ?? undefined,
     onRecordingComplete: (blob, recordedDuration) => {
       // Convert blob to File object
       const file = new File([blob], `recording-${Date.now()}.webm`, {
@@ -285,6 +289,9 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
                       onPlayPause={handlePlayPause}
                       isPlaying={isPlaying}
                       isTranscribing={transcribe.isPending}
+                      audioDevices={audioDevices}
+                      selectedDeviceId={selectedDeviceId}
+                      onDeviceChange={setSelectedDeviceId}
                     />
                   )}
                 />

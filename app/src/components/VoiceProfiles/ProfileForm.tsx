@@ -31,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { LANGUAGE_CODES, LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
+import { useAudioDevices } from '@/lib/hooks/useAudioDevices';
 import { useAudioPlayer } from '@/lib/hooks/useAudioPlayer';
 import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
 import {
@@ -203,6 +204,8 @@ export function ProfileForm() {
     }
   }, [selectedFile, form]);
 
+  const { devices: audioDevices, selectedDeviceId, setSelectedDeviceId } = useAudioDevices();
+
   const {
     isRecording,
     duration,
@@ -212,6 +215,7 @@ export function ProfileForm() {
     cancelRecording,
   } = useAudioRecording({
     maxDurationSeconds: 29,
+    deviceId: selectedDeviceId ?? undefined,
     onRecordingComplete: (blob, recordedDuration) => {
       const file = new File([blob], `recording-${Date.now()}.webm`, {
         type: blob.type || 'audio/webm',
@@ -752,6 +756,9 @@ export function ProfileForm() {
                                 isPlaying={isPlaying}
                                 isTranscribing={transcribe.isPending || !!whisperDownloading || !whisperReady}
                                 transcribeLabel={transcribeLabel}
+                                audioDevices={audioDevices}
+                                selectedDeviceId={selectedDeviceId}
+                                onDeviceChange={setSelectedDeviceId}
                               />
                             )}
                           />
