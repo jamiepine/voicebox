@@ -2,10 +2,13 @@
 HuggingFace Hub download progress tracking.
 """
 
+import logging
 from typing import Optional, Callable
 from contextlib import contextmanager
 import threading
 import sys
+
+logger = logging.getLogger(__name__)
 
 
 class HFProgressTracker:
@@ -39,7 +42,7 @@ class HFProgressTracker:
                     first_arg = args[0]
                     if isinstance(first_arg, str):
                         desc = first_arg
-                
+
                 filename = ""
                 if desc:
                     # Try to extract filename from description
@@ -48,7 +51,12 @@ class HFProgressTracker:
                         filename = desc.split(":")[0].strip()
                     else:
                         filename = desc.strip()
-                
+
+                # When model is cached, suppress all tqdm output (e.g. "Fetching 12 files")
+                # to keep the console clean on repeat startups.
+                if tracker.filter_non_downloads:
+                    kwargs['disable'] = True
+
                 # Filter out non-standard kwargs that huggingface_hub might pass
                 # These are custom kwargs that tqdm doesn't understand
                 filtered_kwargs = {}
@@ -63,7 +71,7 @@ class HFProgressTracker:
                 for key, value in kwargs.items():
                     if key in tqdm_kwargs:
                         filtered_kwargs[key] = value
-                
+
                 # Try to initialize with filtered kwargs, fall back to all kwargs if that fails
                 try:
                     super().__init__(*args, **filtered_kwargs)
@@ -208,79 +216,54 @@ class HFProgressTracker:
                 self._original_tqdm_auto = tqdm_module.auto.tqdm
                 tqdm_module.auto.tqdm = tracked_tqdm
             
-            # Patch in sys.modules to catch already-imported references
-            # huggingface_hub uses: from tqdm.auto import tqdm as base_tqdm
-            # So we need to patch both 'tqdm' and 'base_tqdm' attributes
+            # NOTE: We intentionally do NOT replace tqdm classes in sys.modules
+            # with TrackedTqdm. That approach causes `super()` errors because
+            # huggingface_hub's tqdm subclass instances aren't TrackedTqdm instances.
+            # Instead, we monkey-patch .update() directly on HF's tqdm class below.
             self._patched_modules = {}
-            tqdm_attr_names = ['tqdm', 'base_tqdm', 'old_tqdm']  # Various names used
-            
             patched_count = 0
-            for module_name in list(sys.modules.keys()):
-                if "huggingface" in module_name or module_name.startswith("tqdm"):
-                    try:
-                        module = sys.modules[module_name]
-                        for attr_name in tqdm_attr_names:
-                            if hasattr(module, attr_name):
-                                attr = getattr(module, attr_name)
-                                # Only patch if it's a tqdm class (not already patched)
-                                is_tqdm_class = (
-                                    attr is self._original_tqdm_class or 
-                                    (self._original_tqdm_auto and attr is self._original_tqdm_auto) or
-                                    (hasattr(attr, "__name__") and attr.__name__ == "tqdm" and 
-                                     hasattr(attr, "update"))  # tqdm classes have update method
-                                )
-                                if is_tqdm_class:
-                                    key = f"{module_name}.{attr_name}"
-                                    self._patched_modules[key] = (module, attr_name, attr)
-                                    setattr(module, attr_name, tracked_tqdm)
-                                    patched_count += 1
-                    except (AttributeError, TypeError):
-                        pass
-            
-            # ALSO monkey-patch the update method on huggingface_hub's tqdm class
-            # This is needed because the class was already defined at import time
+
+            # Monkey-patch the update method on huggingface_hub's tqdm class.
+            # `from huggingface_hub.utils import tqdm` imports the CLASS directly
+            # (not a module), so we patch .update on the class itself.
             self._hf_tqdm_original_update = None
             try:
-                from huggingface_hub.utils import tqdm as hf_tqdm_module
-                if hasattr(hf_tqdm_module, 'tqdm'):
-                    hf_tqdm_class = hf_tqdm_module.tqdm
-                    self._hf_tqdm_original_update = hf_tqdm_class.update
-                    
-                    # Create a wrapper that calls our tracking
-                    tracker = self  # Reference to HFProgressTracker instance
-                    def patched_update(tqdm_self, n=1):
-                        result = tracker._hf_tqdm_original_update(tqdm_self, n)
-                        
-                        # Track this progress
-                        with tracker._lock:
-                            desc = getattr(tqdm_self, 'desc', '') or ''
-                            current = getattr(tqdm_self, 'n', 0)
-                            total = getattr(tqdm_self, 'total', 0) or 0
-                            
-                            # Skip non-byte progress bars
-                            if 'fetching' in desc.lower():
-                                return result
-                            
-                            # Skip until we have a meaningful total (at least 1MB)
-                            # This avoids the "100% at 0MB" issue when small config
-                            # files are counted before the real model files
-                            MIN_TOTAL_BYTES = 1_000_000  # 1MB
-                            if total >= MIN_TOTAL_BYTES:
-                                tracker._total_downloaded = current
-                                tracker._total_size = total
-                                
-                                if tracker.progress_callback:
-                                    tracker.progress_callback(current, total, desc)
-                        
-                        return result
-                    
-                    hf_tqdm_class.update = patched_update
-                    patched_count += 1
-                    print(f"[HFProgressTracker] Monkey-patched huggingface_hub.utils.tqdm.tqdm.update")
-            except (ImportError, AttributeError) as e:
-                print(f"[HFProgressTracker] Could not monkey-patch hf_tqdm: {e}")
-            
-            print(f"[HFProgressTracker] Patched {patched_count} tqdm references")
+                from huggingface_hub.utils import tqdm as hf_tqdm_class
+                self._hf_tqdm_original_update = hf_tqdm_class.update
+
+                # Create a wrapper that calls our tracking
+                tracker = self  # Reference to HFProgressTracker instance
+                def patched_update(tqdm_self, n=1):
+                    result = tracker._hf_tqdm_original_update(tqdm_self, n)
+
+                    # Track this progress
+                    with tracker._lock:
+                        desc = getattr(tqdm_self, 'desc', '') or ''
+                        current = getattr(tqdm_self, 'n', 0)
+                        total = getattr(tqdm_self, 'total', 0) or 0
+
+                        # Skip non-byte progress bars
+                        if 'fetching' in desc.lower():
+                            return result
+
+                        # Skip until we have a meaningful total (at least 1MB)
+                        MIN_TOTAL_BYTES = 1_000_000  # 1MB
+                        if total >= MIN_TOTAL_BYTES:
+                            tracker._total_downloaded = current
+                            tracker._total_size = total
+
+                            if tracker.progress_callback:
+                                tracker.progress_callback(current, total, desc)
+
+                    return result
+
+                hf_tqdm_class.update = patched_update
+                patched_count += 1
+            except (ImportError, AttributeError):
+                pass
+
+            if not self.filter_non_downloads:
+                logger.debug(f"[HFProgressTracker] Patched {patched_count} tqdm references")
             
             yield
             
@@ -309,15 +292,45 @@ class HFProgressTracker:
                     # Restore hf_tqdm's original update method
                     if self._hf_tqdm_original_update:
                         try:
-                            from huggingface_hub.utils import tqdm as hf_tqdm_module
-                            if hasattr(hf_tqdm_module, 'tqdm'):
-                                hf_tqdm_module.tqdm.update = self._hf_tqdm_original_update
+                            from huggingface_hub.utils import tqdm as hf_tqdm_class
+                            hf_tqdm_class.update = self._hf_tqdm_original_update
                         except (ImportError, AttributeError):
                             pass
                         self._hf_tqdm_original_update = None
                     
                 except (ImportError, AttributeError):
                     pass
+
+
+@contextmanager
+def hf_offline_for_cached(is_cached: bool):
+    """Force HF offline mode when model is cached to skip remote validation ('Fetching N files').
+
+    huggingface_hub caches HF_HUB_OFFLINE at import time in constants.py,
+    so setting the env var after import has no effect. We must patch the
+    module-level constant directly.
+    """
+    if not is_cached:
+        yield
+        return
+
+    import os
+    from huggingface_hub import constants as hf_constants
+
+    old_env = os.environ.get("HF_HUB_OFFLINE")
+    old_const = hf_constants.HF_HUB_OFFLINE
+
+    os.environ["HF_HUB_OFFLINE"] = "1"
+    hf_constants.HF_HUB_OFFLINE = True
+
+    try:
+        yield
+    finally:
+        if old_env is None:
+            os.environ.pop("HF_HUB_OFFLINE", None)
+        else:
+            os.environ["HF_HUB_OFFLINE"] = old_env
+        hf_constants.HF_HUB_OFFLINE = old_const
 
 
 def create_hf_progress_callback(model_name: str, progress_manager):

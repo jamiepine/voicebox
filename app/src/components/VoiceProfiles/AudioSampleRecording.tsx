@@ -3,6 +3,8 @@ import { memo, useEffect, useState } from 'react';
 import { Visualizer } from 'react-sound-visualizer';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormItem, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { type AudioInputDevice } from '@/lib/hooks/useAudioDevices';
 import { formatAudioDuration } from '@/lib/utils/audio';
 
 const MemoizedWaveform = memo(function MemoizedWaveform({
@@ -37,7 +39,12 @@ interface AudioSampleRecordingProps {
   onPlayPause: () => void;
   isPlaying: boolean;
   isTranscribing?: boolean;
+  transcribeLabel?: string;
   showWaveform?: boolean;
+  // Device selection
+  audioDevices?: AudioInputDevice[];
+  selectedDeviceId?: string | null;
+  onDeviceChange?: (deviceId: string | null) => void;
 }
 
 export function AudioSampleRecording({
@@ -51,19 +58,33 @@ export function AudioSampleRecording({
   onPlayPause,
   isPlaying,
   isTranscribing = false,
+  transcribeLabel,
   showWaveform = true,
+  audioDevices,
+  selectedDeviceId,
+  onDeviceChange,
 }: AudioSampleRecordingProps) {
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
-  // Request microphone access when component mounts
+  // Request microphone access for waveform preview — re-acquire when selected device changes
   useEffect(() => {
     if (!showWaveform) return;
 
     let stream: MediaStream | null = null;
+    let cancelled = false;
+
+    const audioConstraints: MediaTrackConstraints = {};
+    if (selectedDeviceId) {
+      audioConstraints.deviceId = { exact: selectedDeviceId };
+    }
 
     navigator.mediaDevices
-      .getUserMedia({ audio: true, video: false })
+      .getUserMedia({ audio: audioConstraints, video: false })
       .then((s) => {
+        if (cancelled) {
+          s.getTracks().forEach((t) => t.stop());
+          return;
+        }
         stream = s;
         setAudioStream(s);
       })
@@ -72,18 +93,45 @@ export function AudioSampleRecording({
       });
 
     return () => {
+      cancelled = true;
       if (stream) {
         stream.getTracks().forEach((track) => {
           track.stop();
         });
       }
+      setAudioStream(null);
     };
-  }, [showWaveform]);
+  }, [showWaveform, selectedDeviceId]);
+
+  const showDevicePicker =
+    onDeviceChange && audioDevices && audioDevices.length > 1 && !isRecording && !file;
 
   return (
     <FormItem>
       <FormControl>
         <div className="space-y-4">
+          {showDevicePicker && (
+            <div className="flex items-center gap-2">
+              <Mic className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Select
+                value={selectedDeviceId ?? 'default'}
+                onValueChange={(val) => onDeviceChange(val === 'default' ? null : val)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="System default microphone" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default" className="text-xs">System default</SelectItem>
+                  {audioDevices.map((d) => (
+                    <SelectItem key={d.deviceId} value={d.deviceId} className="text-xs">
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {!isRecording && !file && (
             <div className="relative flex flex-col items-center justify-center gap-4 p-4 border-2 border-dashed rounded-lg min-h-[180px] overflow-hidden">
               {showWaveform && audioStream && (
@@ -150,7 +198,7 @@ export function AudioSampleRecording({
                   className="flex items-center gap-2"
                 >
                   <Mic className="h-4 w-4" />
-                  {isTranscribing ? 'Transcribing...' : 'Transcribe'}
+                  {transcribeLabel ?? (isTranscribing ? 'Transcribing...' : 'Transcribe')}
                 </Button>
                 <Button
                   type="button"

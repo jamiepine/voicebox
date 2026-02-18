@@ -29,7 +29,7 @@ import { useUIStore } from '@/stores/uiStore';
 
 export function VoicesTab() {
   const { data: profiles, isLoading } = useProfiles();
-  const { data: historyData } = useHistory({ limit: 1000 });
+  const { data: historyData } = useHistory({ limit: 100 });
   const queryClient = useQueryClient();
   const setDialogOpen = useUIStore((state) => state.setProfileDialogOpen);
   const setEditingProfileId = useUIStore((state) => state.setEditingProfileId);

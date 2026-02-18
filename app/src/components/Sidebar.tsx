@@ -1,7 +1,8 @@
-import { Link, useMatchRoute } from '@tanstack/react-router';
+import { Link, useRouterState } from '@tanstack/react-router';
 import { Box, BookOpen, Loader2, Mic, Server, Speaker, Volume2 } from 'lucide-react';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
 import { cn } from '@/lib/utils/cn';
+import { usePlatform } from '@/platform/PlatformContext';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
 
@@ -9,20 +10,23 @@ interface SidebarProps {
   isMacOS?: boolean;
 }
 
-const tabs = [
-  { id: 'main', path: '/', icon: Volume2, label: 'Generate' },
-  { id: 'stories', path: '/stories', icon: BookOpen, label: 'Stories' },
-  { id: 'voices', path: '/voices', icon: Mic, label: 'Voices' },
-  { id: 'audio', path: '/audio', icon: Speaker, label: 'Audio' },
-  { id: 'models', path: '/models', icon: Box, label: 'Models' },
-  { id: 'server', path: '/server', icon: Server, label: 'Server' },
+const allTabs = [
+  { id: 'main', path: '/', icon: Volume2, label: 'Generate', tauriOnly: false },
+  { id: 'stories', path: '/stories', icon: BookOpen, label: 'Stories', tauriOnly: false },
+  { id: 'voices', path: '/voices', icon: Mic, label: 'Voices', tauriOnly: false },
+  { id: 'audio', path: '/audio', icon: Speaker, label: 'Audio', tauriOnly: true },
+  { id: 'models', path: '/models', icon: Box, label: 'Models', tauriOnly: false },
+  { id: 'server', path: '/server', icon: Server, label: 'Server', tauriOnly: false },
 ];
 
 export function Sidebar({ isMacOS }: SidebarProps) {
+  const { metadata } = usePlatform();
   const isGenerating = useGenerationStore((state) => state.isGenerating);
   const audioUrl = usePlayerStore((state) => state.audioUrl);
   const isPlayerVisible = !!audioUrl;
-  const matchRoute = useMatchRoute();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  const tabs = allTabs.filter((tab) => !tab.tauriOnly || metadata.isTauri);
 
   return (
     <div
@@ -41,10 +45,9 @@ export function Sidebar({ isMacOS }: SidebarProps) {
         {tabs.map((tab) => {
           const Icon = tab.icon;
           // For index route, use exact match; for others, use default matching
-          const isActive =
-            tab.path === '/'
-              ? matchRoute({ to: '/', exact: true })
-              : matchRoute({ to: tab.path });
+          const isActive = tab.path === '/'
+            ? pathname === '/'
+            : pathname.startsWith(tab.path);
 
           return (
             <Link

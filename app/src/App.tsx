@@ -82,7 +82,6 @@ function App() {
       console.log('Dev mode: Skipping auto-start of server (run it separately)');
       setServerReady(true); // Mark as ready so UI doesn't show loading screen
       // Mark that server was not started by app (so we don't try to stop it on close)
-      // @ts-expect-error - adding property to window
       window.__voiceboxServerStartedByApp = false;
       return;
     }
@@ -93,25 +92,48 @@ function App() {
     }
 
     serverStartingRef.current = true;
-    console.log('Production mode: Starting bundled server...');
 
-    platform.lifecycle
-      .startServer(false)
-      .then((serverUrl) => {
-        console.log('Server is ready at:', serverUrl);
-        // Update the server URL in the store with the dynamically assigned port
-        useServerStore.getState().setServerUrl(serverUrl);
-        setServerReady(true);
-        // Mark that we started the server (so we know to stop it on close)
-        // @ts-expect-error - adding property to window
-        window.__voiceboxServerStartedByApp = true;
-      })
-      .catch((error) => {
-        console.error('Failed to auto-start server:', error);
-        serverStartingRef.current = false;
-        // @ts-expect-error - adding property to window
-        window.__voiceboxServerStartedByApp = false;
-      });
+    const SERVER_URL = 'http://127.0.0.1:17493';
+
+    // Check if a server is already running before trying to start one.
+    // This handles the case where a dev server (or a previous instance) is
+    // already listening — we can skip the sidecar startup entirely.
+    const tryExistingServer = async (): Promise<boolean> => {
+      try {
+        const res = await fetch(`${SERVER_URL}/health`, { signal: AbortSignal.timeout(1500) });
+        if (res.ok) {
+          console.log('Production mode: Found server already running, reusing it.');
+          useServerStore.getState().setServerUrl(SERVER_URL);
+          setServerReady(true);
+          window.__voiceboxServerStartedByApp = false;
+          return true;
+        }
+      } catch {
+        // Not running — fall through to sidecar startup
+      }
+      return false;
+    };
+
+    tryExistingServer().then((alreadyRunning) => {
+      if (alreadyRunning) return;
+
+      console.log('Production mode: Starting bundled server...');
+      platform.lifecycle
+        .startServer(false)
+        .then((serverUrl) => {
+          console.log('Server is ready at:', serverUrl);
+          // Update the server URL in the store with the dynamically assigned port
+          useServerStore.getState().setServerUrl(serverUrl);
+          setServerReady(true);
+          // Mark that we started the server (so we know to stop it on close)
+          window.__voiceboxServerStartedByApp = true;
+        })
+        .catch((error) => {
+          console.error('Failed to auto-start server:', error);
+          serverStartingRef.current = false;
+          window.__voiceboxServerStartedByApp = false;
+        });
+    });
 
     // Cleanup: stop server on actual unmount (not StrictMode remount)
     // Note: Window close is handled separately in Tauri Rust code

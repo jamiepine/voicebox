@@ -34,6 +34,9 @@ export interface GenerationRequest {
   language: LanguageCode;
   seed?: number;
   model_size?: '1.7B' | '0.6B';
+  instruct?: string;
+  request_user_id?: string;
+  request_user_first_name?: string;
 }
 
 export interface GenerationResponse {
@@ -43,8 +46,38 @@ export interface GenerationResponse {
   language: string;
   audio_path: string;
   duration: number;
+  generation_time_seconds?: number;
   seed?: number;
+  instruct?: string;
+  model_size?: string;
+  backend_type?: string;
+  request_user_id?: string;
+  request_user_first_name?: string;
+  request_ip?: string;
   created_at: string;
+}
+
+export interface GenerationJobResponse {
+  id: string;
+  profile_id: string;
+  profile_name: string;
+  text: string;
+  language: string;
+  model_size?: string;
+  backend_type?: string;
+  request_user_id?: string;
+  request_user_first_name?: string;
+  request_ip?: string;
+  status: 'queued' | 'generating' | 'cancelling' | 'complete' | 'cancelled' | 'error' | 'timeout';
+  progress: number;
+  generation_id?: string;
+  audio_path?: string;
+  duration?: number;
+  generation_time_seconds?: number;
+  instruct?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
 }
 
 export interface HistoryQuery {
@@ -56,6 +89,7 @@ export interface HistoryQuery {
 
 export interface HistoryResponse extends GenerationResponse {
   profile_name: string;
+  job_id?: string;
 }
 
 export interface HistoryListResponse {
@@ -78,7 +112,9 @@ export interface HealthResponse {
   model_downloaded?: boolean;
   model_size?: string;
   gpu_available: boolean;
+  gpu_type?: string;
   vram_used_mb?: number;
+  backend_type?: string;
 }
 
 export interface ModelProgress {
@@ -87,7 +123,7 @@ export interface ModelProgress {
   total: number;
   progress: number;
   filename?: string;
-  status: 'downloading' | 'extracting' | 'complete' | 'error';
+  status: 'downloading' | 'extracting' | 'loading' | 'complete' | 'error';
   timestamp: string;
   error?: string;
 }

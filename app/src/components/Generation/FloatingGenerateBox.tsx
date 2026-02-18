@@ -34,7 +34,7 @@ export function FloatingGenerateBox({
   const setSelectedProfileId = useUIStore((state) => state.setSelectedProfileId);
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
   const { data: profiles } = useProfiles();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   const [isInstructMode, setIsInstructMode] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -49,9 +49,9 @@ export function FloatingGenerateBox({
   // Calculate if track editor is visible (on stories route with items)
   const hasTrackEditor = isStoriesRoute && currentStory && currentStory.items.length > 0;
 
-  const { form, handleSubmit, isPending } = useGenerationForm({
+  const { form, handleSubmit, isPending, isQueueLimitReached } = useGenerationForm({
     onSuccess: async (generationId) => {
-      setIsExpanded(false);
+      setIsInstructMode(false);
       // If on stories route and a story is selected, add generation to story
       if (isStoriesRoute && selectedStoryId && generationId) {
         try {
@@ -75,36 +75,6 @@ export function FloatingGenerateBox({
     },
   });
 
-  // Click away handler to collapse the box
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      const target = event.target as HTMLElement;
-
-      // Don't collapse if clicking inside the container
-      if (containerRef.current?.contains(target)) {
-        return;
-      }
-
-      // Don't collapse if clicking on a Select dropdown (which renders in a portal)
-      if (
-        target.closest('[role="listbox"]') ||
-        target.closest('[data-radix-popper-content-wrapper]')
-      ) {
-        return;
-      }
-
-      setIsExpanded(false);
-    }
-
-    if (isExpanded) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isExpanded]);
-
   // Set first voice as default if none selected
   useEffect(() => {
     if (!selectedProfileId && profiles && profiles.length > 0) {
@@ -116,10 +86,10 @@ export function FloatingGenerateBox({
   useEffect(() => {
     if (!isExpanded) {
       // Reset textarea height after collapse animation completes
-      const timeoutId = setTimeout(() => {
-        const textarea = textareaRef.current;
-        if (textarea) {
-          textarea.style.height = '32px';
+        const timeoutId = setTimeout(() => {
+          const textarea = textareaRef.current;
+          if (textarea) {
+          textarea.style.height = '37px';
           textarea.style.overflowY = 'hidden';
         }
       }, 200); // Wait for animation to complete
@@ -132,7 +102,7 @@ export function FloatingGenerateBox({
     const adjustHeight = () => {
       textarea.style.height = 'auto';
       const scrollHeight = textarea.scrollHeight;
-      const minHeight = 100; // Expanded minimum
+      const minHeight = 115; // Expanded minimum (+15%)
       const maxHeight = 300; // Max height in pixels
       const targetHeight = Math.max(minHeight, Math.min(scrollHeight, maxHeight));
       textarea.style.height = `${targetHeight}px`;
@@ -207,7 +177,7 @@ export function FloatingGenerateBox({
                         <FormControl>
                           <motion.div
                             animate={{
-                              height: isExpanded ? 'auto' : '32px',
+                              height: isExpanded ? 'auto' : '37px',
                             }}
                             transition={{ duration: 0.15, ease: 'easeOut' }}
                             style={{ overflow: 'hidden' }}
@@ -233,10 +203,10 @@ export function FloatingGenerateBox({
                               }
                               className="resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm placeholder:text-muted-foreground/60 w-full"
                               style={{
-                                minHeight: isExpanded ? '100px' : '32px',
+                                minHeight: isExpanded ? '115px' : '37px',
                                 maxHeight: '300px',
                               }}
-                              disabled={!selectedProfileId}
+                              disabled={!selectedProfileId || isQueueLimitReached}
                               onClick={() => setIsExpanded(true)}
                               onFocus={() => setIsExpanded(true)}
                             />
@@ -257,7 +227,7 @@ export function FloatingGenerateBox({
                         <FormControl>
                           <motion.div
                             animate={{
-                              height: isExpanded ? 'auto' : '32px',
+                              height: isExpanded ? 'auto' : '37px',
                             }}
                             transition={{ duration: 0.15, ease: 'easeOut' }}
                             style={{ overflow: 'hidden' }}
@@ -277,10 +247,10 @@ export function FloatingGenerateBox({
                               placeholder="e.g. very happy and excited"
                               className="resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm placeholder:text-muted-foreground/60 w-full"
                               style={{
-                                minHeight: isExpanded ? '100px' : '32px',
+                                minHeight: isExpanded ? '115px' : '37px',
                                 maxHeight: '300px',
                               }}
-                              disabled={!selectedProfileId}
+                              disabled={!selectedProfileId || isQueueLimitReached}
                               onClick={() => setIsExpanded(true)}
                               onFocus={() => setIsExpanded(true)}
                             />
@@ -297,7 +267,7 @@ export function FloatingGenerateBox({
                 <div className="group relative">
                   <Button
                     type="submit"
-                    disabled={isPending || !selectedProfileId}
+                    disabled={isPending || !selectedProfileId || isQueueLimitReached}
                     className="h-10 w-10 rounded-full bg-accent hover:bg-accent/90 hover:scale-105 text-accent-foreground shadow-lg hover:shadow-accent/50 transition-all duration-200"
                     size="icon"
                   >
@@ -310,6 +280,8 @@ export function FloatingGenerateBox({
                   <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                     {isPending
                       ? 'Generating...'
+                      : isQueueLimitReached
+                        ? 'Queue full (3 max)'
                       : !selectedProfileId
                         ? 'Select a voice profile first'
                         : 'Generate speech'}
@@ -350,6 +322,16 @@ export function FloatingGenerateBox({
             </div>
 
             <AnimatePresence>
+              {isQueueLimitReached && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="mt-2 px-2 text-xs text-amber-500"
+                >
+                  Queue full: 3 active jobs max for this user.
+                </motion.div>
+              )}
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}

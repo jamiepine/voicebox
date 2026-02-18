@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type { HistoryQuery } from '@/lib/api/types';
 import { usePlatform } from '@/platform/PlatformContext';
+import { useGenerationStore } from '@/stores/generationStore';
 
 export function useHistory(query?: HistoryQuery) {
   return useQuery({
     queryKey: ['history', query],
     queryFn: () => apiClient.listHistory(query),
+    refetchInterval: 10_000,
   });
 }
 
@@ -20,11 +22,18 @@ export function useGenerationDetail(generationId: string) {
 
 export function useDeleteGeneration() {
   const queryClient = useQueryClient();
+  const removeJob = useGenerationStore((state) => state.removeJob);
 
   return useMutation({
     mutationFn: (generationId: string) => apiClient.deleteGeneration(generationId),
-    onSuccess: () => {
+    onSuccess: (_, generationId) => {
+      // Invalidate all history and jobs queries to immediately remove deleted item from UI
       queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['home-jobs'] });
+      
+      // Remove from pending store if it's an active/queued job
+      // Job IDs and generation IDs are the same for pending jobs
+      removeJob(generationId);
     },
   });
 }

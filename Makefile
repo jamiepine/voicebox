@@ -41,19 +41,29 @@ setup: setup-js setup-python ## Full project setup (all dependencies)
 	@echo -e "  Run $(YELLOW)make dev$(NC) to start development servers"
 
 setup-js: ## Install JavaScript dependencies (bun)
+	@command -v bun >/dev/null 2>&1 || { \
+		echo -e "$(YELLOW)bun not found — installing...$(NC)"; \
+		curl -fsSL https://bun.sh/install | bash; \
+	}
 	@echo -e "$(BLUE)Installing JavaScript dependencies...$(NC)"
 	bun install
 
 setup-python: $(VENV)/bin/activate ## Set up Python virtual environment and dependencies
 	@echo -e "$(BLUE)Installing Python dependencies...$(NC)"
 	$(PIP) install --upgrade pip
-	$(PIP) install -r $(BACKEND_DIR)/requirements.txt
 	@if [ "$$(uname -m)" = "arm64" ] && [ "$$(uname)" = "Darwin" ]; then \
-		echo -e "$(BLUE)Detected Apple Silicon - installing MLX dependencies...$(NC)"; \
+		echo -e "$(BLUE)Detected Apple Silicon - using MLX-compatible dependency resolution...$(NC)"; \
 		$(PIP) install -r $(BACKEND_DIR)/requirements-mlx.txt; \
+		grep -v -E "^transformers" $(BACKEND_DIR)/requirements.txt > /tmp/voicebox-requirements-filtered.txt; \
+		$(PIP) install -r /tmp/voicebox-requirements-filtered.txt; \
+		rm /tmp/voicebox-requirements-filtered.txt; \
+		$(PIP) install --no-deps git+https://github.com/QwenLM/Qwen3-TTS.git; \
 		echo -e "$(GREEN)✓ MLX backend enabled (native Metal acceleration)$(NC)"; \
+		echo -e "$(YELLOW)Note: Using transformers 5.0.0rc3 (required by MLX)$(NC)"; \
+	else \
+		$(PIP) install -r $(BACKEND_DIR)/requirements.txt; \
+		$(PIP) install git+https://github.com/QwenLM/Qwen3-TTS.git; \
 	fi
-	$(PIP) install git+https://github.com/QwenLM/Qwen3-TTS.git
 	@echo -e "$(GREEN)✓ Python environment ready$(NC)"
 
 $(VENV)/bin/activate:
@@ -72,7 +82,7 @@ setup-rust: ## Install Rust toolchain (if not present)
 # DEVELOPMENT
 # =============================================================================
 
-.PHONY: dev dev-backend dev-frontend dev-web kill-dev
+.PHONY: dev dev-backend dev-backend-watch dev-frontend dev-web kill-dev
 
 dev: ## Start backend + desktop app (parallel)
 	@echo -e "$(BLUE)Starting development servers...$(NC)"
@@ -82,9 +92,11 @@ dev: ## Start backend + desktop app (parallel)
 		sleep 2 && $(MAKE) dev-frontend & \
 		wait
 
-dev-backend: ## Start FastAPI backend server
+dev-backend: dev-backend-watch ## Start FastAPI backend server (venv-verified, auto-reload)
+
+dev-backend-watch: ## Start backend with venv verification + Python file watching
 	@echo -e "$(BLUE)Starting backend server on http://localhost:17493$(NC)"
-	$(VENV_BIN)/uvicorn backend.main:app --reload --port 17493
+	./scripts/dev-backend-watch.sh
 
 dev-frontend: ## Start Tauri desktop app
 	@echo -e "$(BLUE)Starting Tauri desktop app...$(NC)"

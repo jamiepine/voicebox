@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Pre-commit hook: lint staged files
+# Install: git config core.hooksPath .githooks
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+
+if [[ -z "$STAGED" ]]; then
+    exit 0
+fi
+
+FAILED=0
+
+# ── Python (ruff) ─────────────────────────────────────────────────────────────
+PY_FILES=$(echo "$STAGED" | grep '\.py$' || true)
+if [[ -n "$PY_FILES" ]]; then
+    RUFF="$REPO_ROOT/backend/venv/bin/ruff"
+    if [[ -x "$RUFF" ]]; then
+        echo "→ ruff: checking Python files..."
+        if ! echo "$PY_FILES" | xargs "$RUFF" check --quiet; then
+            echo "  ruff found issues. Run: backend/venv/bin/ruff check --fix <file>"
+            FAILED=1
+        fi
+    else
+        echo "  (ruff not found in backend/venv — skipping Python lint)"
+    fi
+fi
+
+# ── JS/TS (biome) ─────────────────────────────────────────────────────────────
+JS_FILES=$(echo "$STAGED" | grep -E '\.(js|jsx|ts|tsx|json)$' | grep -v 'node_modules' || true)
+if [[ -n "$JS_FILES" ]]; then
+    BIOME=$(command -v biome 2>/dev/null \
+        || ls "$REPO_ROOT"/node_modules/.bin/biome 2>/dev/null \
+        || ls "$REPO_ROOT"/app/node_modules/.bin/biome 2>/dev/null \
+        || true)
+    if [[ -x "$BIOME" ]]; then
+        echo "→ biome: checking JS/TS files..."
+        if ! echo "$JS_FILES" | xargs "$BIOME" check --no-errors-on-unmatched; then
+            echo "  biome found issues. Run: biome check --write <file>"
+            FAILED=1
+        fi
+    else
+        echo "  (biome not found — skipping JS/TS lint)"
+    fi
+fi
+
+exit $FAILED

@@ -14,6 +14,7 @@ interface AudioSampleSystemProps {
   onPlayPause: () => void;
   isPlaying: boolean;
   isTranscribing?: boolean;
+  transcribeLabel?: string;
 }
 
 export function AudioSampleSystem({
@@ -27,6 +28,7 @@ export function AudioSampleSystem({
   onPlayPause,
   isPlaying,
   isTranscribing = false,
+  transcribeLabel,
 }: AudioSampleSystemProps) {
   return (
     <FormItem>
@@ -88,7 +90,7 @@ export function AudioSampleSystem({
                   className="flex items-center gap-2"
                 >
                   <Mic className="h-4 w-4" />
-                  {isTranscribing ? 'Transcribing...' : 'Transcribe'}
+                  {transcribeLabel ?? (isTranscribing ? 'Transcribing...' : 'Transcribe')}
                 </Button>
                 <Button
                   type="button"

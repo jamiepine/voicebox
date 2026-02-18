@@ -5,6 +5,10 @@ This module provides an entry point that works with PyInstaller by using
 absolute imports instead of relative imports.
 """
 
+import multiprocessing
+multiprocessing.freeze_support()
+
+import os
 import sys
 import logging
 
@@ -64,7 +68,9 @@ if __name__ == "__main__":
             default=None,
             help="Data directory for database, profiles, and generated audio",
         )
-        args = parser.parse_args()
+        # Use parse_known_args to tolerate extra args from multiprocessing
+        # resource tracker (-B -S -I -c ...) on PyInstaller bundles
+        args, _unknown = parser.parse_known_args()
         logger.info(f"Parsed arguments: host={args.host}, port={args.port}, data_dir={args.data_dir}")
 
         # Set data directory if provided
@@ -77,12 +83,13 @@ if __name__ == "__main__":
         database.init_db()
         logger.info("Database initialized successfully")
 
-        logger.info(f"Starting uvicorn server on {args.host}:{args.port}...")
+        _log_level = os.environ.get("LOG_LEVEL", "info").lower()
+        logger.info(f"Starting uvicorn server on {args.host}:{args.port} (log_level={_log_level})...")
         uvicorn.run(
             app,
             host=args.host,
             port=args.port,
-            log_level="info",
+            log_level=_log_level,
         )
     except Exception as e:
         logger.error(f"Server startup failed: {e}", exc_info=True)

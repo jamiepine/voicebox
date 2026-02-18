@@ -9,7 +9,7 @@ from typing import Literal
 def is_apple_silicon() -> bool:
     """
     Check if running on Apple Silicon (arm64 macOS).
-    
+
     Returns:
         True if on Apple Silicon, False otherwise
     """

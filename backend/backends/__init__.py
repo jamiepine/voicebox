@@ -53,10 +53,19 @@ class TTSBackend(Protocol):
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        progress_callback: Optional[callable] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio from text.
-        
+
+        Args:
+            text: Text to synthesize
+            voice_prompt: Voice prompt dictionary
+            language: Language code
+            seed: Random seed for reproducibility
+            instruct: Natural language instruction for speech delivery
+            progress_callback: Optional callback(progress_pct: float) where 0.0-100.0
+
         Returns:
             Tuple of (audio_array, sample_rate)
         """

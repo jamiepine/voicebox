@@ -5,11 +5,13 @@ import { convertToWav } from '@/lib/utils/audio';
 interface UseAudioRecordingOptions {
   maxDurationSeconds?: number;
   onRecordingComplete?: (blob: Blob, duration?: number) => void;
+  deviceId?: string;
 }
 
 export function useAudioRecording({
   maxDurationSeconds = 29,
   onRecordingComplete,
+  deviceId,
 }: UseAudioRecordingOptions = {}) {
   const platform = usePlatform();
   const [isRecording, setIsRecording] = useState(false);
@@ -56,14 +58,16 @@ export function useAudioRecording({
         }
       }
 
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      // Request microphone access — use specific deviceId if provided
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+      if (deviceId) {
+        audioConstraints.deviceId = { exact: deviceId };
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
 
       streamRef.current = stream;
 

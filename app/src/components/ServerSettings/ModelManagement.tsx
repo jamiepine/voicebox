@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Loader2, Trash2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { Download, Loader2, Trash2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,47 +16,37 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
-import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 
 export function ModelManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
-  const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
 
   const { data: modelStatus, isLoading } = useQuery({
     queryKey: ['modelStatus'],
-    queryFn: async () => {
-      console.log('[Query] Fetching model status');
-      const result = await apiClient.getModelStatus();
-      console.log('[Query] Model status fetched:', result);
-      return result;
-    },
-    refetchInterval: 5000, // Refresh every 5 seconds
+    queryFn: () => apiClient.getModelStatus(),
+    refetchInterval: 5000,
   });
 
-  // Callbacks for download completion
-  const handleDownloadComplete = useCallback(() => {
-    console.log('[ModelManagement] Download complete, clearing state');
+  // Clear local downloading state when server reports the model is no longer downloading
+  useEffect(() => {
+    if (downloadingModel && modelStatus) {
+      const model = modelStatus.models.find((m) => m.model_name === downloadingModel);
+      if (model && !model.downloading) {
+        setDownloadingModel(null);
+      }
+    }
+  }, [downloadingModel, modelStatus]);
+
+  const handleCancel = async (modelName: string) => {
+    try {
+      await apiClient.cancelModelDownload(modelName);
+    } catch {
+      // Ignore errors — the download may have already finished
+    }
     setDownloadingModel(null);
-    setDownloadingDisplayName(null);
     queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
-  }, [queryClient]);
-
-  const handleDownloadError = useCallback(() => {
-    console.log('[ModelManagement] Download error, clearing state');
-    setDownloadingModel(null);
-    setDownloadingDisplayName(null);
-  }, []);
-
-  // Use progress toast hook for the downloading model
-  useModelDownloadToast({
-    modelName: downloadingModel || '',
-    displayName: downloadingDisplayName || '',
-    enabled: !!downloadingModel && !!downloadingDisplayName,
-    onComplete: handleDownloadComplete,
-    onError: handleDownloadError,
-  });
+  };
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [modelToDelete, setModelToDelete] = useState<{
@@ -66,31 +56,12 @@ export function ModelManagement() {
   } | null>(null);
 
   const handleDownload = async (modelName: string) => {
-    console.log('[Download] Button clicked for:', modelName, 'at', new Date().toISOString());
-    
-    // Find display name
-    const model = modelStatus?.models.find((m) => m.model_name === modelName);
-    const displayName = model?.display_name || modelName;
-    
     try {
-      // IMPORTANT: Call the API FIRST before setting state
-      // Setting state enables the SSE EventSource in useModelDownloadToast,
-      // which can block/delay the download fetch due to HTTP/1.1 connection limits
-      console.log('[Download] Calling download API for:', modelName);
-      const result = await apiClient.triggerModelDownload(modelName);
-      console.log('[Download] Download API responded:', result);
-      
-      // NOW set state to enable SSE tracking (after download has started on backend)
+      await apiClient.triggerModelDownload(modelName);
       setDownloadingModel(modelName);
-      setDownloadingDisplayName(displayName);
-      
-      // Download initiated successfully - state will be cleared when SSE reports completion
-      // or by the polling interval detecting the model is downloaded
       queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
     } catch (error) {
-      console.error('[Download] Download failed:', error);
       setDownloadingModel(null);
-      setDownloadingDisplayName(null);
       toast({
         title: 'Download failed',
         description: error instanceof Error ? error.message : 'Unknown error',
@@ -179,6 +150,7 @@ export function ModelManagement() {
                         setDeleteDialogOpen(true);
                       }}
                       isDownloading={downloadingModel === model.model_name}
+                      onCancel={() => handleCancel(model.model_name)}
                       formatSize={formatSize}
                     />
                   ))}
@@ -207,6 +179,7 @@ export function ModelManagement() {
                         setDeleteDialogOpen(true);
                       }}
                       isDownloading={downloadingModel === model.model_name}
+                      onCancel={() => handleCancel(model.model_name)}
                       formatSize={formatSize}
                     />
                   ))}
@@ -271,11 +244,12 @@ interface ModelItemProps {
   };
   onDownload: () => void;
   onDelete: () => void;
+  onCancel: () => void;
   isDownloading: boolean;  // Local state - true if user just clicked download
   formatSize: (sizeMb?: number) => string;
 }
 
-function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: ModelItemProps) {
+function ModelItem({ model, onDownload, onDelete, onCancel, isDownloading, formatSize }: ModelItemProps) {
   // Use server's downloading state OR local state (for immediate feedback before server updates)
   const showDownloading = model.downloading || isDownloading;
   
@@ -319,10 +293,15 @@ function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: M
             </Button>
           </div>
         ) : showDownloading ? (
-          <Button size="sm" variant="outline" disabled>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Downloading...
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Downloading...</span>
+            </div>
+            <Button size="sm" variant="outline" onClick={onCancel} title="Cancel download">
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         ) : (
           <Button size="sm" onClick={onDownload} variant="outline">
             <Download className="h-4 w-4 mr-2" />

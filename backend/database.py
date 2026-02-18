@@ -2,6 +2,7 @@
 SQLite database ORM using SQLAlchemy.
 """
 
+import logging
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -10,6 +11,8 @@ import uuid
 from pathlib import Path
 
 from . import config
+
+logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
@@ -25,6 +28,30 @@ class VoiceProfile(Base):
     avatar_path = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class GenerationJob(Base):
+    """Persistent job queue for TTS generation."""
+    __tablename__ = "generation_jobs"
+
+    id = Column(String, primary_key=True)  # UUID set by caller
+    profile_id = Column(String, ForeignKey("profiles.id"), nullable=False)
+    text = Column(Text, nullable=False)
+    language = Column(String, default="en")
+    seed = Column(Integer, nullable=True)
+    model_size = Column(String, default="1.7B")
+    instruct = Column(Text, nullable=True)
+    status = Column(String, default="queued")  # queued | generating | cancelling | complete | cancelled | error | timeout | deleted
+    progress = Column(Float, default=0.0)
+    error = Column(Text, nullable=True)
+    generation_id = Column(String, nullable=True)  # links to generations.id on complete
+    request_user_id = Column(String, nullable=True)
+    request_user_first_name = Column(String, nullable=True)
+    request_ip = Column(String, nullable=True)
+    backend_type = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
 
 
 class ProfileSample(Base):
@@ -47,9 +74,16 @@ class Generation(Base):
     language = Column(String, default="en")
     audio_path = Column(String, nullable=False)
     duration = Column(Float, nullable=False)
+    generation_time_seconds = Column(Float, nullable=True)
     seed = Column(Integer)
     instruct = Column(Text)
+    model_size = Column(String, nullable=True)
+    backend_type = Column(String, nullable=True)
+    request_user_id = Column(String, nullable=True)
+    request_user_first_name = Column(String, nullable=True)
+    request_ip = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)
 
 
 class Story(Base):
@@ -182,7 +216,7 @@ def _run_migrations(engine):
     # Migration: Remove position column and ensure start_time_ms exists
     # SQLite doesn't support DROP COLUMN easily, so we recreate the table
     if 'position' in columns:
-        print("Migrating story_items: removing position column, using start_time_ms")
+        logger.info("Migrating story_items: removing position column, using start_time_ms")
         
         with engine.connect() as conn:
             # Check if start_time_ms already exists
@@ -248,45 +282,82 @@ def _run_migrations(engine):
             conn.execute(text("ALTER TABLE story_items_new RENAME TO story_items"))
             
             conn.commit()
-            print("Migrated story_items table to use start_time_ms (removed position column)")
+            logger.info("Migrated story_items table to use start_time_ms (removed position column)")
     
     # Migration: Add track column if it doesn't exist
     # Re-check columns after potential position migration
     columns = {col['name'] for col in inspector.get_columns('story_items')}
     if 'track' not in columns:
-        print("Migrating story_items: adding track column")
+        logger.info("Migrating story_items: adding track column")
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE story_items ADD COLUMN track INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
-            print("Added track column to story_items")
+            logger.info("Added track column to story_items")
     
     # Migration: Add trim columns if they don't exist
     # Re-check columns after potential track migration
     columns = {col['name'] for col in inspector.get_columns('story_items')}
     if 'trim_start_ms' not in columns:
-        print("Migrating story_items: adding trim_start_ms column")
+        logger.info("Migrating story_items: adding trim_start_ms column")
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE story_items ADD COLUMN trim_start_ms INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
-            print("Added trim_start_ms column to story_items")
+            logger.info("Added trim_start_ms column to story_items")
     
     columns = {col['name'] for col in inspector.get_columns('story_items')}
     if 'trim_end_ms' not in columns:
-        print("Migrating story_items: adding trim_end_ms column")
+        logger.info("Migrating story_items: adding trim_end_ms column")
         with engine.connect() as conn:
             conn.execute(text("ALTER TABLE story_items ADD COLUMN trim_end_ms INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
-            print("Added trim_end_ms column to story_items")
+            logger.info("Added trim_end_ms column to story_items")
 
     # Migration: Add avatar_path to profiles table
     if 'profiles' in inspector.get_table_names():
         columns = {col['name'] for col in inspector.get_columns('profiles')}
         if 'avatar_path' not in columns:
-            print("Migrating profiles: adding avatar_path column")
+            logger.info("Migrating profiles: adding avatar_path column")
             with engine.connect() as conn:
                 conn.execute(text("ALTER TABLE profiles ADD COLUMN avatar_path VARCHAR"))
                 conn.commit()
-                print("Added avatar_path column to profiles")
+                logger.info("Added avatar_path column to profiles")
+
+    # Migration: add queue metadata columns
+    if 'generation_jobs' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('generation_jobs')}
+        queue_additions = [
+            ('request_user_id', 'VARCHAR'),
+            ('request_user_first_name', 'VARCHAR'),
+            ('request_ip', 'VARCHAR'),
+            ('backend_type', 'VARCHAR'),
+        ]
+        for column_name, column_type in queue_additions:
+            if column_name not in columns:
+                logger.info(f"Migrating generation_jobs: adding {column_name} column")
+                with engine.connect() as conn:
+                    conn.execute(text(f"ALTER TABLE generation_jobs ADD COLUMN {column_name} {column_type}"))
+                    conn.commit()
+                logger.info(f"Added {column_name} column to generation_jobs")
+
+    # Migration: add generation metadata columns
+    if 'generations' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('generations')}
+        generation_additions = [
+            ('generation_time_seconds', 'FLOAT'),
+            ('model_size', 'VARCHAR'),
+            ('backend_type', 'VARCHAR'),
+            ('request_user_id', 'VARCHAR'),
+            ('request_user_first_name', 'VARCHAR'),
+            ('request_ip', 'VARCHAR'),
+            ('deleted_at', 'DATETIME'),
+        ]
+        for column_name, column_type in generation_additions:
+            if column_name not in columns:
+                logger.info(f"Migrating generations: adding {column_name} column")
+                with engine.connect() as conn:
+                    conn.execute(text(f"ALTER TABLE generations ADD COLUMN {column_name} {column_type}"))
+                    conn.commit()
+                logger.info(f"Added {column_name} column to generations")
 
 
 def get_db():

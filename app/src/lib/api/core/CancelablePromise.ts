@@ -88,6 +88,7 @@ export class CancelablePromise<T> implements Promise<T> {
     return 'Cancellable Promise';
   }
 
+  // biome-ignore lint/suspicious/noThenProperty: Required for Promise-like interface
   public then<TResult1 = T, TResult2 = never>(
     onFulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
     onRejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,

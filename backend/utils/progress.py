@@ -143,6 +143,13 @@ class ProgressManager:
         else:
             logger.debug(f"No listeners for {model_name}, progress update stored: {progress_pct:.1f}%")
     
+    def clear_progress(self, model_name: str):
+        """Remove progress entry without notifying listeners (e.g. after a cached load)."""
+        with self._lock:
+            self._progress.pop(model_name, None)
+            self._last_notify_time.pop(model_name, None)
+            self._last_notify_progress.pop(model_name, None)
+
     def get_progress(self, model_name: str) -> Optional[Dict]:
         """Get current progress for a model. Thread-safe."""
         with self._lock:
@@ -220,13 +227,13 @@ class ProgressManager:
             
             if initial_progress:
                 status = initial_progress.get('status')
-                # Only send initial progress if download is actually in progress
-                # Don't send old 'complete' or 'error' status from previous downloads
-                if status in ('downloading', 'extracting'):
-                    logger.info(f"Sending initial progress for {model_name}: {status}")
-                    yield f"data: {json.dumps(initial_progress)}\n\n"
-                else:
-                    logger.info(f"Skipping initial progress for {model_name} (status: {status})")
+                logger.info(f"Sending initial progress for {model_name}: {status}")
+                yield f"data: {json.dumps(initial_progress)}\n\n"
+                # If already complete or error, close immediately so late
+                # subscribers still receive the terminal status
+                if status in ('complete', 'error'):
+                    logger.info(f"Download already {status} for {model_name}, closing SSE")
+                    return
             else:
                 logger.info(f"No initial progress available for {model_name}")
 
@@ -271,7 +278,14 @@ class ProgressManager:
         logger.info(f"Marked {model_name} as complete")
         # Notify listeners (thread-safe)
         self._notify_listeners_threadsafe(model_name, progress_data)
-    
+
+        # Remove the entry after notifying so future subscribers don't see stale
+        # "complete" status from a previous download and close immediately.
+        with self._lock:
+            self._progress.pop(model_name, None)
+            self._last_notify_time.pop(model_name, None)
+            self._last_notify_progress.pop(model_name, None)
+
     def mark_error(self, model_name: str, error: str):
         """Mark a model download as failed. Thread-safe."""
         import logging

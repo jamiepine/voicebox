@@ -1,9 +1,30 @@
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
+function getGitHash(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
+function getGitCommitCount(): number {
+  try {
+    return parseInt(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim(), 10);
+  } catch {
+    return 0;
+  }
+}
+
 export default defineConfig({
+  define: {
+    __GIT_HASH__: JSON.stringify(getGitHash()),
+    __GIT_COMMIT_COUNT__: getGitCommitCount(),
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

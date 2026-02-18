@@ -1,0 +1,1122 @@
+#!/usr/bin/env python3
+"""
+voicebox — self-contained CLI for talking to a Voicebox backend server.
+
+No dependencies beyond the Python 3 standard library.
+
+Configuration (env vars):
+  VOICEBOX_URL   Full server URL, e.g. http://10.0.0.5:17493
+  VOICEBOX_HOST  Server host/IP (default: 127.0.0.1). Ignored if VOICEBOX_URL is set.
+  VOICEBOX_PORT  Server port (default: 17493). Ignored if VOICEBOX_URL is set.
+"""
+
+import argparse
+import json
+import mimetypes
+import os
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+DEFAULT_HOST = "127.0.0.1"
+DEFAULT_PORT = 17493
+SERVER_BIN = "/Applications/Voicebox.app/Contents/MacOS/voicebox-server"
+DEFAULT_DATA_DIR = Path.home() / "Library/Application Support/sh.voicebox.app"
+PID_FILE = Path.home() / ".voicebox.pid"
+LOG_FILE = Path.home() / ".voicebox.log"
+CONFIG_DIR = Path.home() / ".config" / "voicebox"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+LEGACY_CONFIG_FILE = Path.home() / ".voicebox.json"
+TRANSCRIPT_TEXT_KEYS = ("text", "transcript", "transcription")
+TRANSCRIPT_MODEL_KEYS = ("model", "transcribe_model", "whisper_model", "model_name")
+
+
+def resolve_base_url(args):
+    """Determine server URL from env vars and CLI flags."""
+    if os.environ.get("VOICEBOX_URL"):
+        return os.environ["VOICEBOX_URL"].rstrip("/")
+    host = os.environ.get("VOICEBOX_HOST", DEFAULT_HOST)
+    port = os.environ.get("VOICEBOX_PORT", str(DEFAULT_PORT))
+    if hasattr(args, "port") and args.port != DEFAULT_PORT:
+        port = str(args.port)
+    return f"http://{host}:{port}"
+
+
+# --- HTTP helpers (stdlib only, no requests) ---
+
+
+def parse_error_detail(raw_text, fallback_limit=200):
+    """Extract useful API error detail from raw response text."""
+    try:
+        return json.loads(raw_text).get("detail", raw_text[:fallback_limit])
+    except Exception:
+        return raw_text[:fallback_limit]
+
+
+def print_request_error(err):
+    """Print a normalized request error message and optional connection hint."""
+    if err.status_code is None:
+        print(f"Error: {err.detail}", file=sys.stderr)
+        print("Start it with: voicebox server", file=sys.stderr)
+    else:
+        print(f"Error: {err.status_code} — {err.detail}", file=sys.stderr)
+
+
+def require_file(path_str, label="file"):
+    """Validate and return a file path."""
+    path = Path(path_str)
+    if not path.exists() or not path.is_file():
+        print(f"Error: {label} not found: {path}", file=sys.stderr)
+        sys.exit(1)
+    return path
+
+
+def resolve_transcribe_model(override_model=None):
+    """Get transcribe model from CLI override or saved config."""
+    return override_model or load_cli_config().get("default_transcribe_model")
+
+
+def extract_transcription_payload(result):
+    """Normalize varied transcription payload shapes to (text, used_model)."""
+    used_model = None
+    if isinstance(result, bytes):
+        return result.decode(errors="replace").strip(), used_model
+    if isinstance(result, dict):
+        for key in TRANSCRIPT_MODEL_KEYS:
+            if result.get(key):
+                used_model = result[key]
+                break
+        for key in TRANSCRIPT_TEXT_KEYS:
+            if result.get(key):
+                return str(result[key]).strip(), used_model
+        return json.dumps(result, ensure_ascii=False, indent=2).strip(), used_model
+    return str(result).strip(), used_model
+
+def api(method, base_url, path, json_body=None, file_data=None, timeout=30):
+    """Make an API call. Returns (status, parsed_json_or_bytes)."""
+    url = f"{base_url}{path}"
+
+    if file_data:
+        # multipart upload
+        boundary = f"----voiceboxboundary{int(time.time())}"
+        filename, file_bytes, content_type = file_data
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+            f"Content-Type: {content_type}\r\n\r\n"
+        ).encode() + file_bytes + f"\r\n--{boundary}--\r\n".encode()
+        req = urllib.request.Request(url, data=body, method=method.upper())
+        req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    elif json_body is not None:
+        body = json.dumps(json_body).encode()
+        req = urllib.request.Request(url, data=body, method=method.upper())
+        req.add_header("Content-Type", "application/json")
+    else:
+        req = urllib.request.Request(url, method=method.upper())
+
+    try:
+        resp = urllib.request.urlopen(req, timeout=timeout)
+        data = resp.read()
+        ct = resp.headers.get("Content-Type", "")
+        if "application/json" in ct:
+            return resp.status, json.loads(data)
+        return resp.status, data
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        detail = parse_error_detail(body)
+        print(f"Error: {e.code} — {detail}", file=sys.stderr)
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        print(f"Error: cannot connect to server at {base_url}", file=sys.stderr)
+        if hasattr(e, "reason"):
+            print(f"  Reason: {e.reason}", file=sys.stderr)
+        print("Start it with: voicebox server", file=sys.stderr)
+        sys.exit(1)
+    except TimeoutError:
+        print(f"Error: request to {base_url}{path} timed out after {timeout}s", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        # Catches RemoteDisconnected, ConnectionResetError, etc. — server likely crashed.
+        print(f"Error: server closed connection unexpectedly ({type(e).__name__}: {e})", file=sys.stderr)
+        print("Check server logs for details.", file=sys.stderr)
+        sys.exit(1)
+
+
+def api_get_json(base_url, path, timeout=30):
+    _, data = api("GET", base_url, path, timeout=timeout)
+    return data
+
+
+def load_cli_config():
+    """Load CLI config from ~/.config/voicebox/config.json."""
+    config_path = CONFIG_FILE if CONFIG_FILE.exists() else LEGACY_CONFIG_FILE
+    if not config_path.exists():
+        return {}
+    try:
+        data = json.loads(config_path.read_text())
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_cli_config(config):
+    """Persist CLI config to ~/.config/voicebox/config.json."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(config, indent=2, sort_keys=True) + "\n")
+
+
+class ApiRequestError(Exception):
+    """Structured API request error for cases where caller handles retries."""
+
+    def __init__(self, status_code, detail):
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
+
+
+def api_multipart_or_error(base_url, path, fields, file_field_name, file_path, timeout=120):
+    """POST multipart/form-data and raise ApiRequestError on failure."""
+    url = f"{base_url}{path}"
+    boundary = f"----voiceboxboundary{int(time.time())}"
+    file_name = file_path.name
+    content_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+
+    body = bytearray()
+    for key, value in fields.items():
+        if value is None:
+            continue
+        body.extend(
+            (
+                f"--{boundary}\r\n"
+                f'Content-Disposition: form-data; name="{key}"\r\n\r\n'
+                f"{value}\r\n"
+            ).encode()
+        )
+
+    body.extend(
+        (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="{file_field_name}"; filename="{file_name}"\r\n'
+            f"Content-Type: {content_type}\r\n\r\n"
+        ).encode()
+    )
+    body.extend(file_path.read_bytes())
+    body.extend(f"\r\n--{boundary}--\r\n".encode())
+
+    req = urllib.request.Request(url, data=bytes(body), method="POST")
+    req.add_header("Content-Type", f"multipart/form-data; boundary={boundary}")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = resp.read()
+            ct = resp.headers.get("Content-Type", "")
+            if "application/json" in ct:
+                return resp.status, json.loads(data)
+            return resp.status, data
+    except urllib.error.HTTPError as e:
+        body_txt = e.read().decode(errors="replace")
+        raise ApiRequestError(e.code, parse_error_detail(body_txt))
+    except urllib.error.URLError:
+        raise ApiRequestError(None, f"cannot connect to server at {base_url}")
+
+
+def normalize_audio_sample(input_path, gain_db=0.0):
+    """Create a normalized mono WAV from input_path. Returns temp Path.
+
+    Uses pyloudnorm (EBU R128 LUFS) if available, falls back to ffmpeg,
+    then falls back to a simple stdlib peak-normalization.
+    """
+    fd, temp_name = tempfile.mkstemp(prefix="voicebox-normalized-", suffix=".wav")
+    os.close(fd)
+    out_path = Path(temp_name)
+
+    # --- Try pyloudnorm (pure Python, best quality) ---
+    try:
+        import numpy as np
+        import soundfile as _sf
+        import pyloudnorm as pyln
+
+        audio, sr = _sf.read(str(input_path))
+        # Convert to mono if stereo
+        if audio.ndim > 1:
+            audio = audio.mean(axis=1)
+        audio = audio.astype(np.float32)
+
+        # Resample to 24kHz if needed
+        if sr != 24000:
+            try:
+                import librosa
+                audio = librosa.resample(audio, orig_sr=sr, target_sr=24000)
+                sr = 24000
+            except ImportError:
+                pass  # Keep original sample rate
+
+        # LUFS normalization (matching ffmpeg loudnorm=I=-16:TP=-2)
+        meter = pyln.Meter(sr)
+        current_lufs = meter.integrated_loudness(audio)
+        if np.isfinite(current_lufs) and current_lufs > -70:
+            target_lufs = -16.0 + gain_db
+            audio = pyln.normalize.loudness(audio, current_lufs, target_lufs)
+
+        # True-peak limiting at -2 dBTP
+        peak_limit = 10 ** (-2.0 / 20)
+        audio = np.clip(audio, -peak_limit, peak_limit)
+
+        _sf.write(str(out_path), audio, sr)
+        return out_path
+    except ImportError:
+        pass  # pyloudnorm or soundfile not available
+
+    # --- Fallback: ffmpeg ---
+    if shutil.which("ffmpeg"):
+        filter_chain = "loudnorm=I=-16:TP=-2:LRA=11,alimiter=limit=-2dB"
+        if gain_db != 0:
+            sign = "+" if gain_db > 0 else ""
+            filter_chain = f"{filter_chain},volume={sign}{gain_db}dB"
+
+        cmd = [
+            "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+            "-i", str(input_path), "-af", filter_chain,
+            "-ac", "1", "-ar", "24000", str(out_path),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode == 0:
+            return out_path
+        out_path.unlink(missing_ok=True)
+
+    # --- Last resort: simple WAV peak normalization (stdlib only) ---
+    try:
+        import wave
+        import struct
+
+        with wave.open(str(input_path), "rb") as wf:
+            params = wf.getparams()
+            frames = wf.readframes(params.nframes)
+
+        if params.sampwidth == 2:
+            fmt = f"<{params.nframes * params.nchannels}h"
+            samples = list(struct.unpack(fmt, frames))
+            peak = max(abs(s) for s in samples) or 1
+            target = int(32767 * 0.79)  # ~-2 dBTP
+            gain = target / peak
+            samples = [max(-32768, min(32767, int(s * gain))) for s in samples]
+
+            with wave.open(str(out_path), "wb") as wf_out:
+                wf_out.setparams(params)
+                wf_out.writeframes(struct.pack(fmt, *samples))
+            return out_path
+    except Exception:
+        pass
+
+    out_path.unlink(missing_ok=True)
+    raise RuntimeError("Cannot normalize audio: install pyloudnorm or ffmpeg")
+
+
+def print_model_used(label, used_model):
+    if used_model:
+        print(f"{label}: {used_model}", file=sys.stderr)
+    else:
+        print(f"{label}: (not reported by server)", file=sys.stderr)
+
+
+def upload_profile_sample_with_retry(base_url, profile_id, sample_path, reference_text, timeout):
+    """Upload sample, normalizing first for best quality.
+
+    The backend now normalizes on its own, so this is belt-and-suspenders.
+    If the initial upload fails with a clipping error (older servers),
+    retries once with a locally normalized copy.
+    """
+    normalized_path = None
+    try:
+        # First attempt: upload original
+        try:
+            _, sample = api_multipart_or_error(
+                base_url,
+                f"/profiles/{profile_id}/samples",
+                fields={"reference_text": reference_text},
+                file_field_name="file",
+                file_path=sample_path,
+                timeout=timeout,
+            )
+            return sample
+        except ApiRequestError as e:
+            detail_lower = str(e.detail).lower()
+            is_clipping = e.status_code == 400 and "clipping" in detail_lower
+            if not is_clipping:
+                raise
+
+        # Retry with normalized audio
+        print("Server reported clipping; normalizing and retrying...", file=sys.stderr)
+        try:
+            normalized_path = normalize_audio_sample(sample_path)
+        except RuntimeError as norm_err:
+            print(f"Warning: {norm_err}", file=sys.stderr)
+            raise e  # Re-raise original clipping error
+
+        _, sample = api_multipart_or_error(
+            base_url,
+            f"/profiles/{profile_id}/samples",
+            fields={"reference_text": reference_text},
+            file_field_name="file",
+            file_path=normalized_path,
+            timeout=timeout,
+        )
+        print("Retry succeeded with normalized audio.", file=sys.stderr)
+        return sample
+    finally:
+        if normalized_path:
+            normalized_path.unlink(missing_ok=True)
+
+
+# --- Subcommands ---
+
+def _file_starts_with_python_shebang(path):
+    """Check if a file starts with a Python shebang line."""
+    try:
+        with open(path, "rb") as f:
+            first_line = f.readline(120)
+            return first_line.startswith(b"#!") and b"python" in first_line
+    except Exception:
+        return False
+
+
+def _find_venv_python(project_dir):
+    """Find the venv Python interpreter for a project directory.
+
+    Checks common venv locations (backend/venv, .venv, venv) and returns the
+    Python path if found and working, else falls back to sys.executable.
+    """
+    candidates = [
+        Path(project_dir) / "backend" / "venv" / "bin" / "python",
+        Path(project_dir) / ".venv" / "bin" / "python",
+        Path(project_dir) / "venv" / "bin" / "python",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            try:
+                subprocess.run(
+                    [str(candidate), "-c", "import sys"],
+                    capture_output=True, timeout=5,
+                )
+                return str(candidate)
+            except Exception:
+                continue
+    return sys.executable
+
+
+def _check_port_in_use(port):
+    """Check if something is already listening on the given port.
+
+    Returns:
+        "voicebox"  — a voicebox server is responding on that port
+        "occupied"  — something else is listening on that port
+        None        — port is free
+    """
+    port = int(port)
+    # Quick socket probe
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1)
+    try:
+        sock.connect(("127.0.0.1", port))
+        sock.close()
+    except (ConnectionRefusedError, OSError):
+        return None  # Port is free
+
+    # Port is occupied — check if it's a voicebox server
+    try:
+        r = urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=2)
+        if r.status == 200:
+            return "voicebox"
+    except Exception:
+        pass
+    return "occupied"
+
+
+def cmd_server(args):
+    """Start the backend server (no frontend)."""
+    data_dir = args.data_dir or str(DEFAULT_DATA_DIR)
+    port = str(args.port)
+
+    if args.stop:
+        _stop_server()
+        return
+
+    # Handle --server-path: save to config if provided
+    config = load_cli_config()
+    if args.server_path:
+        resolved = str(Path(args.server_path).resolve())
+        config["server_path"] = resolved
+        save_cli_config(config)
+        print(f"Saved server path: {resolved}")
+
+    # Check if something is already running on the target port
+    port_status = _check_port_in_use(port)
+    if port_status == "voicebox":
+        print(f"Voicebox server already running on port {port}.")
+        return
+    elif port_status == "occupied":
+        print(f"Error: port {port} is already in use by another process.", file=sys.stderr)
+        print(f"Either stop the process or use a different port: voicebox server --port <port>", file=sys.stderr)
+        sys.exit(1)
+
+    # Resolve server binary (in priority order):
+    #   1. --server-path flag or saved config
+    #   2. ./backend/main.py in cwd (local dev checkout)
+    #   3. /Applications/Voicebox.app bundle
+    #   4. voicebox-server on PATH
+    #   5. python -m backend.main from CLI's own directory
+    custom_server = args.server_path or config.get("server_path")
+    local_backend = Path.cwd() / "backend" / "main.py"
+
+    if custom_server:
+        custom_path = Path(custom_server).resolve()
+        if not custom_path.exists():
+            print(f"Error: server path not found: {custom_path}", file=sys.stderr)
+            print("Clear it with: voicebox config --clear-server-path", file=sys.stderr)
+            sys.exit(1)
+        if custom_path.is_dir():
+            # Directory: run `python -m backend.main` from that directory
+            # Use the project's venv Python if available
+            python = _find_venv_python(str(custom_path))
+            bin_path = None
+            cwd = str(custom_path)
+            cmd = [python, "-m", "backend.main", "--data-dir", data_dir, "--port", port]
+        elif custom_path.suffix == ".py" or _file_starts_with_python_shebang(custom_path):
+            # Python script: run with interpreter from the project's venv
+            python = _find_venv_python(str(custom_path.parent))
+            bin_path = str(custom_path)
+            cwd = str(custom_path.parent)
+            cmd = [python, bin_path, "--data-dir", data_dir, "--port", port]
+        else:
+            # Binary executable
+            bin_path = str(custom_path)
+            cwd = None
+            cmd = [bin_path, "--data-dir", data_dir, "--port", port]
+    elif local_backend.exists():
+        # Running from a project checkout — use local backend with venv Python
+        python = _find_venv_python(str(Path.cwd()))
+        bin_path = None
+        cwd = str(Path.cwd())
+        cmd = [python, "-m", "backend.main", "--data-dir", data_dir, "--port", port]
+    elif Path(SERVER_BIN).exists():
+        bin_path = SERVER_BIN
+        cwd = None
+        cmd = [bin_path, "--data-dir", data_dir, "--port", port]
+    elif shutil.which("voicebox-server"):
+        bin_path = "voicebox-server"
+        cwd = None
+        cmd = [bin_path, "--data-dir", data_dir, "--port", port]
+    else:
+        # Fallback: run from CLI's own directory with its venv
+        cli_dir = str(Path(__file__).resolve().parent)
+        python = _find_venv_python(cli_dir)
+        bin_path = None
+        cwd = cli_dir
+        cmd = [python, "-m", "backend.main", "--data-dir", data_dir, "--port", port]
+
+    if args.detach:
+        if PID_FILE.exists():
+            pid = int(PID_FILE.read_text().strip())
+            try:
+                os.kill(pid, 0)
+                print(f"Server already running (pid {pid})")
+                return
+            except ProcessLookupError:
+                PID_FILE.unlink(missing_ok=True)
+
+        log = open(LOG_FILE, "w")
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log,
+            stderr=log,
+            start_new_session=True,
+            cwd=cwd,
+        )
+        PID_FILE.write_text(str(proc.pid))
+        print(f"Waiting for server (pid {proc.pid}, port {port})...", end="", flush=True)
+        health_url = f"http://127.0.0.1:{port}/health"
+        for _ in range(60):
+            time.sleep(0.5)
+            if proc.poll() is not None:
+                print(" failed.")
+                print(f"Server exited. Check log: {LOG_FILE}", file=sys.stderr)
+                PID_FILE.unlink(missing_ok=True)
+                sys.exit(1)
+            try:
+                r = urllib.request.urlopen(health_url, timeout=2)
+                if r.status == 200:
+                    print(" ready.")
+                    print("Stop with: voicebox server --stop")
+                    return
+            except Exception:
+                print(".", end="", flush=True)
+        print(" timed out.")
+        print(f"Server didn't respond within 30s. Check log: {LOG_FILE}", file=sys.stderr)
+    else:
+        print(f"Starting voicebox server on port {port}...")
+        if custom_server:
+            print(f"Server: {custom_server}")
+        elif local_backend.exists() and cwd == str(Path.cwd()):
+            print(f"Server: local backend ({cwd})")
+        # Show Python path if using a venv (helps debug wrong-python issues)
+        if cmd[0] != sys.executable:
+            print(f"Python: {cmd[0]}")
+        print(f"Data dir: {data_dir}")
+        print("Press Ctrl+C to stop.\n")
+        try:
+            subprocess.run(cmd, cwd=cwd)
+        except KeyboardInterrupt:
+            print("\nServer stopped.")
+
+
+def _stop_server():
+    """Stop a detached server."""
+    if not PID_FILE.exists():
+        print("No server running (no pid file).")
+        return
+    pid = int(PID_FILE.read_text().strip())
+    try:
+        os.kill(pid, signal.SIGTERM)
+        print(f"Stopped server (pid {pid})")
+    except ProcessLookupError:
+        print(f"Server not running (stale pid {pid})")
+    PID_FILE.unlink(missing_ok=True)
+
+
+def cmd_voices(args):
+    """List or delete voice profiles."""
+    if args.delete:
+        profiles = api_get_json(args.url, "/profiles")
+        if not profiles:
+            print("No voice profiles found.")
+            return
+
+        target = args.delete.strip().lower()
+        match = [p for p in profiles if p["id"].lower() == target]
+        if not match:
+            exact_name = [p for p in profiles if p["name"].lower() == target]
+            match = exact_name or [p for p in profiles if target in p["name"].lower()]
+
+        if not match:
+            print(f"Error: no voice matching '{args.delete}'.", file=sys.stderr)
+            sys.exit(1)
+        if len(match) > 1:
+            print(f"Error: '{args.delete}' matches multiple voices. Use exact ID.", file=sys.stderr)
+            for p in match:
+                print(f"  - {p['name']} ({p['id']})", file=sys.stderr)
+            sys.exit(1)
+
+        victim = match[0]
+        if not args.yes:
+            confirm = input(f"Delete voice '{victim['name']}' ({victim['id']})? [y/N]: ").strip().lower()
+            if confirm not in ("y", "yes"):
+                print("Cancelled.")
+                return
+
+        api("DELETE", args.url, f"/profiles/{victim['id']}", timeout=30)
+        print(f"Deleted voice: {victim['name']} ({victim['id']})")
+        return
+
+    profiles = api_get_json(args.url, "/profiles")
+    if not profiles:
+        print("No voice profiles found. Import one with: voicebox import <file.zip>")
+        return
+    print(f"{'Name':<30} {'Language':<10} {'ID'}")
+    print("-" * 75)
+    for p in profiles:
+        print(f"{p['name']:<30} {p['language']:<10} {p['id']}")
+
+
+def cmd_import(args):
+    """Import a voice profile from a ZIP file."""
+    zip_path = require_file(args.file)
+
+    print(f"Importing {zip_path.name}...")
+    file_bytes = zip_path.read_bytes()
+    _, profile = api("POST", args.url, "/profiles/import",
+                     file_data=(zip_path.name, file_bytes, "application/zip"),
+                     timeout=60)
+    print(f"Imported: {profile['name']} ({profile['id']})")
+
+
+def _sse_stream(base_url, path, timeout=300):
+    """Read a Server-Sent Events stream, yielding parsed data dicts."""
+    import http.client, urllib.parse
+    parsed = urllib.parse.urlparse(f"{base_url}{path}")
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=timeout)
+    try:
+        conn.request("GET", parsed.path)
+        resp = conn.getresponse()
+        if resp.status != 200:
+            body = resp.read().decode(errors="replace")
+            print(f"Error: SSE stream returned {resp.status} — {parse_error_detail(body)}", file=sys.stderr)
+            sys.exit(1)
+        buf = b""
+        while True:
+            chunk = resp.read(1024)
+            if not chunk:
+                break
+            buf += chunk
+            while b"\n\n" in buf:
+                msg, buf = buf.split(b"\n\n", 1)
+                for line in msg.decode(errors="replace").splitlines():
+                    if line.startswith("data: "):
+                        try:
+                            yield json.loads(line[6:])
+                        except json.JSONDecodeError:
+                            pass
+    except Exception as e:
+        print(f"Error: SSE connection failed ({type(e).__name__}: {e})", file=sys.stderr)
+        print("Check server logs for details.", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        conn.close()
+
+
+def cmd_generate(args):
+    """Generate speech from text."""
+    if args.text:
+        text = args.text
+    elif args.file:
+        text = Path(args.file).read_text().strip()
+    elif not sys.stdin.isatty():
+        text = sys.stdin.read().strip()
+    else:
+        # No text provided — show usage
+        # We can't easily get the subparser reference here, so print usage manually
+        print("Generate speech from text.\n", file=sys.stderr)
+        print("Usage: voicebox say --text 'Hello world'", file=sys.stderr)
+        print("       voicebox say --file input.txt", file=sys.stderr)
+        print("       echo 'Hello world' | voicebox say\n", file=sys.stderr)
+        print("Options:", file=sys.stderr)
+        print("  --text, -t TEXT       Text to speak", file=sys.stderr)
+        print("  --file, -f FILE       Read text from a file", file=sys.stderr)
+        print("  --voice, -v VOICE     Voice name (interactive picker if omitted)", file=sys.stderr)
+        print("  --output, -o OUTPUT   Output path (default: output_<epoch>.m4a)", file=sys.stderr)
+        print("  --instruct INSTRUCT   Style instruction (e.g. 'speak slowly')", file=sys.stderr)
+        print("  --language, -l LANG   Language code", file=sys.stderr)
+        print("  --seed, -s SEED       Random seed", file=sys.stderr)
+        print("  --no-open             Don't open file after generating", file=sys.stderr)
+        print("  -h, --help            Show this help message", file=sys.stderr)
+        sys.exit(1)
+
+    if not text:
+        print("Error: text is empty.", file=sys.stderr)
+        sys.exit(1)
+
+    profile = resolve_profile(args.url, args.voice)
+
+    payload = {
+        "profile_id": profile["id"],
+        "text": text,
+        "language": args.language or profile.get("language", "en"),
+    }
+    if args.seed is not None:
+        payload["seed"] = args.seed
+    if args.instruct:
+        payload["instruct"] = args.instruct
+
+    print(f"Generating with voice '{profile['name']}'...")
+    start = time.time()
+
+    # Queue the job asynchronously
+    _, start_data = api("POST", args.url, "/generate?stream=true", json_body=payload, timeout=30)
+    generation_id = start_data.get("generation_id")
+    if not generation_id:
+        print(f"Error: server did not return a generation_id", file=sys.stderr)
+        sys.exit(1)
+
+    # Stream progress via SSE
+    final_data = None
+    for event in _sse_stream(args.url, f"/generate/progress/{generation_id}", timeout=300):
+        status = event.get("status", "")
+        pct = event.get("progress", 0)
+        bar_len = 20
+        filled = int(pct / 100 * bar_len)
+        bar = "#" * filled + "-" * (bar_len - filled)
+        print(f"\r[{bar}] {pct:.0f}%  ", end="", flush=True)
+        if status in ("complete", "error"):
+            print()  # newline after progress bar
+            final_data = event
+            break
+
+    elapsed = time.time() - start
+
+    if final_data and final_data.get("status") == "error":
+        error_msg = final_data.get("error", "Unknown error")
+        print(f"Error: generation failed — {error_msg}", file=sys.stderr)
+        sys.exit(1)
+
+    # Fetch the generation record for duration/id
+    _, history = api("GET", args.url, "/history", timeout=10)
+    items = history.get("items", []) if isinstance(history, dict) else []
+    result = next((i for i in items if i.get("id") == generation_id), None)
+    if result is None and items:
+        result = items[0]  # fall back to latest
+
+    if result:
+        print(f"Done in {elapsed:.1f}s (audio duration: {result['duration']:.1f}s)")
+    else:
+        print(f"Done in {elapsed:.1f}s")
+
+    audio_id = (result or {}).get("id", generation_id)
+    tag = str(int(time.time()))[-5:]
+    wav_path = f"output_{tag}.wav"
+    _, wav_data = api("GET", args.url, f"/audio/{audio_id}", timeout=60)
+    Path(wav_path).write_bytes(wav_data)
+
+    if not shutil.which("ffmpeg"):
+        print("Warning: ffmpeg not found, keeping .wav", file=sys.stderr)
+        output = wav_path
+    else:
+        output = args.output or f"output_{tag}.m4a"
+        r = subprocess.run(
+            ["ffmpeg", "-y", "-i", wav_path, "-c:a", "aac", "-b:a", "128k", output],
+            capture_output=True,
+        )
+        if r.returncode != 0:
+            print("Warning: ffmpeg failed, keeping .wav", file=sys.stderr)
+            output = wav_path
+        else:
+            Path(wav_path).unlink()
+            print(f"Saved: {output}")
+
+    if not args.no_open:
+        subprocess.run(["open", output])
+
+
+def cmd_health(args):
+    """Check server health."""
+    h = api_get_json(args.url, "/health")
+    print(f"Status:       {h['status']}")
+    print(f"Model loaded: {h['model_loaded']}")
+    print(f"Backend:      {h.get('backend_type', '?')}")
+    print(f"GPU:          {h.get('gpu_type', 'none')}")
+    if h.get("vram_used_mb"):
+        print(f"VRAM used:    {h['vram_used_mb']:.0f} MB")
+
+
+def run_transcription(base_url, input_path, language=None, model=None, timeout=600):
+    """Transcribe media using backend Whisper endpoint."""
+    fields = {}
+    if language:
+        fields["language"] = language
+    if model:
+        # Send both names for backend compatibility while API settles.
+        fields["model"] = model
+        fields["transcribe_model"] = model
+
+    try:
+        _, result = api_multipart_or_error(
+            base_url,
+            "/transcribe",
+            fields=fields,
+            file_field_name="file",
+            file_path=input_path,
+            timeout=timeout,
+        )
+    except ApiRequestError as e:
+        print_request_error(e)
+        sys.exit(1)
+
+    return extract_transcription_payload(result)
+
+
+def cmd_config(args):
+    """Manage CLI defaults."""
+    config = load_cli_config()
+
+    if args.set_transcribe_model:
+        config["default_transcribe_model"] = args.set_transcribe_model
+        save_cli_config(config)
+        print(f"Set default transcribe model: {args.set_transcribe_model}")
+        return
+
+    if args.clear_transcribe_model:
+        if "default_transcribe_model" in config:
+            del config["default_transcribe_model"]
+            save_cli_config(config)
+            print("Cleared default transcribe model.")
+        else:
+            print("Default transcribe model was not set.")
+        return
+
+    if args.set_server_path:
+        resolved = str(Path(args.set_server_path).resolve())
+        if not Path(resolved).exists():
+            print(f"Warning: path does not exist: {resolved}", file=sys.stderr)
+        config["server_path"] = resolved
+        save_cli_config(config)
+        print(f"Set server path: {resolved}")
+        return
+
+    if args.clear_server_path:
+        if "server_path" in config:
+            del config["server_path"]
+            save_cli_config(config)
+            print("Cleared custom server path. Will use default resolution.")
+        else:
+            print("Custom server path was not set.")
+        return
+
+    # Show all config
+    model = config.get("default_transcribe_model")
+    server_path = config.get("server_path")
+    print(f"default_transcribe_model={model or '(not set)'}")
+    print(f"server_path={server_path or '(not set)'}")
+
+
+def cmd_transcribe(args):
+    """Transcribe an audio/video file with backend Whisper."""
+    input_path = require_file(args.file)
+
+    model = resolve_transcribe_model(args.model)
+    print(f"Transcribing {input_path.name}...")
+    start = time.time()
+    text, used_model = run_transcription(
+        args.url,
+        input_path,
+        language=args.language,
+        model=model,
+        timeout=args.timeout,
+    )
+    elapsed = time.time() - start
+
+    if args.output:
+        Path(args.output).write_text(text + "\n")
+        print(f"Saved transcript: {args.output}")
+    else:
+        print(text)
+
+    print_model_used("Model used", used_model)
+
+    print(f"Done in {elapsed:.1f}s")
+
+
+def cmd_create_voice(args):
+    """Create a new voice profile from an audio sample."""
+    sample_path = require_file(args.file, label="sample file")
+
+    profile_name = args.name or sample_path.stem
+    language = args.language
+    reference_text = args.reference_text
+
+    transcribe_model = resolve_transcribe_model(args.transcribe_model)
+
+    if not reference_text:
+        print(f"Transcribing sample for reference text: {sample_path.name}...")
+        tx_start = time.time()
+        reference_text, used_model = run_transcription(
+            args.url,
+            sample_path,
+            language=language,
+            model=transcribe_model,
+            timeout=args.timeout,
+        )
+        tx_elapsed = time.time() - tx_start
+        if not reference_text:
+            print("Error: transcription returned empty text. Pass --reference-text manually.", file=sys.stderr)
+            sys.exit(1)
+        if args.print_transcript:
+            print("\n--- Transcript ---")
+            print(reference_text)
+            print("--- End Transcript ---\n")
+        print_model_used("Transcription model used", used_model)
+        print(f"Transcription done in {tx_elapsed:.1f}s")
+
+    print(f"Creating profile '{profile_name}' ({language})...")
+    _, profile = api(
+        "POST",
+        args.url,
+        "/profiles",
+        json_body={
+            "name": profile_name,
+            "description": args.description or "",
+            "language": language,
+        },
+        timeout=60,
+    )
+
+    profile_id = profile["id"]
+    print(f"Profile created: {profile_name} ({profile_id})")
+    print("Uploading sample...")
+    try:
+        sample = upload_profile_sample_with_retry(
+            args.url,
+            profile_id,
+            sample_path=sample_path,
+            reference_text=reference_text,
+            timeout=args.timeout,
+        )
+    except ApiRequestError as e:
+        print_request_error(e)
+        sys.exit(1)
+
+    sample_id = sample["id"] if isinstance(sample, dict) and "id" in sample else "(unknown)"
+    print(f"Sample added: {sample_id}")
+    print(f"Done. Voice ready: {profile_name} ({profile_id})")
+
+
+# --- Profile resolution ---
+
+def resolve_profile(base_url, voice_name):
+    profiles = api_get_json(base_url, "/profiles")
+    if not profiles:
+        print("Error: no voice profiles found.", file=sys.stderr)
+        print("Import one with: voicebox import <file.zip>", file=sys.stderr)
+        sys.exit(1)
+
+    # Fall back to last-used voice when none specified
+    if not voice_name:
+        voice_name = load_cli_config().get("last_voice")
+        if voice_name:
+            print(f"Using last voice: {voice_name}")
+
+    if voice_name:
+        match = [p for p in profiles if p["name"].lower() == voice_name.lower()]
+        if not match:
+            match = [p for p in profiles if voice_name.lower() in p["name"].lower()]
+        if not match:
+            print(f"Error: no voice matching '{voice_name}'. Available:", file=sys.stderr)
+            for p in profiles:
+                print(f"  - {p['name']}", file=sys.stderr)
+            sys.exit(1)
+        if len(match) > 1:
+            print(f"Multiple voices match '{voice_name}':", file=sys.stderr)
+            for p in match:
+                print(f"  - {p['name']}", file=sys.stderr)
+            sys.exit(1)
+        profile = match[0]
+        config = load_cli_config()
+        config["last_voice"] = profile["name"]
+        save_cli_config(config)
+        return profile
+    else:
+        print("Available voices:")
+        for i, p in enumerate(profiles, 1):
+            print(f"  {i}. {p['name']} ({p['language']})")
+        print()
+        while True:
+            choice = input(f"Choose a voice [1-{len(profiles)}]: ").strip()
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(profiles):
+                    profile = profiles[idx]
+                    config = load_cli_config()
+                    config["last_voice"] = profile["name"]
+                    save_cli_config(config)
+                    return profile
+            except ValueError:
+                pass
+            print("Invalid choice, try again.")
+
+
+# --- Main ---
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog="voicebox",
+        description="Voicebox CLI — headless TTS",
+        epilog="Environment: VOICEBOX_URL, VOICEBOX_HOST, VOICEBOX_PORT",
+    )
+    parser.add_argument("--url", default=None, help="Server URL (overrides env vars)")
+    sub = parser.add_subparsers(dest="command")
+
+    # server
+    p_server = sub.add_parser("server", help="Start the backend server")
+    p_server.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Port (default: {DEFAULT_PORT})")
+    p_server.add_argument("--data-dir", help="Data directory")
+    p_server.add_argument("-d", "--detach", action="store_true", help="Run in background")
+    p_server.add_argument("--stop", action="store_true", help="Stop a detached server")
+    p_server.add_argument("--server-path", help="Path to server binary or Python entry point (saved to config)")
+
+    # voices
+    p_voices = sub.add_parser("voices", help="List voice profiles (or delete one)")
+    p_voices.add_argument("--delete", "-d", metavar="VOICE", help="Delete voice by ID or name")
+    p_voices.add_argument("--yes", "-y", action="store_true", help="Skip delete confirmation")
+
+    # import
+    p_import = sub.add_parser("import", help="Import a voice profile from ZIP")
+    p_import.add_argument("file", help="Path to .zip file")
+
+    # generate
+    p_gen = sub.add_parser("generate", aliases=["gen", "say"], help="Generate speech")
+    p_gen.add_argument("--voice", "-v", help="Voice name (interactive picker if omitted)")
+    p_gen.add_argument("--text", "-t", help="Text to speak")
+    p_gen.add_argument("--file", "-f", help="Read text from a file")
+    p_gen.add_argument("--output", "-o", help="Output path (default: output_<epoch>.m4a)")
+    p_gen.add_argument("--language", "-l", help="Language code")
+    p_gen.add_argument("--seed", "-s", type=int, help="Random seed")
+    p_gen.add_argument("--instruct", help="Style instruction (e.g. 'speak slowly')")
+    p_gen.add_argument("--no-open", action="store_true", help="Don't open file after generating")
+
+    # health
+    sub.add_parser("health", help="Check server status")
+
+    # config
+    p_config = sub.add_parser("config", help="Show or set CLI defaults")
+    g_cfg = p_config.add_mutually_exclusive_group()
+    g_cfg.add_argument("--set-transcribe-model", metavar="MODEL", help="Set default transcribe model")
+    g_cfg.add_argument("--clear-transcribe-model", action="store_true", help="Clear default transcribe model")
+    g_cfg.add_argument("--set-server-path", metavar="PATH", help="Set custom server binary/script path")
+    g_cfg.add_argument("--clear-server-path", action="store_true", help="Clear custom server path (use default)")
+
+    # transcribe
+    p_transcribe = sub.add_parser("transcribe", aliases=["stt"], help="Transcribe an audio/video file")
+    p_transcribe.add_argument("file", help="Path to input media (mp3, wav, m4a, mp4, ...)")
+    p_transcribe.add_argument("--language", "-l", help="Language hint (e.g. en)")
+    p_transcribe.add_argument("--model", "-m", help="Transcription model (overrides CLI default)")
+    p_transcribe.add_argument("--output", "-o", help="Save transcript to file instead of stdout")
+    p_transcribe.add_argument("--timeout", type=int, default=600, help="Request timeout seconds (default: 600)")
+
+    # create voice
+    p_create_voice = sub.add_parser(
+        "create-voice",
+        aliases=["clone", "new-voice"],
+        help="Create a voice profile from a sample (auto-transcribes by default)",
+    )
+    p_create_voice.add_argument("file", help="Path to sample audio/video (mp3, wav, m4a, mp4, ...)")
+    p_create_voice.add_argument("--name", "-n", help="Profile name (default: sample filename stem)")
+    p_create_voice.add_argument("--description", "-d", help="Profile description")
+    p_create_voice.add_argument("--language", "-l", default="en", help="Language code (default: en)")
+    p_create_voice.add_argument("--reference-text", "-t", help="Exact spoken text; skips auto-transcribe when set")
+    p_create_voice.add_argument("--transcribe-model", "-m", help="Model used for auto-transcription")
+    p_create_voice.add_argument("--print-transcript", action="store_true", help="Print auto transcript before creating profile")
+    p_create_voice.add_argument("--timeout", type=int, default=600, help="Request timeout seconds (default: 600)")
+
+    args = parser.parse_args()
+
+    # Resolve URL: --url flag > VOICEBOX_URL > VOICEBOX_HOST:PORT > default
+    if args.url:
+        args.url = args.url.rstrip("/")
+    else:
+        args.url = resolve_base_url(args)
+
+    if args.command == "server":
+        cmd_server(args)
+    elif args.command == "voices":
+        cmd_voices(args)
+    elif args.command == "import":
+        cmd_import(args)
+    elif args.command in ("generate", "gen", "say"):
+        cmd_generate(args)
+    elif args.command == "health":
+        cmd_health(args)
+    elif args.command == "config":
+        cmd_config(args)
+    elif args.command in ("transcribe", "stt"):
+        cmd_transcribe(args)
+    elif args.command in ("create-voice", "clone", "new-voice"):
+        cmd_create_voice(args)
+    else:
+        parser.print_help()
+
+
+if __name__ == "__main__":
+    main()

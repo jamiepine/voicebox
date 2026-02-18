@@ -29,6 +29,12 @@ async def create_generation(
     seed: Optional[int],
     db: Session,
     instruct: Optional[str] = None,
+    model_size: Optional[str] = None,
+    backend_type: Optional[str] = None,
+    request_user_id: Optional[str] = None,
+    request_user_first_name: Optional[str] = None,
+    request_ip: Optional[str] = None,
+    generation_time_seconds: Optional[float] = None,
 ) -> GenerationResponse:
     """
     Create a new generation history entry.
@@ -53,8 +59,14 @@ async def create_generation(
         language=language,
         audio_path=audio_path,
         duration=duration,
+        generation_time_seconds=generation_time_seconds,
         seed=seed,
         instruct=instruct,
+        model_size=model_size,
+        backend_type=backend_type,
+        request_user_id=request_user_id,
+        request_user_first_name=request_user_first_name,
+        request_ip=request_ip,
         created_at=datetime.utcnow(),
     )
 
@@ -82,6 +94,8 @@ async def get_generation(
     generation = db.query(DBGeneration).filter_by(id=generation_id).first()
     if not generation:
         return None
+    if generation.deleted_at is not None:
+        return None
     
     return GenerationResponse.model_validate(generation)
 
@@ -107,6 +121,8 @@ async def list_generations(
     ).join(
         DBVoiceProfile,
         DBGeneration.profile_id == DBVoiceProfile.id
+    ).filter(
+        DBGeneration.deleted_at.is_(None)
     )
     
     # Apply profile filter
@@ -141,8 +157,14 @@ async def list_generations(
             language=generation.language,
             audio_path=generation.audio_path,
             duration=generation.duration,
+            generation_time_seconds=generation.generation_time_seconds,
             seed=generation.seed,
             instruct=generation.instruct,
+            model_size=generation.model_size,
+            backend_type=generation.backend_type,
+            request_user_id=generation.request_user_id,
+            request_user_first_name=generation.request_user_first_name,
+            request_ip=generation.request_ip,
             created_at=generation.created_at,
         ))
     
@@ -169,14 +191,16 @@ async def delete_generation(
     generation = db.query(DBGeneration).filter_by(id=generation_id).first()
     if not generation:
         return False
+    if generation.deleted_at is not None:
+        return False
     
     # Delete audio file
     audio_path = Path(generation.audio_path)
     if audio_path.exists():
         audio_path.unlink()
     
-    # Delete from database
-    db.delete(generation)
+    # Soft-delete in database (keep record for auditing/restore workflows).
+    generation.deleted_at = datetime.utcnow()
     db.commit()
     
     return True

@@ -4,10 +4,12 @@ FastAPI application for voicebox backend.
 Handles voice cloning, generation history, and server mode.
 """
 
-from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
+import logging
+
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -19,31 +21,116 @@ import tempfile
 import io
 from pathlib import Path
 import uuid
-import asyncio
 import signal
 import os
 
 from . import database, models, profiles, history, tts, transcribe, config, export_import, channels, stories, __version__
-from .database import get_db, Generation as DBGeneration, VoiceProfile as DBVoiceProfile
+from .database import get_db, Generation as DBGeneration, GenerationJob as DBGenerationJob, VoiceProfile as DBVoiceProfile
 from .utils.progress import get_progress_manager
 from .utils.tasks import get_task_manager
 from .utils.cache import clear_voice_prompt_cache
 from .platform_detect import get_backend_type
 
+logger = logging.getLogger(__name__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup / shutdown lifecycle for the app."""
+    await _startup()
+    yield
+    await _shutdown()
+
+
 app = FastAPI(
     title="voicebox API",
     description="Production-quality Qwen3-TTS voice cloning API",
     version=__version__,
+    lifespan=lifespan,
 )
 
-# CORS middleware
+# Lock to serialize TTS model access — MLX models are NOT thread-safe.
+# Concurrent generate() calls on the same model instance corrupt state and crash.
+_model_lock = asyncio.Lock()
+
+# Event to wake the job worker when a new job is queued
+_job_signal = asyncio.Event()
+_cancel_requested_jobs: set[str] = set()
+_MAX_ACTIVE_JOBS_PER_USER = 3
+_QUEUED_JOB_TIMEOUT_MINUTES = 15
+_GENERATING_JOB_TIMEOUT_MINUTES = 5
+
+
+def _expire_old_queued_jobs(db: Session):
+    """Expire queued jobs that have sat too long without starting."""
+    from datetime import timedelta
+
+    cutoff = datetime.utcnow() - timedelta(minutes=_QUEUED_JOB_TIMEOUT_MINUTES)
+    stale_queued = db.query(DBGenerationJob).filter(
+        DBGenerationJob.status == "queued",
+        DBGenerationJob.created_at < cutoff,
+    ).all()
+    for job in stale_queued:
+        job.status = "timeout"
+        job.error = "Queue timeout"
+        job.completed_at = datetime.utcnow()
+        try:
+            get_progress_manager().mark_error(job.id, "Queue timeout")
+        except Exception:
+            pass
+    if stale_queued:
+        db.commit()
+
+
+def _extract_request_ip(request: Request) -> str:
+    """Best-effort client IP extraction, including proxy headers."""
+    forwarded_for = request.headers.get("x-forwarded-for")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+# CORS middleware — allow_credentials=False because we don't use cookies,
+# and allow_origins=["*"] is invalid with credentials per the CORS spec.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Health-Model-Loaded", "X-Health-Model-Size", "X-Health-GPU-Type", "X-Health-Backend"],
 )
+
+
+@app.middleware("http")
+async def health_piggyback_middleware(request, call_next):
+    """Attach lightweight health info as headers on every response."""
+    response = await call_next(request)
+    try:
+        tts_model = tts.get_tts_model()
+        loaded = tts_model.is_loaded()
+        response.headers["X-Health-Model-Loaded"] = "1" if loaded else "0"
+        if loaded:
+            size = getattr(tts_model, '_current_model_size', None)
+            if size:
+                response.headers["X-Health-Model-Size"] = size
+        backend_type = get_backend_type()
+        response.headers["X-Health-Backend"] = backend_type
+        gpu_type = None
+        if backend_type == "mlx":
+            gpu_type = "Metal"
+        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            gpu_type = "MPS"
+        elif torch.cuda.is_available():
+            gpu_type = "CUDA"
+        if gpu_type:
+            response.headers["X-Health-GPU-Type"] = gpu_type
+    except Exception:
+        pass
+    return response
 
 
 # ============================================
@@ -67,15 +154,24 @@ async def shutdown():
     return {"message": "Shutting down..."}
 
 
+@app.get("/auth/me")
+async def auth_me_stub():
+    """Stub for chickenbox OAuth — voicebox backend has no auth."""
+    raise HTTPException(status_code=401, detail="Authentication not available")
+
+
 @app.get("/health", response_model=models.HealthResponse)
 async def health():
     """Health check endpoint."""
-    from huggingface_hub import hf_hub_download, constants as hf_constants
+    from huggingface_hub import constants as hf_constants
     from pathlib import Path
-    import os
 
     tts_model = tts.get_tts_model()
     backend_type = get_backend_type()
+
+    # Touch TTS idle timer — health polls indicate an active user session
+    if tts_model.is_loaded():
+        tts_model._idle_timer.touch()
 
     # Check for GPU availability (CUDA or MPS)
     has_cuda = torch.cuda.is_available()
@@ -118,7 +214,7 @@ async def health():
         # Check if the default model (1.7B) is cached
         # Use different model IDs based on backend
         if backend_type == "mlx":
-            default_model_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
+            default_model_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
         else:
             default_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         
@@ -520,87 +616,135 @@ async def set_profile_channels(
 # GENERATION ENDPOINTS
 # ============================================
 
-@app.post("/generate", response_model=models.GenerationResponse)
+@app.post("/generate")
 async def generate_speech(
     data: models.GenerationRequest,
+    request: Request,
+    stream: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Generate speech from text using a voice profile."""
+    """Generate speech from text using a voice profile.
+
+    With stream=False (default): blocks and returns GenerationResponse.
+    With stream=True: returns 202 with job_id, progress via SSE.
+    """
+    job_id = str(uuid.uuid4())
+    request_ip = _extract_request_ip(request)
+
+    if stream:
+        _expire_old_queued_jobs(db)
+
+        # Enforce per-user queue cap (queued/generating/cancelling).
+        user_id = (data.request_user_id or "").strip() or None
+        active_statuses = ["queued", "generating", "cancelling"]
+        if user_id:
+            active_count = db.query(DBGenerationJob).filter(
+                DBGenerationJob.status.in_(active_statuses),
+                DBGenerationJob.request_user_id == user_id,
+            ).count()
+        else:
+            active_count = db.query(DBGenerationJob).filter(
+                DBGenerationJob.status.in_(active_statuses),
+                DBGenerationJob.request_ip == request_ip,
+            ).count()
+
+        if active_count >= _MAX_ACTIVE_JOBS_PER_USER:
+            raise HTTPException(
+                status_code=429,
+                detail=f"Queue limit reached ({_MAX_ACTIVE_JOBS_PER_USER} active jobs per user).",
+            )
+
+        # --- Async (streaming) mode — create a job row, worker picks it up ---
+        job = DBGenerationJob(
+            id=job_id,
+            profile_id=data.profile_id,
+            text=data.text,
+            language=data.language,
+            seed=data.seed,
+            model_size=data.model_size or "1.7B",
+            instruct=data.instruct,
+            request_user_id=data.request_user_id,
+            request_user_first_name=data.request_user_first_name,
+            request_ip=request_ip,
+            status="queued",
+        )
+        db.add(job)
+        db.commit()
+
+        progress_manager = get_progress_manager()
+        # Initialize progress state so SSE endpoint has data immediately
+        progress_manager.update_progress(
+            model_name=job_id,
+            current=0,
+            total=100,
+            status="queued",
+        )
+
+        # Wake the worker
+        _job_signal.set()
+
+        logger.info(f"[TTS] Job {job_id} queued for profile {data.profile_id} from {request_ip}")
+        return JSONResponse(
+            status_code=202,
+            content=models.GenerationStartResponse(
+                generation_id=job_id,
+                status="queued",
+            ).model_dump(),
+        )
+
+    # --- Synchronous (blocking) mode — existing behavior for CLI/tests ---
+
+    # Check DB for any actively generating job
+    active = db.query(DBGenerationJob).filter(
+        DBGenerationJob.status == "generating"
+    ).first()
+    if active or _model_lock.locked():
+        raise HTTPException(
+            status_code=409,
+            detail="A generation is already in progress. Please wait for it to finish.",
+        )
+
     task_manager = get_task_manager()
-    generation_id = str(uuid.uuid4())
-    
     try:
-        # Start tracking generation
         task_manager.start_generation(
-            task_id=generation_id,
+            task_id=job_id,
             profile_id=data.profile_id,
             text=data.text,
         )
-        
-        # Get profile
+
         profile = await profiles.get_profile(data.profile_id, db)
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
-        
-        # Create voice prompt from profile
+
         voice_prompt = await profiles.create_voice_prompt_for_profile(
-            data.profile_id,
-            db,
+            data.profile_id, db,
         )
-        
-        # Generate audio
-        tts_model = tts.get_tts_model()
-        # Load the requested model size if different from current (async to not block)
-        model_size = data.model_size or "1.7B"
 
-        # Check if model needs to be downloaded first
-        model_path = tts_model._get_model_path(model_size)
-        if model_path.startswith("Qwen/"):
-            # Model not cached - check if it exists remotely or needs download
-            from huggingface_hub import constants as hf_constants
-            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_path.replace("/", "--"))
-            if not repo_cache.exists():
-                # Start download in background
+        generation_started_at = datetime.utcnow()
+        async with _model_lock:
+            tts_model = tts.get_tts_model()
+            model_size = data.model_size or "1.7B"
+
+            # Don't silently download — require the model to be cached first
+            if not tts_model._is_model_cached(model_size):
                 model_name = f"qwen-tts-{model_size}"
-
-                async def download_model_background():
-                    try:
-                        await tts_model.load_model_async(model_size)
-                    except Exception as e:
-                        task_manager.error_download(model_name, str(e))
-
-                task_manager.start_download(model_name)
-                asyncio.create_task(download_model_background())
-
-                # Return 202 Accepted with download info
                 raise HTTPException(
-                    status_code=202,
-                    detail={
-                        "message": f"Model {model_size} is being downloaded. Please wait and try again.",
-                        "model_name": model_name,
-                        "downloading": True
-                    }
+                    status_code=400,
+                    detail=f"Model {model_name} is not downloaded. Please download it first from the Models page.",
                 )
 
-        await tts_model.load_model_async(model_size)
-        audio, sample_rate = await tts_model.generate(
-            data.text,
-            voice_prompt,
-            data.language,
-            data.seed,
-            data.instruct,
-        )
+            await tts_model.load_model_async(model_size)
+            save_model_prefs(tts_size=model_size)
+            audio, sample_rate = await tts_model.generate(
+                data.text, voice_prompt, data.language, data.seed, data.instruct,
+            )
+        generation_time_seconds = (datetime.utcnow() - generation_started_at).total_seconds()
 
-        # Calculate duration
         duration = len(audio) / sample_rate
-
-        # Save audio
-        audio_path = config.get_generations_dir() / f"{generation_id}.wav"
-
+        audio_path = config.get_generations_dir() / f"{job_id}.wav"
         from .utils.audio import save_audio
         save_audio(audio, str(audio_path), sample_rate)
 
-        # Create history entry
         generation = await history.create_generation(
             profile_id=data.profile_id,
             text=data.text,
@@ -610,19 +754,188 @@ async def generate_speech(
             seed=data.seed,
             db=db,
             instruct=data.instruct,
+            model_size=model_size,
+            backend_type=get_backend_type(),
+            request_user_id=data.request_user_id,
+            request_user_first_name=data.request_user_first_name,
+            request_ip=request_ip,
+            generation_time_seconds=generation_time_seconds,
         )
-        
-        # Mark generation as complete
-        task_manager.complete_generation(generation_id)
-        
+        task_manager.complete_generation(job_id)
         return generation
-        
+
     except ValueError as e:
-        task_manager.complete_generation(generation_id)
+        task_manager.complete_generation(job_id)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        task_manager.complete_generation(generation_id)
+        task_manager.complete_generation(job_id)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/generate/progress/{generation_id}")
+async def generation_progress(generation_id: str):
+    """Stream generation progress via Server-Sent Events."""
+    progress_manager = get_progress_manager()
+
+    async def event_generator():
+        async for event in progress_manager.subscribe(generation_id):
+            yield event
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/generate/busy")
+async def generation_busy(db: Session = Depends(get_db)):
+    """Check if a generation is currently running (status=generating, not queued)."""
+    active = db.query(DBGenerationJob).filter(
+        DBGenerationJob.status.in_(["generating", "cancelling"])
+    ).first()
+    return {"busy": active is not None}
+
+
+@app.get("/jobs/pending", response_model=List[models.GenerationJobResponse])
+async def list_pending_jobs(db: Session = Depends(get_db)):
+    """Return all queued and generating jobs, oldest first."""
+    jobs = db.query(DBGenerationJob, DBVoiceProfile.name).join(
+        DBVoiceProfile, DBGenerationJob.profile_id == DBVoiceProfile.id
+    ).filter(
+        DBGenerationJob.status.in_(["queued", "generating", "cancelling"])
+    ).order_by(DBGenerationJob.created_at).all()
+
+    return [
+        models.GenerationJobResponse(
+            id=job.id,
+            profile_id=job.profile_id,
+            profile_name=profile_name,
+            text=job.text,
+            language=job.language,
+            model_size=job.model_size,
+            backend_type=job.backend_type,
+            request_user_id=job.request_user_id,
+            request_user_first_name=job.request_user_first_name,
+            request_ip=job.request_ip,
+            status=job.status,
+            progress=job.progress,
+            generation_id=job.generation_id,
+            instruct=job.instruct,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+        )
+        for job, profile_name in jobs
+    ]
+
+
+@app.get("/jobs", response_model=List[models.GenerationJobResponse])
+async def list_jobs(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    status: Optional[str] = Query(default="queued,generating,cancelling,complete"),
+    db: Session = Depends(get_db),
+):
+    """List jobs with optional status filter (comma-separated) and pagination. Default excludes deleted jobs."""
+    query = db.query(DBGenerationJob, DBVoiceProfile.name, DBGeneration).outerjoin(
+        DBVoiceProfile, DBGenerationJob.profile_id == DBVoiceProfile.id
+    ).outerjoin(
+        DBGeneration, DBGenerationJob.generation_id == DBGeneration.id
+    ).filter(
+        DBGenerationJob.status != "deleted"
+    ).filter(
+        (DBGenerationJob.status != "complete") | (DBGeneration.id.isnot(None))
+    )
+
+    if status:
+        statuses = [s.strip() for s in status.split(",") if s.strip()]
+        if statuses:
+            query = query.filter(DBGenerationJob.status.in_(statuses))
+
+    rows = query.order_by(DBGenerationJob.created_at.desc()).offset(offset).limit(limit).all()
+    return [
+        models.GenerationJobResponse(
+            id=job.id,
+            profile_id=job.profile_id,
+            profile_name=profile_name or "Unknown",
+            text=job.text,
+            language=job.language,
+            model_size=job.model_size,
+            backend_type=job.backend_type or (generation.backend_type if generation else None),
+            request_user_id=job.request_user_id,
+            request_user_first_name=job.request_user_first_name,
+            request_ip=job.request_ip,
+            status=job.status,
+            progress=job.progress,
+            generation_id=job.generation_id,
+            audio_path=generation.audio_path if generation else None,
+            duration=generation.duration if generation else None,
+            generation_time_seconds=generation.generation_time_seconds if generation else None,
+            instruct=job.instruct or (generation.instruct if generation else None),
+            created_at=job.created_at,
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+        )
+        for job, profile_name, generation in rows
+    ]
+
+
+@app.post("/jobs/{job_id}/cancel")
+async def cancel_job(job_id: str, db: Session = Depends(get_db)):
+    """Cancel a queued/generating job."""
+    job = db.query(DBGenerationJob).filter(DBGenerationJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    progress_manager = get_progress_manager()
+    now = datetime.utcnow()
+
+    if job.status == "queued":
+        job.status = "cancelled"
+        job.error = "Cancelled by user"
+        job.completed_at = now
+        db.commit()
+        progress_manager.mark_error(job_id, "Cancelled by user")
+        return {"status": "cancelled"}
+
+    if job.status in ("generating", "cancelling"):
+        _cancel_requested_jobs.add(job_id)
+        job.status = "cancelling"
+        db.commit()
+        return {"status": "cancelling"}
+
+    return {"status": job.status}
+
+
+@app.post("/jobs/{job_id}/cancel/force")
+async def force_cancel_job(job_id: str, db: Session = Depends(get_db)):
+    """Force-cancel a job and unload the model backend."""
+    _cancel_requested_jobs.add(job_id)
+
+    job = db.query(DBGenerationJob).filter(DBGenerationJob.id == job_id).first()
+    if job and job.status in ("queued", "generating", "cancelling"):
+        job.status = "cancelled"
+        job.error = "Force-cancelled by user"
+        job.completed_at = datetime.utcnow()
+        db.commit()
+
+    # Best-effort hard stop for current backend.
+    try:
+        tts.unload_tts_model()
+    except Exception:
+        pass
+
+    get_progress_manager().mark_error(job_id, "Force-cancelled by user")
+    
+    # Wake the job worker to process next queued job
+    _job_signal.set()
+    
+    return {"status": "cancelled"}
 
 
 # ============================================
@@ -694,7 +1007,8 @@ async def get_generation(
         DBVoiceProfile,
         DBGeneration.profile_id == DBVoiceProfile.id
     ).filter(
-        DBGeneration.id == generation_id
+        DBGeneration.id == generation_id,
+        DBGeneration.deleted_at.is_(None)
     ).first()
     
     if not result:
@@ -709,8 +1023,14 @@ async def get_generation(
         language=gen.language,
         audio_path=gen.audio_path,
         duration=gen.duration,
+        generation_time_seconds=gen.generation_time_seconds,
         seed=gen.seed,
         instruct=gen.instruct,
+        model_size=gen.model_size,
+        backend_type=gen.backend_type,
+        request_user_id=gen.request_user_id,
+        request_user_first_name=gen.request_user_first_name,
+        request_ip=gen.request_ip,
         created_at=gen.created_at,
     )
 
@@ -724,6 +1044,19 @@ async def delete_generation(
     success = await history.delete_generation(generation_id, db)
     if not success:
         raise HTTPException(status_code=404, detail="Generation not found")
+
+    # Mark linked queue/job rows as deleted so /jobs lists do not surface them.
+    jobs = db.query(DBGenerationJob).filter(DBGenerationJob.generation_id == generation_id).all()
+    now = datetime.utcnow()
+    for job in jobs:
+        job.status = "deleted"
+        if not job.completed_at:
+            job.completed_at = now
+        if not job.error:
+            job.error = "Deleted by user"
+    if jobs:
+        db.commit()
+
     return {"message": "Generation deleted successfully"}
 
 
@@ -735,7 +1068,10 @@ async def export_generation(
     """Export a generation as a ZIP archive."""
     try:
         # Get generation to create filename
-        generation = db.query(DBGeneration).filter_by(id=generation_id).first()
+        generation = db.query(DBGeneration).filter(
+            DBGeneration.id == generation_id,
+            DBGeneration.deleted_at.is_(None),
+        ).first()
         if not generation:
             raise HTTPException(status_code=404, detail="Generation not found")
         
@@ -768,7 +1104,10 @@ async def export_generation_audio(
     db: Session = Depends(get_db),
 ):
     """Export only the audio file from a generation."""
-    generation = db.query(DBGeneration).filter_by(id=generation_id).first()
+    generation = db.query(DBGeneration).filter(
+        DBGeneration.id == generation_id,
+        DBGeneration.deleted_at.is_(None),
+    ).first()
     if not generation:
         raise HTTPException(status_code=404, detail="Generation not found")
     
@@ -801,28 +1140,47 @@ async def transcribe_audio(
     language: Optional[str] = Form(None),
 ):
     """Transcribe audio file to text."""
+    logger.debug(f"[Transcribe] Received file: {file.filename}, content_type: {file.content_type}")
+    
     # Save uploaded file to temporary location
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
     
+    logger.debug(f"[Transcribe] Saved to temp file: {tmp_path}, size: {len(content)} bytes")
+    
     try:
         # Get audio duration
         from .utils.audio import load_audio
+        logger.debug(f"[Transcribe] Loading audio from {tmp_path}")
         audio, sr = load_audio(tmp_path)
         duration = len(audio) / sr
+        logger.debug(f"[Transcribe] Audio loaded: {len(audio)} samples, {sr}Hz, {duration:.2f}s")
         
         # Transcribe
         whisper_model = transcribe.get_whisper_model()
 
-        # Check if Whisper model is downloaded (uses default size "base")
+        # Check if Whisper model is downloaded
         model_size = whisper_model.model_size
-        model_name = f"openai/whisper-{model_size}"
+        logger.debug(f"[Transcribe] Using whisper model size: {model_size}")
+        
+        # Get the correct model path based on backend type
+        backend_type = get_backend_type()
+        if backend_type == "mlx":
+            from .backends.mlx_backend import MLXSTTBackend
+            mlx_whisper_map = MLXSTTBackend.get_mlx_whisper_model_map()
+            model_repo_id = mlx_whisper_map.get(model_size, f"mlx-community/whisper-{model_size}-mlx")
+        else:
+            model_repo_id = f"openai/whisper-{model_size}"
+
+        logger.debug(f"[Transcribe] Model repo ID: {model_repo_id}")
 
         # Check if model is cached
         from huggingface_hub import constants as hf_constants
-        repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
+        repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_repo_id.replace("/", "--"))
+        logger.debug(f"[Transcribe] Checking cache at: {repo_cache}, exists: {repo_cache.exists()}")
+        
         if not repo_cache.exists():
             # Start download in background
             progress_model_name = f"whisper-{model_size}"
@@ -831,6 +1189,7 @@ async def transcribe_audio(
                 try:
                     await whisper_model.load_model_async(model_size)
                 except Exception as e:
+                    logger.exception(f"[Transcribe] Background download error: {e}")
                     get_task_manager().error_download(progress_model_name, str(e))
 
             get_task_manager().start_download(progress_model_name)
@@ -846,14 +1205,20 @@ async def transcribe_audio(
                 }
             )
 
+        logger.debug("[Transcribe] Starting transcription...")
         text = await whisper_model.transcribe(tmp_path, language)
+        save_model_prefs(stt_size=model_size)
+        logger.debug(f"[Transcribe] Transcription complete: {text[:100] if text else '(empty)'}...")
         
         return models.TranscriptionResponse(
             text=text,
             duration=duration,
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
+        logger.exception(f"[Transcribe] ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         # Clean up temp file
@@ -1115,6 +1480,7 @@ async def load_model(model_size: str = "1.7B"):
     try:
         tts_model = tts.get_tts_model()
         await tts_model.load_model_async(model_size)
+        save_model_prefs(tts_size=model_size)
         return {"message": f"Model {model_size} loaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1134,14 +1500,14 @@ async def unload_model():
 async def get_model_progress(model_name: str):
     """Get model download progress via Server-Sent Events."""
     from fastapi.responses import StreamingResponse
-    
+
     progress_manager = get_progress_manager()
-    
+
     async def event_generator():
         """Generate SSE events for progress updates."""
         async for event in progress_manager.subscribe(model_name):
             yield event
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -1151,6 +1517,16 @@ async def get_model_progress(model_name: str):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.get("/models/progress-snapshot/{model_name}")
+async def get_model_progress_snapshot(model_name: str):
+    """Get current model download progress as a single JSON snapshot (for polling)."""
+    progress_manager = get_progress_manager()
+    progress = progress_manager.get_progress(model_name)
+    if progress is None:
+        return {"model_name": model_name, "status": "idle", "current": 0, "total": 0, "progress": 0, "filename": None}
+    return progress
 
 
 @app.get("/models/status", response_model=models.ModelStatusListResponse)
@@ -1190,13 +1566,17 @@ async def get_model_status():
     
     # Use backend-specific model IDs
     if backend_type == "mlx":
-        tts_1_7b_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
-        tts_0_6b_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"  # Fallback to 1.7B
-        # MLX backend uses openai/whisper-* models, not mlx-community
-        whisper_base_id = "openai/whisper-base"
-        whisper_small_id = "openai/whisper-small"
-        whisper_medium_id = "openai/whisper-medium"
-        whisper_large_id = "openai/whisper-large"
+        from .backends.mlx_backend import MLXTTSBackend, MLXSTTBackend
+        _mlx_tts = MLXTTSBackend()
+        tts_1_7b_id = _mlx_tts._get_model_path("1.7B")
+        tts_0_6b_id = _mlx_tts._get_model_path("0.6B")
+        # MLX backend uses mlx-community Whisper models
+        mlx_whisper_map = MLXSTTBackend.get_mlx_whisper_model_map()
+        whisper_base_id = mlx_whisper_map["base"]
+        whisper_small_id = mlx_whisper_map["small"]
+        whisper_medium_id = mlx_whisper_map["medium"]
+        whisper_large_id = mlx_whisper_map["large"]
+        whisper_large_v3_turbo_id = mlx_whisper_map["large-v3-turbo"]
     else:
         tts_1_7b_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         tts_0_6b_id = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
@@ -1204,6 +1584,7 @@ async def get_model_status():
         whisper_small_id = "openai/whisper-small"
         whisper_medium_id = "openai/whisper-medium"
         whisper_large_id = "openai/whisper-large"
+        whisper_large_v3_turbo_id = "openai/whisper-large-v3-turbo"
     
     model_configs = [
         {
@@ -1248,6 +1629,13 @@ async def get_model_status():
             "model_size": "large",
             "check_loaded": lambda: check_whisper_loaded("large"),
         },
+        {
+            "model_name": "whisper-large-v3-turbo",
+            "display_name": "Whisper Large V3 Turbo",
+            "hf_repo_id": whisper_large_v3_turbo_id,
+            "model_size": "large-v3-turbo",
+            "check_loaded": lambda: check_whisper_loaded("large-v3-turbo"),
+        },
     ]
     
     # Build a mapping of model_name -> hf_repo_id so we can check if shared repos are downloading
@@ -1268,7 +1656,7 @@ async def get_model_status():
     
     statuses = []
     
-    for config in model_configs:
+    for model_config in model_configs:
         try:
             downloaded = False
             size_mb = None
@@ -1276,7 +1664,7 @@ async def get_model_status():
             
             # Method 1: Try using scan_cache_dir if available
             if cache_info:
-                repo_id = config["hf_repo_id"]
+                repo_id = model_config["hf_repo_id"]
                 for repo in cache_info.repos:
                     if repo.repo_id == repo_id:
                         # Check if actual model weight files exist (not just config files)
@@ -1316,7 +1704,7 @@ async def get_model_status():
             if not downloaded:
                 try:
                     cache_dir = hf_constants.HF_HUB_CACHE
-                    repo_cache = Path(cache_dir) / ("models--" + config["hf_repo_id"].replace("/", "--"))
+                    repo_cache = Path(cache_dir) / ("models--" + model_config["hf_repo_id"].replace("/", "--"))
                     
                     if repo_cache.exists():
                         # Check for .incomplete files - if any exist, download is still in progress
@@ -1356,42 +1744,53 @@ async def get_model_status():
             
             # Check if loaded in memory
             try:
-                loaded = config["check_loaded"]()
+                loaded = model_config["check_loaded"]()
             except Exception:
                 loaded = False
-            
+
             # Check if this model (or its shared repo) is currently being downloaded
-            is_downloading = config["hf_repo_id"] in active_download_repos
-            
+            is_downloading = model_config["hf_repo_id"] in active_download_repos
+
             # If downloading, don't report as downloaded (partial files exist)
             if is_downloading:
                 downloaded = False
                 size_mb = None  # Don't show partial size during download
-            
+
+            # If no size from disk, query HuggingFace API
+            if size_mb is None and not is_downloading:
+                from .utils.hf_sizes import get_repo_size_mb
+                size_mb = await get_repo_size_mb(model_config["hf_repo_id"])
+
             statuses.append(models.ModelStatus(
-                model_name=config["model_name"],
-                display_name=config["display_name"],
+                model_name=model_config["model_name"],
+                display_name=model_config["display_name"],
                 downloaded=downloaded,
                 downloading=is_downloading,
                 size_mb=size_mb,
                 loaded=loaded,
             ))
-        except Exception as e:
+        except Exception:
             # If check fails, try to at least check if loaded
             try:
-                loaded = config["check_loaded"]()
+                loaded = model_config["check_loaded"]()
             except Exception:
                 loaded = False
-            
+
             # Check if this model (or its shared repo) is currently being downloaded
-            is_downloading = config["hf_repo_id"] in active_download_repos
-            
+            is_downloading = model_config["hf_repo_id"] in active_download_repos
+
+            # If not downloading, try to get size from HuggingFace API
+            size_mb = None
+            if not is_downloading:
+                from .utils.hf_sizes import get_repo_size_mb
+                size_mb = await get_repo_size_mb(model_config["hf_repo_id"])
+
             statuses.append(models.ModelStatus(
-                model_name=config["model_name"],
-                display_name=config["display_name"],
+                model_name=model_config["model_name"],
+                display_name=model_config["display_name"],
                 downloaded=False,  # Assume not downloaded if check failed
                 downloading=is_downloading,
-                size_mb=None,
+                size_mb=size_mb,
                 loaded=loaded,
             ))
     
@@ -1431,6 +1830,10 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
             "model_size": "large",
             "load_func": lambda: transcribe.get_whisper_model().load_model("large"),
         },
+        "whisper-large-v3-turbo": {
+            "model_size": "large-v3-turbo",
+            "load_func": lambda: transcribe.get_whisper_model().load_model("large-v3-turbo"),
+        },
     }
     
     if request.model_name not in model_configs:
@@ -1446,13 +1849,18 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
             # If it's a coroutine, await it
             if asyncio.iscoroutine(result):
                 await result
+            # Mark progress as complete - this notifies SSE listeners
+            # This is needed because _load_model_sync only marks complete if
+            # the model wasn't already cached, but we always init progress here
+            progress_manager.mark_complete(request.model_name)
             task_manager.complete_download(request.model_name)
         except Exception as e:
+            progress_manager.mark_error(request.model_name, str(e))
             task_manager.error_download(request.model_name, str(e))
 
     # Start tracking download
     task_manager.start_download(request.model_name)
-    
+
     # Initialize progress state so SSE endpoint has initial data to send.
     # This fixes a race condition where the frontend connects to SSE before
     # any progress callbacks have fired (especially for large models like Qwen
@@ -1465,18 +1873,33 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
         status="downloading",
     )
 
-    # Start download in background task (don't await)
-    asyncio.create_task(download_in_background())
+    # Start download in background task and store reference for cancellation
+    bg_task = asyncio.create_task(download_in_background())
+    task_manager.set_download_task(request.model_name, bg_task)
 
     # Return immediately - frontend should poll progress endpoint
     return {"message": f"Model {request.model_name} download started"}
+
+
+@app.post("/models/cancel/{model_name}")
+async def cancel_model_download(model_name: str):
+    """Cancel an in-progress model download."""
+    task_manager = get_task_manager()
+    progress_manager = get_progress_manager()
+
+    if not task_manager.is_download_active(model_name):
+        raise HTTPException(status_code=404, detail=f"No active download for {model_name}")
+
+    cancelled = task_manager.cancel_download(model_name)
+    if cancelled:
+        progress_manager.mark_error(model_name, "Download cancelled")
+    return {"message": f"Download of {model_name} cancelled"}
 
 
 @app.delete("/models/{model_name}")
 async def delete_model(model_name: str):
     """Delete a downloaded model from the HuggingFace cache."""
     import shutil
-    import os
     from huggingface_hub import constants as hf_constants
     
     # Map model names to HuggingFace repo IDs
@@ -1561,7 +1984,7 @@ async def clear_cache():
     try:
         deleted_count = clear_voice_prompt_cache()
         return {
-            "message": f"Voice prompt cache cleared successfully",
+            "message": "Voice prompt cache cleared successfully",
             "files_deleted": deleted_count,
         }
     except Exception as e:
@@ -1650,39 +2073,346 @@ def _get_gpu_status() -> str:
     return "None (CPU only)"
 
 
-@app.on_event("startup")
-async def startup_event():
+def _get_model_prefs_path() -> Path:
+    """Get path to model preferences JSON file."""
+    return config.get_data_dir() / "model_prefs.json"
+
+
+def _load_model_prefs() -> dict:
+    """Load model preferences from disk."""
+    import json
+    prefs_path = _get_model_prefs_path()
+    if prefs_path.exists():
+        try:
+            return json.loads(prefs_path.read_text())
+        except Exception:
+            pass
+    return {}
+
+
+def save_model_prefs(tts_size: str = None, stt_size: str = None):
+    """Save model preferences to disk (called after successful model load)."""
+    import json
+    prefs = _load_model_prefs()
+    if tts_size:
+        prefs["tts_model_size"] = tts_size
+    if stt_size:
+        prefs["stt_model_size"] = stt_size
+    try:
+        _get_model_prefs_path().write_text(json.dumps(prefs, indent=2))
+    except Exception as e:
+        logger.warning(f"Could not save model preferences: {e}")
+
+
+def _cleanup_stale_jobs():
+    """Mark any leftover queued/generating jobs as timeout on server start."""
+    db = database.SessionLocal()
+    try:
+        stale = db.query(DBGenerationJob).filter(
+            DBGenerationJob.status.in_(["queued", "generating", "cancelling"])
+        ).all()
+        for job in stale:
+            job.status = "timeout"
+            job.completed_at = datetime.utcnow()
+            logger.info(f"[TTS] Marked stale job {job.id} as timeout (server restart)")
+        if stale:
+            db.commit()
+            logger.info(f"[TTS] Cleaned up {len(stale)} stale jobs from previous run")
+    finally:
+        db.close()
+
+
+async def _job_worker():
+    """Background worker that processes queued generation jobs one at a time."""
+    logger.info("[TTS] Job worker started")
+    while True:
+        try:
+            # Wait for signal or poll every 2s
+            try:
+                await asyncio.wait_for(_job_signal.wait(), timeout=2.0)
+                _job_signal.clear()
+            except asyncio.TimeoutError:
+                pass
+
+            db = database.SessionLocal()
+            try:
+                # Check for stuck jobs (generating > 5 min)
+                from datetime import timedelta
+                _expire_old_queued_jobs(db)
+
+                cutoff = datetime.utcnow() - timedelta(minutes=_GENERATING_JOB_TIMEOUT_MINUTES)
+                stuck = db.query(DBGenerationJob).filter(
+                    DBGenerationJob.status.in_(["generating", "cancelling"]),
+                    DBGenerationJob.started_at < cutoff,
+                ).all()
+                for job in stuck:
+                    job.status = "timeout"
+                    job.error = "Generation timeout"
+                    job.completed_at = datetime.utcnow()
+                    try:
+                        get_progress_manager().mark_error(job.id, "Generation timeout")
+                    except Exception:
+                        pass
+                    logger.warning(f"[TTS] Job {job.id} timed out (stuck >5 min)")
+                if stuck:
+                    db.commit()
+
+                # Skip if something is already generating
+                active = db.query(DBGenerationJob).filter(
+                    DBGenerationJob.status.in_(["generating", "cancelling"])
+                ).first()
+                if active:
+                    continue
+
+                # Pick oldest queued job
+                job = db.query(DBGenerationJob).filter(
+                    DBGenerationJob.status == "queued"
+                ).order_by(DBGenerationJob.created_at).first()
+                if not job:
+                    continue
+
+                # Mark as generating
+                job.status = "generating"
+                job.started_at = datetime.utcnow()
+                db.commit()
+
+                job_id = job.id
+                profile_id = job.profile_id
+                text = job.text
+                language = job.language
+                seed = job.seed
+                model_size = job.model_size or "1.7B"
+                instruct = job.instruct
+                request_user_id = job.request_user_id
+                request_user_first_name = job.request_user_first_name
+                request_ip = job.request_ip
+                backend_type = get_backend_type()
+                job.backend_type = backend_type
+                db.commit()
+            finally:
+                db.close()
+
+            logger.info(f"[TTS] Job {job_id} starting generation (ip={request_ip or 'unknown'})")
+
+            progress_manager = get_progress_manager()
+            task_manager = get_task_manager()
+
+            task_manager.start_generation(
+                task_id=job_id,
+                profile_id=profile_id,
+                text=text,
+            )
+
+            # Update SSE to "generating" status
+            progress_manager.update_progress(
+                model_name=job_id,
+                current=0,
+                total=100,
+                status="generating",
+            )
+
+            gen_db = database.SessionLocal()
+            try:
+                generation_started_at = datetime.utcnow()
+                async with _model_lock:
+                    def on_progress(pct):
+                        if job_id in _cancel_requested_jobs:
+                            raise RuntimeError("Cancelled by user")
+                        progress_manager.update_progress(
+                            model_name=job_id,
+                            current=int(pct),
+                            total=100,
+                            status="generating",
+                        )
+                        task_manager.update_generation_progress(job_id, pct)
+                        # Throttled DB update (~every 5%)
+                        if int(pct) % 5 == 0:
+                            try:
+                                upd_db = database.SessionLocal()
+                                upd_job = upd_db.query(DBGenerationJob).get(job_id)
+                                if upd_job:
+                                    upd_job.progress = pct
+                                    upd_db.commit()
+                                upd_db.close()
+                            except Exception:
+                                pass
+
+                    profile = await profiles.get_profile(profile_id, gen_db)
+                    if not profile:
+                        raise ValueError("Profile not found")
+
+                    voice_prompt = await profiles.create_voice_prompt_for_profile(
+                        profile_id, gen_db,
+                    )
+
+                    tts_model = tts.get_tts_model()
+
+                    # Don't silently download — require the model to be cached first
+                    if not tts_model._is_model_cached(model_size):
+                        model_name = f"qwen-tts-{model_size}"
+                        raise ValueError(f"Model {model_name} is not downloaded. Please download it first from the Models page.")
+
+                    await tts_model.load_model_async(model_size)
+                    save_model_prefs(tts_size=model_size)
+
+                    audio, sample_rate = await tts_model.generate(
+                        text, voice_prompt, language, seed, instruct,
+                        progress_callback=on_progress,
+                    )
+
+                duration = len(audio) / sample_rate
+                generation_time_seconds = (datetime.utcnow() - generation_started_at).total_seconds()
+                audio_path = config.get_generations_dir() / f"{job_id}.wav"
+                from .utils.audio import save_audio
+                save_audio(audio, str(audio_path), sample_rate)
+
+                generation = await history.create_generation(
+                    profile_id=profile_id,
+                    text=text,
+                    language=language,
+                    audio_path=str(audio_path),
+                    duration=duration,
+                    seed=seed,
+                    db=gen_db,
+                    instruct=instruct,
+                    model_size=model_size,
+                    backend_type=backend_type,
+                    request_user_id=request_user_id,
+                    request_user_first_name=request_user_first_name,
+                    request_ip=request_ip,
+                    generation_time_seconds=generation_time_seconds,
+                )
+
+                # Mark job complete
+                job_row = gen_db.query(DBGenerationJob).get(job_id)
+                if job_row:
+                    job_row.status = "complete"
+                    job_row.progress = 100.0
+                    job_row.generation_id = generation.id if hasattr(generation, 'id') else None
+                    job_row.completed_at = datetime.utcnow()
+                    gen_db.commit()
+
+                progress_manager.mark_complete(job_id)
+                task_manager.complete_generation(job_id)
+                _cancel_requested_jobs.discard(job_id)
+                logger.info(f"[TTS] Job {job_id} complete ({duration:.1f}s audio)")
+
+            except Exception as e:
+                logger.exception(f"[TTS] Job {job_id} failed: {e}")
+                is_cancelled = job_id in _cancel_requested_jobs or "cancel" in str(e).lower()
+                progress_manager.mark_error(job_id, "Cancelled by user" if is_cancelled else str(e))
+                task_manager.complete_generation(job_id)
+
+                err_db = database.SessionLocal()
+                try:
+                    err_job = err_db.query(DBGenerationJob).get(job_id)
+                    if err_job:
+                        err_job.status = "cancelled" if is_cancelled else "error"
+                        err_job.error = ("Cancelled by user" if is_cancelled else str(e))[:1000]
+                        err_job.completed_at = datetime.utcnow()
+                        err_db.commit()
+                finally:
+                    err_db.close()
+                _cancel_requested_jobs.discard(job_id)
+            finally:
+                gen_db.close()
+
+            # Immediately check for more queued jobs
+            _job_signal.set()
+
+        except asyncio.CancelledError:
+            logger.info("[TTS] Job worker shutting down")
+            break
+        except Exception as e:
+            logger.exception(f"[TTS] Job worker error: {e}")
+            await asyncio.sleep(2)
+
+
+async def _startup():
     """Run on application startup."""
-    print("voicebox API starting up...")
+    _log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
+    logging.basicConfig(
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+        level=getattr(logging, _log_level, logging.INFO),
+    )
+    logger.info("voicebox API starting up...")
     database.init_db()
-    print(f"Database initialized at {database._db_path}")
+    logger.info(f"Database initialized at {database._db_path}")
     backend_type = get_backend_type()
-    print(f"Backend: {backend_type.upper()}")
-    print(f"GPU available: {_get_gpu_status()}")
+    logger.info(f"Backend: {backend_type.upper()}")
+    logger.info(f"GPU available: {_get_gpu_status()}")
 
     # Initialize progress manager with main event loop for thread-safe operations
     try:
         progress_manager = get_progress_manager()
         progress_manager._set_main_loop(asyncio.get_running_loop())
-        print("Progress manager initialized with event loop")
+        logger.info("Progress manager initialized with event loop")
     except Exception as e:
-        print(f"Warning: Could not initialize progress manager event loop: {e}")
+        logger.warning(f"Could not initialize progress manager event loop: {e}")
 
-    # Ensure HuggingFace cache directory exists
+    # HuggingFace setup
     try:
         from huggingface_hub import constants as hf_constants
+
+        # Check for HF_TOKEN (huggingface_hub reads it automatically)
+        hf_token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        if hf_token:
+            logger.info(f"HuggingFace token: {'*' * 4}{hf_token[-4:]}")
+        else:
+            logger.info("HuggingFace token: not set (set HF_TOKEN env var for gated models)")
+
         cache_dir = Path(hf_constants.HF_HUB_CACHE)
         cache_dir.mkdir(parents=True, exist_ok=True)
-        print(f"HuggingFace cache directory: {cache_dir}")
+        logger.info(f"HuggingFace cache directory: {cache_dir}")
     except Exception as e:
-        print(f"Warning: Could not create HuggingFace cache directory: {e}")
-        print("Model downloads may fail. Please ensure the directory exists and has write permissions.")
+        logger.warning(f"Could not set up HuggingFace: {e}")
+        logger.warning("Model downloads may fail. Please ensure the directory exists and has write permissions.")
+
+    # Set event loop on idle timers so they can schedule unloads
+    loop = asyncio.get_running_loop()
+    try:
+        tts.get_tts_model()._idle_timer.set_loop(loop)
+    except Exception:
+        pass
+    try:
+        transcribe.get_whisper_model()._idle_timer.set_loop(loop)
+    except Exception:
+        pass
+
+    # Clear stale jobs from previous server run
+    _cleanup_stale_jobs()
+
+    # Preload models in the background based on last-used preferences
+    asyncio.create_task(_preload_models())
+
+    # Start the job worker
+    asyncio.create_task(_job_worker())
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
+async def _preload_models():
+    """Preload TTS and STT models based on saved preferences."""
+    prefs = _load_model_prefs()
+    tts_size = prefs.get("tts_model_size", "1.7B")
+
+    # Preload TTS model
+    try:
+        tts_backend = tts.get_tts_model()
+        if tts_backend._is_model_cached(tts_size):
+            logger.info(f"Preloading TTS model ({tts_size})...")
+            await tts_backend.load_model_async(tts_size)
+            logger.info(f"TTS model ({tts_size}) preloaded")
+        else:
+            logger.info(f"TTS model ({tts_size}) not cached, skipping preload")
+    except Exception as e:
+        logger.warning(f"TTS preload failed: {e}", exc_info=True)
+
+    # STT model is NOT preloaded — it loads on first /transcribe call.
+    # This saves memory when the user doesn't use Create Voice.
+
+
+async def _shutdown():
     """Run on application shutdown."""
-    print("voicebox API shutting down...")
+    logger.info("voicebox API shutting down...")
     # Unload models to free memory
     tts.unload_tts_model()
     transcribe.unload_whisper_model()
@@ -1721,9 +2451,11 @@ if __name__ == "__main__":
     # Initialize database after data directory is set
     database.init_db()
 
+    _log_level = os.environ.get("LOG_LEVEL", "info").lower()
     uvicorn.run(
         "backend.main:app",
         host=args.host,
         port=args.port,
         reload=False,  # Disable reload in production
+        log_level=_log_level,
     )

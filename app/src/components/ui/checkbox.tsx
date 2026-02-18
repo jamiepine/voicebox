@@ -13,6 +13,7 @@ export interface CheckboxProps {
 const Checkbox = React.forwardRef<HTMLButtonElement, CheckboxProps>(
   ({ checked = false, onCheckedChange, disabled = false, className, id, ...props }, ref) => {
     return (
+      // biome-ignore lint/a11y/useSemanticElements: Custom checkbox component requires button for styling
       <button
         type="button"
         ref={ref}

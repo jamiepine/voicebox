@@ -1,0 +1,36 @@
+services:
+  voicebox:
+    build:
+      context: .
+      args:
+        CUDA: "1"
+    ports:
+      - "17493:17493"
+    volumes:
+      - voicebox-data:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_HOME=/data/huggingface
+
+  # CPU-only variant (comment out the above, uncomment this)
+  # voicebox:
+  #   build:
+  #     context: .
+  #     args:
+  #       CUDA: "0"
+  #   ports:
+  #     - "17493:17493"
+  #   volumes:
+  #     - voicebox-data:/data
+  #   restart: unless-stopped
+
+volumes:
+  voicebox-data:

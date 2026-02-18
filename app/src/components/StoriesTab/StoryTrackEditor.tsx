@@ -313,7 +313,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
     }
   }, [isResizing, handleResizeMove, handleResizeEnd]);
 
-  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleTimelineClick = (e: React.MouseEvent<HTMLElement>) => {
     if (!tracksRef.current || draggingItem || trimmingItem) return;
     const rect = tracksRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left + tracksRef.current.scrollLeft;

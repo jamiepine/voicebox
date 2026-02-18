@@ -17,6 +17,10 @@ export const webAudio: PlatformAudio = {
     return []; // No native device routing in web
   },
 
+  async listInputDevices(): Promise<AudioDevice[]> {
+    return []; // No native device routing in web
+  },
+
   async playToDevices(_audioData: Uint8Array, _deviceIds: string[]): Promise<void> {
     throw new Error('Native audio device routing is only available in the desktop app.');
   },

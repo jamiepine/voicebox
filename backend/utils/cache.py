@@ -3,11 +3,14 @@ Voice prompt caching utilities.
 """
 
 import hashlib
+import logging
 import torch
 from pathlib import Path
 from typing import Optional, Union, Dict, Any
 
 from .. import config
+
+logger = logging.getLogger(__name__)
 
 
 def _get_cache_dir() -> Path:
@@ -111,7 +114,7 @@ def clear_voice_prompt_cache() -> int:
                 cache_file.unlink()
                 deleted_count += 1
             except Exception as e:
-                print(f"Failed to delete cache file {cache_file}: {e}")
+                logger.warning(f"Failed to delete cache file {cache_file}: {e}")
         
         # Delete combined audio files
         for audio_file in cache_dir.glob("combined_*.wav"):
@@ -119,8 +122,8 @@ def clear_voice_prompt_cache() -> int:
                 audio_file.unlink()
                 deleted_count += 1
             except Exception as e:
-                print(f"Failed to delete combined audio file {audio_file}: {e}")
-    
+                logger.warning(f"Failed to delete combined audio file {audio_file}: {e}")
+
     return deleted_count
 
 
@@ -145,6 +148,6 @@ def clear_profile_cache(profile_id: str) -> int:
                 audio_file.unlink()
                 deleted_count += 1
             except Exception as e:
-                print(f"Failed to delete combined audio file {audio_file}: {e}")
-    
+                logger.warning(f"Failed to delete combined audio file {audio_file}: {e}")
+
     return deleted_count

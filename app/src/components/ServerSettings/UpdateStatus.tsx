@@ -11,6 +11,7 @@ export function UpdateStatus() {
   const platform = usePlatform();
   const { status, checkForUpdates, downloadAndInstall, restartAndInstall } = useAutoUpdater(false);
   const [currentVersion, setCurrentVersion] = useState<string>('');
+  const buildInfo = platform.metadata.getBuildInfo();
 
   useEffect(() => {
     platform.metadata
@@ -28,7 +29,12 @@ export function UpdateStatus() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <div className="text-sm font-medium">Current Version</div>
-            <div className="text-sm text-muted-foreground">v{currentVersion}</div>
+            <div className="text-sm text-muted-foreground">
+              v{currentVersion}
+              {buildInfo && (
+                <span className="ml-2 text-xs font-mono opacity-60">{buildInfo}</span>
+              )}
+            </div>
           </div>
           <Button
             onClick={checkForUpdates}

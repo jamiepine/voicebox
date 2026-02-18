@@ -57,6 +57,8 @@ class GenerationRequest(BaseModel):
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B)$")
     instruct: Optional[str] = Field(None, max_length=500)
+    request_user_id: Optional[str] = Field(None, max_length=128)
+    request_user_first_name: Optional[str] = Field(None, max_length=64)
 
 
 class GenerationResponse(BaseModel):
@@ -67,12 +69,60 @@ class GenerationResponse(BaseModel):
     language: str
     audio_path: str
     duration: float
+    generation_time_seconds: Optional[float] = None
     seed: Optional[int]
     instruct: Optional[str]
+    model_size: Optional[str] = None
+    backend_type: Optional[str] = None
+    request_user_id: Optional[str] = None
+    request_user_first_name: Optional[str] = None
+    request_ip: Optional[str] = None
     created_at: datetime
 
     class Config:
         from_attributes = True
+
+
+class GenerationStartResponse(BaseModel):
+    """Response model for async generation start."""
+    generation_id: str
+    status: str = "queued"
+
+
+class GenerationJobResponse(BaseModel):
+    """Response model for a pending generation job."""
+    id: str
+    profile_id: str
+    profile_name: str
+    text: str
+    language: str
+    model_size: Optional[str] = None
+    backend_type: Optional[str] = None
+    request_user_id: Optional[str] = None
+    request_user_first_name: Optional[str] = None
+    request_ip: Optional[str] = None
+    status: str  # queued | generating | cancelling | complete | cancelled | error | timeout
+    progress: float
+    generation_id: Optional[str] = None
+    audio_path: Optional[str] = None
+    duration: Optional[float] = None
+    generation_time_seconds: Optional[float] = None
+    instruct: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class GenerationProgressEvent(BaseModel):
+    """SSE event for generation progress."""
+    generation_id: str
+    progress: float  # 0-100
+    status: str  # "generating", "complete", "failed"
+    duration: Optional[float] = None  # set on complete
+    audio_path: Optional[str] = None  # set on complete
 
 
 class HistoryQuery(BaseModel):
@@ -92,8 +142,14 @@ class HistoryResponse(BaseModel):
     language: str
     audio_path: str
     duration: float
+    generation_time_seconds: Optional[float] = None
     seed: Optional[int]
     instruct: Optional[str]
+    model_size: Optional[str] = None
+    backend_type: Optional[str] = None
+    request_user_id: Optional[str] = None
+    request_user_first_name: Optional[str] = None
+    request_ip: Optional[str] = None
     created_at: datetime
 
     class Config:

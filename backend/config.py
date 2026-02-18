@@ -4,7 +4,10 @@ Configuration module for voicebox backend.
 Handles data directory configuration for production bundling.
 """
 
+import logging
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 # Default data directory (used in development)
 _data_dir = Path("data")
@@ -19,7 +22,7 @@ def set_data_dir(path: str | Path):
     global _data_dir
     _data_dir = Path(path)
     _data_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Data directory set to: {_data_dir.absolute()}")
+    logger.info(f"Data directory set to: {_data_dir.absolute()}")
 
 def get_data_dir() -> Path:
     """

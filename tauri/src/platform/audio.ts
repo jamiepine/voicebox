@@ -30,6 +30,10 @@ export const tauriAudio: PlatformAudio = {
     return await invoke<AudioDevice[]>('list_audio_output_devices');
   },
 
+  async listInputDevices(): Promise<AudioDevice[]> {
+    return await invoke<AudioDevice[]>('list_audio_input_devices');
+  },
+
   async playToDevices(audioData: Uint8Array, deviceIds: string[]): Promise<void> {
     await invoke('play_audio_to_devices', {
       audioData: Array.from(audioData),

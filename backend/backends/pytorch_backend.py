@@ -2,18 +2,29 @@
 PyTorch backend implementation for TTS and STT.
 """
 
+import logging
+import os
 from typing import Optional, List, Tuple
 import asyncio
 import torch
 import numpy as np
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 from . import TTSBackend, STTBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 from ..utils.audio import normalize_audio, load_audio
 from ..utils.progress import get_progress_manager
-from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback
+from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback, hf_offline_for_cached
 from ..utils.tasks import get_task_manager
+from ..utils.idle_timer import IdleTimer
+
+# Idle timeouts (seconds). Disabled in serverless mode — the entire
+# worker shuts down instead of unloading individual models.
+_SERVERLESS = os.environ.get("SERVERLESS", "") in ("1", "true")
+_TTS_IDLE_TIMEOUT = 0 if _SERVERLESS else 180   # 3 minutes (normal)
+_STT_IDLE_TIMEOUT = 0 if _SERVERLESS else 300   # 5 minutes (normal)
 
 
 class PyTorchTTSBackend:
@@ -24,6 +35,11 @@ class PyTorchTTSBackend:
         self.model_size = model_size
         self.device = self._get_device()
         self._current_model_size = None
+        self._idle_timer = IdleTimer(
+            timeout=_TTS_IDLE_TIMEOUT,
+            on_timeout=self.unload_model,
+            label="TTS",
+        )
     
     def _get_device(self) -> str:
         """Get the best available device."""
@@ -79,7 +95,7 @@ class PyTorchTTSBackend:
             # Check for .incomplete files - if any exist, download is still in progress
             blobs_dir = repo_cache / "blobs"
             if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
-                print(f"[_is_model_cached] Found .incomplete files for {model_size}, treating as not cached")
+                logger.debug(f"[_is_model_cached] Found .incomplete files for {model_size}, treating as not cached")
                 return False
             
             # Check that actual model weight files exist in snapshots
@@ -90,14 +106,14 @@ class PyTorchTTSBackend:
                     any(snapshots_dir.rglob("*.bin"))
                 )
                 if not has_weights:
-                    print(f"[_is_model_cached] No model weights found for {model_size}, treating as not cached")
+                    logger.debug(f"[_is_model_cached] No model weights found for {model_size}, treating as not cached")
                     return False
             
             return True
         except Exception as e:
-            print(f"[_is_model_cached] Error checking cache for {model_size}: {e}")
+            logger.warning(f"[_is_model_cached] Error checking cache for {model_size}: {e}")
             return False
-    
+
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the TTS model with automatic downloading from HuggingFace Hub.
@@ -110,27 +126,29 @@ class PyTorchTTSBackend:
             
         # If already loaded with correct size, return
         if self.model is not None and self._current_model_size == model_size:
+            self._idle_timer.touch()
             return
-        
+
         # Unload existing model if different size requested
         if self.model is not None and self._current_model_size != model_size:
             self.unload_model()
-        
+
+        # Check cache before entering thread pool
+        is_cached = self._is_model_cached(model_size)
+
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
-    
+        await asyncio.to_thread(self._load_model_sync, model_size, is_cached)
+        self._idle_timer.touch()
+
     # Alias for compatibility
     load_model = load_model_async
-    
-    def _load_model_sync(self, model_size: str):
+
+    def _load_model_sync(self, model_size: str, is_cached: bool = False):
         """Synchronous model loading."""
         try:
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
             model_name = f"qwen-tts-{model_size}"
-
-            # Check if model is already cached
-            is_cached = self._is_model_cached(model_size)
 
             # Set up progress callback and tracker
             # If cached: filter out non-download progress (like "Segment 1/1" during generation)
@@ -138,19 +156,11 @@ class PyTorchTTSBackend:
             progress_callback = create_hf_progress_callback(model_name, progress_manager)
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
-            # Patch tqdm BEFORE importing qwen_tts
-            tracker_context = tracker.patch_download()
-            tracker_context.__enter__()
-
-            # Import qwen_tts
-            from qwen_tts import Qwen3TTSModel
-
             # Get model path (local or HuggingFace Hub ID)
             model_path = self._get_model_path(model_size)
 
-            print(f"Loading TTS model {model_size} on {self.device}...")
+            logger.info(f"Loading TTS model {model_size} on {self.device}...")
 
-            # Only track download progress if model is NOT cached
             if not is_cached:
                 # Start tracking download task
                 task_manager.start_download(model_name)
@@ -163,30 +173,40 @@ class PyTorchTTSBackend:
                     filename="Connecting to HuggingFace...",
                     status="downloading",
                 )
+            else:
+                # Emit a "loading" status so the UI can show a spinner while the
+                # cached model is being loaded into GPU memory.
+                progress_manager.update_progress(
+                    model_name=model_name,
+                    current=0,
+                    total=0,
+                    filename="Loading model into memory...",
+                    status="loading",
+                )
 
-            # Load the model (tqdm is patched, but filters out non-download progress)
-            try:
+            # Patch tqdm and use HF offline mode for cached models to skip remote validation
+            with tracker.patch_download(), hf_offline_for_cached(is_cached):
+                from qwen_tts import Qwen3TTSModel
+
                 self.model = Qwen3TTSModel.from_pretrained(
                     model_path,
                     device_map=self.device,
                     torch_dtype=torch.float32 if self.device == "cpu" else torch.bfloat16,
                 )
-            finally:
-                # Exit the patch context
-                tracker_context.__exit__(None, None, None)
-            
-            # Only mark download as complete if we were tracking it
+
             if not is_cached:
                 progress_manager.mark_complete(model_name)
                 task_manager.complete_download(model_name)
+            else:
+                progress_manager.clear_progress(model_name)
             
             self._current_model_size = model_size
             self.model_size = model_size
             
-            print(f"TTS model {model_size} loaded successfully")
+            logger.info(f"TTS model {model_size} loaded successfully")
             
         except ImportError as e:
-            print(f"Error: qwen_tts package not found. Install with: pip install git+https://github.com/QwenLM/Qwen3-TTS.git")
+            logger.error(f"Error: qwen_tts package not found. Install with: pip install git+https://github.com/QwenLM/Qwen3-TTS.git")
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
             model_name = f"qwen-tts-{model_size}"
@@ -194,8 +214,8 @@ class PyTorchTTSBackend:
             task_manager.error_download(model_name, str(e))
             raise
         except Exception as e:
-            print(f"Error loading TTS model: {e}")
-            print(f"Tip: The model will be automatically downloaded from HuggingFace Hub on first use.")
+            logger.error(f"Error loading TTS model: {e}")
+            logger.info(f"Tip: The model will be automatically downloaded from HuggingFace Hub on first use.")
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
             model_name = f"qwen-tts-{model_size}"
@@ -205,15 +225,16 @@ class PyTorchTTSBackend:
     
     def unload_model(self):
         """Unload the model to free memory."""
+        self._idle_timer.cancel()
         if self.model is not None:
             del self.model
             self.model = None
             self._current_model_size = None
-            
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            
-            print("TTS model unloaded")
+
+            logger.info("TTS model unloaded")
     
     async def create_voice_prompt(
         self,
@@ -287,12 +308,12 @@ class PyTorchTTSBackend:
         
         for audio_path in audio_paths:
             audio, sr = load_audio(audio_path)
-            audio = normalize_audio(audio)
+            audio = normalize_audio(audio, sample_rate=sr)
             combined_audio.append(audio)
-        
+
         # Concatenate audio
         mixed = np.concatenate(combined_audio)
-        mixed = normalize_audio(mixed)
+        mixed = normalize_audio(mixed, sample_rate=sr)
         
         # Combine texts
         combined_text = " ".join(reference_texts)
@@ -306,6 +327,7 @@ class PyTorchTTSBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        progress_callback: Optional[callable] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio from text using voice prompt.
@@ -316,6 +338,7 @@ class PyTorchTTSBackend:
             language: Language code (en or zh)
             seed: Random seed for reproducibility
             instruct: Natural language instruction for speech delivery control
+            progress_callback: Optional callback(progress_pct: float) where 0.0-100.0
 
         Returns:
             Tuple of (audio_array, sample_rate)
@@ -325,6 +348,9 @@ class PyTorchTTSBackend:
 
         def _generate_sync():
             """Run synchronous generation in thread pool."""
+            if progress_callback:
+                progress_callback(0.0)
+
             # Set seed if provided
             if seed is not None:
                 torch.manual_seed(seed)
@@ -337,6 +363,10 @@ class PyTorchTTSBackend:
                 voice_clone_prompt=voice_prompt,
                 instruct=instruct,
             )
+
+            if progress_callback:
+                progress_callback(100.0)
+
             return wavs[0], sample_rate
 
         # Run blocking inference in thread pool to avoid blocking event loop
@@ -353,6 +383,11 @@ class PyTorchSTTBackend:
         self.processor = None
         self.model_size = model_size
         self.device = self._get_device()
+        self._idle_timer = IdleTimer(
+            timeout=_STT_IDLE_TIMEOUT,
+            on_timeout=self.unload_model,
+            label="STT",
+        )
     
     def _get_device(self) -> str:
         """Get the best available device."""
@@ -388,7 +423,7 @@ class PyTorchSTTBackend:
             # Check for .incomplete files - if any exist, download is still in progress
             blobs_dir = repo_cache / "blobs"
             if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
-                print(f"[_is_model_cached] Found .incomplete files for whisper-{model_size}, treating as not cached")
+                logger.debug(f"[_is_model_cached] Found .incomplete files for whisper-{model_size}, treating as not cached")
                 return False
             
             # Check that actual model weight files exist in snapshots
@@ -399,14 +434,14 @@ class PyTorchSTTBackend:
                     any(snapshots_dir.rglob("*.bin"))
                 )
                 if not has_weights:
-                    print(f"[_is_model_cached] No model weights found for whisper-{model_size}, treating as not cached")
+                    logger.debug(f"[_is_model_cached] No model weights found for whisper-{model_size}, treating as not cached")
                     return False
             
             return True
         except Exception as e:
-            print(f"[_is_model_cached] Error checking cache for whisper-{model_size}: {e}")
+            logger.warning(f"[_is_model_cached] Error checking cache for whisper-{model_size}: {e}")
             return False
-    
+
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the Whisper model.
@@ -414,33 +449,29 @@ class PyTorchSTTBackend:
         Args:
             model_size: Model size (tiny, base, small, medium, large)
         """
-        print(f"[DEBUG] load_model_async called with size: {model_size}")
         if model_size is None:
             model_size = self.model_size
 
-        print(f"[DEBUG] Model already loaded? {self.model is not None}, current size: {self.model_size}, requested: {model_size}")
         if self.model is not None and self.model_size == model_size:
-            print(f"[DEBUG] Early return - model already loaded")
+            self._idle_timer.touch()
             return
 
-        print(f"[DEBUG] Calling asyncio.to_thread for _load_model_sync")
+        # Check cache before entering thread pool
+        is_cached = self._is_model_cached(model_size)
+
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
-        print(f"[DEBUG] asyncio.to_thread completed")
-    
+        await asyncio.to_thread(self._load_model_sync, model_size, is_cached)
+        self._idle_timer.touch()
+
     # Alias for compatibility
     load_model = load_model_async
-    
-    def _load_model_sync(self, model_size: str):
+
+    def _load_model_sync(self, model_size: str, is_cached: bool = False):
         """Synchronous model loading."""
-        print(f"[DEBUG] _load_model_sync called for Whisper {model_size}")
         try:
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
             progress_model_name = f"whisper-{model_size}"
-
-            # Check if model is already cached
-            is_cached = self._is_model_cached(model_size)
 
             # Set up progress callback and tracker
             # If cached: filter out non-download progress
@@ -448,19 +479,9 @@ class PyTorchSTTBackend:
             progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
-            # Patch tqdm BEFORE importing transformers
-            print("[DEBUG] Starting tqdm patch BEFORE transformers import")
-            tracker_context = tracker.patch_download()
-            tracker_context.__enter__()
-            print("[DEBUG] tqdm patched, now importing transformers")
-
-            # Import transformers
-            from transformers import WhisperProcessor, WhisperForConditionalGeneration
-
             model_name = f"openai/whisper-{model_size}"
-            print(f"[DEBUG] Model name: {model_name}")
 
-            print(f"Loading Whisper model {model_size} on {self.device}...")
+            logger.info(f"Loading Whisper model {model_size} on {self.device}...")
 
             # Only track download progress if model is NOT cached
             if not is_cached:
@@ -476,13 +497,12 @@ class PyTorchSTTBackend:
                     status="downloading",
                 )
 
-            # Load models (tqdm is patched, but filters out non-download progress)
-            try:
+            # Patch tqdm and use HF offline mode for cached models
+            with tracker.patch_download(), hf_offline_for_cached(is_cached):
+                from transformers import WhisperProcessor, WhisperForConditionalGeneration
+
                 self.processor = WhisperProcessor.from_pretrained(model_name)
                 self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
-            finally:
-                # Exit the patch context
-                tracker_context.__exit__(None, None, None)
             
             # Only mark download as complete if we were tracking it
             if not is_cached:
@@ -492,10 +512,10 @@ class PyTorchSTTBackend:
             self.model.to(self.device)
             self.model_size = model_size
             
-            print(f"Whisper model {model_size} loaded successfully")
+            logger.info(f"Whisper model {model_size} loaded successfully")
             
         except Exception as e:
-            print(f"Error loading Whisper model: {e}")
+            logger.error(f"Error loading Whisper model: {e}")
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
             progress_model_name = f"whisper-{model_size}"
@@ -505,16 +525,17 @@ class PyTorchSTTBackend:
     
     def unload_model(self):
         """Unload the model to free memory."""
+        self._idle_timer.cancel()
         if self.model is not None:
             del self.model
             del self.processor
             self.model = None
             self.processor = None
-            
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            
-            print("Whisper model unloaded")
+
+            logger.info("Whisper model unloaded")
     
     async def transcribe(
         self,

@@ -73,7 +73,7 @@ export function useAutoUpdater(options: boolean | UseAutoUpdaterOptions = false)
     }
     // Empty dependency array - only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platform.metadata.isTauricheckOnMountcheckForUpdates]);
+  }, [platform.metadata.isTauri, checkOnMount, checkForUpdates]);
 
   // Show toast when update is available
   useEffect(() => {

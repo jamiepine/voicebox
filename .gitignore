@@ -39,6 +39,8 @@ data/profiles/*
 data/generations/*
 data/projects/*
 data/voicebox.db
+data/huggingface
+data/model_prefs.json
 !data/.gitkeep
 
 # Logs
@@ -57,3 +59,7 @@ tauri/src-tauri/binaries/*
 tmp/
 temp/
 *.tmp
+output*.m4a
+package-lock.json
+.claude
+tauri/src-tauri/gen/Assets.car

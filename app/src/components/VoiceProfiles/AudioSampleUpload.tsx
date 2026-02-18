@@ -12,6 +12,7 @@ interface AudioSampleUploadProps {
   isValidating?: boolean;
   isTranscribing?: boolean;
   isDisabled?: boolean;
+  transcribeLabel?: string;
   fieldName: string;
 }
 
@@ -24,6 +25,7 @@ export function AudioSampleUpload({
   isValidating = false,
   isTranscribing = false,
   isDisabled = false,
+  transcribeLabel,
   fieldName,
 }: AudioSampleUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -48,8 +50,8 @@ export function AudioSampleUpload({
             }}
             className="hidden"
           />
-          <div
-            role="button"
+          <button
+            type="button"
             tabIndex={0}
             onDragOver={(e) => {
               e.preventDefault();
@@ -121,7 +123,7 @@ export function AudioSampleUpload({
                     className="flex items-center gap-2"
                   >
                     <Mic className="h-4 w-4" />
-                    {isTranscribing ? 'Transcribing...' : 'Transcribe'}
+                    {transcribeLabel ?? (isTranscribing ? 'Transcribing...' : 'Transcribe')}
                   </Button>
                   <Button
                     type="button"
@@ -138,7 +140,7 @@ export function AudioSampleUpload({
                 </div>
               </>
             )}
-          </div>
+          </button>
         </div>
       </FormControl>
       <FormMessage />
