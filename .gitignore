@@ -62,3 +62,4 @@ temp/
 output*.m4a
 package-lock.json
 .claude
+tauri/src-tauri/gen/Assets.car

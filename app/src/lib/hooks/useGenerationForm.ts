@@ -78,7 +78,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         const modelStatus = await apiClient.getModelStatus();
         const model = modelStatus.models.find((m) => m.model_name === modelName);
 
-        if (model && !model.downloaded) {
+        if (model && !model.loaded) {
           setDownloadingModelName(modelName);
           setDownloadingDisplayName(displayName);
         }

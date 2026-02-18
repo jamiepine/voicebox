@@ -161,7 +161,6 @@ class PyTorchTTSBackend:
 
             logger.info(f"Loading TTS model {model_size} on {self.device}...")
 
-            # Only track download progress if model is NOT cached
             if not is_cached:
                 # Start tracking download task
                 task_manager.start_download(model_name)
@@ -174,6 +173,16 @@ class PyTorchTTSBackend:
                     filename="Connecting to HuggingFace...",
                     status="downloading",
                 )
+            else:
+                # Emit a "loading" status so the UI can show a spinner while the
+                # cached model is being loaded into GPU memory.
+                progress_manager.update_progress(
+                    model_name=model_name,
+                    current=0,
+                    total=0,
+                    filename="Loading model into memory...",
+                    status="loading",
+                )
 
             # Patch tqdm and use HF offline mode for cached models to skip remote validation
             with tracker.patch_download(), hf_offline_for_cached(is_cached):
@@ -184,11 +193,12 @@ class PyTorchTTSBackend:
                     device_map=self.device,
                     torch_dtype=torch.float32 if self.device == "cpu" else torch.bfloat16,
                 )
-            
-            # Only mark download as complete if we were tracking it
+
             if not is_cached:
                 progress_manager.mark_complete(model_name)
                 task_manager.complete_download(model_name)
+            else:
+                progress_manager.clear_progress(model_name)
             
             self._current_model_size = model_size
             self.model_size = model_size

@@ -103,6 +103,10 @@ export function useModelDownloadToast({
               statusIcon = <XCircle className="h-4 w-4 text-destructive" />;
               statusText = `Error: ${progress.error || 'Unknown error'}`;
               break;
+            case 'loading':
+              statusIcon = <Loader2 className="h-4 w-4 animate-spin" />;
+              statusText = 'Loading model...';
+              break;
             case 'downloading':
               statusIcon = <Loader2 className="h-4 w-4 animate-spin" />;
               statusText = progress.filename || 'Downloading...';

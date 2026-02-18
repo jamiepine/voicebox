@@ -10,10 +10,16 @@ alembic>=1.13.0
 # ML models
 torch>=2.1.0
 torchvision>=0.16.0
+torchaudio  # For qwen-tts
+# transformers: flexible version to support both PyTorch (4.57.3) and MLX (5.0.0rc3) on macOS
 transformers>=4.57.3
 accelerate>=0.26.0
 huggingface_hub>=0.20.0
-qwen-tts>=0.0.5
+# qwen-tts and its dependencies (installed from git on macOS, from PyPI otherwise)
+einops
+gradio
+onnxruntime
+sox
 
 # Audio processing
 librosa>=0.10.0

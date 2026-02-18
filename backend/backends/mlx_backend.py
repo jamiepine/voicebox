@@ -185,12 +185,11 @@ class MLXTTSBackend:
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
             
             logger.info(f"Loading MLX TTS model {model_size}...")
-            
-            # Only track download progress if model is NOT cached
+
             if not is_cached:
                 # Start tracking download task
                 task_manager.start_download(model_name)
-                
+
                 # Initialize progress state so SSE endpoint has initial data to send
                 # This provides immediate feedback while HuggingFace fetches metadata
                 progress_manager.update_progress(
@@ -200,7 +199,17 @@ class MLXTTSBackend:
                     filename="Connecting to HuggingFace...",
                     status="downloading",
                 )
-            
+            else:
+                # Emit a "loading" status so the UI can show a spinner while the
+                # cached model is being loaded into GPU memory (can take a few seconds).
+                progress_manager.update_progress(
+                    model_name=model_name,
+                    current=0,
+                    total=0,
+                    filename="Loading model into memory...",
+                    status="loading",
+                )
+
             # Patch tqdm BEFORE importing mlx_audio, use proper context manager
             # to ensure cleanup even if model loading crashes.
             # When cached, set HF_HUB_OFFLINE to skip remote "Fetching N files" validation.
@@ -208,10 +217,12 @@ class MLXTTSBackend:
                 from mlx_audio.tts import load
                 self.model = load(model_path)
 
-            # Only mark download as complete if we were tracking it
             if not is_cached:
                 progress_manager.mark_complete(model_name)
                 task_manager.complete_download(model_name)
+            else:
+                # Clear the loading status so future SSE subscribers don't see stale data
+                progress_manager.clear_progress(model_name)
 
             self._current_model_size = model_size
             self.model_size = model_size

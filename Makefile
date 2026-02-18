@@ -51,13 +51,19 @@ setup-js: ## Install JavaScript dependencies (bun)
 setup-python: $(VENV)/bin/activate ## Set up Python virtual environment and dependencies
 	@echo -e "$(BLUE)Installing Python dependencies...$(NC)"
 	$(PIP) install --upgrade pip
-	$(PIP) install -r $(BACKEND_DIR)/requirements.txt
 	@if [ "$$(uname -m)" = "arm64" ] && [ "$$(uname)" = "Darwin" ]; then \
-		echo -e "$(BLUE)Detected Apple Silicon - installing MLX dependencies...$(NC)"; \
+		echo -e "$(BLUE)Detected Apple Silicon - using MLX-compatible dependency resolution...$(NC)"; \
 		$(PIP) install -r $(BACKEND_DIR)/requirements-mlx.txt; \
+		grep -v -E "^transformers" $(BACKEND_DIR)/requirements.txt > /tmp/voicebox-requirements-filtered.txt; \
+		$(PIP) install -r /tmp/voicebox-requirements-filtered.txt; \
+		rm /tmp/voicebox-requirements-filtered.txt; \
+		$(PIP) install --no-deps git+https://github.com/QwenLM/Qwen3-TTS.git; \
 		echo -e "$(GREEN)✓ MLX backend enabled (native Metal acceleration)$(NC)"; \
+		echo -e "$(YELLOW)Note: Using transformers 5.0.0rc3 (required by MLX)$(NC)"; \
+	else \
+		$(PIP) install -r $(BACKEND_DIR)/requirements.txt; \
+		$(PIP) install git+https://github.com/QwenLM/Qwen3-TTS.git; \
 	fi
-	$(PIP) install git+https://github.com/QwenLM/Qwen3-TTS.git
 	@echo -e "$(GREEN)✓ Python environment ready$(NC)"
 
 $(VENV)/bin/activate:
