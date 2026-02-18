@@ -27,3 +27,6 @@ httpx>=0.24.0
 # Utilities
 python-multipart>=0.0.6
 Pillow>=10.0.0
+
+# RunPod Serverless
+runpod>=1.7.0

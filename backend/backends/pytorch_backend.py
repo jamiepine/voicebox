@@ -11,6 +11,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+import os
 from . import TTSBackend, STTBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 from ..utils.audio import normalize_audio, load_audio
@@ -19,9 +20,11 @@ from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback, 
 from ..utils.tasks import get_task_manager
 from ..utils.idle_timer import IdleTimer
 
-# Idle timeouts (seconds)
-_TTS_IDLE_TIMEOUT = 180   # 3 minutes
-_STT_IDLE_TIMEOUT = 300   # 5 minutes
+# Idle timeouts (seconds). Disabled in serverless mode — the entire
+# worker shuts down instead of unloading individual models.
+_SERVERLESS = os.environ.get("SERVERLESS", "") in ("1", "true")
+_TTS_IDLE_TIMEOUT = 0 if _SERVERLESS else 180   # 3 minutes (normal)
+_STT_IDLE_TIMEOUT = 0 if _SERVERLESS else 300   # 5 minutes (normal)
 
 
 class PyTorchTTSBackend:

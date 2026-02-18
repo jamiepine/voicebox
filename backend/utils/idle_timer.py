@@ -41,6 +41,8 @@ class IdleTimer:
     def touch(self):
         """Reset the idle countdown.  Safe to call from any context."""
         self.cancel()
+        if self.timeout <= 0:
+            return  # Disabled (serverless mode)
         if self._loop is None:
             return  # No loop yet — skip scheduling
         try:

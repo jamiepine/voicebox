@@ -27,9 +27,13 @@ from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback, 
 from ..utils.tasks import get_task_manager
 from ..utils.idle_timer import IdleTimer
 
-# Idle timeouts (seconds)
-_TTS_IDLE_TIMEOUT = 180   # 3 minutes
-_STT_IDLE_TIMEOUT = 300   # 5 minutes
+import os
+
+# Idle timeouts (seconds). Disabled in serverless mode — the entire
+# worker shuts down instead of unloading individual models.
+_SERVERLESS = os.environ.get("SERVERLESS", "") in ("1", "true")
+_TTS_IDLE_TIMEOUT = 0 if _SERVERLESS else 180   # 3 minutes (normal)
+_STT_IDLE_TIMEOUT = 0 if _SERVERLESS else 300   # 5 minutes (normal)
 
 
 class MLXTTSBackend:
