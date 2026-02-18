@@ -8,6 +8,7 @@ absolute imports instead of relative imports.
 import multiprocessing
 multiprocessing.freeze_support()
 
+import os
 import sys
 import logging
 
@@ -82,12 +83,13 @@ if __name__ == "__main__":
         database.init_db()
         logger.info("Database initialized successfully")
 
-        logger.info(f"Starting uvicorn server on {args.host}:{args.port}...")
+        _log_level = os.environ.get("LOG_LEVEL", "info").lower()
+        logger.info(f"Starting uvicorn server on {args.host}:{args.port} (log_level={_log_level})...")
         uvicorn.run(
             app,
             host=args.host,
             port=args.port,
-            log_level="info",
+            log_level=_log_level,
         )
     except Exception as e:
         logger.error(f"Server startup failed: {e}", exc_info=True)

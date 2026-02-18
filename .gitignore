@@ -61,3 +61,4 @@ temp/
 *.tmp
 output*.m4a
 package-lock.json
+.claude

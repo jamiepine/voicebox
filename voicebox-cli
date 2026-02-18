@@ -133,9 +133,19 @@ def api(method, base_url, path, json_body=None, file_data=None, timeout=30):
         detail = parse_error_detail(body)
         print(f"Error: {e.code} — {detail}", file=sys.stderr)
         sys.exit(1)
-    except urllib.error.URLError:
+    except urllib.error.URLError as e:
         print(f"Error: cannot connect to server at {base_url}", file=sys.stderr)
+        if hasattr(e, "reason"):
+            print(f"  Reason: {e.reason}", file=sys.stderr)
         print("Start it with: voicebox server", file=sys.stderr)
+        sys.exit(1)
+    except TimeoutError:
+        print(f"Error: request to {base_url}{path} timed out after {timeout}s", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        # Catches RemoteDisconnected, ConnectionResetError, etc. — server likely crashed.
+        print(f"Error: server closed connection unexpectedly ({type(e).__name__}: {e})", file=sys.stderr)
+        print("Check server logs for details.", file=sys.stderr)
         sys.exit(1)
 
 
@@ -635,6 +645,40 @@ def cmd_import(args):
     print(f"Imported: {profile['name']} ({profile['id']})")
 
 
+def _sse_stream(base_url, path, timeout=300):
+    """Read a Server-Sent Events stream, yielding parsed data dicts."""
+    import http.client, urllib.parse
+    parsed = urllib.parse.urlparse(f"{base_url}{path}")
+    conn = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=timeout)
+    try:
+        conn.request("GET", parsed.path)
+        resp = conn.getresponse()
+        if resp.status != 200:
+            body = resp.read().decode(errors="replace")
+            print(f"Error: SSE stream returned {resp.status} — {parse_error_detail(body)}", file=sys.stderr)
+            sys.exit(1)
+        buf = b""
+        while True:
+            chunk = resp.read(1024)
+            if not chunk:
+                break
+            buf += chunk
+            while b"\n\n" in buf:
+                msg, buf = buf.split(b"\n\n", 1)
+                for line in msg.decode(errors="replace").splitlines():
+                    if line.startswith("data: "):
+                        try:
+                            yield json.loads(line[6:])
+                        except json.JSONDecodeError:
+                            pass
+    except Exception as e:
+        print(f"Error: SSE connection failed ({type(e).__name__}: {e})", file=sys.stderr)
+        print("Check server logs for details.", file=sys.stderr)
+        sys.exit(1)
+    finally:
+        conn.close()
+
+
 def cmd_generate(args):
     """Generate speech from text."""
     if args.text:
@@ -665,13 +709,51 @@ def cmd_generate(args):
 
     print(f"Generating with voice '{profile['name']}'...")
     start = time.time()
-    _, result = api("POST", args.url, "/generate", json_body=payload, timeout=300)
-    elapsed = time.time() - start
-    print(f"Done in {elapsed:.1f}s (audio duration: {result['duration']:.1f}s)")
 
+    # Queue the job asynchronously
+    _, start_data = api("POST", args.url, "/generate?stream=true", json_body=payload, timeout=30)
+    generation_id = start_data.get("generation_id")
+    if not generation_id:
+        print(f"Error: server did not return a generation_id", file=sys.stderr)
+        sys.exit(1)
+
+    # Stream progress via SSE
+    final_data = None
+    for event in _sse_stream(args.url, f"/generate/progress/{generation_id}", timeout=300):
+        status = event.get("status", "")
+        pct = event.get("progress", 0)
+        bar_len = 20
+        filled = int(pct / 100 * bar_len)
+        bar = "#" * filled + "-" * (bar_len - filled)
+        print(f"\r[{bar}] {pct:.0f}%  ", end="", flush=True)
+        if status in ("complete", "error"):
+            print()  # newline after progress bar
+            final_data = event
+            break
+
+    elapsed = time.time() - start
+
+    if final_data and final_data.get("status") == "error":
+        error_msg = final_data.get("error", "Unknown error")
+        print(f"Error: generation failed — {error_msg}", file=sys.stderr)
+        sys.exit(1)
+
+    # Fetch the generation record for duration/id
+    _, history = api("GET", args.url, "/history", timeout=10)
+    items = history.get("items", []) if isinstance(history, dict) else []
+    result = next((i for i in items if i.get("id") == generation_id), None)
+    if result is None and items:
+        result = items[0]  # fall back to latest
+
+    if result:
+        print(f"Done in {elapsed:.1f}s (audio duration: {result['duration']:.1f}s)")
+    else:
+        print(f"Done in {elapsed:.1f}s")
+
+    audio_id = (result or {}).get("id", generation_id)
     tag = str(int(time.time()))[-5:]
     wav_path = f"output_{tag}.wav"
-    _, wav_data = api("GET", args.url, f"/audio/{result['id']}", timeout=60)
+    _, wav_data = api("GET", args.url, f"/audio/{audio_id}", timeout=60)
     Path(wav_path).write_bytes(wav_data)
 
     if not shutil.which("ffmpeg"):
@@ -875,6 +957,12 @@ def resolve_profile(base_url, voice_name):
         print("Import one with: voicebox import <file.zip>", file=sys.stderr)
         sys.exit(1)
 
+    # Fall back to last-used voice when none specified
+    if not voice_name:
+        voice_name = load_cli_config().get("last_voice")
+        if voice_name:
+            print(f"Using last voice: {voice_name}")
+
     if voice_name:
         match = [p for p in profiles if p["name"].lower() == voice_name.lower()]
         if not match:
@@ -889,7 +977,11 @@ def resolve_profile(base_url, voice_name):
             for p in match:
                 print(f"  - {p['name']}", file=sys.stderr)
             sys.exit(1)
-        return match[0]
+        profile = match[0]
+        config = load_cli_config()
+        config["last_voice"] = profile["name"]
+        save_cli_config(config)
+        return profile
     else:
         print("Available voices:")
         for i, p in enumerate(profiles, 1):
@@ -900,7 +992,11 @@ def resolve_profile(base_url, voice_name):
             try:
                 idx = int(choice) - 1
                 if 0 <= idx < len(profiles):
-                    return profiles[idx]
+                    profile = profiles[idx]
+                    config = load_cli_config()
+                    config["last_voice"] = profile["name"]
+                    save_cli_config(config)
+                    return profile
             except ValueError:
                 pass
             print("Invalid choice, try again.")

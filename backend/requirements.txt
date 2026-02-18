@@ -10,7 +10,7 @@ alembic>=1.13.0
 # ML models
 torch>=2.1.0
 torchvision>=0.16.0
-transformers==4.57.3
+transformers>=4.57.3
 accelerate>=0.26.0
 huggingface_hub>=0.20.0
 qwen-tts>=0.0.5

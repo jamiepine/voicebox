@@ -4,11 +4,20 @@ MLX backend implementation for TTS and STT using mlx-audio.
 
 import warnings
 import logging
-# Suppress upstream tokenizer warnings from mlx-audio/transformers
+
+# Suppress upstream tokenizer warnings from mlx-audio/transformers.
+# Must be set BEFORE transformers is imported anywhere.
 warnings.filterwarnings("ignore", message="You are using a model of type.*to instantiate a model of type")
 warnings.filterwarnings("ignore", message=".*incorrect regex pattern.*fix_mistral_regex.*")
 
-# Also suppress via logging since transformers may use logger.warning() instead of warnings.warn()
+# transformers.logging routes through its own verbosity system, not Python warnings.
+# Pre-set verbosity to ERROR so these never print even on first import.
+try:
+    import transformers as _tf_early
+    _tf_early.logging.set_verbosity_error()
+except Exception:
+    pass
+
 logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.ERROR)
 logging.getLogger("transformers.convert_slow_tokenizer").setLevel(logging.ERROR)
 
@@ -28,12 +37,16 @@ from ..utils.tasks import get_task_manager
 from ..utils.idle_timer import IdleTimer
 
 import os
+import threading
 
 # Idle timeouts (seconds). Disabled in serverless mode — the entire
 # worker shuts down instead of unloading individual models.
 _SERVERLESS = os.environ.get("SERVERLESS", "") in ("1", "true")
 _TTS_IDLE_TIMEOUT = 0 if _SERVERLESS else 180   # 3 minutes (normal)
 _STT_IDLE_TIMEOUT = 0 if _SERVERLESS else 300   # 5 minutes (normal)
+
+# Global load lock — prevents concurrent MLX model loads which cause Metal crashes.
+_MLX_LOAD_LOCK = threading.Lock()
 
 
 class MLXTTSBackend:
@@ -63,11 +76,14 @@ class MLXTTSBackend:
         Returns:
             HuggingFace Hub model ID for MLX
         """
-        # MLX model mapping
+        # MLX model mapping.
+        # Use Base variants — these accept ref_audio/ref_text for voice cloning.
+        # CustomVoice variants require a named speaker ('Chelsie', 'Ethan', etc.)
+        # and don't support arbitrary voice cloning.
+        # 4-bit quantized: ~900MB (1.7B) / ~300MB (0.6B) vs ~3.4GB for bf16.
         mlx_model_map = {
-            "1.7B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
-            # 0.6B not yet converted to MLX format
-            "0.6B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",  # Fallback to 1.7B
+            "1.7B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit",
+            "0.6B": "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-4bit",
         }
         
         if model_size not in mlx_model_map:
@@ -126,21 +142,26 @@ class MLXTTSBackend:
         """
         if model_size is None:
             model_size = self.model_size
-            
-        # If already loaded with correct size, return
+
+        # Fast path — already loaded, no lock needed
         if self.model is not None and self._current_model_size == model_size:
             self._idle_timer.touch()
             return
 
-        # Unload existing model if different size requested
-        if self.model is not None and self._current_model_size != model_size:
-            self.unload_model()
+        # Serialize loads via a threading lock run in the thread pool.
+        # Concurrent MLX loads cause Metal command buffer crashes.
+        def _locked_load():
+            with _MLX_LOAD_LOCK:
+                # Re-check inside the lock — another caller may have loaded while we waited
+                if self.model is not None and self._current_model_size == model_size:
+                    logger.debug(f"[TTS] Load skipped — model {model_size} already loaded by concurrent caller")
+                    return
+                if self.model is not None and self._current_model_size != model_size:
+                    self.unload_model()
+                is_cached = self._is_model_cached(model_size)
+                self._load_model_sync(model_size, is_cached)
 
-        # Check cache before entering thread pool so we can skip redundant checks
-        is_cached = self._is_model_cached(model_size)
-
-        # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size, is_cached)
+        await asyncio.to_thread(_locked_load)
         self._idle_timer.touch()
 
     # Alias for compatibility
@@ -184,10 +205,7 @@ class MLXTTSBackend:
             # to ensure cleanup even if model loading crashes.
             # When cached, set HF_HUB_OFFLINE to skip remote "Fetching N files" validation.
             with tracker.patch_download(), hf_offline_for_cached(is_cached):
-                # Import mlx_audio AFTER patching tqdm
                 from mlx_audio.tts import load
-
-                # Load MLX model (downloads automatically if not cached)
                 self.model = load(model_path)
 
             # Only mark download as complete if we were tracking it

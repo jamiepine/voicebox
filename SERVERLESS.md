@@ -33,22 +33,22 @@ DOCKER_BUILDKIT=1 docker build \
   --build-arg CUDA=1 \
   --build-arg SERVERLESS=1 \
   -t voicebox-serverless \
-  voicebox/
+  .
 ```
 
 ## RunPod endpoint settings
 
 When creating your endpoint on [runpod.io](https://runpod.io):
 
-| Setting | Recommended |
-|---------|-------------|
-| Container image | your pushed image tag |
-| GPU | RTX 4090 or similar (16GB+ VRAM) |
-| Idle timeout | **60 seconds** |
-| Execution timeout | 600 seconds |
-| Active workers | 0 (pure on-demand) |
-| Max workers | 1 (increase for production) |
-| FlashBoot | enabled |
+| Setting           | Recommended                      |
+| ----------------- | -------------------------------- |
+| Container image   | your pushed image tag            |
+| GPU               | RTX 4090 or similar (16GB+ VRAM) |
+| Idle timeout      | **60 seconds**                   |
+| Execution timeout | 600 seconds                      |
+| Active workers    | 0 (pure on-demand)               |
+| Max workers       | 1 (increase for production)      |
+| FlashBoot         | enabled                          |
 
 **On idle timeout:** The GPU stays allocated (and billed) for the full idle window regardless of VRAM usage. Keeping the model hot and using a short idle timeout (60s) is more cost-effective than unloading the model and using a long idle timeout.
 
@@ -70,13 +70,13 @@ Authorization: Bearer $RUNPOD_API_KEY
 
 RunPod wraps requests in a job envelope. The handler accepts:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `method` | string | HTTP method (default: `"POST"`) |
-| `path` | string | Required. API path, e.g. `"/generate"` |
-| `body` | object | JSON body for POST/PUT requests |
-| `params` | object | Query string parameters |
-| `headers` | object | Additional HTTP headers |
+| Field     | Type   | Description                            |
+| --------- | ------ | -------------------------------------- |
+| `method`  | string | HTTP method (default: `"POST"`)        |
+| `path`    | string | Required. API path, e.g. `"/generate"` |
+| `body`    | object | JSON body for POST/PUT requests        |
+| `params`  | object | Query string parameters                |
+| `headers` | object | Additional HTTP headers                |
 
 ### Health check
 

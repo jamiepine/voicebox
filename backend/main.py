@@ -216,7 +216,8 @@ async def health():
         # Check if the default model (1.7B) is cached
         # Use different model IDs based on backend
         if backend_type == "mlx":
-            default_model_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
+            from .backends.mlx_backend import MLXTTSBackend as _MLXTTSBackend
+            default_model_id = _MLXTTSBackend()._get_model_path("1.7B")
         else:
             default_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         
@@ -1549,10 +1550,11 @@ async def get_model_status():
     
     # Use backend-specific model IDs
     if backend_type == "mlx":
-        tts_1_7b_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
-        tts_0_6b_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"  # Fallback to 1.7B
+        from .backends.mlx_backend import MLXTTSBackend, MLXSTTBackend
+        _mlx_tts = MLXTTSBackend()
+        tts_1_7b_id = _mlx_tts._get_model_path("1.7B")
+        tts_0_6b_id = _mlx_tts._get_model_path("0.6B")
         # MLX backend uses mlx-community Whisper models
-        from .backends.mlx_backend import MLXSTTBackend
         mlx_whisper_map = MLXSTTBackend.get_mlx_whisper_model_map()
         whisper_base_id = mlx_whisper_map["base"]
         whisper_small_id = mlx_whisper_map["small"]
@@ -2307,9 +2309,10 @@ async def _job_worker():
 
 async def _startup():
     """Run on application startup."""
+    _log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
     logging.basicConfig(
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
-        level=logging.INFO,
+        level=getattr(logging, _log_level, logging.INFO),
     )
     logger.info("voicebox API starting up...")
     database.init_db()
@@ -2381,7 +2384,7 @@ async def _preload_models():
         else:
             logger.info(f"TTS model ({tts_size}) not cached, skipping preload")
     except Exception as e:
-        logger.warning(f"TTS preload failed: {e}")
+        logger.warning(f"TTS preload failed: {e}", exc_info=True)
 
     # STT model is NOT preloaded — it loads on first /transcribe call.
     # This saves memory when the user doesn't use Create Voice.
@@ -2428,9 +2431,11 @@ if __name__ == "__main__":
     # Initialize database after data directory is set
     database.init_db()
 
+    _log_level = os.environ.get("LOG_LEVEL", "info").lower()
     uvicorn.run(
         "backend.main:app",
         host=args.host,
         port=args.port,
         reload=False,  # Disable reload in production
+        log_level=_log_level,
     )
