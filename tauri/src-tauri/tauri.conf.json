@@ -13,7 +13,9 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
-    "externalBin": ["binaries/voicebox-server"],
+    "externalBin": [
+      "binaries/voicebox-server"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -27,16 +29,14 @@
       "infoPlist": "Info.plist",
       "entitlements": "Entitlements.plist"
     },
-    "resources": {
-      "gen/Assets.car": "./",
-      "gen/voicebox.icns": "./",
-      "gen/partial.plist": "./"
-    }
+    "resources": {}
   },
   "app": {
     "security": {
       "csp": null,
-      "capabilities": ["default"]
+      "capabilities": [
+        "default"
+      ]
     },
     "windows": [
       {
@@ -60,7 +60,9 @@
     },
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUxRENBQkRBQjdBNTM1OTIKUldTU05hVzMycXZjNGJGcUxmcVVocll2QjdSaTJNdlFxR2M3VDJsMnVvbDdyZGRPMmRlOW9aWTcK",
-      "endpoints": ["https://github.com/jamiepine/voicebox/releases/latest/download/latest.json"]
+      "endpoints": [
+        "https://github.com/jamiepine/voicebox/releases/latest/download/latest.json"
+      ]
     }
   }
 }

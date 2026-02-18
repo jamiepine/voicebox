@@ -348,7 +348,7 @@ class PyTorchTTSBackend:
 class PyTorchSTTBackend:
     """PyTorch-based STT backend using Whisper."""
     
-    def __init__(self, model_size: str = "base"):
+    def __init__(self, model_size: str = "turbo"):
         self.model = None
         self.processor = None
         self.model_size = model_size
@@ -379,7 +379,10 @@ class PyTorchSTTBackend:
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
+            model_size_to_hf = {
+                "turbo": "openai/whisper-large-v3-turbo",
+            }
+            model_name = model_size_to_hf.get(model_size, f"openai/whisper-{model_size}")
             repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
             
             if not repo_cache.exists():
@@ -457,7 +460,10 @@ class PyTorchSTTBackend:
             # Import transformers
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            model_name = f"openai/whisper-{model_size}"
+            model_size_to_hf = {
+                "turbo": "openai/whisper-large-v3-turbo",
+            }
+            model_name = model_size_to_hf.get(model_size, f"openai/whisper-{model_size}")
             print(f"[DEBUG] Model name: {model_name}")
 
             print(f"Loading Whisper model {model_size} on {self.device}...")
@@ -546,21 +552,20 @@ class PyTorchSTTBackend:
             )
             inputs = inputs.to(self.device)
             
-            # Set language if provided
-            forced_decoder_ids = None
+            # Generate transcription
+            # If language is provided, force it; otherwise let Whisper auto-detect
+            generate_kwargs = {}
             if language:
-                # Support all languages from frontend: en, zh, ja, ko, de, fr, ru, pt, es, it
-                # Whisper supports these and many more
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
                     language=language,
                     task="transcribe",
                 )
+                generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
             
-            # Generate transcription
             with torch.no_grad():
                 predicted_ids = self.model.generate(
                     inputs["input_features"],
-                    forced_decoder_ids=forced_decoder_ids,
+                    **generate_kwargs,
                 )
             
             # Decode
