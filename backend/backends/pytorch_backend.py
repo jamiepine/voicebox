@@ -15,6 +15,12 @@ from ..utils.progress import get_progress_manager
 from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback
 from ..utils.tasks import get_task_manager
 
+LANGUAGE_CODE_TO_NAME = {
+    "zh": "chinese", "en": "english", "ja": "japanese", "ko": "korean",
+    "de": "german", "fr": "french", "ru": "russian", "pt": "portuguese",
+    "es": "spanish", "it": "italian",
+}
+
 
 class PyTorchTTSBackend:
     """PyTorch-based TTS backend using Qwen3-TTS."""
@@ -335,6 +341,7 @@ class PyTorchTTSBackend:
             wavs, sample_rate = self.model.generate_voice_clone(
                 text=text,
                 voice_clone_prompt=voice_prompt,
+                language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
                 instruct=instruct,
             )
             return wavs[0], sample_rate

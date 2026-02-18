@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
+import { LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useAddStoryItem, useStory } from '@/lib/hooks/useStories';
@@ -111,6 +111,13 @@ export function FloatingGenerateBox({
       setSelectedProfileId(profiles[0].id);
     }
   }, [selectedProfileId, profiles, setSelectedProfileId]);
+
+  // Sync generation form language with selected profile's language
+  useEffect(() => {
+    if (selectedProfile?.language) {
+      form.setValue('language', selectedProfile.language as LanguageCode);
+    }
+  }, [selectedProfile, form]);
 
   // Auto-resize textarea based on content (only when expanded)
   useEffect(() => {
