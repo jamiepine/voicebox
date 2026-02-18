@@ -123,7 +123,7 @@ export interface ModelProgress {
   total: number;
   progress: number;
   filename?: string;
-  status: 'downloading' | 'extracting' | 'complete' | 'error';
+  status: 'downloading' | 'extracting' | 'loading' | 'complete' | 'error';
   timestamp: string;
   error?: string;
 }

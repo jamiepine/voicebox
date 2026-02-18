@@ -18,8 +18,8 @@ export function useRestoreActiveTasks() {
   const setIsGenerating = useGenerationStore((state) => state.setIsGenerating);
   const setActiveGenerationId = useGenerationStore((state) => state.setActiveGenerationId);
   
-  // Track which downloads we've seen to detect new ones
-  const seenDownloadsRef = useRef<Set<string>>(new Set());
+  // Track current download names to avoid spurious re-renders on every poll
+  const activeDownloadNamesRef = useRef<string>('');
 
   const fetchActiveTasks = useCallback(async () => {
     try {
@@ -38,23 +38,13 @@ export function useRestoreActiveTasks() {
         }
       }
 
-      // Update active downloads
-      // Keep track of all active downloads (including new ones)
-      const currentDownloadNames = new Set(tasks.downloads.map((d) => d.model_name));
-      
-      // Remove completed downloads from our seen set
-      for (const name of seenDownloadsRef.current) {
-        if (!currentDownloadNames.has(name)) {
-          seenDownloadsRef.current.delete(name);
-        }
+      // Only update state (and cause re-renders) when the set of downloading
+      // model names actually changes — prevents SSE from reconnecting every 2s.
+      const newKey = tasks.downloads.map((d) => d.model_name).sort().join(',');
+      if (newKey !== activeDownloadNamesRef.current) {
+        activeDownloadNamesRef.current = newKey;
+        setActiveDownloads(tasks.downloads);
       }
-      
-      // Add new downloads to seen set
-      for (const download of tasks.downloads) {
-        seenDownloadsRef.current.add(download.model_name);
-      }
-
-      setActiveDownloads(tasks.downloads);
     } catch (error) {
       // Silently fail - server might be temporarily unavailable
       console.debug('Failed to fetch active tasks:', error);

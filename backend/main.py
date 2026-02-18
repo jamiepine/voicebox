@@ -727,6 +727,15 @@ async def generate_speech(
         async with _model_lock:
             tts_model = tts.get_tts_model()
             model_size = data.model_size or "1.7B"
+
+            # Don't silently download — require the model to be cached first
+            if not tts_model._is_model_cached(model_size):
+                model_name = f"qwen-tts-{model_size}"
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Model {model_name} is not downloaded. Please download it first from the Models page.",
+                )
+
             await tts_model.load_model_async(model_size)
             save_model_prefs(tts_size=model_size)
             audio, sample_rate = await tts_model.generate(
@@ -1494,14 +1503,14 @@ async def unload_model():
 async def get_model_progress(model_name: str):
     """Get model download progress via Server-Sent Events."""
     from fastapi.responses import StreamingResponse
-    
+
     progress_manager = get_progress_manager()
-    
+
     async def event_generator():
         """Generate SSE events for progress updates."""
         async for event in progress_manager.subscribe(model_name):
             yield event
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -1511,6 +1520,16 @@ async def get_model_progress(model_name: str):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.get("/models/progress-snapshot/{model_name}")
+async def get_model_progress_snapshot(model_name: str):
+    """Get current model download progress as a single JSON snapshot (for polling)."""
+    progress_manager = get_progress_manager()
+    progress = progress_manager.get_progress(model_name)
+    if progress is None:
+        return {"model_name": model_name, "status": "idle", "current": 0, "total": 0, "progress": 0, "filename": None}
+    return progress
 
 
 @app.get("/models/status", response_model=models.ModelStatusListResponse)
@@ -2231,6 +2250,12 @@ async def _job_worker():
                     )
 
                     tts_model = tts.get_tts_model()
+
+                    # Don't silently download — require the model to be cached first
+                    if not tts_model._is_model_cached(model_size):
+                        model_name = f"qwen-tts-{model_size}"
+                        raise ValueError(f"Model {model_name} is not downloaded. Please download it first from the Models page.")
+
                     await tts_model.load_model_async(model_size)
                     save_model_prefs(tts_size=model_size)
 

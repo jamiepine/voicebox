@@ -1,12 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import { LANGUAGE_CODES, type LanguageCode } from '@/lib/constants/languages';
 import { useGeneration } from '@/lib/hooks/useGeneration';
-import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
 
@@ -33,14 +31,6 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
   const setAudioWithAutoPlay = usePlayerStore((state) => state.setAudioWithAutoPlay);
   const resetPlayer = usePlayerReset();
   const setIsGenerating = useGenerationStore((state) => state.setIsGenerating);
-  const [downloadingModelName, setDownloadingModelName] = useState<string | null>(null);
-  const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
-
-  useModelDownloadToast({
-    modelName: downloadingModelName || '',
-    displayName: downloadingDisplayName || '',
-    enabled: !!downloadingModelName,
-  });
 
   const form = useForm<GenerationFormValues>({
     resolver: zodResolver(generationSchema),
@@ -71,21 +61,6 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       setIsGenerating(true);
       resetPlayer(); // Close any existing audio player
 
-      const modelName = `qwen-tts-${data.modelSize}`;
-      const displayName = data.modelSize === '1.7B' ? 'Qwen TTS 1.7B' : 'Qwen TTS 0.6B';
-
-      try {
-        const modelStatus = await apiClient.getModelStatus();
-        const model = modelStatus.models.find((m) => m.model_name === modelName);
-
-        if (model && !model.loaded) {
-          setDownloadingModelName(modelName);
-          setDownloadingDisplayName(displayName);
-        }
-      } catch (error) {
-        console.error('Failed to check model status:', error);
-      }
-
       const result = await generation.mutateAsync({
         profile_id: selectedProfileId,
         text: data.text,
@@ -103,7 +78,14 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       const audioUrl = apiClient.getAudioUrl(result.id);
       setAudioWithAutoPlay(audioUrl, result.id, selectedProfileId, data.text.substring(0, 50));
 
-      form.reset();
+      // Preserve sticky fields across reset — only clear text/seed/instruct
+      form.reset({
+        text: '',
+        language: form.getValues('language'),
+        seed: undefined,
+        modelSize: form.getValues('modelSize'),
+        instruct: '',
+      });
       options.onSuccess?.(result.id);
     } catch (error) {
       toast({
@@ -113,8 +95,6 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       });
     } finally {
       setIsGenerating(false);
-      setDownloadingModelName(null);
-      setDownloadingDisplayName(null);
     }
   }
 

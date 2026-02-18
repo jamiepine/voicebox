@@ -688,7 +688,22 @@ def cmd_generate(args):
     elif not sys.stdin.isatty():
         text = sys.stdin.read().strip()
     else:
-        print("Error: provide text via --text, --file, or stdin.", file=sys.stderr)
+        # No text provided — show usage
+        # We can't easily get the subparser reference here, so print usage manually
+        print("Generate speech from text.\n", file=sys.stderr)
+        print("Usage: voicebox say --text 'Hello world'", file=sys.stderr)
+        print("       voicebox say --file input.txt", file=sys.stderr)
+        print("       echo 'Hello world' | voicebox say\n", file=sys.stderr)
+        print("Options:", file=sys.stderr)
+        print("  --text, -t TEXT       Text to speak", file=sys.stderr)
+        print("  --file, -f FILE       Read text from a file", file=sys.stderr)
+        print("  --voice, -v VOICE     Voice name (interactive picker if omitted)", file=sys.stderr)
+        print("  --output, -o OUTPUT   Output path (default: output_<epoch>.m4a)", file=sys.stderr)
+        print("  --instruct INSTRUCT   Style instruction (e.g. 'speak slowly')", file=sys.stderr)
+        print("  --language, -l LANG   Language code", file=sys.stderr)
+        print("  --seed, -s SEED       Random seed", file=sys.stderr)
+        print("  --no-open             Don't open file after generating", file=sys.stderr)
+        print("  -h, --help            Show this help message", file=sys.stderr)
         sys.exit(1)
 
     if not text:

@@ -36,7 +36,9 @@ class TaskManager:
         self._active_generations: Dict[str, GenerationTask] = {}
 
     def start_download(self, model_name: str, asyncio_task: Optional[asyncio.Task] = None) -> None:
-        """Mark a download as started."""
+        """Mark a download as started. Does not overwrite an existing entry (preserves asyncio_task)."""
+        if model_name in self._active_downloads:
+            return
         self._active_downloads[model_name] = DownloadTask(
             model_name=model_name,
             status="downloading",
