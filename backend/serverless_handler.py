@@ -43,6 +43,8 @@ def _start_server():
     if _server_thread is not None and _server_thread.is_alive():
         return
 
+    _server_ready.clear()
+
     # Set SERVERLESS before importing the app so backends disable idle timers
     os.environ["SERVERLESS"] = "1"
 
@@ -50,7 +52,6 @@ def _start_server():
     from backend.main import app
 
     config.set_data_dir("/app/data")
-    database.init_db()
 
     def _run():
         uvicorn.run(app, host=_HOST, port=_PORT, log_level="info")
@@ -72,7 +73,7 @@ def _wait_for_server():
                 logger.info("Voicebox server is ready")
                 _server_ready.set()
                 return
-        except httpx.ConnectError:
+        except httpx.RequestError:
             pass
         time.sleep(_STARTUP_POLL)
 

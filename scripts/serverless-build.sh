@@ -2,9 +2,9 @@
 # Build and push the voicebox serverless Docker image for RunPod.
 #
 # Usage:
-#   ./scripts/serverless_build.sh                        # build only
-#   ./scripts/serverless_build.sh --push                 # build + push
-#   ./scripts/serverless_build.sh --push --tag ghcr.io/you/voicebox-serverless:latest
+#   ./scripts/serverless-build.sh                        # build only
+#   ./scripts/serverless-build.sh --push                 # build + push
+#   ./scripts/serverless-build.sh --push --tag ghcr.io/you/voicebox-serverless:latest
 #
 # Environment:
 #   RUNPOD_API_KEY  — set in .env at the project root (not used by the image itself)
@@ -26,6 +26,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --tag)
+            if [[ -z "${2:-}" ]]; then
+                echo "Error: --tag requires a value" >&2
+                echo "Usage: $0 [--push] [--tag IMAGE:TAG]" >&2
+                exit 1
+            fi
             IMAGE_TAG="$2"
             shift 2
             ;;
