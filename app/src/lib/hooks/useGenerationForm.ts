@@ -98,9 +98,13 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
     }
   }
 
+  const pendingJobs = useGenerationStore((state) => state.pendingJobs);
+  const isQueueLimitReached = pendingJobs.length >= 3;
+
   return {
     form,
     handleSubmit,
     isPending: generation.isPending,
+    isQueueLimitReached,
   };
 }

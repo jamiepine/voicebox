@@ -252,6 +252,10 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
 
           const source = audioContext.createBufferSource();
           source.buffer = buffer;
+          // TODO: per-voice device routing — each item has a profile_id; look up its
+          // channel → device_ids and use AudioContext.setSinkId (or playToDevices via
+          // Tauri) so voices route to different speakers. Currently everything goes to
+          // the system default output via audioContext.destination.
           source.connect(masterGainRef.current || audioContext.destination);
 
           const activeSource: ActiveSource = {

@@ -3,6 +3,165 @@ use cpal::{Device, Host, SampleFormat, StreamConfig};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
+// ── CoreAudio direct enumeration (macOS only) ────────────────────────────────
+// cpal's output_devices() misses HDMI/DisplayPort and some other transports on
+// macOS because it only walks kAudioObjectPropertyScopeOutput devices that
+// happen to have streams.  Querying AudioObjectGetPropertyData directly with
+// kAudioHardwarePropertyDevices gives the full list that Audio MIDI Setup shows.
+#[cfg(target_os = "macos")]
+mod coreaudio_enum {
+    use coreaudio_sys::{
+        kAudioHardwarePropertyDefaultInputDevice,
+        kAudioHardwarePropertyDefaultOutputDevice,
+        kAudioHardwarePropertyDevices,
+        kAudioObjectPropertyScopeGlobal,
+        kAudioObjectPropertyElementMaster,
+        kAudioObjectSystemObject,
+        kAudioDevicePropertyDeviceNameCFString,
+        kAudioDevicePropertyStreams,
+        kAudioObjectPropertyScopeOutput,
+        kAudioObjectPropertyScopeInput,
+        AudioDeviceID,
+        AudioObjectGetPropertyData,
+        AudioObjectGetPropertyDataSize,
+        AudioObjectPropertyAddress,
+    };
+    use core_foundation_sys::string::{
+        CFStringGetCStringPtr, CFStringRef, kCFStringEncodingUTF8,
+    };
+    use std::mem;
+    use std::ffi::CStr;
+
+    fn get_all_device_ids() -> Vec<AudioDeviceID> {
+        unsafe {
+            let addr = AudioObjectPropertyAddress {
+                mSelector: kAudioHardwarePropertyDevices,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMaster,
+            };
+            let mut size: u32 = 0;
+            if AudioObjectGetPropertyDataSize(
+                kAudioObjectSystemObject,
+                &addr,
+                0,
+                std::ptr::null(),
+                &mut size,
+            ) != 0 { return vec![]; }
+
+            let count = size as usize / mem::size_of::<AudioDeviceID>();
+            let mut ids: Vec<AudioDeviceID> = vec![0u32; count];
+            if AudioObjectGetPropertyData(
+                kAudioObjectSystemObject,
+                &addr,
+                0,
+                std::ptr::null(),
+                &mut size,
+                ids.as_mut_ptr() as *mut _,
+            ) != 0 { return vec![]; }
+            ids
+        }
+    }
+
+    fn device_name(id: AudioDeviceID) -> Option<String> {
+        unsafe {
+            let addr = AudioObjectPropertyAddress {
+                mSelector: kAudioDevicePropertyDeviceNameCFString,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMaster,
+            };
+            let mut cf_str: CFStringRef = std::ptr::null();
+            let mut size = mem::size_of::<CFStringRef>() as u32;
+            if AudioObjectGetPropertyData(
+                id,
+                &addr,
+                0,
+                std::ptr::null(),
+                &mut size,
+                &mut cf_str as *mut _ as *mut _,
+            ) != 0 { return None; }
+            if cf_str.is_null() { return None; }
+            let ptr = CFStringGetCStringPtr(cf_str, kCFStringEncodingUTF8);
+            if ptr.is_null() { return None; }
+            Some(CStr::from_ptr(ptr).to_string_lossy().into_owned())
+        }
+    }
+
+    /// Returns true if the device has at least one stream in `scope`
+    /// (kAudioObjectPropertyScopeOutput or kAudioObjectPropertyScopeInput).
+    fn has_streams(id: AudioDeviceID, scope: u32) -> bool {
+        unsafe {
+            let addr = AudioObjectPropertyAddress {
+                mSelector: kAudioDevicePropertyStreams,
+                mScope: scope,
+                mElement: kAudioObjectPropertyElementMaster,
+            };
+            let mut size: u32 = 0;
+            AudioObjectGetPropertyDataSize(
+                id,
+                &addr,
+                0,
+                std::ptr::null(),
+                &mut size,
+            ) == 0 && size > 0
+        }
+    }
+
+    fn default_device_id(selector: u32) -> Option<AudioDeviceID> {
+        unsafe {
+            let addr = AudioObjectPropertyAddress {
+                mSelector: selector,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMaster,
+            };
+            let mut id: AudioDeviceID = 0;
+            let mut size = mem::size_of::<AudioDeviceID>() as u32;
+            if AudioObjectGetPropertyData(
+                kAudioObjectSystemObject,
+                &addr,
+                0,
+                std::ptr::null(),
+                &mut size,
+                &mut id as *mut _ as *mut _,
+            ) != 0 { return None; }
+            Some(id)
+        }
+    }
+
+    pub struct CoreAudioDevice {
+        pub id: String,
+        pub name: String,
+        pub is_default: bool,
+    }
+
+    pub fn list_output_devices() -> Vec<CoreAudioDevice> {
+        let default_id = default_device_id(kAudioHardwarePropertyDefaultOutputDevice);
+        get_all_device_ids()
+            .into_iter()
+            .filter(|&id| has_streams(id, kAudioObjectPropertyScopeOutput))
+            .filter_map(|id| {
+                let name = device_name(id)?;
+                let dev_id = format!("device_{}", name.replace(' ', "_").to_lowercase());
+                let is_default = default_id.map_or(false, |d| d == id);
+                Some(CoreAudioDevice { id: dev_id, name, is_default })
+            })
+            .collect()
+    }
+
+    pub fn list_input_devices() -> Vec<CoreAudioDevice> {
+        let default_id = default_device_id(kAudioHardwarePropertyDefaultInputDevice);
+        get_all_device_ids()
+            .into_iter()
+            .filter(|&id| has_streams(id, kAudioObjectPropertyScopeInput))
+            .filter_map(|id| {
+                let name = device_name(id)?;
+                let dev_id = format!("input_{}", name.replace(' ', "_").to_lowercase());
+                let is_default = default_id.map_or(false, |d| d == id);
+                Some(CoreAudioDevice { id: dev_id, name, is_default })
+            })
+            .collect()
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AudioOutputDevice {
     pub id: String,
@@ -10,17 +169,28 @@ pub struct AudioOutputDevice {
     pub is_default: bool,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AudioInputDevice {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+}
+
 pub struct AudioOutputState {
-    host: Host,
     stop_flag: Arc<AtomicBool>,
 }
 
 impl AudioOutputState {
     pub fn new() -> Self {
         Self {
-            host: cpal::default_host(),
             stop_flag: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    fn host() -> Host {
+        // Create a fresh host each time so newly connected devices are visible.
+        // cpal's default_host() on macOS re-queries CoreAudio on each call.
+        cpal::default_host()
     }
 
     pub fn stop_all_playback(&self) -> Result<(), String> {
@@ -31,35 +201,73 @@ impl AudioOutputState {
     }
 
     pub fn list_output_devices(&self) -> Result<Vec<AudioOutputDevice>, String> {
-        let devices = self
-            .host
-            .output_devices()
-            .map_err(|e| format!("Failed to enumerate output devices: {}", e))?;
-
-        let default_device = self.host.default_output_device();
-
-        let mut result = Vec::new();
-        for device in devices {
-            let name = device
-                .name()
-                .map_err(|e| format!("Failed to get device name: {}", e))?;
-
-            // Generate a stable ID from the device name (cpal doesn't provide stable IDs)
-            let id = format!("device_{}", name.replace(' ', "_").to_lowercase());
-
-            let is_default = default_device
-                .as_ref()
-                .map(|d| d.name().unwrap_or_default() == name)
-                .unwrap_or(false);
-
-            result.push(AudioOutputDevice {
-                id,
-                name,
-                is_default,
-            });
+        // On macOS use CoreAudio directly — cpal misses HDMI/DisplayPort devices.
+        #[cfg(target_os = "macos")]
+        {
+            let devices = coreaudio_enum::list_output_devices();
+            return Ok(devices
+                .into_iter()
+                .map(|d| AudioOutputDevice { id: d.id, name: d.name, is_default: d.is_default })
+                .collect());
         }
 
-        Ok(result)
+        // Fallback: cpal (Windows / Linux)
+        #[cfg(not(target_os = "macos"))]
+        {
+            let host = Self::host();
+            let devices = host
+                .output_devices()
+                .map_err(|e| format!("Failed to enumerate output devices: {}", e))?;
+            let default_device = host.default_output_device();
+            let mut result = Vec::new();
+            for device in devices {
+                let name = device
+                    .name()
+                    .map_err(|e| format!("Failed to get device name: {}", e))?;
+                let id = format!("device_{}", name.replace(' ', "_").to_lowercase());
+                let is_default = default_device
+                    .as_ref()
+                    .map(|d| d.name().unwrap_or_default() == name)
+                    .unwrap_or(false);
+                result.push(AudioOutputDevice { id, name, is_default });
+            }
+            return Ok(result);
+        }
+    }
+
+    pub fn list_input_devices(&self) -> Result<Vec<AudioInputDevice>, String> {
+        // On macOS use CoreAudio directly for full device list.
+        #[cfg(target_os = "macos")]
+        {
+            let devices = coreaudio_enum::list_input_devices();
+            return Ok(devices
+                .into_iter()
+                .map(|d| AudioInputDevice { id: d.id, name: d.name, is_default: d.is_default })
+                .collect());
+        }
+
+        // Fallback: cpal (Windows / Linux)
+        #[cfg(not(target_os = "macos"))]
+        {
+            let host = Self::host();
+            let devices = host
+                .input_devices()
+                .map_err(|e| format!("Failed to enumerate input devices: {}", e))?;
+            let default_device = host.default_input_device();
+            let mut result = Vec::new();
+            for device in devices {
+                let name = device
+                    .name()
+                    .map_err(|e| format!("Failed to get device name: {}", e))?;
+                let id = format!("input_{}", name.replace(' ', "_").to_lowercase());
+                let is_default = default_device
+                    .as_ref()
+                    .map(|d| d.name().unwrap_or_default() == name)
+                    .unwrap_or(false);
+                result.push(AudioInputDevice { id, name, is_default });
+            }
+            return Ok(result);
+        }
     }
 
     pub async fn play_audio_to_devices(
@@ -77,8 +285,8 @@ impl AudioOutputState {
 
         // Find devices by ID
         eprintln!("Enumerating output devices...");
-        let devices: Vec<Device> = self
-            .host
+        let host = Self::host();
+        let devices: Vec<Device> = host
             .output_devices()
             .map_err(|e| format!("Failed to enumerate devices: {}", e))?
             .filter_map(|device| {

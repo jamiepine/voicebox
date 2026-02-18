@@ -582,6 +582,13 @@ fn list_audio_output_devices(
 }
 
 #[command]
+fn list_audio_input_devices(
+    state: State<'_, audio_output::AudioOutputState>,
+) -> Result<Vec<audio_output::AudioInputDevice>, String> {
+    state.list_input_devices()
+}
+
+#[command]
 async fn play_audio_to_devices(
     state: State<'_, audio_output::AudioOutputState>,
     audio_data: Vec<u8>,
@@ -645,6 +652,7 @@ pub fn run() {
             stop_system_audio_capture,
             is_system_audio_supported,
             list_audio_output_devices,
+            list_audio_input_devices,
             play_audio_to_devices,
             stop_audio_playback
         ])

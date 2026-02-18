@@ -5,7 +5,7 @@ import type { UpdateStatus } from '@/platform/types';
 // Re-export UpdateStatus for backwards compatibility
 export type { UpdateStatus };
 
-export function useAutoUpdater(checkOnMount = false) {
+export function useAutoUpdater(checkOnMount: boolean = false) {
   const platform = usePlatform();
   const [status, setStatus] = useState<UpdateStatus>(platform.updater.getStatus());
   const hasCheckedRef = useRef(false);
@@ -41,7 +41,7 @@ export function useAutoUpdater(checkOnMount = false) {
       checkForUpdates();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platform.metadata.isTauricheckOnMountcheckForUpdates]);
+  }, [platform.metadata.isTauri, checkOnMount, checkForUpdates]);
 
   return {
     status,

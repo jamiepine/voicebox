@@ -44,7 +44,6 @@ class TauriLifecycle implements PlatformLifecycle {
         const keepRunning = useServerStore.getState().keepServerRunningOnClose;
 
         // Check if server was started by this app instance
-        // @ts-expect-error - accessing module-level variable from another module
         const serverStartedByApp = window.__voiceboxServerStartedByApp ?? false;
 
         if (!keepRunning && serverStartedByApp) {

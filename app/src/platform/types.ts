@@ -44,6 +44,7 @@ export interface PlatformAudio {
   startSystemAudioCapture(maxDurationSecs: number): Promise<void>;
   stopSystemAudioCapture(): Promise<Blob>;
   listOutputDevices(): Promise<AudioDevice[]>;
+  listInputDevices(): Promise<AudioDevice[]>;
   playToDevices(audioData: Uint8Array, deviceIds: string[]): Promise<void>;
   stopPlayback(): void;
 }
@@ -58,6 +59,8 @@ export interface PlatformLifecycle {
 
 export interface PlatformMetadata {
   getVersion(): Promise<string>;
+  /** Short git hash + commit count injected at build time, e.g. "abc1234 #264" */
+  getBuildInfo(): string;
   isTauri: boolean;
 }
 

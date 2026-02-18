@@ -10,5 +10,17 @@ export const tauriMetadata: PlatformMetadata = {
       return '0.1.0';
     }
   },
+  getBuildInfo(): string {
+    try {
+      const hash = __GIT_HASH__;
+      const count = __GIT_COMMIT_COUNT__;
+      if (import.meta.env.DEV) {
+        return `dev-${hash}`;
+      }
+      return `${hash} #${count}`;
+    } catch {
+      return '';
+    }
+  },
   isTauri: true,
 };
