@@ -310,6 +310,10 @@ class PyTorchTTSBackend:
         """
         Generate audio from text using voice prompt.
 
+        Automatically splits long text into sentence-boundary chunks,
+        generates each chunk individually, and concatenates with crossfade.
+        Optionally upsamples to a higher sample rate based on quality setting.
+
         Args:
             text: Text to synthesize
             voice_prompt: Voice prompt dictionary from create_voice_prompt
@@ -320,18 +324,68 @@ class PyTorchTTSBackend:
         Returns:
             Tuple of (audio_array, sample_rate)
         """
+        from ..utils.chunked_tts import (
+            split_text_into_chunks,
+            concatenate_audio_chunks,
+            resample_audio,
+            _tts_settings,
+        )
+
         # Load model
         await self.load_model_async(None)
 
+        max_chars = _tts_settings["max_chunk_chars"]
+        chunks = split_text_into_chunks(text, max_chars)
+
+        if len(chunks) <= 1:
+            # Short text -- single-shot generation (fast path)
+            audio, sample_rate = await self._generate_single(
+                text, voice_prompt, seed, instruct,
+            )
+        else:
+            # Long text -- chunked generation
+            print(f"[chunked-tts] Splitting {len(text)} chars into {len(chunks)} chunks")
+            audio_chunks: List[np.ndarray] = []
+            sample_rate = None
+
+            for i, chunk_text in enumerate(chunks):
+                print(f"[chunked-tts] Generating chunk {i + 1}/{len(chunks)} ({len(chunk_text)} chars)")
+                chunk_audio, chunk_sr = await self._generate_single(
+                    chunk_text, voice_prompt, seed, instruct,
+                )
+                audio_chunks.append(np.asarray(chunk_audio, dtype=np.float32))
+                if sample_rate is None:
+                    sample_rate = chunk_sr
+
+            audio = concatenate_audio_chunks(audio_chunks, sample_rate)
+
+        # Quality-based resampling
+        quality = _tts_settings["quality"]
+        if quality == "high":
+            target_rate = _tts_settings["upsample_rate"]
+            if sample_rate != target_rate:
+                audio = resample_audio(
+                    np.asarray(audio, dtype=np.float32), sample_rate, target_rate,
+                )
+                sample_rate = target_rate
+
+        return audio, sample_rate
+
+    async def _generate_single(
+        self,
+        text: str,
+        voice_prompt: dict,
+        seed: Optional[int] = None,
+        instruct: Optional[str] = None,
+    ) -> Tuple[np.ndarray, int]:
+        """Generate audio for a single text segment (no chunking)."""
+
         def _generate_sync():
-            """Run synchronous generation in thread pool."""
-            # Set seed if provided
             if seed is not None:
                 torch.manual_seed(seed)
                 if torch.cuda.is_available():
                     torch.cuda.manual_seed(seed)
 
-            # Generate audio - this is the blocking operation
             wavs, sample_rate = self.model.generate_voice_clone(
                 text=text,
                 voice_clone_prompt=voice_prompt,
@@ -339,10 +393,7 @@ class PyTorchTTSBackend:
             )
             return wavs[0], sample_rate
 
-        # Run blocking inference in thread pool to avoid blocking event loop
-        audio, sample_rate = await asyncio.to_thread(_generate_sync)
-
-        return audio, sample_rate
+        return await asyncio.to_thread(_generate_sync)
 
 
 class PyTorchSTTBackend:
