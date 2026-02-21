@@ -1,0 +1,9 @@
+uvicorn
+fastapi
+sqlalchemy
+torch
+torchvision
+soundfile
+librosa
+python-multipart
+huggingface_hub

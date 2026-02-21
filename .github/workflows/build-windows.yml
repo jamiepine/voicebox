@@ -1,0 +1,63 @@
+name: Build Windows
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    permissions:
+      contents: write
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r backend/requirements.txt
+
+      - name: Build Python server
+        shell: bash
+        run: |
+          cd backend
+          python build_binary.py
+
+          PLATFORM=$(rustc --print host-tuple)
+          mkdir -p ../tauri/src-tauri/binaries
+          cp dist/voicebox-server.exe ../tauri/src-tauri/binaries/voicebox-server-${PLATFORM}.exe
+          echo "Built voicebox-server-${PLATFORM}.exe"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./tauri/src-tauri -> target"
+
+      - name: Install dependencies
+        run: bun install
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: tauri
+          tagName: v__VERSION__
+          releaseName: "voicebox v__VERSION__ (test build)"
+          releaseBody: "Test build for audio export fix"
+          releaseDraft: true
+          prerelease: true
+          args: ""
+          includeUpdaterJson: false
