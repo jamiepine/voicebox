@@ -9,7 +9,8 @@
     "landing"
   ],
   "scripts": {
-    "dev": "bun run setup:dev && cd tauri && bun run tauri dev",
+    "dev": "cd tauri && bun run dev",
+    "dev:tauri": "bun run setup:dev && cd tauri && bun run tauri dev",
     "dev:web": "cd web && bun run dev",
     "dev:landing": "cd landing && bun run dev",
     "dev:server": "uvicorn backend.main:app --reload --port 17493",
