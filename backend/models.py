@@ -49,10 +49,16 @@ class ProfileSampleResponse(BaseModel):
         from_attributes = True
 
 
+class TTSSettingsUpdate(BaseModel):
+    """Request model for updating TTS settings."""
+    quality: Optional[str] = Field(None, pattern="^(standard|high)$")
+    max_chunk_chars: Optional[int] = Field(None, ge=100, le=5000)
+
+
 class GenerationRequest(BaseModel):
     """Request model for voice generation."""
     profile_id: str
-    text: str = Field(..., min_length=1, max_length=5000)
+    text: str = Field(..., min_length=1, max_length=50000)
     language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B)$")

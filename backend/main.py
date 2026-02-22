@@ -1203,6 +1203,23 @@ async def get_sample_audio(sample_id: str, db: Session = Depends(get_db)):
 # MODEL MANAGEMENT
 # ============================================
 
+@app.get("/tts/settings")
+async def get_tts_settings():
+    """Get current TTS chunking and quality settings."""
+    from .utils.chunked_tts import get_tts_settings as _get_settings
+    return _get_settings()
+
+
+@app.post("/tts/settings")
+async def update_tts_settings(request: models.TTSSettingsUpdate):
+    """Update TTS quality and chunking settings at runtime."""
+    from .utils.chunked_tts import update_tts_settings as _update_settings
+    try:
+        return _update_settings(request.model_dump(exclude_none=True))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/models/load")
 async def load_model(model_size: str = "1.7B"):
     """Manually load TTS model."""
