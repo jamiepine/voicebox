@@ -62,9 +62,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Self-documenting help system with `make help`
   - Colored output for better readability
   - Supports parallel development server execution
+- **Audiobook Tab** - New long-form narration workflow in the app
+  - Import/paste `.txt` book content and review/edit before generation
+  - Generate a quick 5-sentence preview before full run
+  - Chunk long text automatically and process chunk-by-chunk with retry support
+  - Auto-create and update a Story during generation, with export shortcut
+- **Text chunking utility** - Added reusable sentence-aware chunking for large text inputs (`app/src/lib/utils/textChunking.ts`)
 
 ### Changed
 - **README** - Added Makefile reference and updated Quick Start with Makefile-based setup instructions alongside manual setup
+- **Navigation** - Added Audiobook route/tab to the app sidebar
+- **Generation API types** - Added optional `instruct` field to `GenerationRequest`
+- **App styling** - Added `scrollbar-visible` utility styles for long-scroll panels/editors
 
 ---
 
