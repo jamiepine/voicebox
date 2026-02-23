@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { AppFrame } from '@/components/AppFrame/AppFrame';
+import { AudiobookTab } from '@/components/AudiobookTab/AudiobookTab';
 import { AudioTab } from '@/components/AudioTab/AudioTab';
 import { MainEditor } from '@/components/MainEditor/MainEditor';
 import { ModelsTab } from '@/components/ModelsTab/ModelsTab';
@@ -10,6 +11,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { VoicesTab } from '@/components/VoicesTab/VoicesTab';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { MODEL_DISPLAY_NAMES, useRestoreActiveTasks } from '@/lib/hooks/useRestoreActiveTasks';
+
 // Simple platform check that works in both web and Tauri
 const isMacOS = () => navigator.platform.toLowerCase().includes('mac');
 
@@ -86,6 +88,13 @@ const storiesRoute = createRoute({
   component: StoriesTab,
 });
 
+// Audiobook route
+const audiobookRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/audiobook',
+  component: AudiobookTab,
+});
+
 // Voices route
 const voicesRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -118,6 +127,7 @@ const serverRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   storiesRoute,
+  audiobookRoute,
   voicesRoute,
   audioRoute,
   modelsRoute,

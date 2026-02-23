@@ -125,6 +125,32 @@
     text-orientation: mixed;
     letter-spacing: 0.1em;
   }
+
+  .scrollbar-visible {
+    scrollbar-width: thin;
+    -ms-overflow-style: auto;
+    scrollbar-color: #d8ab4f #2b2b2b;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar {
+    display: block;
+    width: 10px;
+    height: 10px;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar-track {
+    background: #2b2b2b;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar-thumb {
+    background: #d8ab4f;
+    border-radius: 9999px;
+    border: 2px solid #131313;
+  }
+
+  .scrollbar-visible::-webkit-scrollbar-thumb:hover {
+    background: #e2b85e;
+  }
 }
 
 @keyframes fadeInScale {
