@@ -1,0 +1,11 @@
+.git
+.gitignore
+node_modules
+dist
+build
+venv
+__pycache__
+*.pyc
+.env
+*.egg-info
+*.log
