@@ -1,0 +1,42 @@
+services:
+  voicebox:
+    build: .
+    container_name: voicebox
+    restart: unless-stopped
+
+    ports:
+      # Bind to localhost only for security
+      - "127.0.0.1:17493:17493"
+
+    volumes:
+      # Bind-mount for generated audio (customize the host path as needed)
+      # Host side:      ./output/
+      # Container side: /app/data/generations/
+      - ./output:/app/data/generations
+
+      # Named volume for profiles, DB, cache (persists across container restarts)
+      - voicebox-data:/app/data
+
+      # HuggingFace model cache (so models aren't re-downloaded on rebuild)
+      - huggingface-cache:/home/voicebox/.cache/huggingface
+
+    environment:
+      - TTS_MODE=local
+      - LOG_LEVEL=info
+
+    networks:
+      - voicebox-net
+
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+
+networks:
+  voicebox-net:
+    driver: bridge
+
+volumes:
+  voicebox-data:
+  huggingface-cache:

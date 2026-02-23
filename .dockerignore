@@ -1,0 +1,46 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Desktop-only (not needed in web container)
+tauri/
+landing/
+docs/
+mlx-test/
+scripts/
+
+# Dependencies & build artifacts (rebuilt in Docker)
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.spec
+
+# Data (will be bind-mounted)
+data/
+backend/data/
+
+# IDE & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Config files not needed in container
+biome.json
+.biomeignore
+.bumpversion.cfg
+.npmrc
+Makefile
+CHANGELOG.md
+CONTRIBUTING.md
+SECURITY.md
+LICENSE
+README.md
+backend/README.md
