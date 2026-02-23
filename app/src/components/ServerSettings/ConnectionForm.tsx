@@ -31,6 +31,8 @@ export function ConnectionForm() {
   const setServerUrl = useServerStore((state) => state.setServerUrl);
   const keepServerRunningOnClose = useServerStore((state) => state.keepServerRunningOnClose);
   const setKeepServerRunningOnClose = useServerStore((state) => state.setKeepServerRunningOnClose);
+  const mode = useServerStore((state) => state.mode);
+  const setMode = useServerStore((state) => state.setMode);
   const { toast } = useToast();
 
   const form = useForm<ConnectionFormValues>({
@@ -115,6 +117,38 @@ export function ConnectionForm() {
             </div>
           </div>
         </div>
+
+        {platform.metadata.isTauri && (
+          <div className="mt-6 pt-6 border-t">
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id="allowNetworkAccess"
+                checked={mode === 'remote'}
+                onCheckedChange={(checked: boolean) => {
+                  setMode(checked ? 'remote' : 'local');
+                  toast({
+                    title: 'Setting updated',
+                    description: checked
+                      ? 'Network access enabled. Restart the app to apply.'
+                      : 'Network access disabled. Restart the app to apply.',
+                  });
+                }}
+              />
+              <div className="space-y-1">
+                <label
+                  htmlFor="allowNetworkAccess"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Allow network access
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Makes the server accessible from other devices on your network. Restart the app
+                  after changing this setting.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
