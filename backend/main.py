@@ -221,7 +221,10 @@ async def create_profile(
     """Create a new voice profile."""
     try:
         return await profiles.create_profile(data, db)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        # Fallback for unexpected errors
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -277,10 +280,13 @@ async def update_profile(
     db: Session = Depends(get_db),
 ):
     """Update a voice profile."""
-    profile = await profiles.update_profile(profile_id, data, db)
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
-    return profile
+    try:
+        profile = await profiles.update_profile(profile_id, data, db)
+        if not profile:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return profile
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.delete("/profiles/{profile_id}")
