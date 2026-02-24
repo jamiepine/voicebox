@@ -5,6 +5,21 @@ All notable changes to Voicebox will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Generation Error Handling** - Improved error handling for file system and connection errors ([#168](https://github.com/jamiepine/voicebox/issues/168), [#140](https://github.com/jamiepine/voicebox/issues/140))
+  - Implemented atomic file writes to prevent corrupted audio files
+  - Added specific error messages for different errno codes (ENOENT, EACCES, ENOSPC, EPIPE)
+  - Handle broken pipe errors gracefully when clients disconnect
+  - Verify directory writability before saving files
+
+### Added
+- **Filesystem Health Check** - New `/health/filesystem` endpoint to diagnose file system issues
+  - Reports directory status and write permissions
+  - Shows available disk space
+  - Helps troubleshoot generation failures
+
 ## [0.1.0] - 2026-01-25
 
 ### Added

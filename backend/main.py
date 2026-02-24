@@ -209,6 +209,75 @@ async def health():
     )
 
 
+@app.get("/health/filesystem")
+async def check_filesystem():
+    """
+    Check if file system is accessible and writable.
+
+    Returns health status of data directories and write permissions.
+    Useful for diagnosing issues #168 and #140.
+    """
+    try:
+        # Check data directory
+        data_dir = config.get_data_dir()
+        if not data_dir.exists():
+            return {
+                "status": "error",
+                "message": "Data directory does not exist",
+                "data_dir": str(data_dir.absolute()),
+            }
+
+        # Check generations directory
+        generations_dir = config.get_generations_dir()
+        if not generations_dir.exists():
+            return {
+                "status": "error",
+                "message": "Generations directory does not exist",
+                "generations_dir": str(generations_dir.absolute()),
+            }
+
+        # Check write permissions
+        if not os.access(generations_dir, os.W_OK):
+            return {
+                "status": "error",
+                "message": "No write permission for generations directory",
+                "generations_dir": str(generations_dir.absolute()),
+                "writable": False,
+            }
+
+        # Try writing a test file
+        test_file = generations_dir / ".write_test"
+        try:
+            test_file.write_text("test")
+            test_file.unlink()
+        except Exception as e:
+            return {
+                "status": "error",
+                "message": f"Cannot write to generations directory: {str(e)}",
+                "generations_dir": str(generations_dir.absolute()),
+                "writable": False,
+            }
+
+        # Check disk space
+        import shutil
+        disk_usage = shutil.disk_usage(generations_dir)
+        free_space_gb = disk_usage.free / (1024 ** 3)
+
+        return {
+            "status": "ok",
+            "data_dir": str(data_dir.absolute()),
+            "generations_dir": str(generations_dir.absolute()),
+            "writable": True,
+            "free_space_gb": round(free_space_gb, 2),
+            "total_space_gb": round(disk_usage.total / (1024 ** 3), 2),
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Unexpected error: {str(e)}",
+        }
+
+
 # ============================================
 # VOICE PROFILE ENDPOINTS
 # ============================================
@@ -655,11 +724,43 @@ async def generate_speech(
         # Calculate duration
         duration = len(audio) / sample_rate
 
-        # Save audio
-        audio_path = config.get_generations_dir() / f"{generation_id}.wav"
+        # Save audio with better error handling
+        try:
+            generations_dir = config.get_generations_dir()
 
-        from .utils.audio import save_audio
-        save_audio(audio, str(audio_path), sample_rate)
+            # Verify directory exists and is writable
+            if not generations_dir.exists():
+                raise OSError(
+                    f"Generations directory does not exist: {generations_dir}"
+                )
+
+            if not os.access(generations_dir, os.W_OK):
+                raise OSError(
+                    f"No write permission for generations directory: {generations_dir}"
+                )
+
+            audio_path = generations_dir / f"{generation_id}.wav"
+
+            from .utils.audio import save_audio
+            save_audio(audio, str(audio_path), sample_rate)
+
+        except OSError as e:
+            # Specific error handling for file system errors
+            task_manager.complete_generation(generation_id)
+
+            error_msg = f"Failed to save audio file: {str(e)}"
+            errno_num = getattr(e, 'errno', None)
+
+            if errno_num == 2:  # ENOENT - No such file or directory
+                error_msg = f"Directory error: {str(e)}. Generations directory: {generations_dir}"
+            elif errno_num == 13:  # EACCES - Permission denied
+                error_msg = f"Permission denied when saving audio. Check write permissions for: {generations_dir}"
+            elif errno_num == 28:  # ENOSPC - No space left on device
+                error_msg = "No space left on device. Please free up disk space."
+            elif errno_num == 32:  # EPIPE - Broken pipe
+                error_msg = "Connection interrupted during file save. Please retry."
+
+            raise HTTPException(status_code=500, detail=error_msg)
 
         # Create history entry
         generation = await history.create_generation(
@@ -672,15 +773,32 @@ async def generate_speech(
             db=db,
             instruct=data.instruct,
         )
-        
+
         # Mark generation as complete
         task_manager.complete_generation(generation_id)
-        
+
         return generation
-        
+
+    except BrokenPipeError as e:
+        # Client disconnected during generation
+        task_manager.complete_generation(generation_id)
+        print(f"[WARNING] Client disconnected during generation {generation_id}: {e}")
+        raise HTTPException(
+            status_code=499,  # Client Closed Request (non-standard but widely used)
+            detail="Client disconnected during generation. Please retry."
+        )
     except ValueError as e:
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=400, detail=str(e))
+    except OSError as e:
+        # OSError already handled above in save_audio block, but catch any others
+        task_manager.complete_generation(generation_id)
+        if getattr(e, 'errno', None) == 32:  # EPIPE
+            raise HTTPException(
+                status_code=500,
+                detail="Broken pipe error - connection was interrupted. Please retry. If issue persists, restart the server."
+            )
+        raise HTTPException(status_code=500, detail=f"System error: {str(e)}")
     except Exception as e:
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=500, detail=str(e))
