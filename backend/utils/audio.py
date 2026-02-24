@@ -70,14 +70,42 @@ def save_audio(
     sample_rate: int = 24000,
 ) -> None:
     """
-    Save audio file.
-    
+    Save audio file with atomic write and error handling.
+
     Args:
         audio: Audio array
         path: Output path
         sample_rate: Sample rate
+
+    Raises:
+        OSError: If file cannot be written
     """
-    sf.write(path, audio, sample_rate)
+    from pathlib import Path
+    import os
+
+    try:
+        # Ensure parent directory exists
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Write to temporary file first, then rename atomically
+        # This prevents partial writes if the process is interrupted
+        temp_path = f"{path}.tmp"
+        sf.write(temp_path, audio, sample_rate)
+
+        # Atomic rename to avoid partial writes
+        os.replace(temp_path, path)
+
+    except Exception as e:
+        # Clean up temp file if it exists
+        temp_path = f"{path}.tmp"
+        if Path(temp_path).exists():
+            try:
+                Path(temp_path).unlink()
+            except Exception:
+                pass  # Best effort cleanup
+
+        # Re-raise with more context
+        raise OSError(f"Failed to save audio to {path}: {str(e)}") from e
 
 
 def validate_reference_audio(
