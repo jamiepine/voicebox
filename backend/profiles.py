@@ -38,14 +38,22 @@ async def create_profile(
 ) -> VoiceProfileResponse:
     """
     Create a new voice profile.
-    
+
     Args:
         data: Profile creation data
         db: Database session
-        
+
     Returns:
         Created profile
+
+    Raises:
+        ValueError: If a profile with the same name already exists
     """
+    # Check if profile name already exists
+    existing_profile = db.query(DBVoiceProfile).filter_by(name=data.name).first()
+    if existing_profile:
+        raise ValueError(f"A profile with the name '{data.name}' already exists. Please choose a different name.")
+
     # Create profile in database
     db_profile = DBVoiceProfile(
         id=str(uuid.uuid4()),
@@ -55,15 +63,15 @@ async def create_profile(
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
-    
+
     db.add(db_profile)
     db.commit()
     db.refresh(db_profile)
-    
+
     # Create profile directory
     profile_dir = _get_profiles_dir() / db_profile.id
     profile_dir.mkdir(parents=True, exist_ok=True)
-    
+
     return VoiceProfileResponse.model_validate(db_profile)
 
 
@@ -191,28 +199,37 @@ async def update_profile(
 ) -> Optional[VoiceProfileResponse]:
     """
     Update a voice profile.
-    
+
     Args:
         profile_id: Profile ID
         data: Updated profile data
         db: Database session
-        
+
     Returns:
         Updated profile or None if not found
+
+    Raises:
+        ValueError: If a profile with the same name already exists (different profile)
     """
     profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
     if not profile:
         return None
-    
+
+    # Check if the new name conflicts with another profile
+    if profile.name != data.name:
+        existing_profile = db.query(DBVoiceProfile).filter_by(name=data.name).first()
+        if existing_profile:
+            raise ValueError(f"A profile with the name '{data.name}' already exists. Please choose a different name.")
+
     # Update fields
     profile.name = data.name
     profile.description = data.description
     profile.language = data.language
     profile.updated_at = datetime.utcnow()
-    
+
     db.commit()
     db.refresh(profile)
-    
+
     return VoiceProfileResponse.model_validate(profile)
 
 

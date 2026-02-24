@@ -5,6 +5,14 @@ All notable changes to Voicebox will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Profile Name Validation** - Added proper validation to prevent duplicate profile names ([#134](https://github.com/jamiepine/voicebox/issues/134))
+  - Users now receive clear error messages when attempting to create or update profiles with duplicate names
+  - Improved error handling in create and update profile API endpoints
+  - Added comprehensive test suite for duplicate name validation
+
 ## [0.1.0] - 2026-01-25
 
 ### Added
