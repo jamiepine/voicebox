@@ -54,10 +54,23 @@ app = FastAPI(
     version=__version__,
 )
 
-# CORS middleware
+# CORS middleware - restrict to known local origins by default.
+# Set VOICEBOX_CORS_ORIGINS env var to a comma-separated list of origins
+# to allow additional origins (e.g. for remote server mode).
+_default_origins = [
+    "http://localhost:5173",     # Vite dev server
+    "http://127.0.0.1:5173",
+    "http://localhost:17493",
+    "http://127.0.0.1:17493",
+    "tauri://localhost",         # Tauri webview (macOS)
+    "https://tauri.localhost",   # Tauri webview (Windows/Linux)
+]
+_env_origins = os.environ.get("VOICEBOX_CORS_ORIGINS", "")
+_cors_origins = _default_origins + [o.strip() for o in _env_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
