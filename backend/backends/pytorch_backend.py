@@ -3,10 +3,15 @@ PyTorch backend implementation for TTS and STT.
 """
 
 from typing import Optional, List, Tuple
+from collections import OrderedDict
 import asyncio
 import torch
 import numpy as np
 from pathlib import Path
+
+# Max adapters to keep loaded in GPU memory simultaneously.
+# When exceeded, the least-recently-used adapter is evicted.
+_MAX_LOADED_ADAPTERS = 3
 
 from . import TTSBackend, STTBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
@@ -24,6 +29,8 @@ class PyTorchTTSBackend:
         self.model_size = model_size
         self.device = self._get_device()
         self._current_model_size = None
+        self._adapter_lru: OrderedDict[str, str] = OrderedDict()  # name -> path, LRU order
+        self._current_adapter_path: Optional[str] = None
     
     def _get_device(self) -> str:
         """Get the best available device."""
@@ -233,10 +240,13 @@ class PyTorchTTSBackend:
             del self.model
             self.model = None
             self._current_model_size = None
-            
+            # Clear adapter tracking state
+            self._adapter_lru = OrderedDict()
+            self._current_adapter_path = None
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            
+
             print("TTS model unloaded")
     
     async def create_voice_prompt(
@@ -347,6 +357,9 @@ class PyTorchTTSBackend:
         # Load model
         await self.load_model_async(None)
 
+        # Restore base model if an adapter was previously loaded
+        self._restore_base_model()
+
         def _generate_sync():
             """Run synchronous generation in thread pool."""
             # Set seed if provided
@@ -368,10 +381,107 @@ class PyTorchTTSBackend:
 
         return audio, sample_rate
 
+    async def generate_with_adapter(
+        self,
+        text: str,
+        voice_prompt: dict,
+        adapter_path: str,
+        language: str = "en",
+        seed: Optional[int] = None,
+        instruct: Optional[str] = None,
+    ) -> Tuple[np.ndarray, int]:
+        """
+        Generate audio using a LoRA adapter for fine-tuned voice.
+
+        The adapter was trained on model.talker (the talker sub-model),
+        so we apply PEFT to self.model.model.talker specifically.
+        The wrapper's generate_voice_clone works transparently since
+        PeftModel forwards all attributes.
+
+        Adapters are loaded once and cached by name. Switching between
+        adapters uses set_adapter() which is instant.
+        """
+        await self.load_model_async(None)
+
+        def _generate_with_adapter_sync():
+            from peft import PeftModel
+
+            if seed is not None:
+                torch.manual_seed(seed)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed(seed)
+
+            # Derive a stable adapter name from the path (job_id directory)
+            adapter_name = Path(adapter_path).name
+
+            # Access the inner model: wrapper.model = Qwen3TTSForConditionalGeneration
+            inner_model = self.model.model
+            talker = inner_model.talker
+
+            if not isinstance(talker, PeftModel) and not self._adapter_lru:
+                # First adapter ever — wrap talker with PeftModel
+                print(f"Initializing PeftModel on talker with adapter '{adapter_name}' from {adapter_path}...")
+                inner_model.talker = PeftModel.from_pretrained(
+                    talker,
+                    adapter_path,
+                    adapter_name=adapter_name,
+                )
+                inner_model.talker.eval()
+                self._adapter_lru[adapter_name] = adapter_path
+                self._current_adapter_path = adapter_path
+                print(f"LoRA adapter '{adapter_name}' loaded on talker and activated")
+            elif adapter_name not in self._adapter_lru:
+                # New adapter — evict LRU if at capacity
+                if len(self._adapter_lru) >= _MAX_LOADED_ADAPTERS:
+                    evict_name, _ = self._adapter_lru.popitem(last=False)
+                    print(f"Evicting LRU adapter '{evict_name}' to free memory")
+                    inner_model.talker.delete_adapter(evict_name)
+
+                # Load new adapter onto existing PeftModel talker
+                print(f"Loading new adapter '{adapter_name}' from {adapter_path}...")
+                inner_model.talker.load_adapter(adapter_path, adapter_name=adapter_name)
+                inner_model.talker.set_adapter(adapter_name)
+                self._adapter_lru[adapter_name] = adapter_path
+                self._current_adapter_path = adapter_path
+                print(f"LoRA adapter '{adapter_name}' loaded on talker and activated")
+            else:
+                # Adapter already loaded — move to end of LRU and switch
+                self._adapter_lru.move_to_end(adapter_name)
+                if self._current_adapter_path != adapter_path:
+                    print(f"Switching to adapter '{adapter_name}'")
+                    inner_model.talker.set_adapter(adapter_name)
+                    self._current_adapter_path = adapter_path
+
+            # Ensure adapters are enabled
+            inner_model.talker.enable_adapter_layers()
+
+            # Generate audio using the wrapper (handles speaker embedding internally)
+            wavs, sample_rate = self.model.generate_voice_clone(
+                text=text,
+                voice_clone_prompt=voice_prompt,
+                instruct=instruct,
+            )
+            return wavs[0], sample_rate
+
+        audio, sample_rate = await asyncio.to_thread(_generate_with_adapter_sync)
+        return audio, sample_rate
+
+    def _restore_base_model(self):
+        """Disable adapter layers so the base model runs without any adapter."""
+        if self._adapter_lru:
+            from peft import PeftModel
+            inner_model = self.model.model
+            if isinstance(inner_model.talker, PeftModel):
+                inner_model.talker.disable_adapter_layers()
+                self._current_adapter_path = None
+
+
+from . import STT_MODEL_MAP
+
 
 class PyTorchSTTBackend:
     """PyTorch-based STT backend using Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.processor = None
@@ -403,20 +513,24 @@ class PyTorchSTTBackend:
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None
-    
+
+    def _resolve_model_name(self, model_size: str) -> str:
+        """Resolve a model size key to a HuggingFace model name."""
+        return STT_MODEL_MAP.get(model_size, f"openai/whisper-{model_size}")
+
     def _is_model_cached(self, model_size: str) -> bool:
         """
         Check if the Whisper model is already cached locally AND fully downloaded.
-        
+
         Args:
             model_size: Model size to check
-            
+
         Returns:
             True if model is fully cached, False if missing or incomplete
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
+            model_name = self._resolve_model_name(model_size)
             repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
             
             if not repo_cache.exists():
@@ -451,26 +565,20 @@ class PyTorchSTTBackend:
         Args:
             model_size: Model size (tiny, base, small, medium, large)
         """
-        print(f"[DEBUG] load_model_async called with size: {model_size}")
         if model_size is None:
             model_size = self.model_size
 
-        print(f"[DEBUG] Model already loaded? {self.model is not None}, current size: {self.model_size}, requested: {model_size}")
         if self.model is not None and self.model_size == model_size:
-            print(f"[DEBUG] Early return - model already loaded")
             return
 
-        print(f"[DEBUG] Calling asyncio.to_thread for _load_model_sync")
         # Run blocking load in thread pool
         await asyncio.to_thread(self._load_model_sync, model_size)
-        print(f"[DEBUG] asyncio.to_thread completed")
     
     # Alias for compatibility
     load_model = load_model_async
     
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
-        print(f"[DEBUG] _load_model_sync called for Whisper {model_size}")
         try:
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
@@ -486,16 +594,13 @@ class PyTorchSTTBackend:
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
             # Patch tqdm BEFORE importing transformers
-            print("[DEBUG] Starting tqdm patch BEFORE transformers import")
             tracker_context = tracker.patch_download()
             tracker_context.__enter__()
-            print("[DEBUG] tqdm patched, now importing transformers")
 
             # Import transformers
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            model_name = f"openai/whisper-{model_size}"
-            print(f"[DEBUG] Model name: {model_name}")
+            model_name = self._resolve_model_name(model_size)
 
             print(f"Loading Whisper model {model_size} on {self.device}...")
 
@@ -560,21 +665,21 @@ class PyTorchSTTBackend:
     ) -> str:
         """
         Transcribe audio to text.
-        
+
         Args:
             audio_path: Path to audio file
-            language: Optional language hint (en or zh)
-            
+            language: Optional language code (e.g. "he", "en", "zh")
+
         Returns:
             Transcribed text
         """
         await self.load_model_async(None)
-        
+
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
             # Load audio
-            audio, sr = load_audio(audio_path, sample_rate=16000)
-            
+            audio, _sr = load_audio(audio_path, sample_rate=16000)
+
             # Process audio
             inputs = self.processor(
                 audio,
@@ -582,31 +687,50 @@ class PyTorchSTTBackend:
                 return_tensors="pt",
             )
             inputs = inputs.to(self.device)
-            
-            # Set language if provided
+
+            # Force language and task via decoder prompt IDs
             forced_decoder_ids = None
             if language:
-                # Support all languages from frontend: en, zh, ja, ko, de, fr, ru, pt, es, it
-                # Whisper supports these and many more
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
                     language=language,
                     task="transcribe",
                 )
-            
-            # Generate transcription
+
+            # Generate transcription with language-aware settings
+            generate_kwargs = {
+                "input_features": inputs["input_features"],
+                "forced_decoder_ids": forced_decoder_ids,
+            }
+
+            # For non-English: use greedy decoding + suppress language
+            # drift by forcing language tokens throughout generation
+            if language and language not in ("en",):
+                tokenizer = self.processor.tokenizer
+                lang_token = f"<|{language}|>"
+                if lang_token in tokenizer.get_vocab():
+                    # Suppress all other language tokens to prevent drift
+                    all_lang_tokens = []
+                    for tok in tokenizer.additional_special_tokens:
+                        if not (tok.startswith("<|") and tok.endswith("|>")):
+                            continue
+                        if tok in (lang_token, "<|transcribe|>", "<|notimestamps|>"):
+                            continue
+                        tid = tokenizer.convert_tokens_to_ids(tok)
+                        if tid is not None and tid != tokenizer.unk_token_id:
+                            all_lang_tokens.append(tid)
+                    if all_lang_tokens:
+                        generate_kwargs["suppress_tokens"] = all_lang_tokens
+
             with torch.no_grad():
-                predicted_ids = self.model.generate(
-                    inputs["input_features"],
-                    forced_decoder_ids=forced_decoder_ids,
-                )
-            
+                predicted_ids = self.model.generate(**generate_kwargs)
+
             # Decode
             transcription = self.processor.batch_decode(
                 predicted_ids,
                 skip_special_tokens=True,
             )[0]
-            
+
             return transcription.strip()
-        
+
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)

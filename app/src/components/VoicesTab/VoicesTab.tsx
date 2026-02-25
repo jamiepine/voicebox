@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit, MoreHorizontal, Plus, Trash2, Mic } from 'lucide-react';
+import { Edit, MoreHorizontal, Plus, Sparkles, Trash2, Mic } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -188,7 +188,14 @@ function VoiceRow({
             <Mic className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <div className="font-medium">{profile.name}</div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium">{profile.name}</span>
+              {profile.has_finetune && (
+                <span title="Fine-tuned">
+                  <Sparkles className="h-3.5 w-3.5 text-accent" />
+                </span>
+              )}
+            </div>
             {profile.description && (
               <div className="text-sm text-muted-foreground">{profile.description}</div>
             )}

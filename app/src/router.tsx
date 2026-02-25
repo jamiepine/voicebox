@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { AppFrame } from '@/components/AppFrame/AppFrame';
 import { AudioTab } from '@/components/AudioTab/AudioTab';
+import { FinetuneTab } from '@/components/FinetuneTab/FinetuneTab';
 import { MainEditor } from '@/components/MainEditor/MainEditor';
 import { ModelsTab } from '@/components/ModelsTab/ModelsTab';
 import { ServerTab } from '@/components/ServerTab/ServerTab';
@@ -8,6 +9,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { StoriesTab } from '@/components/StoriesTab/StoriesTab';
 import { Toaster } from '@/components/ui/toaster';
 import { VoicesTab } from '@/components/VoicesTab/VoicesTab';
+import { FinetuneProgressToast } from '@/components/FinetuneTab/FinetuneProgressToast';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { MODEL_DISPLAY_NAMES, useRestoreActiveTasks } from '@/lib/hooks/useRestoreActiveTasks';
 // Simple platform check that works in both web and Tauri
@@ -15,8 +17,8 @@ const isMacOS = () => navigator.platform.toLowerCase().includes('mac');
 
 // Root layout component
 function RootLayout() {
-  // Monitor active downloads/generations and show toasts for them
-  const activeDownloads = useRestoreActiveTasks();
+  // Monitor active downloads/generations/finetunes and show toasts for them
+  const { activeDownloads, activeFinetunes } = useRestoreActiveTasks();
 
   return (
     <AppFrame>
@@ -41,6 +43,11 @@ function RootLayout() {
           />
         );
       })}
+
+      {/* Show finetune progress toast when training is active */}
+      {activeFinetunes.map((task) => (
+        <FinetuneProgressToast key={task.job_id} task={task} />
+      ))}
 
       <Toaster />
     </AppFrame>
@@ -93,6 +100,13 @@ const voicesRoute = createRoute({
   component: VoicesTab,
 });
 
+// Fine-tune route
+const finetuneRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/finetune',
+  component: FinetuneTab,
+});
+
 // Audio route
 const audioRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -119,6 +133,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   storiesRoute,
   voicesRoute,
+  finetuneRoute,
   audioRoute,
   modelsRoute,
   serverRoute,

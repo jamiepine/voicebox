@@ -24,6 +24,14 @@ import type {
   StoryItemMove,
   StoryItemTrim,
   StoryItemSplit,
+  FinetuneSampleResponse,
+  FinetuneJobResponse,
+  FinetuneStatusResponse,
+  FinetuneStartRequest,
+  FinetuneImportRequest,
+  AdapterInfo,
+  SetActiveAdapterRequest,
+  UpdateAdapterLabelRequest,
 } from './types';
 
 class ApiClient {
@@ -310,13 +318,16 @@ class ApiClient {
   }
 
   async triggerModelDownload(modelName: string): Promise<{ message: string }> {
-    console.log('[API] triggerModelDownload called for:', modelName, 'at', new Date().toISOString());
-    const result = await this.request<{ message: string }>('/models/download', {
+    return this.request<{ message: string }>('/models/download', {
       method: 'POST',
       body: JSON.stringify({ model_name: modelName } as ModelDownloadRequest),
     });
-    console.log('[API] triggerModelDownload response:', result);
-    return result;
+  }
+
+  async unloadModel(modelName: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/models/${modelName}/unload`, {
+      method: 'POST',
+    });
   }
 
   async deleteModel(modelName: string): Promise<{ message: string }> {
@@ -507,6 +518,119 @@ class ApiClient {
     }
 
     return response.blob();
+  }
+  // Finetune
+  async listFinetuneSamples(profileId: string): Promise<FinetuneSampleResponse[]> {
+    return this.request<FinetuneSampleResponse[]>(`/profiles/${profileId}/finetune/samples`);
+  }
+
+  async addFinetuneSample(
+    profileId: string,
+    file: File,
+    transcript?: string,
+  ): Promise<FinetuneSampleResponse> {
+    const url = `${this.getBaseUrl()}/profiles/${profileId}/finetune/samples`;
+    const formData = new FormData();
+    formData.append('file', file);
+    if (transcript) {
+      formData.append('transcript', transcript);
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: response.statusText,
+      }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  async deleteFinetuneSample(profileId: string, sampleId: string): Promise<void> {
+    await this.request<void>(`/profiles/${profileId}/finetune/samples/${sampleId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async importProfileSamples(
+    profileId: string,
+    sampleIds?: string[],
+  ): Promise<FinetuneSampleResponse[]> {
+    return this.request<FinetuneSampleResponse[]>(
+      `/profiles/${profileId}/finetune/samples/import`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ sample_ids: sampleIds } as FinetuneImportRequest),
+      },
+    );
+  }
+
+  async setRefAudio(profileId: string, sampleId: string): Promise<void> {
+    await this.request<void>(
+      `/profiles/${profileId}/finetune/samples/${sampleId}/set-ref`,
+      { method: 'POST' },
+    );
+  }
+
+  async getFinetuneStatus(profileId: string): Promise<FinetuneStatusResponse> {
+    return this.request<FinetuneStatusResponse>(`/profiles/${profileId}/finetune/status`);
+  }
+
+  async startFinetune(
+    profileId: string,
+    config?: FinetuneStartRequest,
+  ): Promise<{ job_id: string; message: string }> {
+    return this.request<{ job_id: string; message: string }>(
+      `/profiles/${profileId}/finetune/start`,
+      {
+        method: 'POST',
+        body: JSON.stringify(config || {}),
+      },
+    );
+  }
+
+  async cancelFinetune(profileId: string): Promise<void> {
+    await this.request<void>(`/profiles/${profileId}/finetune/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  async listFinetuneJobs(profileId: string): Promise<FinetuneJobResponse[]> {
+    return this.request<FinetuneJobResponse[]>(`/profiles/${profileId}/finetune/jobs`);
+  }
+
+  getFinetuneSampleAudioUrl(sampleId: string): string {
+    return `${this.getBaseUrl()}/finetune/samples/${sampleId}/audio`;
+  }
+
+  // Adapter management
+  async listAdapters(profileId: string): Promise<AdapterInfo[]> {
+    return this.request<AdapterInfo[]>(`/profiles/${profileId}/finetune/adapters`);
+  }
+
+  async setActiveAdapter(profileId: string, jobId: string | null): Promise<void> {
+    await this.request<void>(`/profiles/${profileId}/finetune/active-adapter`, {
+      method: 'PUT',
+      body: JSON.stringify({ job_id: jobId } as SetActiveAdapterRequest),
+    });
+  }
+
+  async updateAdapterLabel(profileId: string, jobId: string, label: string): Promise<void> {
+    await this.request<void>(`/profiles/${profileId}/finetune/adapters/${jobId}/label`, {
+      method: 'PUT',
+      body: JSON.stringify({ label } as UpdateAdapterLabelRequest),
+    });
+  }
+
+  async deleteAdapter(profileId: string, jobId: string): Promise<void> {
+    await this.request<void>(`/profiles/${profileId}/finetune/adapters/${jobId}`, {
+      method: 'DELETE',
+    });
   }
 }
 

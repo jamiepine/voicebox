@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Loader2, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,16 +20,29 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
+import { LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { useAdapters } from '@/lib/hooks/useFinetune';
 import { useProfile } from '@/lib/hooks/useProfiles';
+import { adapterDisplayName } from '@/lib/utils/adapters';
 import { useUIStore } from '@/stores/uiStore';
 
 export function GenerationForm() {
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
+  const { data: adapters } = useAdapters(selectedProfileId || '');
 
   const { form, handleSubmit, isPending } = useGenerationForm();
+
+  // Auto-sync language when selected profile changes
+  useEffect(() => {
+    if (selectedProfile?.language) {
+      const profileLang = selectedProfile.language as LanguageCode;
+      if (LANGUAGE_OPTIONS.some((l) => l.value === profileLang)) {
+        form.setValue('language', profileLang);
+      }
+    }
+  }, [selectedProfile?.language, form]);
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);
@@ -105,7 +119,7 @@ export function GenerationForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Language</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />
@@ -169,6 +183,38 @@ export function GenerationForm() {
                 )}
               />
             </div>
+
+            {adapters && adapters.length > 0 && (
+              <FormField
+                control={form.control}
+                name="adapterJobId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fine-Tuned Adapter</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(value === 'none' ? undefined : value)}
+                      value={field.value || 'none'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None (base model)</SelectItem>
+                        {adapters.map((adapter) => (
+                          <SelectItem key={adapter.job_id} value={adapter.job_id}>
+                            {adapterDisplayName(adapter)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>Use a fine-tuned voice adapter for higher quality</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <Button
               type="submit"

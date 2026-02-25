@@ -4,13 +4,13 @@ FastAPI application for voicebox backend.
 Handles voice cloning, generation history, and server mode.
 """
 
-from fastapi import FastAPI, Depends, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, Depends, Request, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import asyncio
 import uvicorn
 import argparse
@@ -19,7 +19,6 @@ import tempfile
 import io
 from pathlib import Path
 import uuid
-import asyncio
 import signal
 import os
 from urllib.parse import quote
@@ -41,7 +40,19 @@ def _safe_content_disposition(disposition_type: str, filename: str) -> str:
     )
 
 
-from . import database, models, profiles, history, tts, transcribe, config, export_import, channels, stories, __version__
+import re as _re
+
+_UUID_RE = _re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+
+
+def _validate_uuid(value: str, name: str = "id") -> str:
+    """Validate that a path parameter is a proper UUID."""
+    if not _UUID_RE.match(value):
+        raise HTTPException(status_code=422, detail=f"Invalid {name} format")
+    return value
+
+
+from . import database, models, profiles, history, tts, transcribe, config, export_import, channels, stories, finetune, __version__
 from .database import get_db, Generation as DBGeneration, VoiceProfile as DBVoiceProfile
 from .utils.progress import get_progress_manager
 from .utils.tasks import get_task_manager
@@ -600,57 +611,181 @@ async def generate_speech(
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
         
-        # Generate audio
-
-        # Resolve model size and load the correct model FIRST.
-        # This must happen before create_voice_prompt_for_profile because that
-        # function calls load_model_async(None), which falls back to self.model_size.
-        # If the model is already loaded with the right size at that point, it
-        # returns immediately and the voice prompt is created by the correct model.
-        tts_model = tts.get_tts_model()
-        model_size = data.model_size or "1.7B"
-
-        # Check if model needs to be downloaded first
-        model_path = tts_model._get_model_path(model_size)
-        if not tts_model._is_model_cached(model_size):
-            # Model is not fully cached — kick off a background download and tell
-            # the client to retry once it's ready.
-            model_name = f"qwen-tts-{model_size}"
-
-            async def download_model_background():
-                try:
-                    await tts_model.load_model_async(model_size)
-                except Exception as e:
-                    task_manager.error_download(model_name, str(e))
-
-            task_manager.start_download(model_name)
-            asyncio.create_task(download_model_background())
-
+        # Check if fine-tuning is active (GPU busy)
+        ft_task_manager = get_task_manager()
+        if ft_task_manager.is_finetune_active():
             raise HTTPException(
-                status_code=202,
-                detail={
-                    "message": f"Model {model_size} is being downloaded. Please wait and try again.",
-                    "model_name": model_name,
-                    "downloading": True,
-                },
+                status_code=503,
+                detail="Fine-tuning is in progress. Generation is blocked while the GPU is busy training.",
             )
 
-        # Load (or switch to) the requested model before building the voice prompt
-        await tts_model.load_model_async(model_size)
+        # Resolve adapter path — explicit adapter_job_id takes priority over profile default
+        db_profile = db.query(DBVoiceProfile).filter_by(id=data.profile_id).first()
+        adapter_path = None
 
-        # Create voice prompt from profile (model is already loaded with correct size)
-        voice_prompt = await profiles.create_voice_prompt_for_profile(
-            data.profile_id,
-            db,
-        )
+        if data.adapter_job_id:
+            # User explicitly selected an adapter in the generation form
+            from .database import FinetuneJob as DBFinetuneJob
+            job = db.query(DBFinetuneJob).filter_by(
+                id=data.adapter_job_id,
+                profile_id=data.profile_id,
+                status="completed",
+            ).first()
+            if job and job.adapter_path and Path(job.adapter_path).exists():
+                adapter_path = job.adapter_path
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Adapter not found or not ready",
+                )
+        elif db_profile and db_profile.active_adapter_path and Path(db_profile.active_adapter_path).exists():
+            # Fall back to profile's default active adapter
+            adapter_path = db_profile.active_adapter_path
 
-        audio, sample_rate = await tts_model.generate(
-            data.text,
-            voice_prompt,
-            data.language,
-            data.seed,
-            data.instruct,
-        )
+        use_adapter = adapter_path is not None
+
+        # Generate audio — route to the appropriate TTS backend
+        if use_adapter:
+            # Fine-tuned profile → always use PyTorch + LoRA adapter
+            # LoRA adapters require PyTorch+PEFT, so we use the PyTorch backend
+            # even on Apple Silicon (where the default is MLX)
+            from .backends import get_pytorch_tts_backend
+            tts_model = get_pytorch_tts_backend()
+            model_size = data.model_size or "1.7B"
+
+            if not tts_model._is_model_cached(model_size):
+                model_name = f"qwen-tts-{model_size}"
+
+                async def download_model_background():
+                    try:
+                        await tts_model.load_model_async(model_size)
+                    except Exception as e:
+                        task_manager.error_download(model_name, str(e))
+
+                task_manager.start_download(model_name)
+                asyncio.create_task(download_model_background())
+
+                raise HTTPException(
+                    status_code=202,
+                    detail={
+                        "message": f"Model {model_size} is being downloaded. Please wait and try again.",
+                        "model_name": model_name,
+                        "downloading": True,
+                    },
+                )
+
+            await tts_model.load_model_async(model_size)
+
+            voice_prompt = await profiles.create_voice_prompt_for_profile(
+                data.profile_id,
+                db,
+                tts_backend=tts_model,  # use PyTorch backend for voice prompt
+                use_cache=False,  # don't use shared cache (MLX/PyTorch formats differ)
+            )
+
+            audio, sample_rate = await tts_model.generate_with_adapter(
+                data.text,
+                voice_prompt,
+                adapter_path,
+                data.language,
+                data.seed,
+                data.instruct,
+            )
+        elif data.language == "he":
+            # Non-fine-tuned Hebrew → use Chatterbox TTS
+            chatterbox = tts.get_chatterbox_model()
+
+            if not chatterbox._is_model_cached("default"):
+                model_name = "chatterbox-tts"
+
+                async def download_chatterbox_background():
+                    try:
+                        await chatterbox.load_model("default")
+                    except Exception as e:
+                        task_manager.error_download(model_name, str(e))
+
+                task_manager.start_download(model_name)
+                _task = asyncio.create_task(download_chatterbox_background())  # noqa: F841
+
+                raise HTTPException(
+                    status_code=202,
+                    detail={
+                        "message": "Chatterbox TTS model is being downloaded. Please wait and try again.",
+                        "model_name": model_name,
+                        "downloading": True,
+                    },
+                )
+
+            await chatterbox.load_model("default")
+
+            voice_prompt = await profiles.create_voice_prompt_for_profile(
+                data.profile_id,
+                db,
+                tts_backend=chatterbox,
+            )
+
+            audio, sample_rate = await chatterbox.generate(
+                data.text,
+                voice_prompt,
+                data.language,
+                data.seed,
+                data.instruct,
+            )
+        else:
+            # All other languages → use Qwen TTS
+            # Resolve model size and load the correct model FIRST.
+            # This must happen before create_voice_prompt_for_profile because that
+            # function calls load_model_async(None), which falls back to self.model_size.
+            # If the model is already loaded with the right size at that point, it
+            # returns immediately and the voice prompt is created by the correct model.
+            tts_model = tts.get_tts_model()
+            model_size = data.model_size or "1.7B"
+
+            # Check if model needs to be downloaded first
+            if not tts_model._is_model_cached(model_size):
+                # Model is not fully cached — kick off a background download and tell
+                # the client to retry once it's ready.
+                model_name = f"qwen-tts-{model_size}"
+
+                async def download_model_background():
+                    try:
+                        await tts_model.load_model_async(model_size)
+                    except Exception as e:
+                        task_manager.error_download(model_name, str(e))
+
+                task_manager.start_download(model_name)
+                _task = asyncio.create_task(download_model_background())  # noqa: F841
+
+                raise HTTPException(
+                    status_code=202,
+                    detail={
+                        "message": f"Model {model_size} is being downloaded. Please wait and try again.",
+                        "model_name": model_name,
+                        "downloading": True,
+                    },
+                )
+
+            # Load (or switch to) the requested model before building the voice prompt
+            await tts_model.load_model_async(model_size)
+
+            # Create voice prompt from profile (model is already loaded with correct size)
+            voice_prompt = await profiles.create_voice_prompt_for_profile(
+                data.profile_id,
+                db,
+            )
+
+            audio, sample_rate = await tts_model.generate(
+                data.text,
+                voice_prompt,
+                data.language,
+                data.seed,
+                data.instruct,
+            )
+
+        # Trim trailing silence/noise from Chatterbox output (known hallucination issue)
+        if data.language == "he":
+            from .utils.audio import trim_tts_output
+            audio = trim_tts_output(audio, sample_rate)
 
         # Calculate duration
         duration = len(audio) / sample_rate
@@ -702,27 +837,55 @@ async def stream_speech(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    tts_model = tts.get_tts_model()
-    model_size = data.model_size or "1.7B"
+    if data.language == "he":
+        # Hebrew → use Chatterbox TTS
+        chatterbox = tts.get_chatterbox_model()
 
-    if not tts_model._is_model_cached(model_size):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Model {model_size} is not downloaded yet. Use /generate to trigger a download.",
+        if not chatterbox._is_model_cached("default"):
+            raise HTTPException(
+                status_code=400,
+                detail="Chatterbox TTS model is not downloaded yet. Use /generate to trigger a download.",
+            )
+
+        await chatterbox.load_model("default")
+
+        voice_prompt = await profiles.create_voice_prompt_for_profile(
+            data.profile_id, db, tts_backend=chatterbox
         )
 
-    # Load the correct model before building the voice prompt (fixes issue #96)
-    await tts_model.load_model_async(model_size)
+        audio, sample_rate = await chatterbox.generate(
+            data.text,
+            voice_prompt,
+            data.language,
+            data.seed,
+            data.instruct,
+        )
 
-    voice_prompt = await profiles.create_voice_prompt_for_profile(data.profile_id, db)
+        # Trim trailing silence/noise from Chatterbox output (same as /generate)
+        from .utils.audio import trim_tts_output
+        audio = trim_tts_output(audio, sample_rate)
+    else:
+        tts_model = tts.get_tts_model()
+        model_size = data.model_size or "1.7B"
 
-    audio, sample_rate = await tts_model.generate(
-        data.text,
-        voice_prompt,
-        data.language,
-        data.seed,
-        data.instruct,
-    )
+        if not tts_model._is_model_cached(model_size):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model {model_size} is not downloaded yet. Use /generate to trigger a download.",
+            )
+
+        # Load the correct model before building the voice prompt (fixes issue #96)
+        await tts_model.load_model_async(model_size)
+
+        voice_prompt = await profiles.create_voice_prompt_for_profile(data.profile_id, db)
+
+        audio, sample_rate = await tts_model.generate(
+            data.text,
+            voice_prompt,
+            data.language,
+            data.seed,
+            data.instruct,
+        )
 
     wav_bytes = tts.audio_to_wav_bytes(audio, sample_rate)
 
@@ -920,19 +1083,37 @@ async def transcribe_audio(
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
-    
+
+    preprocessed_path = None
+
     try:
-        # Get audio duration
-        from .utils.audio import load_audio
-        audio, sr = load_audio(tmp_path)
+        # Load and preprocess audio for better transcription
+        from .utils.audio import load_audio, prepare_for_transcription, save_audio
+        audio, sr = load_audio(tmp_path, sample_rate=16000)
         duration = len(audio) / sr
-        
+
+        # Preprocess: trim silence + normalize
+        audio = prepare_for_transcription(audio, sr)
+
+        # Save preprocessed audio to a temp file for the backend
+        preprocessed_path = tmp_path + ".preprocessed.wav"
+        save_audio(audio, preprocessed_path, sample_rate=16000)
+
         # Transcribe
         whisper_model = transcribe.get_whisper_model()
 
-        # Check if Whisper model is downloaded (uses default size "base")
-        model_size = whisper_model.model_size
-        model_name = f"openai/whisper-{model_size}"
+        # Hebrew → use ivrit-ai turbo model (faster + better long-form);
+        # otherwise use default model
+        if language == "he":
+            model_size = "ivrit-v3-turbo"
+        else:
+            model_size = whisper_model.model_size
+
+        # Resolve model name using the backend's model map
+        if hasattr(whisper_model, '_resolve_model_name'):
+            model_name = whisper_model._resolve_model_name(model_size)
+        else:
+            model_name = f"openai/whisper-{model_size}"
 
         # Check if model is cached
         from huggingface_hub import constants as hf_constants
@@ -948,7 +1129,7 @@ async def transcribe_audio(
                     get_task_manager().error_download(progress_model_name, str(e))
 
             get_task_manager().start_download(progress_model_name)
-            asyncio.create_task(download_whisper_background())
+            _task = asyncio.create_task(download_whisper_background())  # noqa: F841
 
             # Return 202 Accepted
             raise HTTPException(
@@ -960,18 +1141,29 @@ async def transcribe_audio(
                 }
             )
 
-        text = await whisper_model.transcribe(tmp_path, language)
-        
+        # Load the correct model (may switch from base→ivrit-v3 or vice versa)
+        current_size = getattr(whisper_model, 'model_size', None)
+        if current_size and current_size != model_size:
+            print(f"[transcribe] Switching STT model from {current_size} to {model_size}")
+        await whisper_model.load_model_async(model_size)
+
+        # Always pass language explicitly (critical for ivrit-ai models)
+        text = await whisper_model.transcribe(preprocessed_path, language)
+
         return models.TranscriptionResponse(
             text=text,
             duration=duration,
         )
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        # Clean up temp file
+        # Clean up temp files
         Path(tmp_path).unlink(missing_ok=True)
+        if preprocessed_path:
+            Path(preprocessed_path).unlink(missing_ok=True)
 
 
 # ============================================
@@ -1244,6 +1436,50 @@ async def unload_model():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/models/{model_name}/unload")
+async def unload_specific_model(model_name: str):
+    """Unload a specific model from memory to free resources."""
+    model_types = {
+        "qwen-tts-1.7B": ("tts", "1.7B"),
+        "qwen-tts-0.6B": ("tts", "0.6B"),
+        "whisper-base": ("whisper", "base"),
+        "whisper-small": ("whisper", "small"),
+        "whisper-medium": ("whisper", "medium"),
+        "whisper-large": ("whisper", "large"),
+        "whisper-ivrit-v3": ("whisper", "ivrit-v3"),
+        "whisper-ivrit-v3-turbo": ("whisper", "ivrit-v3-turbo"),
+        "chatterbox-tts": ("chatterbox", "default"),
+    }
+
+    if model_name not in model_types:
+        raise HTTPException(status_code=400, detail=f"Unknown model: {model_name}")
+
+    model_type, model_size = model_types[model_name]
+
+    try:
+        if model_type == "tts":
+            tts_model = tts.get_tts_model()
+            if not tts_model.is_loaded() or getattr(tts_model, 'model_size', None) != model_size:
+                raise HTTPException(status_code=400, detail=f"Model {model_name} is not loaded")
+            tts.unload_tts_model()
+        elif model_type == "whisper":
+            whisper_model = transcribe.get_whisper_model()
+            if not whisper_model.is_loaded() or getattr(whisper_model, 'model_size', None) != model_size:
+                raise HTTPException(status_code=400, detail=f"Model {model_name} is not loaded")
+            transcribe.unload_whisper_model()
+        elif model_type == "chatterbox":
+            chatterbox_model = tts.get_chatterbox_model()
+            if not chatterbox_model.is_loaded():
+                raise HTTPException(status_code=400, detail=f"Model {model_name} is not loaded")
+            tts.unload_chatterbox_model()
+
+        return {"message": f"Model {model_name} unloaded successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/models/progress/{model_name}")
 async def get_model_progress(model_name: str):
     """Get model download progress via Server-Sent Events."""
@@ -1299,6 +1535,15 @@ async def get_model_status():
         try:
             whisper_model = transcribe.get_whisper_model()
             return whisper_model.is_loaded() and getattr(whisper_model, 'model_size', None) == model_size
+        except Exception:
+            return False
+
+    def check_chatterbox_loaded():
+        """Check if Chatterbox TTS model is loaded."""
+        try:
+            from .backends import get_chatterbox_backend
+            cb = get_chatterbox_backend()
+            return cb.is_loaded()
         except Exception:
             return False
     
@@ -1361,6 +1606,27 @@ async def get_model_status():
             "hf_repo_id": whisper_large_id,
             "model_size": "large",
             "check_loaded": lambda: check_whisper_loaded("large"),
+        },
+        {
+            "model_name": "whisper-ivrit-v3",
+            "display_name": "Whisper Hebrew (ivrit-ai)",
+            "hf_repo_id": "ivrit-ai/whisper-large-v3",
+            "model_size": "ivrit-v3",
+            "check_loaded": lambda: check_whisper_loaded("ivrit-v3"),
+        },
+        {
+            "model_name": "whisper-ivrit-v3-turbo",
+            "display_name": "Whisper Hebrew Turbo (ivrit-ai)",
+            "hf_repo_id": "ivrit-ai/whisper-large-v3-turbo",
+            "model_size": "ivrit-v3-turbo",
+            "check_loaded": lambda: check_whisper_loaded("ivrit-v3-turbo"),
+        },
+        {
+            "model_name": "chatterbox-tts",
+            "display_name": "Chatterbox TTS (Hebrew)",
+            "hf_repo_id": "ResembleAI/chatterbox",
+            "model_size": "default",
+            "check_loaded": lambda: check_chatterbox_loaded(),
         },
     ]
     
@@ -1545,6 +1811,18 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
             "model_size": "large",
             "load_func": lambda: transcribe.get_whisper_model().load_model("large"),
         },
+        "whisper-ivrit-v3": {
+            "model_size": "ivrit-v3",
+            "load_func": lambda: transcribe.get_whisper_model().load_model("ivrit-v3"),
+        },
+        "whisper-ivrit-v3-turbo": {
+            "model_size": "ivrit-v3-turbo",
+            "load_func": lambda: transcribe.get_whisper_model().load_model("ivrit-v3-turbo"),
+        },
+        "chatterbox-tts": {
+            "model_size": "default",
+            "load_func": lambda: tts.get_chatterbox_model().load_model("default"),
+        },
     }
     
     if request.model_name not in model_configs:
@@ -1580,7 +1858,7 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     )
 
     # Start download in background task (don't await)
-    asyncio.create_task(download_in_background())
+    _task = asyncio.create_task(download_in_background())  # noqa: F841
 
     # Return immediately - frontend should poll progress endpoint
     return {"message": f"Model {request.model_name} download started"}
@@ -1625,6 +1903,21 @@ async def delete_model(model_name: str):
             "model_size": "large",
             "model_type": "whisper",
         },
+        "whisper-ivrit-v3": {
+            "hf_repo_id": "ivrit-ai/whisper-large-v3",
+            "model_size": "ivrit-v3",
+            "model_type": "whisper",
+        },
+        "whisper-ivrit-v3-turbo": {
+            "hf_repo_id": "ivrit-ai/whisper-large-v3-turbo",
+            "model_size": "ivrit-v3-turbo",
+            "model_type": "whisper",
+        },
+        "chatterbox-tts": {
+            "hf_repo_id": "ResembleAI/chatterbox",
+            "model_size": "default",
+            "model_type": "chatterbox",
+        },
     }
     
     if model_name not in model_configs:
@@ -1643,6 +1936,10 @@ async def delete_model(model_name: str):
             whisper_model = transcribe.get_whisper_model()
             if whisper_model.is_loaded() and whisper_model.model_size == config["model_size"]:
                 transcribe.unload_whisper_model()
+        elif config["model_type"] == "chatterbox":
+            chatterbox_model = tts.get_chatterbox_model()
+            if chatterbox_model.is_loaded():
+                tts.unload_chatterbox_model()
         
         # Find and delete the cache directory (using HuggingFace's OS-specific cache location)
         cache_dir = hf_constants.HF_HUB_CACHE
@@ -1722,9 +2019,9 @@ async def get_active_tasks():
                 try:
                     started_at = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
                 except (ValueError, AttributeError):
-                    started_at = datetime.utcnow()
+                    started_at = datetime.now(timezone.utc)
             else:
-                started_at = datetime.utcnow()
+                started_at = datetime.now(timezone.utc)
             
             active_downloads.append(models.ActiveDownloadTask(
                 model_name=model_name,
@@ -1742,9 +2039,329 @@ async def get_active_tasks():
             started_at=gen_task.started_at,
         ))
     
+    # Get active finetunes
+    active_finetunes = []
+    for ft_task in task_manager.get_active_finetunes():
+        active_finetunes.append(models.ActiveFinetuneTask(
+            job_id=ft_task.job_id,
+            profile_id=ft_task.profile_id,
+            status=ft_task.status,
+            current_epoch=ft_task.current_epoch,
+            total_epochs=ft_task.total_epochs,
+            current_step=ft_task.current_step,
+            total_steps=ft_task.total_steps,
+            current_loss=ft_task.current_loss,
+            started_at=ft_task.started_at,
+        ))
+
     return models.ActiveTasksResponse(
         downloads=active_downloads,
         generations=active_generations,
+        finetunes=active_finetunes,
+    )
+
+
+# ============================================
+# FINETUNE ENDPOINTS
+# ============================================
+
+@app.post("/profiles/{profile_id}/finetune/samples", response_model=models.FinetuneSampleResponse)
+async def add_finetune_sample(
+    profile_id: str,
+    file: UploadFile = File(...),
+    transcript: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """Upload or record a training sample for fine-tuning. Auto-transcribes if no transcript."""
+    _validate_uuid(profile_id, "profile_id")
+    # Validate profile exists
+    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Save uploaded file temporarily
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        # Get duration
+        from .utils.audio import load_audio
+        audio_data, sr = load_audio(tmp_path)
+        duration = len(audio_data) / sr
+
+        # Auto-transcribe if no transcript provided
+        if not transcript:
+            try:
+                whisper_model = transcribe.get_whisper_model()
+
+                # Hebrew → use ivrit-ai turbo model (same as /transcribe endpoint)
+                if profile.language == "he":
+                    whisper_size = "ivrit-v3-turbo"
+                else:
+                    whisper_size = whisper_model.model_size
+
+                await whisper_model.load_model_async(whisper_size)
+                transcript = await whisper_model.transcribe(tmp_path, language=profile.language)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Auto-transcription failed: {e}. Please provide a transcript.")
+
+        result = await finetune.add_sample(
+            profile_id=profile_id,
+            audio_path=tmp_path,
+            transcript=transcript,
+            duration_seconds=duration,
+            db=db,
+        )
+        return result
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+
+@app.get("/profiles/{profile_id}/finetune/samples", response_model=List[models.FinetuneSampleResponse])
+async def list_finetune_samples(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """List training samples for fine-tuning."""
+    _validate_uuid(profile_id, "profile_id")
+    return await finetune.list_samples(profile_id, db)
+
+
+@app.delete("/profiles/{profile_id}/finetune/samples/{sample_id}")
+async def delete_finetune_sample(
+    profile_id: str,
+    sample_id: str,
+    db: Session = Depends(get_db),
+):
+    """Delete a fine-tune training sample."""
+    _validate_uuid(profile_id, "profile_id")
+    _validate_uuid(sample_id, "sample_id")
+    success = await finetune.delete_sample(sample_id, db, profile_id=profile_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Sample not found")
+    return {"message": "Sample deleted"}
+
+
+@app.post("/profiles/{profile_id}/finetune/samples/import", response_model=List[models.FinetuneSampleResponse])
+async def import_finetune_samples(
+    profile_id: str,
+    data: models.FinetuneImportRequest,
+    db: Session = Depends(get_db),
+):
+    """Import existing profile samples into finetune training set."""
+    _validate_uuid(profile_id, "profile_id")
+    return await finetune.import_profile_samples(profile_id, data.sample_ids, db)
+
+
+@app.post("/profiles/{profile_id}/finetune/samples/{sample_id}/set-ref")
+async def set_finetune_ref_audio(
+    profile_id: str,
+    sample_id: str,
+    db: Session = Depends(get_db),
+):
+    """Mark a sample as the reference audio for training."""
+    _validate_uuid(profile_id, "profile_id")
+    _validate_uuid(sample_id, "sample_id")
+    success = await finetune.set_ref_audio(sample_id, profile_id, db)
+    if not success:
+        raise HTTPException(status_code=404, detail="Sample not found")
+    return {"message": "Reference audio set"}
+
+
+@app.get("/profiles/{profile_id}/finetune/status", response_model=models.FinetuneStatusResponse)
+async def get_finetune_status(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """Get fine-tune status for a profile."""
+    _validate_uuid(profile_id, "profile_id")
+    try:
+        return await finetune.get_status(profile_id, db)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/profiles/{profile_id}/finetune/start", status_code=202)
+async def start_finetune(
+    profile_id: str,
+    data: models.FinetuneStartRequest = models.FinetuneStartRequest(),
+    db: Session = Depends(get_db),
+):
+    """Start fine-tuning for a profile. Returns job ID."""
+    _validate_uuid(profile_id, "profile_id")
+    # Validate profile exists
+    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    try:
+        job_id = await finetune.start_training(
+            profile_id=profile_id,
+            config_dict=data.model_dump(),
+            db=db,
+        )
+        return {"job_id": job_id, "message": "Fine-tuning started"}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/profiles/{profile_id}/finetune/cancel")
+async def cancel_finetune(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """Cancel an active fine-tuning job."""
+    _validate_uuid(profile_id, "profile_id")
+    success = await finetune.cancel_training(profile_id, db)
+    if not success:
+        raise HTTPException(status_code=404, detail="No active training job found")
+    return {"message": "Training cancelled"}
+
+
+@app.get("/profiles/{profile_id}/finetune/jobs", response_model=List[models.FinetuneJobResponse])
+async def list_finetune_jobs(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """List all fine-tune jobs for a profile."""
+    _validate_uuid(profile_id, "profile_id")
+    return await finetune.list_jobs(profile_id, db)
+
+
+@app.get("/finetune/progress/{job_id}")
+async def finetune_progress_sse(request: Request, job_id: str):
+    """SSE stream of fine-tuning progress with proper disconnect handling."""
+    from sse_starlette import EventSourceResponse
+
+    progress_manager = get_progress_manager()
+    progress_key = f"finetune-{job_id}"
+
+    async def event_generator():
+        import json as _json
+        queue = asyncio.Queue(maxsize=10)
+
+        # Subscribe to progress updates
+        if progress_key not in progress_manager._listeners:
+            progress_manager._listeners[progress_key] = []
+        progress_manager._listeners[progress_key].append(queue)
+
+        try:
+            # Send initial progress if available
+            initial = progress_manager.get_progress(progress_key)
+            if initial and initial.get("status") in ("downloading", "extracting", "training"):
+                yield {"event": "progress", "data": _json.dumps(initial)}
+
+            while True:
+                # Check for client disconnect
+                if await request.is_disconnected():
+                    break
+
+                try:
+                    progress = await asyncio.wait_for(queue.get(), timeout=2.0)
+                    status = progress.get("status", "")
+                    event_type = "complete" if status in ("complete", "error") else "progress"
+                    yield {"event": event_type, "data": _json.dumps(progress)}
+
+                    if status in ("complete", "error"):
+                        break
+                except asyncio.TimeoutError:
+                    continue
+        finally:
+            # Unsubscribe
+            if progress_key in progress_manager._listeners:
+                try:
+                    progress_manager._listeners[progress_key].remove(queue)
+                except ValueError:
+                    pass
+                if not progress_manager._listeners[progress_key]:
+                    del progress_manager._listeners[progress_key]
+
+    return EventSourceResponse(
+        event_generator(),
+        ping=15,
+        send_timeout=5,
+        headers={"X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/profiles/{profile_id}/finetune/adapters", response_model=List[models.AdapterInfo])
+async def list_finetune_adapters(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """List all trained adapters for a profile."""
+    _validate_uuid(profile_id, "profile_id")
+    return await finetune.list_adapters(profile_id, db)
+
+
+@app.put("/profiles/{profile_id}/finetune/active-adapter")
+async def set_finetune_active_adapter(
+    profile_id: str,
+    data: models.SetActiveAdapterRequest,
+    db: Session = Depends(get_db),
+):
+    """Set the active adapter for a profile, or deactivate (job_id=null)."""
+    _validate_uuid(profile_id, "profile_id")
+    try:
+        await finetune.set_active_adapter(profile_id, data.job_id, db)
+        return {"status": "ok"}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.put("/profiles/{profile_id}/finetune/adapters/{job_id}/label")
+async def update_finetune_adapter_label(
+    profile_id: str,
+    job_id: str,
+    data: models.UpdateAdapterLabelRequest,
+    db: Session = Depends(get_db),
+):
+    """Update the label for a trained adapter."""
+    _validate_uuid(profile_id, "profile_id")
+    _validate_uuid(job_id, "job_id")
+    success = await finetune.update_adapter_label(profile_id, job_id, data.label, db)
+    if not success:
+        raise HTTPException(status_code=404, detail="Adapter not found")
+    return {"status": "ok"}
+
+
+@app.delete("/profiles/{profile_id}/finetune/adapters/{job_id}")
+async def delete_finetune_adapter(
+    profile_id: str,
+    job_id: str,
+    db: Session = Depends(get_db),
+):
+    """Delete a trained adapter."""
+    _validate_uuid(profile_id, "profile_id")
+    _validate_uuid(job_id, "job_id")
+    success = await finetune.delete_adapter(profile_id, job_id, db)
+    if not success:
+        raise HTTPException(status_code=404, detail="Adapter not found")
+    return {"status": "ok"}
+
+
+@app.get("/finetune/samples/{sample_id}/audio")
+async def get_finetune_sample_audio(sample_id: str, db: Session = Depends(get_db)):
+    """Serve a finetune sample audio file."""
+    _validate_uuid(sample_id, "sample_id")
+    from .database import FinetuneSample as DBFinetuneSample
+    sample = db.query(DBFinetuneSample).filter_by(id=sample_id).first()
+    if not sample:
+        raise HTTPException(status_code=404, detail="Sample not found")
+
+    audio_path = Path(sample.audio_path).resolve()
+    finetune_root = config.get_finetune_dir().resolve()
+    if not str(audio_path).startswith(str(finetune_root)):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not audio_path.exists():
+        raise HTTPException(status_code=404, detail="Audio file not found")
+
+    return FileResponse(
+        str(audio_path),
+        media_type="audio/wav",
+        filename=f"{sample_id}.wav",
     )
 
 
@@ -1799,6 +2416,7 @@ async def shutdown_event():
     print("voicebox API shutting down...")
     # Unload models to free memory
     tts.unload_tts_model()
+    tts.unload_chatterbox_model()
     transcribe.unload_whisper_model()
 
 

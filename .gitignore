@@ -38,8 +38,13 @@ Thumbs.db
 data/profiles/*
 data/generations/*
 data/projects/*
+data/cache/
+data/finetune/
 data/voicebox.db
 !data/.gitkeep
+
+# Model binaries (downloaded at runtime)
+backend/models/
 
 # Logs
 *.log

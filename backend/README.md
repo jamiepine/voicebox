@@ -1,13 +1,14 @@
 # voicebox Backend
 
-Production-quality FastAPI backend for Qwen3-TTS voice cloning.
+Production-quality FastAPI backend for voice cloning with Qwen3-TTS and Chatterbox TTS.
 
 ## Features
 
 - ✅ **Voice Profile Management** - Create, update, delete voice profiles with multi-sample support
 - ✅ **Voice Cloning** - Generate speech using voice profiles with caching
 - ✅ **Generation History** - Full history tracking with search and filtering
-- ✅ **Transcription** - Whisper-based audio transcription
+- ✅ **Hebrew Language Support** - Chatterbox TTS for Hebrew voice cloning with ivrit-ai Whisper for transcription
+- ✅ **Transcription** - Whisper-based audio transcription (including Hebrew via ivrit-ai models)
 - ✅ **Multi-Sample Profiles** - Combine multiple reference samples for better quality
 - ✅ **Voice Prompt Caching** - Dual memory + disk caching for fast generation
 - ✅ **Audio Validation** - Automatic validation of reference audio quality
@@ -25,7 +26,8 @@ backend/
 ├── backends/           # Backend implementations
 │   ├── __init__.py     # Backend factory and protocols
 │   ├── mlx_backend.py  # MLX backend (Apple Silicon)
-│   └── pytorch_backend.py  # PyTorch backend (Windows/Linux/Intel)
+│   ├── pytorch_backend.py  # PyTorch backend (Windows/Linux/Intel)
+│   └── chatterbox_backend.py  # Chatterbox TTS backend (Hebrew)
 ├── profiles.py         # Voice profile CRUD
 ├── history.py          # Generation history
 ├── studio.py           # Audio editing (TODO)
@@ -38,12 +40,13 @@ backend/
 
 ### Backend Selection
 
-Voicebox automatically selects the best backend based on platform:
+Voicebox automatically selects the best backend based on platform and language:
 
 - **Apple Silicon (M1/M2/M3)**: Uses MLX backend with native Metal acceleration (4-5x faster)
 - **Windows/Linux/Intel Mac**: Uses PyTorch backend (CUDA GPU if available, CPU fallback)
+- **Hebrew**: Uses Chatterbox Multilingual TTS (ResembleAI/chatterbox) on all platforms
 
-The backend is detected at runtime via `platform_detect.py`. Both backends implement the same interface, so the API remains consistent across platforms.
+The TTS/STT backend is detected at runtime via `platform_detect.py`. For Hebrew, the Chatterbox backend is used regardless of platform. Both Qwen3-TTS backends (MLX and PyTorch) implement the same interface, so the API remains consistent across platforms.
 
 ## API Endpoints
 
@@ -84,6 +87,17 @@ Create a new voice profile.
   "name": "My Voice",
   "description": "Optional description",
   "language": "en"
+}
+```
+
+**Supported languages:** `zh`, `en`, `ja`, `ko`, `de`, `fr`, `ru`, `pt`, `es`, `it`, `he`
+
+**Request (Hebrew example):**
+```json
+{
+  "name": "My Voice",
+  "description": "Optional description",
+  "language": "he"
 }
 ```
 
@@ -149,6 +163,10 @@ Generate speech from text using a voice profile.
 }
 ```
 
+**Supported languages:** `zh`, `en`, `ja`, `ko`, `de`, `fr`, `ru`, `pt`, `es`, `it`, `he`
+
+When `language` is `"he"`, the request is routed to the Chatterbox TTS backend. The Chatterbox model is auto-downloaded on first use. All other languages use Qwen3-TTS.
+
 **Response:**
 ```json
 {
@@ -209,7 +227,9 @@ Transcribe audio file to text.
 
 **Form Data:**
 - `file`: Audio file
-- `language` (optional): Language hint (en or zh)
+- `language` (optional): Language hint (`zh`, `en`, `ja`, `ko`, `de`, `fr`, `ru`, `pt`, `es`, `it`, `he`)
+
+For Hebrew (`he`), the ivrit-ai Whisper model (`ivrit-ai/whisper-large-v3-turbo`) is automatically selected for optimal transcription quality. The model is downloaded on first use.
 
 **Response:**
 ```json
@@ -236,7 +256,7 @@ Unload TTS model to free memory.
 - `id`: UUID primary key
 - `name`: Profile name (unique)
 - `description`: Optional description
-- `language`: Language code (en/zh)
+- `language`: Language code (zh/en/ja/ko/de/fr/ru/pt/es/it/he)
 - `created_at`: Creation timestamp
 - `updated_at`: Last update timestamp
 
@@ -250,7 +270,7 @@ Unload TTS model to free memory.
 - `id`: UUID primary key
 - `profile_id`: Foreign key to profiles
 - `text`: Generated text
-- `language`: Language code
+- `language`: Language code (zh/en/ja/ko/de/fr/ru/pt/es/it/he)
 - `audio_path`: Path to audio file
 - `duration`: Duration in seconds
 - `seed`: Random seed (optional)
@@ -299,11 +319,17 @@ The Qwen3-TTS models are automatically downloaded from HuggingFace Hub on first 
 
 **No manual download required!** The models will be cached locally after the first download.
 
-Available models:
-- **1.7B** (recommended): `Qwen/Qwen3-TTS-12Hz-1.7B-Base` (~4GB)
-- **0.6B** (faster): `Qwen/Qwen3-TTS-12Hz-0.6B-Base` (~2GB)
+Available TTS models:
+- **Qwen3-TTS 1.7B** (recommended): `Qwen/Qwen3-TTS-12Hz-1.7B-Base` (~4GB)
+- **Qwen3-TTS 0.6B** (faster): `Qwen/Qwen3-TTS-12Hz-0.6B-Base` (~2GB)
+- **Chatterbox Multilingual** (Hebrew): `ResembleAI/chatterbox` (~1GB) — auto-downloaded when Hebrew is first used
 
-**Note:** The first generation will take longer as the model downloads. Subsequent generations will use the cached model.
+Available STT models:
+- **Whisper** (general): `openai/whisper-base` (default, auto-downloaded)
+- **ivrit-ai Whisper v3-turbo** (Hebrew): `ivrit-ai/whisper-large-v3-turbo` — auto-selected for Hebrew transcription
+- **ivrit-ai Whisper v3** (Hebrew, higher quality): `ivrit-ai/whisper-large-v3`
+
+**Note:** The first generation/transcription will take longer as the model downloads. Subsequent runs use the cached model.
 
 #### Manual Download (Optional)
 

@@ -3,7 +3,7 @@ Voice profile management module.
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import shutil
 from pathlib import Path
@@ -19,6 +19,8 @@ from .models import (
 from .database import (
     VoiceProfile as DBVoiceProfile,
     ProfileSample as DBProfileSample,
+    FinetuneSample as DBFinetuneSample,
+    FinetuneJob as DBFinetuneJob,
 )
 from .utils.audio import validate_reference_audio, load_audio, save_audio
 from .utils.images import validate_image, process_avatar
@@ -52,8 +54,8 @@ async def create_profile(
         name=data.name,
         description=data.description,
         language=data.language,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     
     db.add(db_profile)
@@ -116,7 +118,7 @@ async def add_profile_sample(
     db.add(db_sample)
     
     # Update profile timestamp
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(db_sample)
@@ -208,7 +210,7 @@ async def update_profile(
     profile.name = data.name
     profile.description = data.description
     profile.language = data.language
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(profile)
@@ -236,16 +238,25 @@ async def delete_profile(
     
     # Delete samples from database
     db.query(DBProfileSample).filter_by(profile_id=profile_id).delete()
-    
+
+    # Delete finetune data from database
+    db.query(DBFinetuneSample).filter_by(profile_id=profile_id).delete()
+    db.query(DBFinetuneJob).filter_by(profile_id=profile_id).delete()
+
     # Delete profile from database
     db.delete(profile)
     db.commit()
-    
+
     # Delete profile directory
     profile_dir = _get_profiles_dir() / profile_id
     if profile_dir.exists():
         shutil.rmtree(profile_dir)
-    
+
+    # Delete finetune directory
+    finetune_dir = config.get_finetune_dir() / profile_id
+    if finetune_dir.exists():
+        shutil.rmtree(finetune_dir)
+
     # Clean up combined audio cache files for this profile
     clear_profile_cache(profile_id)
     
@@ -327,6 +338,7 @@ async def create_voice_prompt_for_profile(
     profile_id: str,
     db: Session,
     use_cache: bool = True,
+    tts_backend=None,
 ) -> dict:
     """
     Create a combined voice prompt from all samples in a profile.
@@ -335,6 +347,7 @@ async def create_voice_prompt_for_profile(
         profile_id: Profile ID
         db: Database session
         use_cache: Whether to use cached prompts
+        tts_backend: Optional TTS backend override (e.g. Chatterbox for Hebrew)
 
     Returns:
         Voice prompt dictionary
@@ -345,12 +358,12 @@ async def create_voice_prompt_for_profile(
     if not samples:
         raise ValueError(f"No samples found for profile {profile_id}")
 
-    tts_model = get_tts_model()
+    backend = tts_backend or get_tts_model()
 
     if len(samples) == 1:
         # Single sample - use directly
         sample = samples[0]
-        voice_prompt, _ = await tts_model.create_voice_prompt(
+        voice_prompt, _ = await backend.create_voice_prompt(
             sample.audio_path,
             sample.reference_text,
             use_cache=use_cache,
@@ -362,7 +375,7 @@ async def create_voice_prompt_for_profile(
         reference_texts = [s.reference_text for s in samples]
 
         # Combine audio
-        combined_audio, combined_text = await tts_model.combine_voice_prompts(
+        combined_audio, combined_text = await backend.combine_voice_prompts(
             audio_paths,
             reference_texts,
         )
@@ -382,7 +395,7 @@ async def create_voice_prompt_for_profile(
         save_audio(combined_audio, str(combined_path), 24000)
 
         # Create prompt from combined audio
-        voice_prompt, _ = await tts_model.create_voice_prompt(
+        voice_prompt, _ = await backend.create_voice_prompt(
             str(combined_path),
             combined_text,
             use_cache=use_cache,
@@ -446,7 +459,7 @@ async def upload_avatar(
 
     # Update database
     profile.avatar_path = str(output_path)
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(profile)
@@ -479,7 +492,7 @@ async def delete_avatar(
 
     # Update database
     profile.avatar_path = None
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
 
     db.commit()
 

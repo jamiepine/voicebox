@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { useGenerationStore } from '@/stores/generationStore';
-import type { ActiveDownloadTask } from '@/lib/api/types';
+import type { ActiveDownloadTask, ActiveFinetuneTask } from '@/lib/api/types';
 
 // Polling interval in milliseconds
 const POLL_INTERVAL = 2000;
@@ -15,6 +15,7 @@ const POLL_INTERVAL = 2000;
  */
 export function useRestoreActiveTasks() {
   const [activeDownloads, setActiveDownloads] = useState<ActiveDownloadTask[]>([]);
+  const [activeFinetunes, setActiveFinetunes] = useState<ActiveFinetuneTask[]>([]);
   const setIsGenerating = useGenerationStore((state) => state.setIsGenerating);
   const setActiveGenerationId = useGenerationStore((state) => state.setActiveGenerationId);
   
@@ -55,6 +56,7 @@ export function useRestoreActiveTasks() {
       }
 
       setActiveDownloads(tasks.downloads);
+      setActiveFinetunes(tasks.finetunes || []);
     } catch (error) {
       // Silently fail - server might be temporarily unavailable
       console.debug('Failed to fetch active tasks:', error);
@@ -71,7 +73,7 @@ export function useRestoreActiveTasks() {
     return () => clearInterval(interval);
   }, [fetchActiveTasks]);
 
-  return activeDownloads;
+  return { activeDownloads, activeFinetunes };
 }
 
 /**
