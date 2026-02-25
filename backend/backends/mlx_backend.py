@@ -400,14 +400,7 @@ class MLXTTSBackend:
         return await self.generate(text, voice_prompt, language, seed, instruct)
 
 
-STT_MODEL_MAP = {
-    "base": "openai/whisper-base",
-    "small": "openai/whisper-small",
-    "medium": "openai/whisper-medium",
-    "large": "openai/whisper-large",
-    "ivrit-v3": "ivrit-ai/whisper-large-v3",
-    "ivrit-v3-turbo": "ivrit-ai/whisper-large-v3-turbo",
-}
+from . import STT_MODEL_MAP
 
 
 class MLXSTTBackend:

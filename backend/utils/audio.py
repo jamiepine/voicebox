@@ -82,7 +82,7 @@ def save_audio(
 
 def prepare_for_transcription(
     audio: np.ndarray,
-    sr: int,
+    sr: int = 16000,  # noqa: ARG001 — kept for API consistency
 ) -> np.ndarray:
     """
     Prepare audio for Whisper transcription.

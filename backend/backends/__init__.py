@@ -10,6 +10,17 @@ import numpy as np
 
 from ..platform_detect import get_backend_type
 
+# Shared model name mapping for STT backends (MLX + PyTorch).
+# Maps short model size keys to HuggingFace repo IDs.
+STT_MODEL_MAP = {
+    "base": "openai/whisper-base",
+    "small": "openai/whisper-small",
+    "medium": "openai/whisper-medium",
+    "large": "openai/whisper-large",
+    "ivrit-v3": "ivrit-ai/whisper-large-v3",
+    "ivrit-v3-turbo": "ivrit-ai/whisper-large-v3-turbo",
+}
+
 
 @runtime_checkable
 class TTSBackend(Protocol):

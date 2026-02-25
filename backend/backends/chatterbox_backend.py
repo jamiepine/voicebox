@@ -136,17 +136,20 @@ class ChatterboxTTSBackend:
                 # The multilingual model's .pt files were saved on CUDA and
                 # from_local() doesn't pass map_location, so loading on CPU fails.
                 if device == "cpu":
+                    import threading
                     _orig_torch_load = torch.load
+                    _load_lock = threading.Lock()
 
                     def _patched_load(*args, **kwargs):
                         kwargs.setdefault("map_location", "cpu")
                         return _orig_torch_load(*args, **kwargs)
 
-                    torch.load = _patched_load
-                    try:
-                        self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)
-                    finally:
-                        torch.load = _orig_torch_load
+                    with _load_lock:
+                        torch.load = _patched_load
+                        try:
+                            self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)
+                        finally:
+                            torch.load = _orig_torch_load
                 else:
                     self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)
 
@@ -171,8 +174,8 @@ class ChatterboxTTSBackend:
 
         except ImportError as e:
             print(
-                f"Error: chatterbox-tts package not found. "
-                f"Install with: pip install chatterbox-tts"
+                "Error: chatterbox-tts package not found. "
+                "Install with: pip install chatterbox-tts"
             )
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
@@ -218,9 +221,13 @@ class ChatterboxTTSBackend:
     def unload_model(self) -> None:
         """Unload model to free memory."""
         if self.model is not None:
+            device = self._device
             del self.model
             self.model = None
             self._device = None
+            if device == "cuda":
+                import torch
+                torch.cuda.empty_cache()
             print("Chatterbox Multilingual TTS model unloaded")
 
     async def create_voice_prompt(
@@ -250,7 +257,7 @@ class ChatterboxTTSBackend:
         combined_audio = []
 
         for audio_path in audio_paths:
-            audio, sr = load_audio(audio_path)
+            audio, _sr = load_audio(audio_path)
             audio = normalize_audio(audio)
             combined_audio.append(audio)
 
@@ -334,8 +341,7 @@ class ChatterboxTTSBackend:
             else:
                 audio = np.asarray(wav, dtype=np.float32)
 
-            # Chatterbox default sample rate is 24000
-            sample_rate = 24000
+            sample_rate = getattr(self.model, 'sr', None) or getattr(self.model, 'sample_rate', 24000)
 
             return audio, sample_rate
 

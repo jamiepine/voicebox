@@ -19,7 +19,6 @@ import tempfile
 import io
 from pathlib import Path
 import uuid
-import asyncio
 import signal
 import os
 from urllib.parse import quote
@@ -704,9 +703,10 @@ async def generate_speech(
                 data.instruct,
             )
 
-        # Trim trailing silence/noise from TTS output (known Chatterbox issue)
-        from .utils.audio import trim_tts_output
-        audio = trim_tts_output(audio, sample_rate)
+        # Trim trailing silence/noise from Chatterbox output (known hallucination issue)
+        if data.language == "he":
+            from .utils.audio import trim_tts_output
+            audio = trim_tts_output(audio, sample_rate)
 
         # Calculate duration
         duration = len(audio) / sample_rate
@@ -2010,6 +2010,7 @@ async def shutdown_event():
     print("voicebox API shutting down...")
     # Unload models to free memory
     tts.unload_tts_model()
+    tts.unload_chatterbox_model()
     transcribe.unload_whisper_model()
 
 

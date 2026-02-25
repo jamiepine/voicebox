@@ -369,14 +369,7 @@ class PyTorchTTSBackend:
         return audio, sample_rate
 
 
-STT_MODEL_MAP = {
-    "base": "openai/whisper-base",
-    "small": "openai/whisper-small",
-    "medium": "openai/whisper-medium",
-    "large": "openai/whisper-large",
-    "ivrit-v3": "ivrit-ai/whisper-large-v3",
-    "ivrit-v3-turbo": "ivrit-ai/whisper-large-v3-turbo",
-}
+from . import STT_MODEL_MAP
 
 
 class PyTorchSTTBackend:
@@ -608,15 +601,13 @@ class PyTorchSTTBackend:
                 tokenizer = self.processor.tokenizer
                 lang_token = f"<|{language}|>"
                 if lang_token in tokenizer.get_vocab():
-                    lang_id = tokenizer.convert_tokens_to_ids(lang_token)
                     # Suppress all other language tokens to prevent drift
                     all_lang_tokens = [
-                        tokenizer.convert_tokens_to_ids(f"<|{lang}|>")
-                        for lang in tokenizer.additional_special_tokens
-                        if lang.startswith("<|") and lang.endswith("|>")
-                        and lang != lang_token and lang != "<|transcribe|>"
-                        and lang != "<|notimestamps|>"
-                        and tokenizer.convert_tokens_to_ids(lang) != tokenizer.unk_token_id
+                        tokenizer.convert_tokens_to_ids(tok)
+                        for tok in tokenizer.additional_special_tokens
+                        if tok.startswith("<|") and tok.endswith("|>")
+                        and tok not in (lang_token, "<|transcribe|>", "<|notimestamps|>")
+                        and tokenizer.convert_tokens_to_ids(tok) != tokenizer.unk_token_id
                     ]
                     if all_lang_tokens:
                         generate_kwargs["suppress_tokens"] = all_lang_tokens
