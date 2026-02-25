@@ -113,6 +113,7 @@ class STTBackend(Protocol):
 # Global backend instances
 _tts_backend: Optional[TTSBackend] = None
 _stt_backend: Optional[STTBackend] = None
+_chatterbox_backend = None  # Optional[ChatterboxTTSBackend]
 
 
 def get_tts_backend() -> TTSBackend:
@@ -159,8 +160,25 @@ def get_stt_backend() -> STTBackend:
     return _stt_backend
 
 
+def get_chatterbox_backend():
+    """
+    Get or create Chatterbox TTS backend instance (for Hebrew).
+
+    Returns:
+        ChatterboxTTSBackend instance
+    """
+    global _chatterbox_backend
+
+    if _chatterbox_backend is None:
+        from .chatterbox_backend import ChatterboxTTSBackend
+        _chatterbox_backend = ChatterboxTTSBackend()
+
+    return _chatterbox_backend
+
+
 def reset_backends():
     """Reset backend instances (useful for testing)."""
-    global _tts_backend, _stt_backend
+    global _tts_backend, _stt_backend, _chatterbox_backend
     _tts_backend = None
     _stt_backend = None
+    _chatterbox_backend = None

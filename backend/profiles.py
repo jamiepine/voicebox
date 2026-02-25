@@ -3,7 +3,7 @@ Voice profile management module.
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 import shutil
 from pathlib import Path
@@ -52,8 +52,8 @@ async def create_profile(
         name=data.name,
         description=data.description,
         language=data.language,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     
     db.add(db_profile)
@@ -116,7 +116,7 @@ async def add_profile_sample(
     db.add(db_sample)
     
     # Update profile timestamp
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(db_sample)
@@ -208,7 +208,7 @@ async def update_profile(
     profile.name = data.name
     profile.description = data.description
     profile.language = data.language
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(profile)
@@ -446,7 +446,7 @@ async def upload_avatar(
 
     # Update database
     profile.avatar_path = str(output_path)
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(profile)
@@ -479,7 +479,7 @@ async def delete_avatar(
 
     # Update database
     profile.avatar_path = None
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(timezone.utc)
 
     db.commit()
 

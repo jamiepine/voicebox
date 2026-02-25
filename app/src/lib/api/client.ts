@@ -325,6 +325,12 @@ class ApiClient {
     });
   }
 
+  async unloadModel(modelName: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/models/${modelName}/unload`, {
+      method: 'POST',
+    });
+  }
+
   // Task Management
   async getActiveTasks(): Promise<ActiveTasksResponse> {
     return this.request<ActiveTasksResponse>('/tasks/active');

@@ -67,8 +67,15 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
     try {
       setIsGenerating(true);
 
-      const modelName = `qwen-tts-${data.modelSize}`;
-      const displayName = data.modelSize === '1.7B' ? 'Qwen TTS 1.7B' : 'Qwen TTS 0.6B';
+      // Determine model name for download tracking
+      // Hebrew uses Chatterbox TTS, other languages use Qwen
+      const isHebrew = data.language === 'he';
+      const modelName = isHebrew ? 'chatterbox-tts' : `qwen-tts-${data.modelSize}`;
+      const displayName = isHebrew
+        ? 'Chatterbox TTS (Hebrew)'
+        : data.modelSize === '1.7B'
+          ? 'Qwen TTS 1.7B'
+          : 'Qwen TTS 0.6B';
 
       try {
         const modelStatus = await apiClient.getModelStatus();

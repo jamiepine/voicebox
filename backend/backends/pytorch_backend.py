@@ -369,9 +369,19 @@ class PyTorchTTSBackend:
         return audio, sample_rate
 
 
+STT_MODEL_MAP = {
+    "base": "openai/whisper-base",
+    "small": "openai/whisper-small",
+    "medium": "openai/whisper-medium",
+    "large": "openai/whisper-large",
+    "ivrit-v3": "ivrit-ai/whisper-large-v3",
+    "ivrit-v3-turbo": "ivrit-ai/whisper-large-v3-turbo",
+}
+
+
 class PyTorchSTTBackend:
     """PyTorch-based STT backend using Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.processor = None
@@ -403,20 +413,24 @@ class PyTorchSTTBackend:
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None
-    
+
+    def _resolve_model_name(self, model_size: str) -> str:
+        """Resolve a model size key to a HuggingFace model name."""
+        return STT_MODEL_MAP.get(model_size, f"openai/whisper-{model_size}")
+
     def _is_model_cached(self, model_size: str) -> bool:
         """
         Check if the Whisper model is already cached locally AND fully downloaded.
-        
+
         Args:
             model_size: Model size to check
-            
+
         Returns:
             True if model is fully cached, False if missing or incomplete
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
+            model_name = self._resolve_model_name(model_size)
             repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
             
             if not repo_cache.exists():
@@ -451,26 +465,20 @@ class PyTorchSTTBackend:
         Args:
             model_size: Model size (tiny, base, small, medium, large)
         """
-        print(f"[DEBUG] load_model_async called with size: {model_size}")
         if model_size is None:
             model_size = self.model_size
 
-        print(f"[DEBUG] Model already loaded? {self.model is not None}, current size: {self.model_size}, requested: {model_size}")
         if self.model is not None and self.model_size == model_size:
-            print(f"[DEBUG] Early return - model already loaded")
             return
 
-        print(f"[DEBUG] Calling asyncio.to_thread for _load_model_sync")
         # Run blocking load in thread pool
         await asyncio.to_thread(self._load_model_sync, model_size)
-        print(f"[DEBUG] asyncio.to_thread completed")
     
     # Alias for compatibility
     load_model = load_model_async
     
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
-        print(f"[DEBUG] _load_model_sync called for Whisper {model_size}")
         try:
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
@@ -486,16 +494,13 @@ class PyTorchSTTBackend:
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
             # Patch tqdm BEFORE importing transformers
-            print("[DEBUG] Starting tqdm patch BEFORE transformers import")
             tracker_context = tracker.patch_download()
             tracker_context.__enter__()
-            print("[DEBUG] tqdm patched, now importing transformers")
 
             # Import transformers
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            model_name = f"openai/whisper-{model_size}"
-            print(f"[DEBUG] Model name: {model_name}")
+            model_name = self._resolve_model_name(model_size)
 
             print(f"Loading Whisper model {model_size} on {self.device}...")
 
@@ -560,21 +565,21 @@ class PyTorchSTTBackend:
     ) -> str:
         """
         Transcribe audio to text.
-        
+
         Args:
             audio_path: Path to audio file
-            language: Optional language hint (en or zh)
-            
+            language: Optional language code (e.g. "he", "en", "zh")
+
         Returns:
             Transcribed text
         """
         await self.load_model_async(None)
-        
+
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
             # Load audio
             audio, sr = load_audio(audio_path, sample_rate=16000)
-            
+
             # Process audio
             inputs = self.processor(
                 audio,
@@ -582,31 +587,50 @@ class PyTorchSTTBackend:
                 return_tensors="pt",
             )
             inputs = inputs.to(self.device)
-            
-            # Set language if provided
+
+            # Force language and task via decoder prompt IDs
             forced_decoder_ids = None
             if language:
-                # Support all languages from frontend: en, zh, ja, ko, de, fr, ru, pt, es, it
-                # Whisper supports these and many more
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
                     language=language,
                     task="transcribe",
                 )
-            
-            # Generate transcription
+
+            # Generate transcription with language-aware settings
+            generate_kwargs = {
+                "input_features": inputs["input_features"],
+                "forced_decoder_ids": forced_decoder_ids,
+            }
+
+            # For non-English: use greedy decoding + suppress language
+            # drift by forcing language tokens throughout generation
+            if language and language not in ("en",):
+                tokenizer = self.processor.tokenizer
+                lang_token = f"<|{language}|>"
+                if lang_token in tokenizer.get_vocab():
+                    lang_id = tokenizer.convert_tokens_to_ids(lang_token)
+                    # Suppress all other language tokens to prevent drift
+                    all_lang_tokens = [
+                        tokenizer.convert_tokens_to_ids(f"<|{lang}|>")
+                        for lang in tokenizer.additional_special_tokens
+                        if lang.startswith("<|") and lang.endswith("|>")
+                        and lang != lang_token and lang != "<|transcribe|>"
+                        and lang != "<|notimestamps|>"
+                        and tokenizer.convert_tokens_to_ids(lang) != tokenizer.unk_token_id
+                    ]
+                    if all_lang_tokens:
+                        generate_kwargs["suppress_tokens"] = all_lang_tokens
+
             with torch.no_grad():
-                predicted_ids = self.model.generate(
-                    inputs["input_features"],
-                    forced_decoder_ids=forced_decoder_ids,
-                )
-            
+                predicted_ids = self.model.generate(**generate_kwargs)
+
             # Decode
             transcription = self.processor.batch_decode(
                 predicted_ids,
                 skip_special_tokens=True,
             )[0]
-            
+
             return transcription.strip()
-        
+
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)

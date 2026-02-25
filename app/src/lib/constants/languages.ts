@@ -1,6 +1,6 @@
 /**
- * Supported languages for Qwen3-TTS
- * Based on: https://github.com/QwenLM/Qwen3-TTS
+ * Supported languages for voice generation.
+ * Most languages use Qwen3-TTS; Hebrew uses Chatterbox TTS.
  */
 
 export const SUPPORTED_LANGUAGES = {
@@ -14,6 +14,7 @@ export const SUPPORTED_LANGUAGES = {
   pt: 'Portuguese',
   es: 'Spanish',
   it: 'Italian',
+  he: 'Hebrew',
 } as const;
 
 export type LanguageCode = keyof typeof SUPPORTED_LANGUAGES;

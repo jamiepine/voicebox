@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
+import { LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useAddStoryItem, useStory } from '@/lib/hooks/useStories';
@@ -74,6 +74,16 @@ export function FloatingGenerateBox({
       }
     },
   });
+
+  // Auto-sync language when selected profile changes
+  useEffect(() => {
+    if (selectedProfile?.language) {
+      const profileLang = selectedProfile.language as LanguageCode;
+      if (LANGUAGE_OPTIONS.some((l) => l.value === profileLang)) {
+        form.setValue('language', profileLang);
+      }
+    }
+  }, [selectedProfile?.language, form]);
 
   // Click away handler to collapse the box
   useEffect(() => {
@@ -383,7 +393,7 @@ export function FloatingGenerateBox({
                     name="language"
                     render={({ field }) => (
                       <FormItem className="flex-1 space-y-0">
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
                               <SelectValue />

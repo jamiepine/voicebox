@@ -13,6 +13,10 @@ transformers>=4.36.0
 accelerate>=0.26.0
 huggingface_hub>=0.20.0
 qwen-tts>=0.0.5
+# Hebrew TTS — install with: pip install chatterbox-tts --no-deps
+# then install missing sub-deps: pip install conformer diffusers omegaconf pykakasi resemble-perth s3tokenizer
+# (numpy constraint on PyPI is too strict; works fine with numpy 2.x in practice)
+chatterbox-tts>=0.1.0
 
 # Audio processing
 librosa>=0.10.0

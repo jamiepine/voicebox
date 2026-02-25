@@ -3,7 +3,7 @@ Audio channel management module.
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 from sqlalchemy.orm import Session
 
@@ -81,7 +81,7 @@ async def create_channel(
         id=str(uuid.uuid4()),
         name=data.name,
         is_default=False,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(channel)
     db.flush()

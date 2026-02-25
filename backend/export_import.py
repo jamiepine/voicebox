@@ -324,7 +324,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
     from pathlib import Path
     import tempfile
     import shutil
-    from datetime import datetime
+    from datetime import datetime, timezone
     from . import config
     
     zip_buffer = io.BytesIO(file_bytes)
@@ -409,7 +409,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                     duration=generation_data["duration"],
                     seed=generation_data.get("seed"),
                     instruct=generation_data.get("instruct"),
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(timezone.utc),
                 )
                 
                 db.add(db_generation)

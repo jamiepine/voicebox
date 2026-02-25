@@ -7,7 +7,7 @@ import numpy as np
 import io
 import soundfile as sf
 
-from .backends import get_tts_backend, TTSBackend
+from .backends import get_tts_backend, get_chatterbox_backend, TTSBackend
 
 
 def get_tts_model() -> TTSBackend:
@@ -23,6 +23,17 @@ def get_tts_model() -> TTSBackend:
 def unload_tts_model():
     """Unload TTS model to free memory."""
     backend = get_tts_backend()
+    backend.unload_model()
+
+
+def get_chatterbox_model():
+    """Get Chatterbox TTS backend instance (for Hebrew)."""
+    return get_chatterbox_backend()
+
+
+def unload_chatterbox_model():
+    """Unload Chatterbox TTS model to free memory."""
+    backend = get_chatterbox_backend()
     backend.unload_model()
 
 
