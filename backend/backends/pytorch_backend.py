@@ -571,7 +571,7 @@ class PyTorchSTTBackend:
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
             # Load audio
-            audio, sr = load_audio(audio_path, sample_rate=16000)
+            audio, _sr = load_audio(audio_path, sample_rate=16000)
 
             # Process audio
             inputs = self.processor(

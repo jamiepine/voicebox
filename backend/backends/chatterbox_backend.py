@@ -115,15 +115,12 @@ class ChatterboxTTSBackend:
                     status="downloading",
                 )
 
-            tracker_context = tracker.patch_download()
-            tracker_context.__enter__()
+            with tracker.patch_download():
+                device = self._get_device()
+                self._device = device
 
-            device = self._get_device()
-            self._device = device
+                print(f"Loading Chatterbox Multilingual TTS model on {device}...")
 
-            print(f"Loading Chatterbox Multilingual TTS model on {device}...")
-
-            try:
                 import torch
                 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 
@@ -163,8 +160,6 @@ class ChatterboxTTSBackend:
                     for layer in getattr(t3_tfmr, 'layers', []):
                         if hasattr(layer, 'self_attn'):
                             layer.self_attn._attn_implementation = "eager"
-            finally:
-                tracker_context.__exit__(None, None, None)
 
             if not is_cached:
                 progress_manager.mark_complete(progress_model_name)
