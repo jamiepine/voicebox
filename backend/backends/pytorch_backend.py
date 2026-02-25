@@ -514,17 +514,29 @@ class PyTorchSTTBackend:
             # Load models (tqdm is patched, but filters out non-download progress)
             try:
                 self.processor = WhisperProcessor.from_pretrained(model_name)
-                self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
+                if self.device == "cpu":
+                    self.model = WhisperForConditionalGeneration.from_pretrained(
+                        model_name,
+                        torch_dtype=torch.float32,
+                        low_cpu_mem_usage=True,
+                    )
+                else:
+                    self.model = WhisperForConditionalGeneration.from_pretrained(
+                        model_name,
+                        device_map=self.device,
+                        torch_dtype=torch.bfloat16,
+                    )
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
-            
+
             # Only mark download as complete if we were tracking it
             if not is_cached:
                 progress_manager.mark_complete(progress_model_name)
                 task_manager.complete_download(progress_model_name)
-            
-            self.model.to(self.device)
+
+            if self.device == "cpu":
+                self.model.to(self.device)
             self.model_size = model_size
             
             print(f"Whisper model {model_size} loaded successfully")
