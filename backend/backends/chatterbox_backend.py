@@ -6,9 +6,10 @@ Uses ChatterboxMultilingualTTS from the chatterbox-tts package
 including Hebrew. Forces CPU on macOS due to known MPS tensor issues.
 """
 
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, ClassVar
 import asyncio
 import platform
+import threading
 import numpy as np
 from pathlib import Path
 
@@ -25,14 +26,14 @@ class ChatterboxTTSBackend:
     HF_REPO_ID = "ResembleAI/chatterbox"
 
     # Files specific to the multilingual model
-    _MTL_WEIGHT_FILES = [
+    _MTL_WEIGHT_FILES: ClassVar[List[str]] = [
         "t3_mtl23ls_v2.safetensors",
         "s3gen.pt",
         "ve.pt",
     ]
 
     # Class-level lock for torch.load monkey-patching (shared across calls)
-    _load_lock: "threading.Lock | None" = None
+    _load_lock: ClassVar[threading.Lock] = threading.Lock()
 
     def __init__(self):
         self.model = None
@@ -136,9 +137,6 @@ class ChatterboxTTSBackend:
                 # The multilingual model's .pt files were saved on CUDA and
                 # from_local() doesn't pass map_location, so loading on CPU fails.
                 if device == "cpu":
-                    import threading
-                    if ChatterboxTTSBackend._load_lock is None:
-                        ChatterboxTTSBackend._load_lock = threading.Lock()
                     _orig_torch_load = torch.load
 
                     def _patched_load(*args, **kwargs):
@@ -233,13 +231,14 @@ class ChatterboxTTSBackend:
         self,
         audio_path: str,
         reference_text: str,
-        use_cache: bool = True,
+        use_cache: bool = True,  # noqa: ARG002 — Chatterbox defers processing to generate()
     ) -> Tuple[dict, bool]:
         """
         Create voice prompt from reference audio.
 
         Chatterbox processes reference audio at generation time,
         so the prompt simply stores the file path and text.
+        The use_cache parameter is accepted for API compatibility but not used.
         """
         voice_prompt = {
             "ref_audio": str(audio_path),
@@ -268,10 +267,10 @@ class ChatterboxTTSBackend:
 
     # Tuned generation defaults per language.
     # Lower temperature + higher cfg_weight = clearer pronunciation.
-    _LANG_DEFAULTS = {
+    _LANG_DEFAULTS: ClassVar[dict] = {
         "he": {"exaggeration": 0.4, "cfg_weight": 0.7, "temperature": 0.65, "repetition_penalty": 2.5},
     }
-    _GLOBAL_DEFAULTS = {"exaggeration": 0.5, "cfg_weight": 0.5, "temperature": 0.8, "repetition_penalty": 2.0}
+    _GLOBAL_DEFAULTS: ClassVar[dict] = {"exaggeration": 0.5, "cfg_weight": 0.5, "temperature": 0.8, "repetition_penalty": 2.0}
 
     async def generate(
         self,

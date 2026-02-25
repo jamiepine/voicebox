@@ -602,13 +602,15 @@ class PyTorchSTTBackend:
                 lang_token = f"<|{language}|>"
                 if lang_token in tokenizer.get_vocab():
                     # Suppress all other language tokens to prevent drift
-                    all_lang_tokens = [
-                        tokenizer.convert_tokens_to_ids(tok)
-                        for tok in tokenizer.additional_special_tokens
-                        if tok.startswith("<|") and tok.endswith("|>")
-                        and tok not in (lang_token, "<|transcribe|>", "<|notimestamps|>")
-                        and tokenizer.convert_tokens_to_ids(tok) != tokenizer.unk_token_id
-                    ]
+                    all_lang_tokens = []
+                    for tok in tokenizer.additional_special_tokens:
+                        if not (tok.startswith("<|") and tok.endswith("|>")):
+                            continue
+                        if tok in (lang_token, "<|transcribe|>", "<|notimestamps|>"):
+                            continue
+                        tid = tokenizer.convert_tokens_to_ids(tok)
+                        if tid is not None and tid != tokenizer.unk_token_id:
+                            all_lang_tokens.append(tid)
                     if all_lang_tokens:
                         generate_kwargs["suppress_tokens"] = all_lang_tokens
 

@@ -614,7 +614,7 @@ async def generate_speech(
                         task_manager.error_download(model_name, str(e))
 
                 task_manager.start_download(model_name)
-                asyncio.create_task(download_chatterbox_background())
+                _task = asyncio.create_task(download_chatterbox_background())  # noqa: F841
 
                 raise HTTPException(
                     status_code=202,
@@ -663,7 +663,7 @@ async def generate_speech(
                         task_manager.error_download(model_name, str(e))
 
                 task_manager.start_download(model_name)
-                asyncio.create_task(download_model_background())
+                _task = asyncio.create_task(download_model_background())  # noqa: F841
 
                 raise HTTPException(
                     status_code=202,
@@ -1038,7 +1038,7 @@ async def transcribe_audio(
                     get_task_manager().error_download(progress_model_name, str(e))
 
             get_task_manager().start_download(progress_model_name)
-            asyncio.create_task(download_whisper_background())
+            _task = asyncio.create_task(download_whisper_background())  # noqa: F841
 
             # Return 202 Accepted
             raise HTTPException(
@@ -1051,6 +1051,9 @@ async def transcribe_audio(
             )
 
         # Load the correct model (may switch from base→ivrit-v3 or vice versa)
+        current_size = getattr(whisper_model, 'model_size', None)
+        if current_size and current_size != model_size:
+            print(f"[transcribe] Switching STT model from {current_size} to {model_size}")
         await whisper_model.load_model_async(model_size)
 
         # Always pass language explicitly (critical for ivrit-ai models)
@@ -1764,7 +1767,7 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     )
 
     # Start download in background task (don't await)
-    asyncio.create_task(download_in_background())
+    _task = asyncio.create_task(download_in_background())  # noqa: F841
 
     # Return immediately - frontend should poll progress endpoint
     return {"message": f"Model {request.model_name} download started"}
