@@ -13,9 +13,7 @@ transformers>=4.36.0
 accelerate>=0.26.0
 huggingface_hub>=0.20.0
 qwen-tts>=0.0.5
-# Hebrew TTS (Chatterbox)
-# Note: chatterbox-tts has a strict numpy<2 pin on PyPI but works fine with numpy 2.x.
-# If pip fails, install with: pip install chatterbox-tts --no-deps
+# Hebrew TTS (Chatterbox) and its sub-dependencies
 chatterbox-tts>=0.1.0
 conformer
 diffusers

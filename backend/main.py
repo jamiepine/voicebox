@@ -40,18 +40,6 @@ def _safe_content_disposition(disposition_type: str, filename: str) -> str:
     )
 
 
-import re as _re
-
-_UUID_RE = _re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-
-
-def _validate_uuid(value: str, name: str = "id") -> str:
-    """Validate that a path parameter is a proper UUID."""
-    if not _UUID_RE.match(value):
-        raise HTTPException(status_code=422, detail=f"Invalid {name} format")
-    return value
-
-
 from . import database, models, profiles, history, tts, transcribe, config, export_import, channels, stories, __version__
 from .database import get_db, Generation as DBGeneration, VoiceProfile as DBVoiceProfile
 from .utils.progress import get_progress_manager
