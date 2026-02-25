@@ -23,6 +23,8 @@ class VoiceProfile(Base):
     description = Column(Text)
     language = Column(String, default="en")
     avatar_path = Column(String, nullable=True)
+    has_finetune = Column(Boolean, default=False)
+    active_adapter_path = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -110,9 +112,50 @@ class ChannelDeviceMapping(Base):
 class ProfileChannelMapping(Base):
     """Mapping between voice profiles and audio channels (many-to-many)."""
     __tablename__ = "profile_channel_mappings"
-    
+
     profile_id = Column(String, ForeignKey("profiles.id"), primary_key=True)
     channel_id = Column(String, ForeignKey("audio_channels.id"), primary_key=True)
+
+
+class FinetuneSample(Base):
+    """Fine-tune training sample database model."""
+    __tablename__ = "finetune_samples"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    profile_id = Column(String, ForeignKey("profiles.id"), nullable=False)
+    audio_path = Column(String, nullable=False)
+    transcript = Column(Text, nullable=False)
+    duration_seconds = Column(Float, nullable=False, default=0.0)
+    is_ref_audio = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class FinetuneJob(Base):
+    """Fine-tune training job database model."""
+    __tablename__ = "finetune_jobs"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    profile_id = Column(String, ForeignKey("profiles.id"), nullable=False)
+    status = Column(String, default="pending")  # pending|preparing|training|completed|failed|cancelled
+    num_samples = Column(Integer, default=0)
+    total_audio_duration_seconds = Column(Float, default=0.0)
+    # Training config
+    epochs = Column(Integer, default=3)
+    learning_rate = Column(Float, default=2e-5)
+    batch_size = Column(Integer, default=1)
+    lora_rank = Column(Integer, default=32)
+    # Progress
+    current_epoch = Column(Integer, default=0)
+    current_step = Column(Integer, default=0)
+    total_steps = Column(Integer, default=0)
+    current_loss = Column(Float, nullable=True)
+    # Results
+    adapter_path = Column(String, nullable=True)
+    label = Column(String, nullable=True)  # User-friendly name for the adapter
+    error_message = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    started_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
 
 
 # Database setup will be initialized in init_db()
@@ -287,6 +330,91 @@ def _run_migrations(engine):
                 conn.execute(text("ALTER TABLE profiles ADD COLUMN avatar_path VARCHAR"))
                 conn.commit()
                 print("Added avatar_path column to profiles")
+
+    # Migration: Add finetune columns to profiles table
+    if 'profiles' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('profiles')}
+        if 'has_finetune' not in columns:
+            print("Migrating profiles: adding has_finetune column")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE profiles ADD COLUMN has_finetune BOOLEAN DEFAULT 0"))
+                conn.commit()
+                print("Added has_finetune column to profiles")
+        if 'active_adapter_path' not in columns:
+            print("Migrating profiles: adding active_adapter_path column")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE profiles ADD COLUMN active_adapter_path VARCHAR"))
+                conn.commit()
+                print("Added active_adapter_path column to profiles")
+
+    # Migration: Add label column to finetune_jobs table
+    if 'finetune_jobs' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('finetune_jobs')}
+        if 'label' not in columns:
+            print("Migrating finetune_jobs: adding label column")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE finetune_jobs ADD COLUMN label VARCHAR"))
+                conn.commit()
+                print("Added label column to finetune_jobs")
+
+    # Migration: Move adapter dirs from adapters/latest/ to adapters/{job_id}/
+    _migrate_adapter_dirs(engine)
+
+
+def _migrate_adapter_dirs(engine):
+    """Migrate adapter directories from adapters/latest/ to adapters/{job_id}/.
+
+    Previously all adapters for a profile were saved to a single `latest/`
+    directory, overwriting each other.  Now each training job gets its own
+    `adapters/{job_id}/` directory so multiple adapters can coexist.
+    """
+    import shutil
+    from sqlalchemy import text
+
+    finetune_dir = config.get_finetune_dir()
+    if not finetune_dir.exists():
+        return
+
+    with engine.connect() as conn:
+        # Find completed jobs whose adapter_path still points to `latest/`
+        result = conn.execute(text(
+            "SELECT id, profile_id, adapter_path FROM finetune_jobs "
+            "WHERE status = 'completed' AND adapter_path IS NOT NULL "
+            "AND adapter_path LIKE '%/latest'"
+        ))
+        rows = result.fetchall()
+
+        for job_id, profile_id, adapter_path in rows:
+            old_path = Path(adapter_path)
+            if not old_path.exists():
+                continue
+
+            new_path = old_path.parent / job_id
+            if new_path.exists():
+                continue  # Already migrated or collision
+
+            print(f"Migrating adapter dir: {old_path} -> {new_path}")
+            shutil.copytree(str(old_path), str(new_path))
+
+            new_path_str = str(new_path)
+            conn.execute(text(
+                "UPDATE finetune_jobs SET adapter_path = :new_path WHERE id = :job_id"
+            ), {"new_path": new_path_str, "job_id": job_id})
+
+            # Update profile's active_adapter_path if it points to the old path
+            conn.execute(text(
+                "UPDATE profiles SET active_adapter_path = :new_path "
+                "WHERE active_adapter_path = :old_path"
+            ), {"new_path": new_path_str, "old_path": adapter_path})
+
+        if rows:
+            conn.commit()
+            # Clean up old `latest/` dirs after all jobs are migrated
+            for _, profile_id, adapter_path in rows:
+                old_path = Path(adapter_path)
+                if old_path.exists() and old_path.name == "latest":
+                    shutil.rmtree(str(old_path), ignore_errors=True)
+                    print(f"Removed old adapter dir: {old_path}")
 
 
 def get_db():

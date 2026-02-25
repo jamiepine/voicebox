@@ -15,8 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { useAdapters } from '@/lib/hooks/useFinetune';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useAddStoryItem, useStory } from '@/lib/hooks/useStories';
+import { adapterDisplayName } from '@/lib/utils/adapters';
 import { cn } from '@/lib/utils/cn';
 import { useStoryStore } from '@/stores/storyStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -34,6 +36,7 @@ export function FloatingGenerateBox({
   const setSelectedProfileId = useUIStore((state) => state.setSelectedProfileId);
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
   const { data: profiles } = useProfiles();
+  const { data: adapters } = useAdapters(selectedProfileId || '');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isInstructMode, setIsInstructMode] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -436,6 +439,38 @@ export function FloatingGenerateBox({
                       </FormItem>
                     )}
                   />
+
+                  {adapters && adapters.length > 0 && (
+                    <FormField
+                      control={form.control}
+                      name="adapterJobId"
+                      render={({ field }) => (
+                        <FormItem className="flex-1 space-y-0">
+                          <Select
+                            onValueChange={(value) => field.onChange(value === 'none' ? undefined : value)}
+                            value={field.value || 'none'}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
+                                <SelectValue placeholder="Base model" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="none" className="text-xs text-muted-foreground">
+                                Base model
+                              </SelectItem>
+                              {adapters.map((adapter) => (
+                                <SelectItem key={adapter.job_id} value={adapter.job_id} className="text-xs">
+                                  {adapterDisplayName(adapter)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               </motion.div>
             </AnimatePresence>

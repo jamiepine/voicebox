@@ -67,12 +67,37 @@ class TTSBackend(Protocol):
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio from text.
-        
+
         Returns:
             Tuple of (audio_array, sample_rate)
         """
         ...
-    
+
+    async def generate_with_adapter(
+        self,
+        text: str,
+        voice_prompt: dict,
+        adapter_path: str,
+        language: str = "en",
+        seed: Optional[int] = None,
+        instruct: Optional[str] = None,
+    ) -> Tuple[np.ndarray, int]:
+        """
+        Generate audio using a LoRA adapter.
+
+        Args:
+            text: Text to synthesize
+            voice_prompt: Voice prompt dictionary
+            adapter_path: Path to LoRA adapter directory
+            language: Language code
+            seed: Random seed
+            instruct: Natural language instruction
+
+        Returns:
+            Tuple of (audio_array, sample_rate)
+        """
+        ...
+
     def unload_model(self) -> None:
         """Unload model to free memory."""
         ...
@@ -125,6 +150,7 @@ class STTBackend(Protocol):
 _tts_backend: Optional[TTSBackend] = None
 _stt_backend: Optional[STTBackend] = None
 _chatterbox_backend = None  # Optional[ChatterboxTTSBackend]
+_pytorch_tts_backend: Optional[TTSBackend] = None  # For adapter-based generation
 
 
 def get_tts_backend() -> TTSBackend:
@@ -171,6 +197,29 @@ def get_stt_backend() -> STTBackend:
     return _stt_backend
 
 
+def get_pytorch_tts_backend() -> TTSBackend:
+    """
+    Get or create a PyTorch TTS backend instance.
+
+    Used specifically for adapter-based generation, since LoRA adapters
+    are trained with PyTorch+PEFT and must be loaded in PyTorch.
+    On Apple Silicon, the default backend is MLX which doesn't support
+    PEFT adapters, so we maintain a separate PyTorch backend.
+    """
+    global _pytorch_tts_backend
+
+    if _pytorch_tts_backend is None:
+        # Check if the default backend is already PyTorch — reuse it
+        backend_type = get_backend_type()
+        if backend_type != "mlx":
+            _pytorch_tts_backend = get_tts_backend()
+        else:
+            from .pytorch_backend import PyTorchTTSBackend
+            _pytorch_tts_backend = PyTorchTTSBackend()
+
+    return _pytorch_tts_backend
+
+
 def get_chatterbox_backend():
     """
     Get or create Chatterbox TTS backend instance (for Hebrew).
@@ -189,7 +238,8 @@ def get_chatterbox_backend():
 
 def reset_backends():
     """Reset backend instances (useful for testing)."""
-    global _tts_backend, _stt_backend, _chatterbox_backend
+    global _tts_backend, _stt_backend, _chatterbox_backend, _pytorch_tts_backend
     _tts_backend = None
     _stt_backend = None
     _chatterbox_backend = None
+    _pytorch_tts_backend = None

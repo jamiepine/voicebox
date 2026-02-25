@@ -2,7 +2,7 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -21,8 +21,26 @@ class VoiceProfileResponse(BaseModel):
     description: Optional[str]
     language: str
     avatar_path: Optional[str] = None
+    has_finetune: bool = False
+    has_active_adapter: bool = False
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compute_has_active_adapter(cls, data):
+        """Convert active_adapter_path from DB into a boolean for the API."""
+        if hasattr(data, "__getattr__"):
+            # SQLAlchemy model object
+            path = getattr(data, "active_adapter_path", None)
+            data_dict = {c.key: getattr(data, c.key) for c in data.__table__.columns}
+            data_dict.pop("active_adapter_path", None)
+            data_dict["has_active_adapter"] = bool(path)
+            return data_dict
+        if isinstance(data, dict):
+            path = data.pop("active_adapter_path", None)
+            data.setdefault("has_active_adapter", bool(path))
+        return data
 
     class Config:
         from_attributes = True
@@ -57,6 +75,11 @@ class GenerationRequest(BaseModel):
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B)$")
     instruct: Optional[str] = Field(None, max_length=500)
+    adapter_job_id: Optional[str] = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        description="Specific adapter job ID to use. If not provided, uses the profile's active adapter.",
+    )
 
 
 class GenerationResponse(BaseModel):
@@ -164,10 +187,24 @@ class ActiveGenerationTask(BaseModel):
     started_at: datetime
 
 
+class ActiveFinetuneTask(BaseModel):
+    """Response model for active finetune task."""
+    job_id: str
+    profile_id: str
+    status: str
+    current_epoch: int
+    total_epochs: int
+    current_step: int
+    total_steps: int
+    current_loss: Optional[float]
+    started_at: datetime
+
+
 class ActiveTasksResponse(BaseModel):
     """Response model for active tasks."""
     downloads: List[ActiveDownloadTask]
     generations: List[ActiveGenerationTask]
+    finetunes: List[ActiveFinetuneTask] = []
 
 
 class AudioChannelCreate(BaseModel):
@@ -299,3 +336,108 @@ class StoryItemTrim(BaseModel):
 class StoryItemSplit(BaseModel):
     """Request model for splitting a story item."""
     split_time_ms: int = Field(..., ge=0)  # Time within the clip to split at (relative to clip start)
+
+
+# ============================================
+# FINETUNE MODELS
+# ============================================
+
+class FinetuneSampleResponse(BaseModel):
+    """Response model for a finetune training sample."""
+    id: str
+    profile_id: str
+    transcript: str
+    duration_seconds: float
+    is_ref_audio: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FinetuneJobResponse(BaseModel):
+    """Response model for a finetune training job."""
+    id: str
+    profile_id: str
+    status: str
+    num_samples: int
+    total_audio_duration_seconds: float
+    epochs: int
+    learning_rate: float
+    batch_size: int
+    lora_rank: int
+    current_epoch: int
+    current_step: int
+    total_steps: int
+    current_loss: Optional[float]
+    has_adapter: bool = False
+    label: Optional[str] = None
+    error_message: Optional[str]
+    created_at: datetime
+    started_at: Optional[datetime]
+    completed_at: Optional[datetime]
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compute_has_adapter(cls, data):
+        """Convert adapter_path from DB into a boolean for the API."""
+        if hasattr(data, "__getattr__"):
+            data_dict = {c.key: getattr(data, c.key) for c in data.__table__.columns}
+            path = data_dict.pop("adapter_path", None)
+            data_dict["has_adapter"] = bool(path)
+            return data_dict
+        if isinstance(data, dict):
+            path = data.pop("adapter_path", None)
+            data.setdefault("has_adapter", bool(path))
+        return data
+
+    class Config:
+        from_attributes = True
+
+
+class FinetuneStatusResponse(BaseModel):
+    """Response model for finetune status overview."""
+    has_finetune: bool
+    has_active_adapter: bool = False
+    active_job: Optional[FinetuneJobResponse]
+    sample_count: int
+    total_duration_seconds: float
+
+
+class FinetuneStartRequest(BaseModel):
+    """Request model for starting fine-tuning."""
+    epochs: int = Field(default=3, ge=1, le=50)
+    learning_rate: float = Field(default=2e-5, gt=0, le=1e-2)
+    batch_size: int = Field(default=1, ge=1, le=8)
+    lora_rank: int = Field(default=16, ge=4, le=128)
+    label: Optional[str] = Field(default=None, max_length=100)
+
+
+class FinetuneImportRequest(BaseModel):
+    """Request model for importing profile samples into finetune."""
+    sample_ids: Optional[List[str]] = None  # If None, import all
+
+
+class AdapterInfo(BaseModel):
+    """Response model for a trained adapter."""
+    job_id: str
+    label: Optional[str] = None
+    epochs: int
+    lora_rank: int
+    learning_rate: float
+    num_samples: int
+    completed_at: Optional[datetime] = None
+    is_active: bool = False
+
+
+class SetActiveAdapterRequest(BaseModel):
+    """Request model for setting the active adapter for a profile."""
+    job_id: Optional[str] = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    )  # None = deactivate (use base model)
+
+
+class UpdateAdapterLabelRequest(BaseModel):
+    """Request model for updating an adapter's label."""
+    label: str = Field(..., min_length=1, max_length=100)

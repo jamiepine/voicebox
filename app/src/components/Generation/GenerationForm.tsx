@@ -22,12 +22,15 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { useAdapters } from '@/lib/hooks/useFinetune';
 import { useProfile } from '@/lib/hooks/useProfiles';
+import { adapterDisplayName } from '@/lib/utils/adapters';
 import { useUIStore } from '@/stores/uiStore';
 
 export function GenerationForm() {
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
+  const { data: adapters } = useAdapters(selectedProfileId || '');
 
   const { form, handleSubmit, isPending } = useGenerationForm();
 
@@ -180,6 +183,38 @@ export function GenerationForm() {
                 )}
               />
             </div>
+
+            {adapters && adapters.length > 0 && (
+              <FormField
+                control={form.control}
+                name="adapterJobId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fine-Tuned Adapter</FormLabel>
+                    <Select
+                      onValueChange={(value) => field.onChange(value === 'none' ? undefined : value)}
+                      value={field.value || 'none'}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None (base model)</SelectItem>
+                        {adapters.map((adapter) => (
+                          <SelectItem key={adapter.job_id} value={adapter.job_id}>
+                            {adapterDisplayName(adapter)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>Use a fine-tuned voice adapter for higher quality</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <Button
               type="submit"

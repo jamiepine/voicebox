@@ -3,10 +3,15 @@ PyTorch backend implementation for TTS and STT.
 """
 
 from typing import Optional, List, Tuple
+from collections import OrderedDict
 import asyncio
 import torch
 import numpy as np
 from pathlib import Path
+
+# Max adapters to keep loaded in GPU memory simultaneously.
+# When exceeded, the least-recently-used adapter is evicted.
+_MAX_LOADED_ADAPTERS = 3
 
 from . import TTSBackend, STTBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
@@ -24,6 +29,8 @@ class PyTorchTTSBackend:
         self.model_size = model_size
         self.device = self._get_device()
         self._current_model_size = None
+        self._adapter_lru: OrderedDict[str, str] = OrderedDict()  # name -> path, LRU order
+        self._current_adapter_path: Optional[str] = None
     
     def _get_device(self) -> str:
         """Get the best available device."""
@@ -233,10 +240,13 @@ class PyTorchTTSBackend:
             del self.model
             self.model = None
             self._current_model_size = None
-            
+            # Clear adapter tracking state
+            self._adapter_lru = OrderedDict()
+            self._current_adapter_path = None
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            
+
             print("TTS model unloaded")
     
     async def create_voice_prompt(
@@ -347,6 +357,9 @@ class PyTorchTTSBackend:
         # Load model
         await self.load_model_async(None)
 
+        # Restore base model if an adapter was previously loaded
+        self._restore_base_model()
+
         def _generate_sync():
             """Run synchronous generation in thread pool."""
             # Set seed if provided
@@ -367,6 +380,100 @@ class PyTorchTTSBackend:
         audio, sample_rate = await asyncio.to_thread(_generate_sync)
 
         return audio, sample_rate
+
+    async def generate_with_adapter(
+        self,
+        text: str,
+        voice_prompt: dict,
+        adapter_path: str,
+        language: str = "en",
+        seed: Optional[int] = None,
+        instruct: Optional[str] = None,
+    ) -> Tuple[np.ndarray, int]:
+        """
+        Generate audio using a LoRA adapter for fine-tuned voice.
+
+        The adapter was trained on model.talker (the talker sub-model),
+        so we apply PEFT to self.model.model.talker specifically.
+        The wrapper's generate_voice_clone works transparently since
+        PeftModel forwards all attributes.
+
+        Adapters are loaded once and cached by name. Switching between
+        adapters uses set_adapter() which is instant.
+        """
+        await self.load_model_async(None)
+
+        def _generate_with_adapter_sync():
+            from peft import PeftModel
+
+            if seed is not None:
+                torch.manual_seed(seed)
+                if torch.cuda.is_available():
+                    torch.cuda.manual_seed(seed)
+
+            # Derive a stable adapter name from the path (job_id directory)
+            adapter_name = Path(adapter_path).name
+
+            # Access the inner model: wrapper.model = Qwen3TTSForConditionalGeneration
+            inner_model = self.model.model
+            talker = inner_model.talker
+
+            if not isinstance(talker, PeftModel) and not self._adapter_lru:
+                # First adapter ever — wrap talker with PeftModel
+                print(f"Initializing PeftModel on talker with adapter '{adapter_name}' from {adapter_path}...")
+                inner_model.talker = PeftModel.from_pretrained(
+                    talker,
+                    adapter_path,
+                    adapter_name=adapter_name,
+                )
+                inner_model.talker.eval()
+                self._adapter_lru[adapter_name] = adapter_path
+                self._current_adapter_path = adapter_path
+                print(f"LoRA adapter '{adapter_name}' loaded on talker and activated")
+            elif adapter_name not in self._adapter_lru:
+                # New adapter — evict LRU if at capacity
+                if len(self._adapter_lru) >= _MAX_LOADED_ADAPTERS:
+                    evict_name, _ = self._adapter_lru.popitem(last=False)
+                    print(f"Evicting LRU adapter '{evict_name}' to free memory")
+                    inner_model.talker.delete_adapter(evict_name)
+
+                # Load new adapter onto existing PeftModel talker
+                print(f"Loading new adapter '{adapter_name}' from {adapter_path}...")
+                inner_model.talker.load_adapter(adapter_path, adapter_name=adapter_name)
+                inner_model.talker.set_adapter(adapter_name)
+                self._adapter_lru[adapter_name] = adapter_path
+                self._current_adapter_path = adapter_path
+                print(f"LoRA adapter '{adapter_name}' loaded on talker and activated")
+            else:
+                # Adapter already loaded — move to end of LRU and switch
+                self._adapter_lru.move_to_end(adapter_name)
+                if self._current_adapter_path != adapter_path:
+                    print(f"Switching to adapter '{adapter_name}'")
+                    inner_model.talker.set_adapter(adapter_name)
+                    self._current_adapter_path = adapter_path
+
+            # Ensure adapters are enabled
+            inner_model.talker.enable_adapter_layers()
+
+            # Generate audio using the wrapper (handles speaker embedding internally)
+            wavs, sample_rate = self.model.generate_voice_clone(
+                text=text,
+                voice_clone_prompt=voice_prompt,
+                instruct=instruct,
+            )
+            return wavs[0], sample_rate
+
+        audio, sample_rate = await asyncio.to_thread(_generate_with_adapter_sync)
+        return audio, sample_rate
+
+    def _restore_base_model(self):
+        """Disable adapter layers so the base model runs without any adapter."""
+        if self._adapter_lru:
+            from peft import PeftModel
+            inner_model = self.model.model
+            if isinstance(inner_model.talker, PeftModel):
+                inner_model.talker.disable_adapter_layers()
+                self._current_adapter_path = None
 
 
 from . import STT_MODEL_MAP

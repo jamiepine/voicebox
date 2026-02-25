@@ -16,6 +16,7 @@ const generationSchema = z.object({
   seed: z.number().int().optional(),
   modelSize: z.enum(['1.7B', '0.6B']).optional(),
   instruct: z.string().max(500).optional(),
+  adapterJobId: z.string().optional(),
 });
 
 export type GenerationFormValues = z.infer<typeof generationSchema>;
@@ -47,6 +48,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       seed: undefined,
       modelSize: '1.7B',
       instruct: '',
+      adapterJobId: undefined,
       ...options.defaultValues,
     },
   });
@@ -68,14 +70,16 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       setIsGenerating(true);
 
       // Determine model name for download tracking
-      // Hebrew uses Chatterbox TTS, other languages use Qwen
+      // When an adapter is selected, always use Qwen (adapter requires PyTorch + Qwen)
       const isHebrew = data.language === 'he';
-      const modelName = isHebrew ? 'chatterbox-tts' : `qwen-tts-${data.modelSize}`;
-      const displayName = isHebrew
-        ? 'Chatterbox TTS (Hebrew)'
-        : data.modelSize === '1.7B'
+      const usingAdapter = !!data.adapterJobId;
+      const useQwen = usingAdapter || !isHebrew;
+      const modelName = useQwen ? `qwen-tts-${data.modelSize}` : 'chatterbox-tts';
+      const displayName = useQwen
+        ? data.modelSize === '1.7B'
           ? 'Qwen TTS 1.7B'
-          : 'Qwen TTS 0.6B';
+          : 'Qwen TTS 0.6B'
+        : 'Chatterbox TTS (Hebrew)';
 
       try {
         const modelStatus = await apiClient.getModelStatus();
@@ -96,6 +100,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         seed: data.seed,
         model_size: data.modelSize,
         instruct: data.instruct || undefined,
+        adapter_job_id: data.adapterJobId || undefined,
       });
 
       toast({
@@ -106,7 +111,14 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       const audioUrl = apiClient.getAudioUrl(result.id);
       setAudioWithAutoPlay(audioUrl, result.id, selectedProfileId, data.text.substring(0, 50));
 
+      // Preserve adapter and model settings across generations for convenience
+      const currentAdapter = form.getValues('adapterJobId');
+      const currentModelSize = form.getValues('modelSize');
+      const currentLanguage = form.getValues('language');
       form.reset();
+      if (currentAdapter) form.setValue('adapterJobId', currentAdapter);
+      if (currentModelSize) form.setValue('modelSize', currentModelSize);
+      if (currentLanguage) form.setValue('language', currentLanguage);
       options.onSuccess?.(result.id);
     } catch (error) {
       toast({

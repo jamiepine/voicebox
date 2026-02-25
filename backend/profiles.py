@@ -19,6 +19,8 @@ from .models import (
 from .database import (
     VoiceProfile as DBVoiceProfile,
     ProfileSample as DBProfileSample,
+    FinetuneSample as DBFinetuneSample,
+    FinetuneJob as DBFinetuneJob,
 )
 from .utils.audio import validate_reference_audio, load_audio, save_audio
 from .utils.images import validate_image, process_avatar
@@ -236,16 +238,25 @@ async def delete_profile(
     
     # Delete samples from database
     db.query(DBProfileSample).filter_by(profile_id=profile_id).delete()
-    
+
+    # Delete finetune data from database
+    db.query(DBFinetuneSample).filter_by(profile_id=profile_id).delete()
+    db.query(DBFinetuneJob).filter_by(profile_id=profile_id).delete()
+
     # Delete profile from database
     db.delete(profile)
     db.commit()
-    
+
     # Delete profile directory
     profile_dir = _get_profiles_dir() / profile_id
     if profile_dir.exists():
         shutil.rmtree(profile_dir)
-    
+
+    # Delete finetune directory
+    finetune_dir = config.get_finetune_dir() / profile_id
+    if finetune_dir.exists():
+        shutil.rmtree(finetune_dir)
+
     # Clean up combined audio cache files for this profile
     clear_profile_cache(profile_id)
     
@@ -384,7 +395,7 @@ async def create_voice_prompt_for_profile(
         save_audio(combined_audio, str(combined_path), 24000)
 
         # Create prompt from combined audio
-        voice_prompt, _ = await tts_model.create_voice_prompt(
+        voice_prompt, _ = await backend.create_voice_prompt(
             str(combined_path),
             combined_text,
             use_cache=use_cache,

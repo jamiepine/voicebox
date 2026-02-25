@@ -13,6 +13,8 @@ export interface VoiceProfileResponse {
   description?: string;
   language: string;
   avatar_path?: string;
+  has_finetune: boolean;
+  has_active_adapter: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -35,6 +37,7 @@ export interface GenerationRequest {
   seed?: number;
   model_size?: '1.7B' | '0.6B';
   instruct?: string;
+  adapter_job_id?: string;
 }
 
 export interface GenerationResponse {
@@ -123,9 +126,22 @@ export interface ActiveGenerationTask {
   started_at: string;
 }
 
+export interface ActiveFinetuneTask {
+  job_id: string;
+  profile_id: string;
+  status: string;
+  current_epoch: number;
+  total_epochs: number;
+  current_step: number;
+  total_steps: number;
+  current_loss?: number;
+  started_at: string;
+}
+
 export interface ActiveTasksResponse {
   downloads: ActiveDownloadTask[];
   generations: ActiveGenerationTask[];
+  finetunes: ActiveFinetuneTask[];
 }
 
 export interface StoryCreate {
@@ -202,4 +218,75 @@ export interface StoryItemTrim {
 
 export interface StoryItemSplit {
   split_time_ms: number;
+}
+
+// Finetune types
+export interface FinetuneSampleResponse {
+  id: string;
+  profile_id: string;
+  transcript: string;
+  duration_seconds: number;
+  is_ref_audio: boolean;
+  created_at: string;
+}
+
+export interface FinetuneJobResponse {
+  id: string;
+  profile_id: string;
+  status: string;
+  num_samples: number;
+  total_audio_duration_seconds: number;
+  epochs: number;
+  learning_rate: number;
+  batch_size: number;
+  lora_rank: number;
+  current_epoch: number;
+  current_step: number;
+  total_steps: number;
+  current_loss?: number;
+  has_adapter: boolean;
+  label?: string;
+  error_message?: string;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export interface FinetuneStatusResponse {
+  has_finetune: boolean;
+  has_active_adapter: boolean;
+  active_job?: FinetuneJobResponse;
+  sample_count: number;
+  total_duration_seconds: number;
+}
+
+export interface FinetuneStartRequest {
+  epochs?: number;
+  learning_rate?: number;
+  batch_size?: number;
+  lora_rank?: number;
+  label?: string;
+}
+
+export interface FinetuneImportRequest {
+  sample_ids?: string[];
+}
+
+export interface AdapterInfo {
+  job_id: string;
+  label?: string;
+  epochs: number;
+  lora_rank: number;
+  learning_rate: number;
+  num_samples: number;
+  completed_at?: string;
+  is_active: boolean;
+}
+
+export interface SetActiveAdapterRequest {
+  job_id: string | null;
+}
+
+export interface UpdateAdapterLabelRequest {
+  label: string;
 }

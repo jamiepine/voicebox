@@ -1,0 +1,12 @@
+torch>=2.4.0
+torchaudio>=2.2.0
+transformers>=4.40.0
+peft>=0.10.0
+datasets>=2.18.0
+accelerate>=0.28.0
+huggingface_hub>=0.22.0
+librosa>=0.10.0
+soundfile>=0.12.0
+numpy>=1.24.0
+jiwer>=3.0.0
+tqdm>=4.66.0

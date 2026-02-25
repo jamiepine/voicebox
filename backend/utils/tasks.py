@@ -25,12 +25,27 @@ class GenerationTask:
     started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+@dataclass
+class FinetuneTask:
+    """Represents an active finetune training task."""
+    job_id: str
+    profile_id: str
+    status: str = "pending"  # pending|preparing|training|completed|failed|cancelled
+    current_epoch: int = 0
+    total_epochs: int = 0
+    current_step: int = 0
+    total_steps: int = 0
+    current_loss: Optional[float] = None
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class TaskManager:
-    """Manages active downloads and generations."""
-    
+    """Manages active downloads, generations, and finetune tasks."""
+
     def __init__(self):
         self._active_downloads: Dict[str, DownloadTask] = {}
         self._active_generations: Dict[str, GenerationTask] = {}
+        self._active_finetunes: Dict[str, FinetuneTask] = {}
     
     def start_download(self, model_name: str) -> None:
         """Mark a download as started."""
@@ -79,6 +94,42 @@ class TaskManager:
     def is_generation_active(self, task_id: str) -> bool:
         """Check if a generation is active."""
         return task_id in self._active_generations
+
+    # Finetune task management
+    def start_finetune(self, job_id: str, profile_id: str, total_epochs: int = 0) -> None:
+        """Mark a finetune task as started."""
+        self._active_finetunes[job_id] = FinetuneTask(
+            job_id=job_id,
+            profile_id=profile_id,
+            status="preparing",
+            total_epochs=total_epochs,
+        )
+
+    def update_finetune(self, job_id: str, **kwargs) -> None:
+        """Update finetune task progress."""
+        if job_id in self._active_finetunes:
+            task = self._active_finetunes[job_id]
+            for key, value in kwargs.items():
+                if hasattr(task, key):
+                    setattr(task, key, value)
+
+    def complete_finetune(self, job_id: str) -> None:
+        """Mark a finetune task as complete."""
+        if job_id in self._active_finetunes:
+            del self._active_finetunes[job_id]
+
+    def error_finetune(self, job_id: str, error: str) -> None:
+        """Mark a finetune task as failed."""
+        if job_id in self._active_finetunes:
+            self._active_finetunes[job_id].status = "failed"
+
+    def get_active_finetunes(self) -> List[FinetuneTask]:
+        """Get all active finetune tasks."""
+        return list(self._active_finetunes.values())
+
+    def is_finetune_active(self) -> bool:
+        """Check if any finetune task is active."""
+        return len(self._active_finetunes) > 0
 
 
 # Global task manager instance
