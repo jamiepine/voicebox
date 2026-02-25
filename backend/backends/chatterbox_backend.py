@@ -31,6 +31,9 @@ class ChatterboxTTSBackend:
         "ve.pt",
     ]
 
+    # Class-level lock for torch.load monkey-patching (shared across calls)
+    _load_lock: "threading.Lock | None" = None
+
     def __init__(self):
         self.model = None
         self._device = None
@@ -134,14 +137,15 @@ class ChatterboxTTSBackend:
                 # from_local() doesn't pass map_location, so loading on CPU fails.
                 if device == "cpu":
                     import threading
+                    if ChatterboxTTSBackend._load_lock is None:
+                        ChatterboxTTSBackend._load_lock = threading.Lock()
                     _orig_torch_load = torch.load
-                    _load_lock = threading.Lock()
 
                     def _patched_load(*args, **kwargs):
                         kwargs.setdefault("map_location", "cpu")
                         return _orig_torch_load(*args, **kwargs)
 
-                    with _load_lock:
+                    with ChatterboxTTSBackend._load_lock:
                         torch.load = _patched_load
                         try:
                             self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)

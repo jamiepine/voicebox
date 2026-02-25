@@ -781,6 +781,10 @@ async def stream_speech(
             data.seed,
             data.instruct,
         )
+
+        # Trim trailing silence/noise from Chatterbox output (same as /generate)
+        from .utils.audio import trim_tts_output
+        audio = trim_tts_output(audio, sample_rate)
     else:
         tts_model = tts.get_tts_model()
         model_size = data.model_size or "1.7B"
