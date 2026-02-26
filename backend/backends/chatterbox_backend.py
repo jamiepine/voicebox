@@ -152,9 +152,10 @@ class ChatterboxTTSBackend:
                 else:
                     self.model = ChatterboxMultilingualTTS.from_pretrained(device=device)
 
-                # Fix: newer transformers defaults LlamaModel to sdpa attention
-                # which doesn't support output_attentions (needed by Chatterbox
-                # AlignmentStreamAnalyzer). Force eager attention instead.
+                # Fix: transformers >= 4.36 defaults LlamaModel to sdpa attention
+                # which doesn't support output_attentions=True (needed by
+                # Chatterbox's AlignmentStreamAnalyzer). Force eager attention.
+                # TODO: remove once chatterbox-tts updates its model config.
                 t3_tfmr = self.model.t3.tfmr
                 if hasattr(t3_tfmr, 'config') and hasattr(t3_tfmr.config, '_attn_implementation'):
                     t3_tfmr.config._attn_implementation = "eager"

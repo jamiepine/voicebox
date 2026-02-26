@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Hebrew Language Support** - Full Hebrew voice cloning and transcription
   - Chatterbox Multilingual TTS backend (`ResembleAI/chatterbox`) for Hebrew voice generation
-  - ivrit-ai Whisper models (`ivrit-ai/whisper-large-v3-turbo`) for Hebrew transcription
+  - ivrit-ai Whisper models (`ivrit-ai/whisper-large-v3-turbo` and `ivrit-ai/whisper-large-v3`) for Hebrew transcription
   - Automatic backend routing: Hebrew requests use Chatterbox, all other languages use Qwen3-TTS
   - Auto-download of Hebrew models on first use with progress tracking
   - Trailing silence trimming for Chatterbox output
@@ -75,9 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [Unreleased - Planned]
+## Roadmap
 
-### Planned
 - Real-time streaming synthesis
 - Conversation mode with multiple speakers
 - Voice effects (pitch shift, reverb, M3GAN-style)
@@ -89,4 +88,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[Unreleased]: https://github.com/nadavox/voicebox/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/jamiepine/voicebox/releases/tag/v0.1.0

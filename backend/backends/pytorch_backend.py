@@ -464,6 +464,10 @@ class PyTorchSTTBackend:
         if self.model is not None and self.model_size == model_size:
             return
 
+        # Free previous model before loading a different size
+        if self.model is not None:
+            self.unload_model()
+
         # Run blocking load in thread pool
         await asyncio.to_thread(self._load_model_sync, model_size)
     

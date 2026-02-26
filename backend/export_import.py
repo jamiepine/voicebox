@@ -6,6 +6,7 @@ Also handles exporting individual generations.
 """
 
 import json
+import uuid
 import zipfile
 import io
 from pathlib import Path
@@ -321,11 +322,9 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
     Raises:
         ValueError: If ZIP is invalid or missing required files
     """
-    from pathlib import Path
     import tempfile
     import shutil
     from datetime import datetime, timezone
-    from . import config
     
     zip_buffer = io.BytesIO(file_bytes)
     
@@ -393,7 +392,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                 generations_dir.mkdir(parents=True, exist_ok=True)
                 
                 # Generate new ID for this generation
-                new_generation_id = str(__import__('uuid').uuid4())
+                new_generation_id = str(uuid.uuid4())
                 
                 # Copy audio to generations directory
                 audio_dest = generations_dir / f"{new_generation_id}.wav"

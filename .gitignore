@@ -38,8 +38,8 @@ Thumbs.db
 data/profiles/*
 data/generations/*
 data/projects/*
-data/cache/
-data/finetune/
+data/cache/*
+data/finetune/*
 data/voicebox.db
 !data/.gitkeep
 

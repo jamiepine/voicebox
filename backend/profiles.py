@@ -384,7 +384,7 @@ async def create_voice_prompt_for_profile(
         save_audio(combined_audio, str(combined_path), 24000)
 
         # Create prompt from combined audio
-        voice_prompt, _ = await tts_model.create_voice_prompt(
+        voice_prompt, _ = await backend.create_voice_prompt(
             str(combined_path),
             combined_text,
             use_cache=use_cache,

@@ -33,3 +33,9 @@ def unload_whisper_model():
     """Unload Whisper model to free memory."""
     backend = get_stt_backend()
     backend.unload_model()
+
+
+def unload_pytorch_whisper_model():
+    """Unload PyTorch Whisper model to free memory."""
+    backend = get_pytorch_stt_backend()
+    backend.unload_model()

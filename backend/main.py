@@ -1373,10 +1373,14 @@ async def unload_specific_model(model_name: str):
                 raise HTTPException(status_code=400, detail=f"Model {model_name} is not loaded")
             tts.unload_tts_model()
         elif model_type == "whisper":
-            whisper_model = transcribe.get_whisper_model()
+            # ivrit models are loaded via the PyTorch STT backend (MLX can't load them)
+            if model_size.startswith("ivrit"):
+                whisper_model = transcribe.get_pytorch_whisper_model()
+            else:
+                whisper_model = transcribe.get_whisper_model()
             if not whisper_model.is_loaded() or getattr(whisper_model, 'model_size', None) != model_size:
                 raise HTTPException(status_code=400, detail=f"Model {model_name} is not loaded")
-            transcribe.unload_whisper_model()
+            whisper_model.unload_model()
         elif model_type == "chatterbox":
             chatterbox_model = tts.get_chatterbox_model()
             if not chatterbox_model.is_loaded():
@@ -1691,8 +1695,6 @@ async def get_model_status():
 @app.post("/models/download")
 async def trigger_model_download(request: models.ModelDownloadRequest):
     """Trigger download of a specific model."""
-    import asyncio
-    
     task_manager = get_task_manager()
     progress_manager = get_progress_manager()
     
@@ -1843,9 +1845,13 @@ async def delete_model(model_name: str):
             if tts_model.is_loaded() and tts_model.model_size == config["model_size"]:
                 tts.unload_tts_model()
         elif config["model_type"] == "whisper":
-            whisper_model = transcribe.get_whisper_model()
+            # ivrit models are loaded via PyTorch STT backend (MLX can't load them)
+            if config["model_size"].startswith("ivrit"):
+                whisper_model = transcribe.get_pytorch_whisper_model()
+            else:
+                whisper_model = transcribe.get_whisper_model()
             if whisper_model.is_loaded() and whisper_model.model_size == config["model_size"]:
-                transcribe.unload_whisper_model()
+                whisper_model.unload_model()
         elif config["model_type"] == "chatterbox":
             chatterbox_model = tts.get_chatterbox_model()
             if chatterbox_model.is_loaded():
@@ -1952,316 +1958,6 @@ async def get_active_tasks():
     return models.ActiveTasksResponse(
         downloads=active_downloads,
         generations=active_generations,
-        finetunes=active_finetunes,
-    )
-
-
-# ============================================
-# FINETUNE ENDPOINTS
-# ============================================
-
-@app.post("/profiles/{profile_id}/finetune/samples", response_model=models.FinetuneSampleResponse)
-async def add_finetune_sample(
-    profile_id: str,
-    file: UploadFile = File(...),
-    transcript: Optional[str] = Form(None),
-    emotion: Optional[str] = Form(None),
-    prompt_id: Optional[str] = Form(None),
-    db: Session = Depends(get_db),
-):
-    """Upload or record a training sample for fine-tuning. Auto-transcribes if no transcript."""
-    _validate_uuid(profile_id, "profile_id")
-    # Validate profile exists
-    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
-
-    # Save uploaded file temporarily
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
-
-    try:
-        # Get duration
-        from .utils.audio import load_audio
-        audio_data, sr = load_audio(tmp_path)
-        duration = len(audio_data) / sr
-
-        # Auto-transcribe if no transcript provided
-        if not transcript:
-            try:
-                # Hebrew → use ivrit-ai turbo model via PyTorch backend
-                # (mlx_audio cannot load the ivrit-ai fine-tuned model)
-                if profile.language == "he":
-                    whisper_model = transcribe.get_pytorch_whisper_model()
-                    whisper_size = "ivrit-v3-turbo"
-                else:
-                    whisper_model = transcribe.get_whisper_model()
-                    whisper_size = whisper_model.model_size
-
-                await whisper_model.load_model_async(whisper_size)
-                transcript = await whisper_model.transcribe(tmp_path, language=profile.language)
-            except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Auto-transcription failed: {e}. Please provide a transcript.")
-
-        result = await finetune.add_sample(
-            profile_id=profile_id,
-            audio_path=tmp_path,
-            transcript=transcript,
-            duration_seconds=duration,
-            db=db,
-            emotion=emotion,
-            prompt_id=prompt_id,
-        )
-        return result
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
-
-
-@app.get("/profiles/{profile_id}/finetune/samples", response_model=List[models.FinetuneSampleResponse])
-async def list_finetune_samples(
-    profile_id: str,
-    db: Session = Depends(get_db),
-):
-    """List training samples for fine-tuning."""
-    _validate_uuid(profile_id, "profile_id")
-    return await finetune.list_samples(profile_id, db)
-
-
-@app.delete("/profiles/{profile_id}/finetune/samples/{sample_id}")
-async def delete_finetune_sample(
-    profile_id: str,
-    sample_id: str,
-    db: Session = Depends(get_db),
-):
-    """Delete a fine-tune training sample."""
-    _validate_uuid(profile_id, "profile_id")
-    _validate_uuid(sample_id, "sample_id")
-    success = await finetune.delete_sample(sample_id, db, profile_id=profile_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Sample not found")
-    return {"message": "Sample deleted"}
-
-
-@app.post("/profiles/{profile_id}/finetune/samples/import", response_model=List[models.FinetuneSampleResponse])
-async def import_finetune_samples(
-    profile_id: str,
-    data: models.FinetuneImportRequest,
-    db: Session = Depends(get_db),
-):
-    """Import existing profile samples into finetune training set."""
-    _validate_uuid(profile_id, "profile_id")
-    return await finetune.import_profile_samples(profile_id, data.sample_ids, db)
-
-
-@app.post("/profiles/{profile_id}/finetune/samples/{sample_id}/set-ref")
-async def set_finetune_ref_audio(
-    profile_id: str,
-    sample_id: str,
-    db: Session = Depends(get_db),
-):
-    """Mark a sample as the reference audio for training."""
-    _validate_uuid(profile_id, "profile_id")
-    _validate_uuid(sample_id, "sample_id")
-    success = await finetune.set_ref_audio(sample_id, profile_id, db)
-    if not success:
-        raise HTTPException(status_code=404, detail="Sample not found")
-    return {"message": "Reference audio set"}
-
-
-@app.get("/profiles/{profile_id}/finetune/status", response_model=models.FinetuneStatusResponse)
-async def get_finetune_status(
-    profile_id: str,
-    db: Session = Depends(get_db),
-):
-    """Get fine-tune status for a profile."""
-    _validate_uuid(profile_id, "profile_id")
-    try:
-        return await finetune.get_status(profile_id, db)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-
-@app.post("/profiles/{profile_id}/finetune/start", status_code=202)
-async def start_finetune(
-    profile_id: str,
-    data: models.FinetuneStartRequest = models.FinetuneStartRequest(),
-    db: Session = Depends(get_db),
-):
-    """Start fine-tuning for a profile. Returns job ID."""
-    _validate_uuid(profile_id, "profile_id")
-    # Validate profile exists
-    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
-    if not profile:
-        raise HTTPException(status_code=404, detail="Profile not found")
-
-    try:
-        job_id = await finetune.start_training(
-            profile_id=profile_id,
-            config_dict=data.model_dump(),
-            db=db,
-        )
-        return {"job_id": job_id, "message": "Fine-tuning started"}
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/profiles/{profile_id}/finetune/cancel")
-async def cancel_finetune(
-    profile_id: str,
-    db: Session = Depends(get_db),
-):
-    """Cancel an active fine-tuning job."""
-    _validate_uuid(profile_id, "profile_id")
-    success = await finetune.cancel_training(profile_id, db)
-    if not success:
-        raise HTTPException(status_code=404, detail="No active training job found")
-    return {"message": "Training cancelled"}
-
-
-@app.get("/profiles/{profile_id}/finetune/jobs", response_model=List[models.FinetuneJobResponse])
-async def list_finetune_jobs(
-    profile_id: str,
-    db: Session = Depends(get_db),
-):
-    """List all fine-tune jobs for a profile."""
-    _validate_uuid(profile_id, "profile_id")
-    return await finetune.list_jobs(profile_id, db)
-
-
-@app.get("/finetune/progress/{job_id}")
-async def finetune_progress_sse(request: Request, job_id: str):
-    """SSE stream of fine-tuning progress with proper disconnect handling."""
-    from sse_starlette import EventSourceResponse
-
-    progress_manager = get_progress_manager()
-    progress_key = f"finetune-{job_id}"
-
-    async def event_generator():
-        import json as _json
-        queue = asyncio.Queue(maxsize=10)
-
-        # Subscribe to progress updates
-        if progress_key not in progress_manager._listeners:
-            progress_manager._listeners[progress_key] = []
-        progress_manager._listeners[progress_key].append(queue)
-
-        try:
-            # Send initial progress if available
-            initial = progress_manager.get_progress(progress_key)
-            if initial and initial.get("status") in ("downloading", "extracting", "training"):
-                yield {"event": "progress", "data": _json.dumps(initial)}
-
-            while True:
-                # Check for client disconnect
-                if await request.is_disconnected():
-                    break
-
-                try:
-                    progress = await asyncio.wait_for(queue.get(), timeout=2.0)
-                    status = progress.get("status", "")
-                    event_type = "complete" if status in ("complete", "error") else "progress"
-                    yield {"event": event_type, "data": _json.dumps(progress)}
-
-                    if status in ("complete", "error"):
-                        break
-                except asyncio.TimeoutError:
-                    continue
-        finally:
-            # Unsubscribe
-            if progress_key in progress_manager._listeners:
-                try:
-                    progress_manager._listeners[progress_key].remove(queue)
-                except ValueError:
-                    pass
-                if not progress_manager._listeners[progress_key]:
-                    del progress_manager._listeners[progress_key]
-
-    return EventSourceResponse(
-        event_generator(),
-        ping=15,
-        send_timeout=5,
-        headers={"X-Accel-Buffering": "no"},
-    )
-
-
-@app.get("/profiles/{profile_id}/finetune/adapters", response_model=List[models.AdapterInfo])
-async def list_finetune_adapters(
-    profile_id: str,
-    db: Session = Depends(get_db),
-):
-    """List all trained adapters for a profile."""
-    _validate_uuid(profile_id, "profile_id")
-    return await finetune.list_adapters(profile_id, db)
-
-
-@app.put("/profiles/{profile_id}/finetune/active-adapter")
-async def set_finetune_active_adapter(
-    profile_id: str,
-    data: models.SetActiveAdapterRequest,
-    db: Session = Depends(get_db),
-):
-    """Set the active adapter for a profile, or deactivate (job_id=null)."""
-    _validate_uuid(profile_id, "profile_id")
-    try:
-        await finetune.set_active_adapter(profile_id, data.job_id, db)
-        return {"status": "ok"}
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-
-@app.put("/profiles/{profile_id}/finetune/adapters/{job_id}/label")
-async def update_finetune_adapter_label(
-    profile_id: str,
-    job_id: str,
-    data: models.UpdateAdapterLabelRequest,
-    db: Session = Depends(get_db),
-):
-    """Update the label for a trained adapter."""
-    _validate_uuid(profile_id, "profile_id")
-    _validate_uuid(job_id, "job_id")
-    success = await finetune.update_adapter_label(profile_id, job_id, data.label, db)
-    if not success:
-        raise HTTPException(status_code=404, detail="Adapter not found")
-    return {"status": "ok"}
-
-
-@app.delete("/profiles/{profile_id}/finetune/adapters/{job_id}")
-async def delete_finetune_adapter(
-    profile_id: str,
-    job_id: str,
-    db: Session = Depends(get_db),
-):
-    """Delete a trained adapter."""
-    _validate_uuid(profile_id, "profile_id")
-    _validate_uuid(job_id, "job_id")
-    success = await finetune.delete_adapter(profile_id, job_id, db)
-    if not success:
-        raise HTTPException(status_code=404, detail="Adapter not found")
-    return {"status": "ok"}
-
-
-@app.get("/finetune/samples/{sample_id}/audio")
-async def get_finetune_sample_audio(sample_id: str, db: Session = Depends(get_db)):
-    """Serve a finetune sample audio file."""
-    _validate_uuid(sample_id, "sample_id")
-    from .database import FinetuneSample as DBFinetuneSample
-    sample = db.query(DBFinetuneSample).filter_by(id=sample_id).first()
-    if not sample:
-        raise HTTPException(status_code=404, detail="Sample not found")
-
-    audio_path = Path(sample.audio_path).resolve()
-    finetune_root = config.get_finetune_dir().resolve()
-    if not str(audio_path).startswith(str(finetune_root)):
-        raise HTTPException(status_code=403, detail="Access denied")
-    if not audio_path.exists():
-        raise HTTPException(status_code=404, detail="Audio file not found")
-
-    return FileResponse(
-        str(audio_path),
-        media_type="audio/wav",
-        filename=f"{sample_id}.wav",
     )
 
 
@@ -2318,6 +2014,7 @@ async def shutdown_event():
     tts.unload_tts_model()
     tts.unload_chatterbox_model()
     transcribe.unload_whisper_model()
+    transcribe.unload_pytorch_whisper_model()
 
 
 # ============================================

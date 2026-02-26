@@ -217,7 +217,7 @@ def get_pytorch_stt_backend() -> STTBackend:
     return _pytorch_stt_backend
 
 
-def get_chatterbox_backend():
+def get_chatterbox_backend() -> "ChatterboxTTSBackend":
     """
     Get or create Chatterbox TTS backend instance (for Hebrew).
 
