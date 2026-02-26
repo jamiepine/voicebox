@@ -394,7 +394,7 @@ class MLXTTSBackend:
         if adapter loading fails.
         """
         print(f"[MLX] generate_with_adapter called. Adapter: {adapter_path}")
-        print("[MLX] Note: MLX LoRA adapter loading is experimental, falling back to standard generation")
+        print("[MLX] MLX LoRA adapter loading is experimental, falling back to standard generation")
         # MLX doesn't have mature PEFT/LoRA support for Qwen3-TTS yet.
         # Fall back to standard generation for now.
         return await self.generate(text, voice_prompt, language, seed, instruct)

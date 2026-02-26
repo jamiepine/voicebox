@@ -38,6 +38,7 @@ class ChatterboxTTSBackend:
     def __init__(self):
         self.model = None
         self._device = None
+        self._model_load_lock = asyncio.Lock()
 
     def _get_device(self) -> str:
         """Get the best available device. Forces CPU on macOS (MPS issue)."""
@@ -91,7 +92,10 @@ class ChatterboxTTSBackend:
         """Load the Chatterbox multilingual model."""
         if self.model is not None:
             return
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        async with self._model_load_lock:
+            if self.model is not None:
+                return
+            await asyncio.to_thread(self._load_model_sync, model_size)
 
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""

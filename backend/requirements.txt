@@ -16,6 +16,7 @@ qwen-tts>=0.0.5
 # Hebrew TTS (Chatterbox) and its sub-dependencies
 chatterbox-tts>=0.1.0
 conformer
+dicta-onnx
 diffusers
 omegaconf
 pykakasi

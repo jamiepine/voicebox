@@ -691,7 +691,7 @@ async def generate_speech(
                 data.instruct,
             )
 
-        # Trim trailing silence/noise from Chatterbox output (known hallucination issue)
+        # Trim trailing silence/noise (Chatterbox-specific hallucination issue)
         if data.language == "he":
             from .utils.audio import trim_tts_output
             audio = trim_tts_output(audio, sample_rate)
@@ -722,6 +722,9 @@ async def generate_speech(
         
         return generation
         
+    except HTTPException:
+        task_manager.complete_generation(generation_id)
+        raise
     except ValueError as e:
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=400, detail=str(e))
@@ -1444,10 +1447,14 @@ async def get_model_status():
         except Exception:
             return False
     
-    def check_whisper_loaded(model_size: str):
+    def check_whisper_loaded(model_size: str, *, use_pytorch: bool = False):
         """Check if Whisper model is loaded with specific size."""
         try:
-            whisper_model = transcribe.get_whisper_model()
+            whisper_model = (
+                transcribe.get_pytorch_whisper_model()
+                if use_pytorch
+                else transcribe.get_whisper_model()
+            )
             return whisper_model.is_loaded() and getattr(whisper_model, 'model_size', None) == model_size
         except Exception:
             return False
@@ -1526,14 +1533,14 @@ async def get_model_status():
             "display_name": "Whisper Hebrew (ivrit-ai)",
             "hf_repo_id": "ivrit-ai/whisper-large-v3",
             "model_size": "ivrit-v3",
-            "check_loaded": lambda: check_whisper_loaded("ivrit-v3"),
+            "check_loaded": lambda: check_whisper_loaded("ivrit-v3", use_pytorch=True),
         },
         {
             "model_name": "whisper-ivrit-v3-turbo",
             "display_name": "Whisper Hebrew Turbo (ivrit-ai)",
             "hf_repo_id": "ivrit-ai/whisper-large-v3-turbo",
             "model_size": "ivrit-v3-turbo",
-            "check_loaded": lambda: check_whisper_loaded("ivrit-v3-turbo"),
+            "check_loaded": lambda: check_whisper_loaded("ivrit-v3-turbo", use_pytorch=True),
         },
         {
             "model_name": "chatterbox-tts",

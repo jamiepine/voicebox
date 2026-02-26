@@ -152,34 +152,27 @@ class PyTorchTTSBackend:
             progress_callback = create_hf_progress_callback(model_name, progress_manager)
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
-            # Patch tqdm BEFORE importing qwen_tts
-            tracker_context = tracker.patch_download()
-            tracker_context.__enter__()
+            # Patch tqdm BEFORE importing qwen_tts so download
+            # progress is captured via the HFProgressTracker.
+            with tracker.patch_download():
+                from qwen_tts import Qwen3TTSModel
 
-            # Import qwen_tts
-            from qwen_tts import Qwen3TTSModel
+                model_path = self._get_model_path(model_size)
 
-            # Get model path (local or HuggingFace Hub ID)
-            model_path = self._get_model_path(model_size)
+                print(f"Loading TTS model {model_size} on {self.device}...")
 
-            print(f"Loading TTS model {model_size} on {self.device}...")
+                # Only track download progress if model is NOT cached
+                if not is_cached:
+                    task_manager.start_download(model_name)
 
-            # Only track download progress if model is NOT cached
-            if not is_cached:
-                # Start tracking download task
-                task_manager.start_download(model_name)
+                    progress_manager.update_progress(
+                        model_name=model_name,
+                        current=0,
+                        total=0,
+                        filename="Connecting to HuggingFace...",
+                        status="downloading",
+                    )
 
-                # Initialize progress state so SSE endpoint has initial data to send
-                progress_manager.update_progress(
-                    model_name=model_name,
-                    current=0,
-                    total=0,  # Will be updated once actual total is known
-                    filename="Connecting to HuggingFace...",
-                    status="downloading",
-                )
-
-            # Load the model (tqdm is patched, but filters out non-download progress)
-            try:
                 # Don't pass device_map on CPU: accelerate's meta-tensor mechanism
                 # causes "Cannot copy out of meta tensor" when moving to CPU.
                 # Instead load directly then call .to(device) if needed.
@@ -195,9 +188,6 @@ class PyTorchTTSBackend:
                         device_map=self.device,
                         torch_dtype=torch.bfloat16,
                     )
-            finally:
-                # Exit the patch context
-                tracker_context.__exit__(None, None, None)
             
             # Only mark download as complete if we were tracking it
             if not is_cached:
@@ -490,33 +480,27 @@ class PyTorchSTTBackend:
             progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
-            # Patch tqdm BEFORE importing transformers
-            tracker_context = tracker.patch_download()
-            tracker_context.__enter__()
+            # Patch tqdm BEFORE importing transformers so download
+            # progress is captured via the HFProgressTracker.
+            with tracker.patch_download():
+                from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            # Import transformers
-            from transformers import WhisperProcessor, WhisperForConditionalGeneration
+                model_name = self._resolve_model_name(model_size)
 
-            model_name = self._resolve_model_name(model_size)
+                print(f"Loading Whisper model {model_size} on {self.device}...")
 
-            print(f"Loading Whisper model {model_size} on {self.device}...")
+                # Only track download progress if model is NOT cached
+                if not is_cached:
+                    task_manager.start_download(progress_model_name)
 
-            # Only track download progress if model is NOT cached
-            if not is_cached:
-                # Start tracking download task
-                task_manager.start_download(progress_model_name)
+                    progress_manager.update_progress(
+                        model_name=progress_model_name,
+                        current=0,
+                        total=0,
+                        filename="Connecting to HuggingFace...",
+                        status="downloading",
+                    )
 
-                # Initialize progress state so SSE endpoint has initial data to send
-                progress_manager.update_progress(
-                    model_name=progress_model_name,
-                    current=0,
-                    total=0,  # Will be updated once actual total is known
-                    filename="Connecting to HuggingFace...",
-                    status="downloading",
-                )
-
-            # Load models (tqdm is patched, but filters out non-download progress)
-            try:
                 self.processor = WhisperProcessor.from_pretrained(model_name)
                 if self.device == "cpu":
                     self.model = WhisperForConditionalGeneration.from_pretrained(
@@ -530,9 +514,6 @@ class PyTorchSTTBackend:
                         device_map=self.device,
                         torch_dtype=torch.bfloat16,
                     )
-            finally:
-                # Exit the patch context
-                tracker_context.__exit__(None, None, None)
 
             # Only mark download as complete if we were tracking it
             if not is_cached:
