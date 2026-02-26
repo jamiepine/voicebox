@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Loader2, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
+import { LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
@@ -29,6 +30,16 @@ export function GenerationForm() {
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
 
   const { form, handleSubmit, isPending } = useGenerationForm();
+
+  // Auto-sync language when selected profile changes
+  useEffect(() => {
+    if (selectedProfile?.language) {
+      const profileLang = selectedProfile.language as LanguageCode;
+      if (LANGUAGE_OPTIONS.some((l) => l.value === profileLang)) {
+        form.setValue('language', profileLang);
+      }
+    }
+  }, [selectedProfile?.language, form]);
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);
@@ -105,7 +116,7 @@ export function GenerationForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Language</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue />

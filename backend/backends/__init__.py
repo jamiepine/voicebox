@@ -10,6 +10,17 @@ import numpy as np
 
 from ..platform_detect import get_backend_type
 
+# Shared model name mapping for STT backends (MLX + PyTorch).
+# Maps short model size keys to HuggingFace repo IDs.
+STT_MODEL_MAP = {
+    "base": "openai/whisper-base",
+    "small": "openai/whisper-small",
+    "medium": "openai/whisper-medium",
+    "large": "openai/whisper-large",
+    "ivrit-v3": "ivrit-ai/whisper-large-v3",
+    "ivrit-v3-turbo": "ivrit-ai/whisper-large-v3-turbo",
+}
+
 
 @runtime_checkable
 class TTSBackend(Protocol):
@@ -113,6 +124,9 @@ class STTBackend(Protocol):
 # Global backend instances
 _tts_backend: Optional[TTSBackend] = None
 _stt_backend: Optional[STTBackend] = None
+_chatterbox_backend = None  # Optional[ChatterboxTTSBackend]
+_pytorch_tts_backend: Optional[TTSBackend] = None  # For adapter-based generation
+_pytorch_stt_backend: Optional[STTBackend] = None  # For ivrit models on MLX
 
 
 def get_tts_backend() -> TTSBackend:
@@ -159,8 +173,71 @@ def get_stt_backend() -> STTBackend:
     return _stt_backend
 
 
+def get_pytorch_tts_backend() -> TTSBackend:
+    """
+    Get or create a PyTorch TTS backend instance.
+
+    Used specifically for adapter-based generation, since LoRA adapters
+    are trained with PyTorch+PEFT and must be loaded in PyTorch.
+    On Apple Silicon, the default backend is MLX which doesn't support
+    PEFT adapters, so we maintain a separate PyTorch backend.
+    """
+    global _pytorch_tts_backend
+
+    if _pytorch_tts_backend is None:
+        # Check if the default backend is already PyTorch — reuse it
+        backend_type = get_backend_type()
+        if backend_type != "mlx":
+            _pytorch_tts_backend = get_tts_backend()
+        else:
+            from .pytorch_backend import PyTorchTTSBackend
+            _pytorch_tts_backend = PyTorchTTSBackend()
+
+    return _pytorch_tts_backend
+
+
+def get_pytorch_stt_backend() -> STTBackend:
+    """
+    Get or create a PyTorch STT backend instance.
+
+    Used for models that mlx_audio cannot load (e.g. ivrit-ai fine-tuned
+    Whisper models). On Apple Silicon the default STT backend is MLX,
+    so we maintain a separate PyTorch backend for these models.
+    """
+    global _pytorch_stt_backend
+
+    if _pytorch_stt_backend is None:
+        backend_type = get_backend_type()
+        if backend_type != "mlx":
+            _pytorch_stt_backend = get_stt_backend()
+        else:
+            from .pytorch_backend import PyTorchSTTBackend
+            _pytorch_stt_backend = PyTorchSTTBackend()
+
+    return _pytorch_stt_backend
+
+
+def get_chatterbox_backend() -> "ChatterboxTTSBackend":
+    """
+    Get or create Chatterbox TTS backend instance (for Hebrew).
+
+    Returns:
+        ChatterboxTTSBackend instance
+    """
+    global _chatterbox_backend
+
+    if _chatterbox_backend is None:
+        from .chatterbox_backend import ChatterboxTTSBackend
+        _chatterbox_backend = ChatterboxTTSBackend()
+
+    return _chatterbox_backend
+
+
 def reset_backends():
     """Reset backend instances (useful for testing)."""
-    global _tts_backend, _stt_backend
+    global _tts_backend, _stt_backend, _chatterbox_backend, _pytorch_tts_backend, _pytorch_stt_backend
     _tts_backend = None
     _stt_backend = None
+    _chatterbox_backend = None
+    _pytorch_tts_backend = None
+    _pytorch_stt_backend = None

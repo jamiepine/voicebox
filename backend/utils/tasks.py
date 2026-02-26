@@ -3,7 +3,7 @@ Task tracking for active downloads and generations.
 """
 
 from typing import Optional, Dict, List
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 
 
@@ -12,7 +12,7 @@ class DownloadTask:
     """Represents an active download task."""
     model_name: str
     status: str = "downloading"  # downloading, extracting, complete, error
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     error: Optional[str] = None
 
 
@@ -22,7 +22,7 @@ class GenerationTask:
     task_id: str
     profile_id: str
     text_preview: str  # First 50 chars of text
-    started_at: datetime = field(default_factory=datetime.utcnow)
+    started_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TaskManager:

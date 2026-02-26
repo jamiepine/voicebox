@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Download, Loader2, Trash2 } from 'lucide-react';
+import { Download, Loader2, Power, Trash2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import {
   AlertDialog,
@@ -136,6 +136,27 @@ export function ModelManagement() {
     },
   });
 
+  const unloadMutation = useMutation({
+    mutationFn: async (modelName: string) => {
+      return apiClient.unloadModel(modelName);
+    },
+    onSuccess: async (_data, modelName) => {
+      const model = modelStatus?.models.find((m) => m.model_name === modelName);
+      toast({
+        title: 'Model unloaded',
+        description: `${model?.display_name || modelName} has been unloaded from memory.`,
+      });
+      await queryClient.invalidateQueries({ queryKey: ['modelStatus'], refetchType: 'all' });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Unload failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const formatSize = (sizeMb?: number): string => {
     if (!sizeMb) return 'Unknown';
     if (sizeMb < 1024) return `${sizeMb.toFixed(1)} MB`;
@@ -164,7 +185,7 @@ export function ModelManagement() {
               </h3>
               <div className="space-y-2">
                 {modelStatus.models
-                  .filter((m) => m.model_name.startsWith('qwen-tts'))
+                  .filter((m) => m.model_name.startsWith('qwen-tts') || m.model_name === 'chatterbox-tts')
                   .map((model) => (
                     <ModelItem
                       key={model.model_name}
@@ -178,7 +199,9 @@ export function ModelManagement() {
                         });
                         setDeleteDialogOpen(true);
                       }}
+                      onUnload={() => unloadMutation.mutate(model.model_name)}
                       isDownloading={downloadingModel === model.model_name}
+                      isUnloading={unloadMutation.isPending && unloadMutation.variables === model.model_name}
                       formatSize={formatSize}
                     />
                   ))}
@@ -206,7 +229,9 @@ export function ModelManagement() {
                         });
                         setDeleteDialogOpen(true);
                       }}
+                      onUnload={() => unloadMutation.mutate(model.model_name)}
                       isDownloading={downloadingModel === model.model_name}
+                      isUnloading={unloadMutation.isPending && unloadMutation.variables === model.model_name}
                       formatSize={formatSize}
                     />
                   ))}
@@ -271,14 +296,16 @@ interface ModelItemProps {
   };
   onDownload: () => void;
   onDelete: () => void;
+  onUnload: () => void;
   isDownloading: boolean;  // Local state - true if user just clicked download
+  isUnloading: boolean;
   formatSize: (sizeMb?: number) => string;
 }
 
-function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: ModelItemProps) {
+function ModelItem({ model, onDownload, onDelete, onUnload, isDownloading, isUnloading, formatSize }: ModelItemProps) {
   // Use server's downloading state OR local state (for immediate feedback before server updates)
   const showDownloading = model.downloading || isDownloading;
-  
+
   return (
     <div className="flex items-center justify-between p-3 border rounded-lg">
       <div className="flex-1">
@@ -305,9 +332,25 @@ function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: M
       <div className="flex items-center gap-2">
         {model.downloaded && !showDownloading ? (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <span>Ready</span>
-            </div>
+            {model.loaded ? (
+              <Button
+                size="sm"
+                onClick={onUnload}
+                variant="outline"
+                disabled={isUnloading}
+                title="Unload model from memory"
+              >
+                {isUnloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Power className="h-4 w-4" />
+                )}
+              </Button>
+            ) : (
+              <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                <span>Ready</span>
+              </div>
+            )}
             <Button
               size="sm"
               onClick={onDelete}

@@ -11,7 +11,7 @@ class VoiceProfileCreate(BaseModel):
     """Request model for creating a voice profile."""
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
+    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he)$")
 
 
 class VoiceProfileResponse(BaseModel):
@@ -53,7 +53,7 @@ class GenerationRequest(BaseModel):
     """Request model for voice generation."""
     profile_id: str
     text: str = Field(..., min_length=1, max_length=5000)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
+    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he)$")
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B)$")
     instruct: Optional[str] = Field(None, max_length=500)
@@ -108,7 +108,7 @@ class HistoryListResponse(BaseModel):
 
 class TranscriptionRequest(BaseModel):
     """Request model for audio transcription."""
-    language: Optional[str] = Field(None, pattern="^(en|zh)$")
+    language: Optional[str] = Field(None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he)$")
 
 
 class TranscriptionResponse(BaseModel):

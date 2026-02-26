@@ -152,34 +152,27 @@ class PyTorchTTSBackend:
             progress_callback = create_hf_progress_callback(model_name, progress_manager)
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
-            # Patch tqdm BEFORE importing qwen_tts
-            tracker_context = tracker.patch_download()
-            tracker_context.__enter__()
+            # Patch tqdm BEFORE importing qwen_tts so download
+            # progress is captured via the HFProgressTracker.
+            with tracker.patch_download():
+                from qwen_tts import Qwen3TTSModel
 
-            # Import qwen_tts
-            from qwen_tts import Qwen3TTSModel
+                model_path = self._get_model_path(model_size)
 
-            # Get model path (local or HuggingFace Hub ID)
-            model_path = self._get_model_path(model_size)
+                print(f"Loading TTS model {model_size} on {self.device}...")
 
-            print(f"Loading TTS model {model_size} on {self.device}...")
+                # Only track download progress if model is NOT cached
+                if not is_cached:
+                    task_manager.start_download(model_name)
 
-            # Only track download progress if model is NOT cached
-            if not is_cached:
-                # Start tracking download task
-                task_manager.start_download(model_name)
+                    progress_manager.update_progress(
+                        model_name=model_name,
+                        current=0,
+                        total=0,
+                        filename="Connecting to HuggingFace...",
+                        status="downloading",
+                    )
 
-                # Initialize progress state so SSE endpoint has initial data to send
-                progress_manager.update_progress(
-                    model_name=model_name,
-                    current=0,
-                    total=0,  # Will be updated once actual total is known
-                    filename="Connecting to HuggingFace...",
-                    status="downloading",
-                )
-
-            # Load the model (tqdm is patched, but filters out non-download progress)
-            try:
                 # Don't pass device_map on CPU: accelerate's meta-tensor mechanism
                 # causes "Cannot copy out of meta tensor" when moving to CPU.
                 # Instead load directly then call .to(device) if needed.
@@ -195,9 +188,6 @@ class PyTorchTTSBackend:
                         device_map=self.device,
                         torch_dtype=torch.bfloat16,
                     )
-            finally:
-                # Exit the patch context
-                tracker_context.__exit__(None, None, None)
             
             # Only mark download as complete if we were tracking it
             if not is_cached:
@@ -369,9 +359,12 @@ class PyTorchTTSBackend:
         return audio, sample_rate
 
 
+from . import STT_MODEL_MAP
+
+
 class PyTorchSTTBackend:
     """PyTorch-based STT backend using Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.processor = None
@@ -403,20 +396,24 @@ class PyTorchSTTBackend:
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None
-    
+
+    def _resolve_model_name(self, model_size: str) -> str:
+        """Resolve a model size key to a HuggingFace model name."""
+        return STT_MODEL_MAP.get(model_size, f"openai/whisper-{model_size}")
+
     def _is_model_cached(self, model_size: str) -> bool:
         """
         Check if the Whisper model is already cached locally AND fully downloaded.
-        
+
         Args:
             model_size: Model size to check
-            
+
         Returns:
             True if model is fully cached, False if missing or incomplete
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
+            model_name = self._resolve_model_name(model_size)
             repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
             
             if not repo_cache.exists():
@@ -451,26 +448,24 @@ class PyTorchSTTBackend:
         Args:
             model_size: Model size (tiny, base, small, medium, large)
         """
-        print(f"[DEBUG] load_model_async called with size: {model_size}")
         if model_size is None:
             model_size = self.model_size
 
-        print(f"[DEBUG] Model already loaded? {self.model is not None}, current size: {self.model_size}, requested: {model_size}")
         if self.model is not None and self.model_size == model_size:
-            print(f"[DEBUG] Early return - model already loaded")
             return
 
-        print(f"[DEBUG] Calling asyncio.to_thread for _load_model_sync")
+        # Free previous model before loading a different size
+        if self.model is not None:
+            self.unload_model()
+
         # Run blocking load in thread pool
         await asyncio.to_thread(self._load_model_sync, model_size)
-        print(f"[DEBUG] asyncio.to_thread completed")
     
     # Alias for compatibility
     load_model = load_model_async
     
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
-        print(f"[DEBUG] _load_model_sync called for Whisper {model_size}")
         try:
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
@@ -485,48 +480,48 @@ class PyTorchSTTBackend:
             progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
             tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
 
-            # Patch tqdm BEFORE importing transformers
-            print("[DEBUG] Starting tqdm patch BEFORE transformers import")
-            tracker_context = tracker.patch_download()
-            tracker_context.__enter__()
-            print("[DEBUG] tqdm patched, now importing transformers")
+            # Patch tqdm BEFORE importing transformers so download
+            # progress is captured via the HFProgressTracker.
+            with tracker.patch_download():
+                from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            # Import transformers
-            from transformers import WhisperProcessor, WhisperForConditionalGeneration
+                model_name = self._resolve_model_name(model_size)
 
-            model_name = f"openai/whisper-{model_size}"
-            print(f"[DEBUG] Model name: {model_name}")
+                print(f"Loading Whisper model {model_size} on {self.device}...")
 
-            print(f"Loading Whisper model {model_size} on {self.device}...")
+                # Only track download progress if model is NOT cached
+                if not is_cached:
+                    task_manager.start_download(progress_model_name)
 
-            # Only track download progress if model is NOT cached
-            if not is_cached:
-                # Start tracking download task
-                task_manager.start_download(progress_model_name)
+                    progress_manager.update_progress(
+                        model_name=progress_model_name,
+                        current=0,
+                        total=0,
+                        filename="Connecting to HuggingFace...",
+                        status="downloading",
+                    )
 
-                # Initialize progress state so SSE endpoint has initial data to send
-                progress_manager.update_progress(
-                    model_name=progress_model_name,
-                    current=0,
-                    total=0,  # Will be updated once actual total is known
-                    filename="Connecting to HuggingFace...",
-                    status="downloading",
-                )
-
-            # Load models (tqdm is patched, but filters out non-download progress)
-            try:
                 self.processor = WhisperProcessor.from_pretrained(model_name)
-                self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
-            finally:
-                # Exit the patch context
-                tracker_context.__exit__(None, None, None)
-            
+                if self.device == "cpu":
+                    self.model = WhisperForConditionalGeneration.from_pretrained(
+                        model_name,
+                        torch_dtype=torch.float32,
+                        low_cpu_mem_usage=True,
+                    )
+                else:
+                    self.model = WhisperForConditionalGeneration.from_pretrained(
+                        model_name,
+                        device_map=self.device,
+                        torch_dtype=torch.bfloat16,
+                    )
+
             # Only mark download as complete if we were tracking it
             if not is_cached:
                 progress_manager.mark_complete(progress_model_name)
                 task_manager.complete_download(progress_model_name)
-            
-            self.model.to(self.device)
+
+            if self.device == "cpu":
+                self.model.to(self.device)
             self.model_size = model_size
             
             print(f"Whisper model {model_size} loaded successfully")
@@ -560,21 +555,21 @@ class PyTorchSTTBackend:
     ) -> str:
         """
         Transcribe audio to text.
-        
+
         Args:
             audio_path: Path to audio file
-            language: Optional language hint (en or zh)
-            
+            language: Optional language code (e.g. "he", "en", "zh")
+
         Returns:
             Transcribed text
         """
         await self.load_model_async(None)
-        
+
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
             # Load audio
-            audio, sr = load_audio(audio_path, sample_rate=16000)
-            
+            audio, _sr = load_audio(audio_path, sample_rate=16000)
+
             # Process audio
             inputs = self.processor(
                 audio,
@@ -582,31 +577,50 @@ class PyTorchSTTBackend:
                 return_tensors="pt",
             )
             inputs = inputs.to(self.device)
-            
-            # Set language if provided
+
+            # Force language and task via decoder prompt IDs
             forced_decoder_ids = None
             if language:
-                # Support all languages from frontend: en, zh, ja, ko, de, fr, ru, pt, es, it
-                # Whisper supports these and many more
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
                     language=language,
                     task="transcribe",
                 )
-            
-            # Generate transcription
+
+            # Generate transcription with language-aware settings
+            generate_kwargs = {
+                "input_features": inputs["input_features"],
+                "forced_decoder_ids": forced_decoder_ids,
+            }
+
+            # For non-English: use greedy decoding + suppress language
+            # drift by forcing language tokens throughout generation
+            if language and language not in ("en",):
+                tokenizer = self.processor.tokenizer
+                lang_token = f"<|{language}|>"
+                if lang_token in tokenizer.get_vocab():
+                    # Suppress all other language tokens to prevent drift
+                    all_lang_tokens = []
+                    for tok in tokenizer.additional_special_tokens:
+                        if not (tok.startswith("<|") and tok.endswith("|>")):
+                            continue
+                        if tok in (lang_token, "<|transcribe|>", "<|notimestamps|>"):
+                            continue
+                        tid = tokenizer.convert_tokens_to_ids(tok)
+                        if tid is not None and tid != tokenizer.unk_token_id:
+                            all_lang_tokens.append(tid)
+                    if all_lang_tokens:
+                        generate_kwargs["suppress_tokens"] = all_lang_tokens
+
             with torch.no_grad():
-                predicted_ids = self.model.generate(
-                    inputs["input_features"],
-                    forced_decoder_ids=forced_decoder_ids,
-                )
-            
+                predicted_ids = self.model.generate(**generate_kwargs)
+
             # Decode
             transcription = self.processor.batch_decode(
                 predicted_ids,
                 skip_special_tokens=True,
             )[0]
-            
+
             return transcription.strip()
-        
+
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)

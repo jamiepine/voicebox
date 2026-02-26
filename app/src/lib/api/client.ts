@@ -310,18 +310,21 @@ class ApiClient {
   }
 
   async triggerModelDownload(modelName: string): Promise<{ message: string }> {
-    console.log('[API] triggerModelDownload called for:', modelName, 'at', new Date().toISOString());
-    const result = await this.request<{ message: string }>('/models/download', {
+    return this.request<{ message: string }>('/models/download', {
       method: 'POST',
       body: JSON.stringify({ model_name: modelName } as ModelDownloadRequest),
     });
-    console.log('[API] triggerModelDownload response:', result);
-    return result;
   }
 
   async deleteModel(modelName: string): Promise<{ message: string }> {
     return this.request<{ message: string }>(`/models/${modelName}`, {
       method: 'DELETE',
+    });
+  }
+
+  async unloadModel(modelName: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/models/${modelName}/unload`, {
+      method: 'POST',
     });
   }
 

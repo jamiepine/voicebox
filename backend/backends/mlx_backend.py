@@ -378,10 +378,34 @@ class MLXTTSBackend:
 
         return audio, sample_rate
 
+    async def generate_with_adapter(
+        self,
+        text: str,
+        voice_prompt: dict,
+        adapter_path: str,
+        language: str = "en",
+        seed: Optional[int] = None,
+        instruct: Optional[str] = None,
+    ) -> Tuple[np.ndarray, int]:
+        """
+        Generate audio using a LoRA adapter.
+
+        MLX adapter support is experimental. Falls back to standard generation
+        if adapter loading fails.
+        """
+        print(f"[MLX] generate_with_adapter called. Adapter: {adapter_path}")
+        print("[MLX] MLX LoRA adapter loading is experimental, falling back to standard generation")
+        # MLX doesn't have mature PEFT/LoRA support for Qwen3-TTS yet.
+        # Fall back to standard generation for now.
+        return await self.generate(text, voice_prompt, language, seed, instruct)
+
+
+from . import STT_MODEL_MAP
+
 
 class MLXSTTBackend:
     """MLX-based STT backend using mlx-audio Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.model_size = model_size
@@ -389,20 +413,24 @@ class MLXSTTBackend:
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None
-    
+
+    def _resolve_model_name(self, model_size: str) -> str:
+        """Resolve a model size key to a HuggingFace model name."""
+        return STT_MODEL_MAP.get(model_size, f"openai/whisper-{model_size}")
+
     def _is_model_cached(self, model_size: str) -> bool:
         """
         Check if the Whisper model is already cached locally AND fully downloaded.
-        
+
         Args:
             model_size: Model size to check
-            
+
         Returns:
             True if model is fully cached, False if missing or incomplete
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
+            model_name = self._resolve_model_name(model_size)
             repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
             
             if not repo_cache.exists():
@@ -473,8 +501,7 @@ class MLXSTTBackend:
             # Import mlx_audio
             from mlx_audio.stt import load
 
-            # MLX Whisper uses the standard OpenAI models
-            model_name = f"openai/whisper-{model_size}"
+            model_name = self._resolve_model_name(model_size)
 
             print(f"Loading MLX Whisper model {model_size}...")
 
@@ -542,7 +569,7 @@ class MLXSTTBackend:
 
         Args:
             audio_path: Path to audio file
-            language: Optional language hint (en or zh)
+            language: Optional language code (e.g. "he", "en", "zh")
 
         Returns:
             Transcribed text
@@ -551,13 +578,31 @@ class MLXSTTBackend:
 
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
-            # MLX Whisper transcription using generate method
-            # The generate method accepts audio path directly
-            decode_options = {}
+            decode_options = {
+                "task": "transcribe",
+            }
+
             if language:
                 decode_options["language"] = language
 
-            result = self.model.generate(str(audio_path), **decode_options)
+            # For Hebrew (and other non-English): prevent language drift
+            # by disabling conditioning on previous text. Without this,
+            # if one 30s chunk drifts to Arabic, all subsequent chunks
+            # also output Arabic because they condition on wrong output.
+            if language and language not in ("en",):
+                result = self.model.generate(
+                    str(audio_path),
+                    condition_on_previous_text=False,
+                    # Temperature fallback: start greedy, retry with more
+                    # randomness if compression ratio is too high (repetition)
+                    temperature=(0.0, 0.2, 0.4, 0.6, 0.8, 1.0),
+                    compression_ratio_threshold=2.0,
+                    no_speech_threshold=0.6,
+                    hallucination_silence_threshold=0.5,
+                    **decode_options,
+                )
+            else:
+                result = self.model.generate(str(audio_path), **decode_options)
 
             # Extract text from result
             if isinstance(result, str):

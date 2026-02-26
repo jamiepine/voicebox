@@ -66,3 +66,9 @@ def get_models_dir() -> Path:
     path = _data_dir / "models"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+def get_finetune_dir() -> Path:
+    """Get finetune directory path."""
+    path = _data_dir / "finetune"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
