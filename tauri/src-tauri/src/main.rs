@@ -635,6 +635,33 @@ pub fn run() {
                 }
             }
 
+            // Enable microphone access on Linux (WebKitGTK denies getUserMedia by default)
+            #[cfg(target_os = "linux")]
+            {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.with_webview(|webview| {
+                        use webkit2gtk::{WebViewExt, SettingsExt, PermissionRequestExt};
+                        use webkit2gtk::glib::ObjectExt;
+                        let wk_webview = webview.inner();
+
+                        // Enable media stream support in WebKitGTK settings
+                        if let Some(settings) = WebViewExt::settings(&wk_webview) {
+                            settings.set_enable_media_stream(true);
+                        }
+
+                        // Auto-grant UserMediaPermissionRequest (microphone access)
+                        wk_webview.connect_permission_request(move |_, request: &webkit2gtk::PermissionRequest| {
+                            if request.is::<webkit2gtk::UserMediaPermissionRequest>() {
+                                request.allow();
+                                return true;
+                            }
+                            false
+                        });
+                    });
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
