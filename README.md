@@ -260,7 +260,7 @@ cd backend && pip install -r requirements.txt && cd ..
 bun run dev
 ```
 
-**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org). [XCode on macOS](https://developer.apple.com/xcode/).
+**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org), [XCode on macOS](https://developer.apple.com/xcode/), [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 **Performance:** 
 - **Apple Silicon (M1/M2/M3)**: Uses MLX backend with native Metal acceleration for 4-5x faster inference
