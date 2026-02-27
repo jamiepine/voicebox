@@ -27,6 +27,7 @@ Thank you for your interest in contributing to Voicebox! This document provides 
   ```bash
   rustc --version  # Check if installed
   ```
+- **[Tauri Prerequisites](https://v2.tauri.app/start/prerequisites)** - For Tauri specific system dependencies. (Vary by OS)
 
 - **Git** - Version control
 
