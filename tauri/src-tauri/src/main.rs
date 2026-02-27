@@ -651,9 +651,19 @@ pub fn run() {
                         }
 
                         // Auto-grant UserMediaPermissionRequest (microphone access)
-                        wk_webview.connect_permission_request(move |_, request: &webkit2gtk::PermissionRequest| {
+                        // Only for trusted local origins (Tauri dev server or custom protocol)
+                        wk_webview.connect_permission_request(move |webview, request: &webkit2gtk::PermissionRequest| {
                             if request.is::<webkit2gtk::UserMediaPermissionRequest>() {
-                                request.allow();
+                                let uri = WebViewExt::uri(webview).unwrap_or_default();
+                                let is_trusted = uri.starts_with("tauri://")
+                                    || uri.starts_with("https://tauri.localhost")
+                                    || uri.starts_with("http://localhost")
+                                    || uri.starts_with("http://127.0.0.1");
+                                if is_trusted {
+                                    request.allow();
+                                    return true;
+                                }
+                                request.deny();
                                 return true;
                             }
                             false
