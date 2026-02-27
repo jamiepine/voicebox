@@ -635,6 +635,43 @@ pub fn run() {
                 }
             }
 
+            // Enable microphone access on Linux (WebKitGTK denies getUserMedia by default)
+            #[cfg(target_os = "linux")]
+            {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.with_webview(|webview| {
+                        use webkit2gtk::{WebViewExt, SettingsExt, PermissionRequestExt};
+                        use webkit2gtk::glib::ObjectExt;
+                        let wk_webview = webview.inner();
+
+                        // Enable media stream support in WebKitGTK settings
+                        if let Some(settings) = WebViewExt::settings(&wk_webview) {
+                            settings.set_enable_media_stream(true);
+                        }
+
+                        // Auto-grant UserMediaPermissionRequest (microphone access)
+                        // Only for trusted local origins (Tauri dev server or custom protocol)
+                        wk_webview.connect_permission_request(move |webview, request: &webkit2gtk::PermissionRequest| {
+                            if request.is::<webkit2gtk::UserMediaPermissionRequest>() {
+                                let uri = WebViewExt::uri(webview).unwrap_or_default();
+                                let is_trusted = uri.starts_with("tauri://")
+                                    || uri.starts_with("https://tauri.localhost")
+                                    || uri.starts_with("http://localhost")
+                                    || uri.starts_with("http://127.0.0.1");
+                                if is_trusted {
+                                    request.allow();
+                                    return true;
+                                }
+                                request.deny();
+                                return true;
+                            }
+                            false
+                        });
+                    });
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

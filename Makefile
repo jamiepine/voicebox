@@ -79,7 +79,11 @@ dev: ## Start backend + desktop app (parallel)
 	@echo -e "$(YELLOW)Note: If Tauri fails, run 'make build-server' first or use separate terminals$(NC)"
 	@trap 'kill 0' EXIT; \
 		$(MAKE) dev-backend & \
-		sleep 2 && $(MAKE) dev-frontend & \
+		sleep 2 && if [ "$$(uname)" = "Linux" ] && lspci 2>/dev/null | grep -qi nvidia; then \
+			WEBKIT_DISABLE_DMABUF_RENDERER=1 $(MAKE) dev-frontend; \
+		else \
+			$(MAKE) dev-frontend; \
+		fi & \
 		wait
 
 dev-backend: ## Start FastAPI backend server
