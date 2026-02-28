@@ -178,6 +178,12 @@ class PyTorchTTSBackend:
                     status="downloading",
                 )
 
+            # Use a single cache root for both HF Hub + Transformers to avoid split-cache
+            # cases where speech_tokenizer files are downloaded to one location while
+            # AutoFeatureExtractor resolves from another.
+            from huggingface_hub import constants as hf_constants
+            tts_cache_dir = hf_constants.HF_HUB_CACHE
+
             # Load the model (tqdm is patched, but filters out non-download progress)
             try:
                 # Don't pass device_map on CPU: accelerate's meta-tensor mechanism
@@ -186,14 +192,16 @@ class PyTorchTTSBackend:
                 if self.device == "cpu":
                     self.model = Qwen3TTSModel.from_pretrained(
                         model_path,
-                        torch_dtype=torch.float32,
+                        cache_dir=tts_cache_dir,
+                        dtype=torch.float32,
                         low_cpu_mem_usage=False,
                     )
                 else:
                     self.model = Qwen3TTSModel.from_pretrained(
                         model_path,
+                        cache_dir=tts_cache_dir,
                         device_map=self.device,
-                        torch_dtype=torch.bfloat16,
+                        dtype=torch.bfloat16,
                     )
             finally:
                 # Exit the patch context
