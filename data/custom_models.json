@@ -1,0 +1,10 @@
+{
+  "models": [
+    {
+      "id": "aryannsc-ind-qwentts-v1",
+      "display_name": "IND Qwen tts1",
+      "hf_repo_id": "AryanNsc/IND-QWENTTS-V1",
+      "added_at": "2026-03-01T18:38:22.160558Z"
+    }
+  ]
+}

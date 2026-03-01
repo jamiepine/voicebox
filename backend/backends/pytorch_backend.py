@@ -57,11 +57,21 @@ class PyTorchTTSBackend:
         Get the HuggingFace Hub model ID.
         
         Args:
-            model_size: Model size (1.7B or 0.6B)
+            model_size: Model size (1.7B or 0.6B) or custom model ID (custom:slug)
             
         Returns:
             HuggingFace Hub model ID
         """
+        # Handle custom model IDs
+        # @modified AJ - Kamyab (Ankit Jain) — Added custom model path resolution
+        if model_size.startswith("custom:"):
+            custom_id = model_size[len("custom:"):]
+            from ..custom_models import get_hf_repo_id_for_custom_model
+            hf_repo_id = get_hf_repo_id_for_custom_model(custom_id)
+            if not hf_repo_id:
+                raise ValueError(f"Custom model '{custom_id}' not found")
+            return hf_repo_id
+        
         hf_model_map = {
             "1.7B": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
             "0.6B": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
@@ -71,6 +81,7 @@ class PyTorchTTSBackend:
             raise ValueError(f"Unknown model size: {model_size}")
         
         return hf_model_map[model_size]
+
     
     def _is_model_cached(self, model_size: str) -> bool:
         """

@@ -55,7 +55,7 @@ class GenerationRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000)
     language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
     seed: Optional[int] = Field(None, ge=0)
-    model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B)$")
+    model_size: Optional[str] = Field(default="1.7B")
     instruct: Optional[str] = Field(None, max_length=500)
 
 
@@ -137,6 +137,7 @@ class ModelStatus(BaseModel):
     downloading: bool = False  # True if download is in progress
     size_mb: Optional[float] = None
     loaded: bool = False
+    is_custom: bool = False  # True for user-added custom models — @modified AJ - Kamyab (Ankit Jain)
 
 
 class ModelStatusListResponse(BaseModel):
@@ -162,6 +163,25 @@ class ActiveGenerationTask(BaseModel):
     profile_id: str
     text_preview: str
     started_at: datetime
+
+
+class CustomModelCreate(BaseModel):
+    """Request model for adding a custom model."""
+    hf_repo_id: str = Field(..., min_length=3, max_length=200)
+    display_name: str = Field(..., min_length=1, max_length=100)
+
+
+class CustomModelResponse(BaseModel):
+    """Response model for a custom model."""
+    id: str
+    hf_repo_id: str
+    display_name: str
+    added_at: str
+
+
+class CustomModelListResponse(BaseModel):
+    """Response model for custom model list."""
+    models: List[CustomModelResponse]
 
 
 class ActiveTasksResponse(BaseModel):

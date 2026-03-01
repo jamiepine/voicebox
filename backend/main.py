@@ -41,7 +41,7 @@ def _safe_content_disposition(disposition_type: str, filename: str) -> str:
     )
 
 
-from . import database, models, profiles, history, tts, transcribe, config, export_import, channels, stories, __version__
+from . import database, models, profiles, history, tts, transcribe, config, export_import, channels, stories, custom_models, __version__
 from .database import get_db, Generation as DBGeneration, VoiceProfile as DBVoiceProfile
 from .utils.progress import get_progress_manager
 from .utils.tasks import get_task_manager
@@ -615,7 +615,10 @@ async def generate_speech(
         if not tts_model._is_model_cached(model_size):
             # Model is not fully cached — kick off a background download and tell
             # the client to retry once it's ready.
-            model_name = f"qwen-tts-{model_size}"
+            if model_size.startswith("custom:"):
+                model_name = model_size  # Use the full custom:slug as the tracking name
+            else:
+                model_name = f"qwen-tts-{model_size}"
 
             async def download_model_background():
                 try:
@@ -1509,6 +1512,116 @@ async def get_model_status():
                 loaded=loaded,
             ))
     
+    
+    # ==== Add custom models to the status list ====
+    custom_model_list = custom_models.list_custom_models()
+    for cm in custom_model_list:
+        model_name = f"custom:{cm['id']}"
+        hf_repo_id = cm["hf_repo_id"]
+        
+        try:
+            downloaded = False
+            size_mb = None
+            
+            # Check if custom model is cached (same logic as built-in models)
+            if cache_info:
+                for repo in cache_info.repos:
+                    if repo.repo_id == hf_repo_id:
+                        has_model_weights = False
+                        for rev in repo.revisions:
+                            for f in rev.files:
+                                fname = f.file_name.lower()
+                                if fname.endswith(('.safetensors', '.bin', '.pt', '.pth', '.npz')):
+                                    has_model_weights = True
+                                    break
+                            if has_model_weights:
+                                break
+                        
+                        has_incomplete = False
+                        try:
+                            cache_dir_path = hf_constants.HF_HUB_CACHE
+                            blobs_dir = Path(cache_dir_path) / ("models--" + hf_repo_id.replace("/", "--")) / "blobs"
+                            if blobs_dir.exists():
+                                has_incomplete = any(blobs_dir.glob("*.incomplete"))
+                        except Exception:
+                            pass
+                        
+                        if has_model_weights and not has_incomplete:
+                            downloaded = True
+                            try:
+                                total_size = sum(revision.size_on_disk for revision in repo.revisions)
+                                size_mb = total_size / (1024 * 1024)
+                            except Exception:
+                                pass
+                        break
+            
+            # Fallback cache check
+            if not downloaded:
+                try:
+                    cache_dir_path = hf_constants.HF_HUB_CACHE
+                    repo_cache = Path(cache_dir_path) / ("models--" + hf_repo_id.replace("/", "--"))
+                    if repo_cache.exists():
+                        blobs_dir = repo_cache / "blobs"
+                        has_incomplete = blobs_dir.exists() and any(blobs_dir.glob("*.incomplete"))
+                        if not has_incomplete:
+                            snapshots_dir = repo_cache / "snapshots"
+                            has_model_files = False
+                            if snapshots_dir.exists():
+                                has_model_files = (
+                                    any(snapshots_dir.rglob("*.bin")) or
+                                    any(snapshots_dir.rglob("*.safetensors")) or
+                                    any(snapshots_dir.rglob("*.pt")) or
+                                    any(snapshots_dir.rglob("*.pth")) or
+                                    any(snapshots_dir.rglob("*.npz"))
+                                )
+                            if has_model_files:
+                                downloaded = True
+                                try:
+                                    total_size = sum(
+                                        f.stat().st_size for f in repo_cache.rglob("*")
+                                        if f.is_file() and not f.name.endswith('.incomplete')
+                                    )
+                                    size_mb = total_size / (1024 * 1024)
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+            
+            # Check if loaded
+            loaded = False
+            try:
+                tts_model = tts.get_tts_model()
+                loaded = tts_model.is_loaded() and getattr(tts_model, '_current_model_size', None) == model_name
+            except Exception:
+                pass
+            
+            # Check if downloading
+            is_downloading = model_name in active_download_names or hf_repo_id in active_download_repos
+            if is_downloading:
+                downloaded = False
+                size_mb = None
+            
+            statuses.append(models.ModelStatus(
+                model_name=model_name,
+                display_name=cm["display_name"],
+                downloaded=downloaded,
+                downloading=is_downloading,
+                size_mb=size_mb,
+                loaded=loaded,
+                is_custom=True,
+            ))
+        except Exception:
+            is_downloading = model_name in active_download_names
+            statuses.append(models.ModelStatus(
+                model_name=model_name,
+                display_name=cm["display_name"],
+                downloaded=False,
+                downloading=is_downloading,
+                size_mb=None,
+                loaded=False,
+                is_custom=True,
+            ))
+    
     return models.ModelStatusListResponse(models=statuses)
 
 
@@ -1520,6 +1633,7 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     task_manager = get_task_manager()
     progress_manager = get_progress_manager()
     
+    # Built-in model configs
     model_configs = {
         "qwen-tts-1.7B": {
             "model_size": "1.7B",
@@ -1547,10 +1661,22 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
         },
     }
     
-    if request.model_name not in model_configs:
+    # Handle custom models (custom:slug format)
+    if request.model_name.startswith("custom:"):
+        custom_id = request.model_name[len("custom:"):]
+        cm = custom_models.get_custom_model(custom_id)
+        if not cm:
+            raise HTTPException(status_code=400, detail=f"Custom model '{custom_id}' not found")
+        
+        model_size = request.model_name  # Pass full "custom:slug" to load_model
+        config = {
+            "model_size": model_size,
+            "load_func": lambda: tts.get_tts_model().load_model(model_size),
+        }
+    elif request.model_name not in model_configs:
         raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_name}")
-    
-    config = model_configs[request.model_name]
+    else:
+        config = model_configs[request.model_name]
     
     async def download_in_background():
         """Download model in background without blocking the HTTP request."""
@@ -1593,7 +1719,36 @@ async def delete_model(model_name: str):
     import os
     from huggingface_hub import constants as hf_constants
     
-    # Map model names to HuggingFace repo IDs
+    # Handle custom models (custom:slug format)
+    if model_name.startswith("custom:"):
+        custom_id = model_name[len("custom:"):]
+        cm = custom_models.get_custom_model(custom_id)
+        if not cm:
+            raise HTTPException(status_code=400, detail=f"Custom model '{custom_id}' not found")
+        hf_repo_id = cm["hf_repo_id"]
+        
+        try:
+            # Unload if this custom model is loaded
+            tts_model = tts.get_tts_model()
+            if tts_model.is_loaded() and getattr(tts_model, '_current_model_size', None) == model_name:
+                tts.unload_tts_model()
+            
+            # Delete from HF cache
+            cache_dir = hf_constants.HF_HUB_CACHE
+            repo_cache_dir = Path(cache_dir) / ("models--" + hf_repo_id.replace("/", "--"))
+            
+            if not repo_cache_dir.exists():
+                raise HTTPException(status_code=404, detail=f"Model {model_name} not found in cache")
+            
+            shutil.rmtree(repo_cache_dir)
+            return {"message": f"Model {model_name} deleted successfully"}
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")
+    
+    # Map built-in model names to HuggingFace repo IDs
     model_configs = {
         "qwen-tts-1.7B": {
             "hf_repo_id": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -1667,6 +1822,74 @@ async def delete_model(model_name: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")
+
+
+# ============================================
+# ============================================
+# CUSTOM MODEL MANAGEMENT
+# ============================================
+# These endpoints manage user-defined HuggingFace TTS models.
+# Models are stored in data/custom_models.json and identified
+# by a slug ID (e.g. "aryansc-ind-qwentts-v1") derived from
+# the HuggingFace repo path.
+#
+# Adding a custom model only registers it in the config.
+# It must be separately downloaded via /models/download
+# with model_name="custom:<slug>" before it can be used.
+#
+# @author AJ - Kamyab (Ankit Jain)
+# ============================================
+
+@app.get("/custom-models", response_model=models.CustomModelListResponse)
+async def list_custom_models_endpoint():
+    """List all registered custom models and their metadata."""
+    items = custom_models.list_custom_models()
+    return models.CustomModelListResponse(
+        models=[models.CustomModelResponse(**m) for m in items]
+    )
+
+
+@app.post("/custom-models", response_model=models.CustomModelResponse)
+async def add_custom_model_endpoint(data: models.CustomModelCreate):
+    """
+    Register a new custom HuggingFace TTS model.
+    
+    Validates the repo ID format (must contain '/') and checks for duplicates.
+    The model is NOT downloaded — use POST /models/download with
+    model_name="custom:<slug>" to fetch model weights from HuggingFace.
+    """
+    try:
+        model = custom_models.add_custom_model(
+            hf_repo_id=data.hf_repo_id,
+            display_name=data.display_name,
+        )
+        return models.CustomModelResponse(**model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/custom-models/{model_id}", response_model=models.CustomModelResponse)
+async def get_custom_model_endpoint(model_id: str):
+    """Get a single custom model's metadata by its slug ID."""
+    model = custom_models.get_custom_model(model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail=f"Custom model '{model_id}' not found")
+    return models.CustomModelResponse(**model)
+
+
+@app.delete("/custom-models/{model_id}")
+async def delete_custom_model_endpoint(model_id: str):
+    """
+    Remove a custom model from the config.
+    
+    This only removes the registration — cached HuggingFace model files
+    are NOT deleted. Use DELETE /models/custom:<slug> to also clear the
+    HF cache.
+    """
+    success = custom_models.remove_custom_model(model_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Custom model '{model_id}' not found")
+    return {"message": f"Custom model '{model_id}' removed successfully"}
 
 
 @app.post("/cache/clear")
