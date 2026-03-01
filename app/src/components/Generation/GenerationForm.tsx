@@ -1,4 +1,5 @@
 import { Loader2, Mic } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -14,12 +15,15 @@ import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
+import { apiClient } from '@/lib/api/client';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
@@ -29,6 +33,20 @@ export function GenerationForm() {
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
 
   const { form, handleSubmit, isPending } = useGenerationForm();
+
+  // Fetch model status to dynamically populate the model selector dropdown.
+  // Models are split into "Built-in" (qwen-tts-*) and "Custom" (is_custom flag)
+  // groups so users can easily distinguish between them.
+  // @modified AJ - Kamyab (Ankit Jain) — Added custom model grouping in selector
+  const { data: modelStatus } = useQuery({
+    queryKey: ['modelStatus'],
+    queryFn: () => apiClient.getModelStatus(),
+    refetchInterval: 10000,
+  });
+
+  // Separate built-in TTS models from user-added custom models
+  const builtInModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen-tts')) || [];
+  const customModels = modelStatus?.models.filter((m) => m.is_custom) || [];
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);
@@ -129,7 +147,7 @@ export function GenerationForm() {
                 name="modelSize"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Model Size</FormLabel>
+                    <FormLabel>Model</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -137,11 +155,38 @@ export function GenerationForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="1.7B">Qwen TTS 1.7B (Higher Quality)</SelectItem>
-                        <SelectItem value="0.6B">Qwen TTS 0.6B (Faster)</SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>Built-in</SelectLabel>
+                          {builtInModels.length > 0 ? (
+                            builtInModels.map((model) => {
+                              // Map model_name (qwen-tts-1.7B) back to model_size value (1.7B)
+                              const sizeValue = model.model_name.replace('qwen-tts-', '');
+                              return (
+                                <SelectItem key={model.model_name} value={sizeValue}>
+                                  {model.display_name}
+                                </SelectItem>
+                              );
+                            })
+                          ) : (
+                            <>
+                              <SelectItem value="1.7B">Qwen TTS 1.7B (Higher Quality)</SelectItem>
+                              <SelectItem value="0.6B">Qwen TTS 0.6B (Faster)</SelectItem>
+                            </>
+                          )}
+                        </SelectGroup>
+                        {customModels.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Custom</SelectLabel>
+                            {customModels.map((model) => (
+                              <SelectItem key={model.model_name} value={model.model_name}>
+                                {model.display_name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
                       </SelectContent>
                     </Select>
-                    <FormDescription>Larger models produce better quality</FormDescription>
+                    <FormDescription>Select voice generation model</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

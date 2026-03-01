@@ -14,6 +14,9 @@ import type {
   ModelStatusListResponse,
   ModelDownloadRequest,
   ActiveTasksResponse,
+  CustomModelCreate,
+  CustomModelResponse,
+  CustomModelListResponse,
   StoryCreate,
   StoryResponse,
   StoryDetailResponse,
@@ -319,8 +322,42 @@ class ApiClient {
     return result;
   }
 
+  /**
+   * Delete a model's cached files from disk.
+   * Uses encodeURIComponent because custom model names contain colons ("custom:slug").
+   */
   async deleteModel(modelName: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/models/${modelName}`, {
+    return this.request<{ message: string }>(`/models/${encodeURIComponent(modelName)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ── Custom Models ─────────────────────────────────────────────────────
+  // CRUD operations for user-defined HuggingFace TTS models.
+  // Custom models are persisted in data/custom_models.json on the backend.
+  //
+  // @author AJ - Kamyab (Ankit Jain)
+
+  /** List all registered custom models. */
+  async listCustomModels(): Promise<CustomModelListResponse> {
+    return this.request<CustomModelListResponse>('/custom-models');
+  }
+
+  /** Register a new custom HuggingFace model (does NOT trigger download). */
+  async addCustomModel(data: CustomModelCreate): Promise<CustomModelResponse> {
+    return this.request<CustomModelResponse>('/custom-models', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Remove a custom model from the config.
+   * This only removes the registration — cached HuggingFace files are NOT deleted.
+   * Use deleteModel("custom:slug") to also clear the HF cache.
+   */
+  async removeCustomModel(modelId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/custom-models/${modelId}`, {
       method: 'DELETE',
     });
   }
