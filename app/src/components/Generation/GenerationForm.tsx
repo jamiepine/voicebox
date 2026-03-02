@@ -14,13 +14,16 @@ import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { useModelStatus } from '@/lib/hooks/useModelStatus';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -29,6 +32,9 @@ export function GenerationForm() {
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
 
   const { form, handleSubmit, isPending } = useGenerationForm();
+
+  // Use shared hook for model status fetching and grouping
+  const { builtInModels, customModels } = useModelStatus();
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);
@@ -129,7 +135,7 @@ export function GenerationForm() {
                 name="modelSize"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Model Size</FormLabel>
+                    <FormLabel>Model</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
@@ -137,11 +143,38 @@ export function GenerationForm() {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="1.7B">Qwen TTS 1.7B (Higher Quality)</SelectItem>
-                        <SelectItem value="0.6B">Qwen TTS 0.6B (Faster)</SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>Built-in</SelectLabel>
+                          {builtInModels.length > 0 ? (
+                            builtInModels.map((model) => {
+                              // Map model_name (qwen-tts-1.7B) back to model_size value (1.7B)
+                              const sizeValue = model.model_name.replace('qwen-tts-', '');
+                              return (
+                                <SelectItem key={model.model_name} value={sizeValue}>
+                                  {model.display_name}
+                                </SelectItem>
+                              );
+                            })
+                          ) : (
+                            <>
+                              <SelectItem value="1.7B">Qwen TTS 1.7B (Higher Quality)</SelectItem>
+                              <SelectItem value="0.6B">Qwen TTS 0.6B (Faster)</SelectItem>
+                            </>
+                          )}
+                        </SelectGroup>
+                        {customModels.length > 0 && (
+                          <SelectGroup>
+                            <SelectLabel>Custom</SelectLabel>
+                            {customModels.map((model) => (
+                              <SelectItem key={model.model_name} value={model.model_name}>
+                                {model.display_name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )}
                       </SelectContent>
                     </Select>
-                    <FormDescription>Larger models produce better quality</FormDescription>
+                    <FormDescription>Select voice generation model</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

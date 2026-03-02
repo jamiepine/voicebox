@@ -32,11 +32,22 @@ class MLXTTSBackend:
         Get the MLX model path.
         
         Args:
-            model_size: Model size (1.7B or 0.6B)
+            model_size: Model size (1.7B or 0.6B) or custom model ID (custom:slug)
             
         Returns:
             HuggingFace Hub model ID for MLX
         """
+        # Handle custom model IDs
+        # @modified AJ - Kamyab (Ankit Jain) — Added custom model path resolution
+        if model_size.startswith("custom:"):
+            custom_id = model_size[len("custom:"):]
+            from ..custom_models import get_hf_repo_id_for_custom_model
+            hf_repo_id = get_hf_repo_id_for_custom_model(custom_id)
+            if not hf_repo_id:
+                raise ValueError(f"Custom model '{custom_id}' not found")
+            print(f"Will download custom model from HuggingFace Hub: {hf_repo_id}")
+            return hf_repo_id
+        
         # MLX model mapping
         mlx_model_map = {
             "1.7B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
@@ -51,6 +62,7 @@ class MLXTTSBackend:
         print(f"Will download MLX model from HuggingFace Hub: {hf_model_id}")
         
         return hf_model_id
+
     
     def _is_model_cached(self, model_size: str) -> bool:
         """

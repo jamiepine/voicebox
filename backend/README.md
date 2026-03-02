@@ -330,7 +330,14 @@ python -m backend.main
 
 # Production (allow remote access)
 python -m backend.main --host 0.0.0.0 --port 8000
+
+# Override data directory (useful for bundled/production runs)
+python -m backend.main --data-dir /path/to/data
 ```
+
+> **Note:** When running as a PyInstaller `--onefile` bundle, data defaults to a
+> platform-appropriate user directory (e.g. `~/Library/Application Support/voicebox`
+> on macOS). Pass `--data-dir` to override.
 
 ## Usage Examples
 

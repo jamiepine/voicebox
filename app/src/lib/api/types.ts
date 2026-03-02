@@ -33,7 +33,10 @@ export interface GenerationRequest {
   text: string;
   language: LanguageCode;
   seed?: number;
-  model_size?: '1.7B' | '0.6B';
+  /** Model identifier — built-in size ("1.7B", "0.6B") or custom model ID ("custom:slug") */
+  model_size?: string;
+  /** Natural language instruction for speech delivery control (e.g. "speak slowly") */
+  instruct?: string;
 }
 
 export interface GenerationResponse {
@@ -99,6 +102,8 @@ export interface ModelStatus {
   downloading: boolean;  // True if download is in progress
   size_mb?: number;
   loaded: boolean;
+  /** True for user-added custom HuggingFace models (model_name uses "custom:slug" format) */
+  is_custom?: boolean;
 }
 
 export interface ModelStatusListResponse {
@@ -107,6 +112,32 @@ export interface ModelStatusListResponse {
 
 export interface ModelDownloadRequest {
   model_name: string;
+}
+
+/**
+ * Request payload for registering a custom HuggingFace TTS model.
+ * After adding, the model appears in model management and generation dropdowns.
+ *
+ * @author AJ - Kamyab (Ankit Jain)
+ */
+export interface CustomModelCreate {
+  /** Full HuggingFace repository ID, e.g. "AryanNsc/IND-QWENTTS-V1" */
+  hf_repo_id: string;
+  /** User-friendly name shown in the UI */
+  display_name: string;
+}
+
+/** Custom model as returned by the backend after creation or listing. */
+export interface CustomModelResponse {
+  /** Auto-generated slug ID derived from the repo path (e.g. "aryansc-ind-qwentts-v1") */
+  id: string;
+  hf_repo_id: string;
+  display_name: string;
+  added_at: string;
+}
+
+export interface CustomModelListResponse {
+  models: CustomModelResponse[];
 }
 
 export interface ActiveDownloadTask {

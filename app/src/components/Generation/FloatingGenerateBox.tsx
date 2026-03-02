@@ -7,7 +7,9 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -15,6 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { useModelStatus } from '@/lib/hooks/useModelStatus';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useAddStoryItem, useStory } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
@@ -45,6 +48,9 @@ export function FloatingGenerateBox({
   const { data: currentStory } = useStory(selectedStoryId);
   const addStoryItem = useAddStoryItem();
   const { toast } = useToast();
+
+  // Use shared hook for model status fetching and grouping
+  const { builtInModels, customModels } = useModelStatus();
 
   // Calculate if track editor is visible (on stories route with items)
   const hasTrackEditor = isStoriesRoute && currentStory && currentStory.items.length > 0;
@@ -173,7 +179,7 @@ export function FloatingGenerateBox({
         'fixed right-auto',
         isStoriesRoute
           ? // Position aligned with story list: after sidebar + padding, width 360px
-            'left-[calc(5rem+2rem)] w-[360px]'
+          'left-[calc(5rem+2rem)] w-[360px]'
           : 'left-[calc(5rem+2rem)] w-[calc((100%-5rem-4rem)/2-1rem)]',
       )}
       style={{
@@ -414,12 +420,38 @@ export function FloatingGenerateBox({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="1.7B" className="text-xs text-muted-foreground">
-                              Qwen3-TTS 1.7B
-                            </SelectItem>
-                            <SelectItem value="0.6B" className="text-xs text-muted-foreground">
-                              Qwen3-TTS 0.6B
-                            </SelectItem>
+                            <SelectGroup>
+                              <SelectLabel className="text-xs">Built-in</SelectLabel>
+                              {builtInModels.length > 0 ? (
+                                builtInModels.map((model) => {
+                                  const sizeValue = model.model_name.replace('qwen-tts-', '');
+                                  return (
+                                    <SelectItem key={model.model_name} value={sizeValue} className="text-xs text-muted-foreground">
+                                      {model.display_name}
+                                    </SelectItem>
+                                  );
+                                })
+                              ) : (
+                                <>
+                                  <SelectItem value="1.7B" className="text-xs text-muted-foreground">
+                                    Qwen3-TTS 1.7B
+                                  </SelectItem>
+                                  <SelectItem value="0.6B" className="text-xs text-muted-foreground">
+                                    Qwen3-TTS 0.6B
+                                  </SelectItem>
+                                </>
+                              )}
+                            </SelectGroup>
+                            {customModels.length > 0 && (
+                              <SelectGroup>
+                                <SelectLabel className="text-xs">Custom</SelectLabel>
+                                {customModels.map((model) => (
+                                  <SelectItem key={model.model_name} value={model.model_name} className="text-xs text-muted-foreground">
+                                    {model.display_name}
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            )}
                           </SelectContent>
                         </Select>
                         <FormMessage className="text-xs" />

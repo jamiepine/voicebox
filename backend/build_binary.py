@@ -48,6 +48,7 @@ def build_server():
         '--hidden-import', 'backend.utils.cache',
         '--hidden-import', 'backend.utils.progress',
         '--hidden-import', 'backend.utils.hf_progress',
+        '--hidden-import', 'backend.custom_models',  # @modified AJ - Kamyab (Ankit Jain)
         '--hidden-import', 'backend.utils.validation',
         '--hidden-import', 'torch',
         '--hidden-import', 'transformers',
