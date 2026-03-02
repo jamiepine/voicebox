@@ -357,7 +357,7 @@ class ApiClient {
    * Use deleteModel("custom:slug") to also clear the HF cache.
    */
   async removeCustomModel(modelId: string): Promise<{ message: string }> {
-    return this.request<{ message: string }>(`/custom-models/${modelId}`, {
+    return this.request<{ message: string }>(`/custom-models/${encodeURIComponent(modelId)}`, {
       method: 'DELETE',
     });
   }

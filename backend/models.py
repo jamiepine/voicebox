@@ -55,7 +55,11 @@ class GenerationRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=5000)
     language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
     seed: Optional[int] = Field(None, ge=0)
-    model_size: Optional[str] = Field(default="1.7B")
+    model_size: Optional[str] = Field(
+        default="1.7B",
+        pattern=r'^(1\.7B|0\.6B|custom:[a-z0-9][a-z0-9._-]*[a-z0-9])$',
+        description="Built-in model size (1.7B, 0.6B) or custom model identifier (custom:<slug>)",
+    )
     instruct: Optional[str] = Field(None, max_length=500)
 
 

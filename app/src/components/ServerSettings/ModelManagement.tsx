@@ -328,11 +328,22 @@ export function ModelManagement() {
                         setDeleteDialogOpen(true);
                       }}
                       onRemove={() => {
-                        // Extract custom ID from "custom:slug" format
+                        // Guard: ignore if already unregistering
+                        if (removeCustomModelMutation.isPending) return;
+                        // Validate model_name is in "custom:<slug>" format
+                        if (typeof model.model_name !== 'string' || !model.model_name.startsWith('custom:')) {
+                          toast({
+                            title: 'Cannot remove model',
+                            description: `Invalid model identifier: ${model.model_name}`,
+                            variant: 'destructive',
+                          });
+                          return;
+                        }
                         const customId = model.model_name.replace('custom:', '');
                         removeCustomModelMutation.mutate(customId);
                       }}
                       isDownloading={downloadingModel === model.model_name}
+                      isUnregistering={removeCustomModelMutation.isPending}
                       formatSize={formatSize}
                     />
                   ))}
@@ -541,6 +552,7 @@ interface CustomModelItemProps {
   onDeleteCache: () => void;
   onRemove: () => void;
   isDownloading: boolean;
+  isUnregistering: boolean;
   formatSize: (sizeMb?: number) => string;
 }
 
@@ -549,7 +561,7 @@ interface CustomModelItemProps {
  * In addition to download/delete-cache, custom models have a "remove" button
  * (X icon) that un-registers the model from the config without deleting cached files.
  */
-function CustomModelItem({ model, onDownload, onDeleteCache, onRemove, isDownloading, formatSize }: CustomModelItemProps) {
+function CustomModelItem({ model, onDownload, onDeleteCache, onRemove, isDownloading, isUnregistering, formatSize }: CustomModelItemProps) {
   const showDownloading = model.downloading || isDownloading;
 
   return (
@@ -607,7 +619,7 @@ function CustomModelItem({ model, onDownload, onDeleteCache, onRemove, isDownloa
           onClick={onRemove}
           variant="ghost"
           title="Remove custom model from list"
-          disabled={model.loaded}
+          disabled={model.loaded || isUnregistering}
         >
           <X className="h-4 w-4" />
         </Button>

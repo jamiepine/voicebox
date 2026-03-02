@@ -23,7 +23,10 @@ const generationSchema = z.object({
   text: z.string().min(1, 'Text is required').max(5000),
   language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
   seed: z.number().int().optional(),
-  modelSize: z.string().optional(),
+  modelSize: z.string().regex(
+    /^(1\.7B|0\.6B|custom:[a-z0-9][a-z0-9._-]*[a-z0-9])$/,
+    'Must be a built-in size (1.7B, 0.6B) or custom model (custom:<slug>)',
+  ).optional(),
   instruct: z.string().max(500).optional(),
 });
 

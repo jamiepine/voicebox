@@ -2,7 +2,6 @@ import { useMatchRoute } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import {
@@ -17,8 +16,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
-import { apiClient } from '@/lib/api/client';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { useModelStatus } from '@/lib/hooks/useModelStatus';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useAddStoryItem, useStory } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
@@ -50,19 +49,8 @@ export function FloatingGenerateBox({
   const addStoryItem = useAddStoryItem();
   const { toast } = useToast();
 
-  // Fetch model status to dynamically populate the model selector dropdown.
-  // Models are split into "Built-in" (qwen-tts-*) and "Custom" (is_custom flag)
-  // groups, keeping the same structure as GenerationForm.tsx.
-  // @modified AJ - Kamyab (Ankit Jain) — Added custom model grouping in selector
-  const { data: modelStatus } = useQuery({
-    queryKey: ['modelStatus'],
-    queryFn: () => apiClient.getModelStatus(),
-    refetchInterval: 10000,
-  });
-
-  // Separate built-in TTS models from user-added custom models
-  const builtInModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen-tts')) || [];
-  const customModels = modelStatus?.models.filter((m) => m.is_custom) || [];
+  // Use shared hook for model status fetching and grouping
+  const { builtInModels, customModels } = useModelStatus();
 
   // Calculate if track editor is visible (on stories route with items)
   const hasTrackEditor = isStoriesRoute && currentStory && currentStory.items.length > 0;

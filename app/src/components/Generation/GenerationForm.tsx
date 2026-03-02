@@ -1,5 +1,4 @@
 import { Loader2, Mic } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -23,8 +22,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
-import { apiClient } from '@/lib/api/client';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { useModelStatus } from '@/lib/hooks/useModelStatus';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -34,19 +33,8 @@ export function GenerationForm() {
 
   const { form, handleSubmit, isPending } = useGenerationForm();
 
-  // Fetch model status to dynamically populate the model selector dropdown.
-  // Models are split into "Built-in" (qwen-tts-*) and "Custom" (is_custom flag)
-  // groups so users can easily distinguish between them.
-  // @modified AJ - Kamyab (Ankit Jain) — Added custom model grouping in selector
-  const { data: modelStatus } = useQuery({
-    queryKey: ['modelStatus'],
-    queryFn: () => apiClient.getModelStatus(),
-    refetchInterval: 10000,
-  });
-
-  // Separate built-in TTS models from user-added custom models
-  const builtInModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen-tts')) || [];
-  const customModels = modelStatus?.models.filter((m) => m.is_custom) || [];
+  // Use shared hook for model status fetching and grouping
+  const { builtInModels, customModels } = useModelStatus();
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);

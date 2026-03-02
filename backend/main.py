@@ -684,6 +684,9 @@ async def generate_speech(
     except ValueError as e:
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        task_manager.complete_generation(generation_id)
+        raise
     except Exception as e:
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=500, detail=str(e))
@@ -970,6 +973,8 @@ async def transcribe_audio(
             duration=duration,
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
