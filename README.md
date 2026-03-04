@@ -98,12 +98,12 @@ Powered by Alibaba's **Qwen3-TTS** — a breakthrough model that achieves near-p
 - **Instant cloning** — Upload a sample, get a voice profile
 - **High fidelity** — Natural prosody, emotion, and cadence
 - **Multi-language** — English, Chinese, and more coming
-- **Lightning fast on Mac** — MLX backend leverages Apple Silicon's Neural Engine for super fast generation
+- **Lightning fast on Mac** — MLX backend leverages Apple Silicon's Neural Engine for super-fast generation
 
 ### Voice Profile Management
 
 - **Create profiles** from audio files or record directly in-app
-- **Import/Export** profiles to share or backup
+- **Import/Export** profiles to share or back up
 - **Multi-sample support** — combine multiple samples for higher quality cloning
 - **Organize** with descriptions and language tags
 
