@@ -195,6 +195,12 @@ class PyTorchTTSBackend:
                         device_map=self.device,
                         torch_dtype=torch.bfloat16,
                     )
+
+                # replace speech tokenizer to 48kHz version for better audio quality
+                from qwen_tts import Qwen3TTSTokenizer
+                self.model.model.speech_tokenizer = Qwen3TTSTokenizer.from_pretrained(
+                    "takuma104/Qwen3-TTS-Tokenizer-12Hz-48kHz"
+                )
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
