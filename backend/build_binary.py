@@ -64,7 +64,9 @@ def build_server():
         '--hidden-import', 'qwen_tts.cli',
         '--copy-metadata', 'qwen-tts',
         '--collect-submodules', 'qwen_tts',
-        '--collect-data', 'qwen_tts',
+        # Ensure qwen_tts Python source files are materialized in the bundle
+        # (needed by runtime code paths that access modeling_qwen3_tts.py by path).
+        '--collect-all', 'qwen_tts',
         # Fix for pkg_resources and jaraco namespace packages
         '--hidden-import', 'pkg_resources.extern',
         '--collect-submodules', 'jaraco',

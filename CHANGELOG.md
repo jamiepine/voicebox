@@ -55,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Audio export failing when Tauri save dialog returns object instead of string path
+- PyInstaller sidecar packaging now bundles `qwen_tts` source files needed at runtime (fixes missing `_MEI/.../qwen_tts/core/models/modeling_qwen3_tts.py` during model initialization)
 
 ### Added
 - **Makefile** - Comprehensive development workflow automation with commands for setup, development, building, testing, and code quality checks
