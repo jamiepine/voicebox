@@ -89,6 +89,79 @@ Voicebox is available now for macOS and Windows.
 
 ---
 
+## Docker
+
+Run Voicebox in Docker — no Python, Bun, or system dependencies required.
+
+### Quick Start
+
+```bash
+# Clone and start both backend + web UI
+git clone https://github.com/jamiepine/voicebox.git
+cd voicebox
+docker compose up -d
+```
+
+- **API**: http://localhost:8000 (Swagger docs at http://localhost:8000/docs)
+- **Web UI**: http://localhost:3000
+
+Verify the backend is running:
+
+```bash
+curl http://localhost:8000/health
+```
+
+### Compose Configurations
+
+| Configuration | Command | Description |
+|---------------|---------|-------------|
+| **Full stack** | `docker compose up -d` | Backend + Web UI |
+| **Backend only** | `docker compose -f docker-compose.backend.yml up -d` | API server only |
+| **Web only** | `BACKEND_URL=http://my-server:8000 docker compose -f docker-compose.web.yml up -d` | Frontend pointing to existing backend |
+
+### GPU Support
+
+For NVIDIA GPU acceleration, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), then uncomment the `deploy` section in `docker-compose.yml`:
+
+```yaml
+deploy:
+  resources:
+    reservations:
+      devices:
+        - driver: nvidia
+          count: all
+          capabilities: [gpu]
+```
+
+The backend auto-detects GPU availability at runtime — it works on CPU without any changes.
+
+### Data Persistence
+
+| Volume | Purpose |
+|--------|---------|
+| `voicebox-data` | Database, voice profiles, and generated audio |
+| `huggingface-cache` | Downloaded ML models (Qwen3-TTS, Whisper) |
+
+Data persists across `docker compose down` / `docker compose up` cycles.
+
+### Connecting Clients
+
+**Desktop app** — Use Remote Server mode and point to `http://<host>:8000`.
+
+**API** — The full REST API is available at port 8000:
+
+```bash
+# List voice profiles
+curl http://localhost:8000/profiles
+
+# Generate speech
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello from Docker", "profile_id": "your-profile-id", "language": "en"}'
+```
+
+---
+
 ## Features
 
 ### Voice Cloning with Qwen3-TTS

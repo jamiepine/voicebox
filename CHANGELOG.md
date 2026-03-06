@@ -62,6 +62,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Self-documenting help system with `make help`
   - Colored output for better readability
   - Supports parallel development server execution
+- **Docker Support** - Dockerfile and docker-compose.yml for containerized deployment
+  - Three compose configurations: full stack, backend-only, and web-only
+  - NVIDIA GPU support with optional CUDA acceleration
+  - Persistent volumes for data and HuggingFace model cache
+  - Health check endpoint integration
 
 ### Changed
 - **README** - Added Makefile reference and updated Quick Start with Makefile-based setup instructions alongside manual setup

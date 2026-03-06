@@ -1,0 +1,36 @@
+# Version control
+.git
+.gitignore
+
+# Desktop/native (not needed for Docker)
+tauri/
+apps/
+landing/
+
+# Python artifacts
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/*.spec
+backend/data/
+
+# Node artifacts
+node_modules/
+app/node_modules/
+web/node_modules/
+web/dist/
+
+# Build artifacts
+dist/
+*.egg-info/
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+
+# Docs
+docs/
+*.md
+!backend/requirements*.txt
