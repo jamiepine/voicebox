@@ -5,7 +5,14 @@ MLX backend implementation for TTS and STT using mlx-audio.
 from typing import Optional, List, Tuple
 import asyncio
 import numpy as np
+import os
 from pathlib import Path
+
+# PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
+# This prevents mlx_audio from making network requests when models are cached
+from ..utils.hf_offline_patch import patch_huggingface_hub_offline, ensure_original_qwen_config_cached
+patch_huggingface_hub_offline()
+ensure_original_qwen_config_cached()
 
 from . import TTSBackend, STTBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
@@ -159,15 +166,35 @@ class MLXTTSBackend:
             tracker_context = tracker.patch_download()
             tracker_context.__enter__()
             
+            # PATCH: Force offline mode when model is already cached
+            # This prevents crashes when HuggingFace is unreachable
+            original_hf_hub_offline = os.environ.get("HF_HUB_OFFLINE")
+            if is_cached:
+                os.environ["HF_HUB_OFFLINE"] = "1"
+                print(f"[PATCH] Model {model_size} is cached, forcing HF_HUB_OFFLINE=1 to avoid network requests")
+            
             # Import mlx_audio AFTER patching tqdm
             from mlx_audio.tts import load
             
             # Load MLX model (downloads automatically)
             try:
                 self.model = load(model_path)
+            except Exception as load_error:
+                # If offline mode failed, try with network enabled as fallback
+                if is_cached and "offline" in str(load_error).lower():
+                    print(f"[PATCH] Offline load failed, trying with network: {load_error}")
+                    os.environ.pop("HF_HUB_OFFLINE", None)
+                    self.model = load(model_path)
+                else:
+                    raise
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
+                # Restore original HF_HUB_OFFLINE setting
+                if original_hf_hub_offline is not None:
+                    os.environ["HF_HUB_OFFLINE"] = original_hf_hub_offline
+                else:
+                    os.environ.pop("HF_HUB_OFFLINE", None)
             
             # Only mark download as complete if we were tracking it
             if not is_cached:
