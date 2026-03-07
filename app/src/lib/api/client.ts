@@ -325,9 +325,20 @@ class ApiClient {
     });
   }
 
+  async cancelDownload(modelName: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/models/download/cancel', {
+      method: 'POST',
+      body: JSON.stringify({ model_name: modelName } as ModelDownloadRequest),
+    });
+  }
+
   // Task Management
   async getActiveTasks(): Promise<ActiveTasksResponse> {
     return this.request<ActiveTasksResponse>('/tasks/active');
+  }
+
+  async clearAllTasks(): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/tasks/clear', { method: 'POST' });
   }
 
   // Audio Channels

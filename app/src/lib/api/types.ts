@@ -113,6 +113,7 @@ export interface ActiveDownloadTask {
   model_name: string;
   status: string;
   started_at: string;
+  error?: string;
 }
 
 export interface ActiveGenerationTask {

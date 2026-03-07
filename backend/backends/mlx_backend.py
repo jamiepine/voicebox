@@ -379,9 +379,17 @@ class MLXTTSBackend:
         return audio, sample_rate
 
 
+WHISPER_HF_REPOS = {
+    "base": "openai/whisper-base",
+    "small": "openai/whisper-small",
+    "medium": "openai/whisper-medium",
+    "large": "openai/whisper-large-v3",
+}
+
+
 class MLXSTTBackend:
     """MLX-based STT backend using mlx-audio Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.model_size = model_size
@@ -402,8 +410,8 @@ class MLXSTTBackend:
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
-            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
+            hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
+            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + hf_repo.replace("/", "--"))
             
             if not repo_cache.exists():
                 return False
@@ -474,7 +482,7 @@ class MLXSTTBackend:
             from mlx_audio.stt import load
 
             # MLX Whisper uses the standard OpenAI models
-            model_name = f"openai/whisper-{model_size}"
+            model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
 
             print(f"Loading MLX Whisper model {model_size}...")
 

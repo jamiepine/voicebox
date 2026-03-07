@@ -154,6 +154,7 @@ class ActiveDownloadTask(BaseModel):
     model_name: str
     status: str
     started_at: datetime
+    error: Optional[str] = None
 
 
 class ActiveGenerationTask(BaseModel):

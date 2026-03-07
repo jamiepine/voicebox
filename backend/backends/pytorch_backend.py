@@ -369,9 +369,17 @@ class PyTorchTTSBackend:
         return audio, sample_rate
 
 
+WHISPER_HF_REPOS = {
+    "base": "openai/whisper-base",
+    "small": "openai/whisper-small",
+    "medium": "openai/whisper-medium",
+    "large": "openai/whisper-large-v3",
+}
+
+
 class PyTorchSTTBackend:
     """PyTorch-based STT backend using Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.processor = None
@@ -416,18 +424,18 @@ class PyTorchSTTBackend:
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
-            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
-            
+            hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
+            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + hf_repo.replace("/", "--"))
+
             if not repo_cache.exists():
                 return False
-            
+
             # Check for .incomplete files - if any exist, download is still in progress
             blobs_dir = repo_cache / "blobs"
             if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
                 print(f"[_is_model_cached] Found .incomplete files for whisper-{model_size}, treating as not cached")
                 return False
-            
+
             # Check that actual model weight files exist in snapshots
             snapshots_dir = repo_cache / "snapshots"
             if snapshots_dir.exists():
@@ -438,12 +446,12 @@ class PyTorchSTTBackend:
                 if not has_weights:
                     print(f"[_is_model_cached] No model weights found for whisper-{model_size}, treating as not cached")
                     return False
-            
+
             return True
         except Exception as e:
             print(f"[_is_model_cached] Error checking cache for whisper-{model_size}: {e}")
             return False
-    
+
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the Whisper model.
@@ -494,7 +502,7 @@ class PyTorchSTTBackend:
             # Import transformers
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            model_name = f"openai/whisper-{model_size}"
+            model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
             print(f"[DEBUG] Model name: {model_name}")
 
             print(f"Loading Whisper model {model_size} on {self.device}...")
