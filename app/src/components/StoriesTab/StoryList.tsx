@@ -194,17 +194,29 @@ export function StoryList() {
           storyList.map((story) => (
             <div
               key={story.id}
+              role="button"
+              tabIndex={0}
               className={cn(
-                'h-24 p-4 border rounded-2xl transition-colors group flex items-center',
+                'h-24 p-4 border rounded-2xl transition-colors group flex items-center cursor-pointer',
                 selectedStoryId === story.id && 'bg-muted border-primary',
               )}
+              aria-label={
+                selectedStoryId === story.id
+                  ? `Story ${story.name}, ${story.item_count} ${story.item_count === 1 ? 'item' : 'items'}, ${formatDate(story.updated_at)}. Selected. Press Enter to select.`
+                  : `Story ${story.name}, ${story.item_count} ${story.item_count === 1 ? 'item' : 'items'}, ${formatDate(story.updated_at)}. Press Enter to select.`
+              }
+              aria-pressed={selectedStoryId === story.id}
+              onClick={() => setSelectedStoryId(story.id)}
+              onKeyDown={(e) => {
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedStoryId(story.id);
+                }
+              }}
             >
               <div className="flex items-start justify-between gap-2 w-full min-w-0">
-                <button
-                  type="button"
-                  className="flex-1 min-w-0 text-left cursor-pointer overflow-hidden"
-                  onClick={() => setSelectedStoryId(story.id)}
-                >
+                <div className="flex-1 min-w-0 text-left overflow-hidden">
                   <h3 className="font-medium truncate">{story.name}</h3>
                   {story.description && (
                     <p className="text-sm text-muted-foreground mt-1 truncate">
@@ -218,7 +230,7 @@ export function StoryList() {
                     <span>•</span>
                     <span>{formatDate(story.updated_at)}</span>
                   </div>
-                </button>
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -226,6 +238,7 @@ export function StoryList() {
                       size="icon"
                       className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={(e) => e.stopPropagation()}
+                      aria-label={`Actions for ${story.name}`}
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </Button>

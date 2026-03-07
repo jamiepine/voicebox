@@ -20,7 +20,11 @@ export function UpdateStatus() {
   }, [platform]);
 
   return (
-    <Card>
+    <Card
+      role="region"
+      aria-label="App Updates"
+      tabIndex={0}
+    >
       <CardHeader>
         <CardTitle>App Updates</CardTitle>
       </CardHeader>

@@ -300,6 +300,13 @@ export function FloatingGenerateBox({
                     disabled={isPending || !selectedProfileId}
                     className="h-10 w-10 rounded-full bg-accent hover:bg-accent/90 hover:scale-105 text-accent-foreground shadow-lg hover:shadow-accent/50 transition-all duration-200"
                     size="icon"
+                    aria-label={
+                      isPending
+                        ? 'Generating...'
+                        : !selectedProfileId
+                          ? 'Select a voice profile first'
+                          : 'Generate speech'
+                    }
                   >
                     {isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -336,6 +343,11 @@ export function FloatingGenerateBox({
                               ? 'bg-accent text-accent-foreground border border-accent hover:bg-accent/90'
                               : 'bg-card border border-border hover:bg-background/50',
                           )}
+                          aria-label={
+                            isInstructMode
+                              ? 'Fine tune instructions, on'
+                              : 'Fine tune instructions'
+                          }
                         >
                           <SlidersHorizontal className="h-4 w-4" />
                         </Button>

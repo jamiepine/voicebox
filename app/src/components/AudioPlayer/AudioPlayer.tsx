@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Pause, Play, Repeat, Volume2, VolumeX, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -12,6 +12,7 @@ import { usePlatform } from '@/platform/PlatformContext';
 
 export function AudioPlayer() {
   const platform = usePlatform();
+  const volumeLabelId = useId();
   const {
     audioUrl,
     audioId,
@@ -831,6 +832,13 @@ export function AudioPlayer() {
             disabled={isLoading || duration === 0}
             className="shrink-0"
             title={duration === 0 && !isLoading ? 'Audio not loaded' : ''}
+            aria-label={
+              duration === 0 && !isLoading
+                ? 'Audio not loaded'
+                : isPlaying
+                  ? 'Pause'
+                  : 'Play'
+            }
           >
             {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
           </Button>
@@ -845,6 +853,8 @@ export function AudioPlayer() {
                 max={100}
                 step={0.1}
                 className="w-full"
+                aria-label="Playback position"
+                aria-valuetext={`${formatAudioDuration(currentTime)} of ${formatAudioDuration(duration)}`}
               />
             )}
             {isLoading && (
@@ -872,26 +882,33 @@ export function AudioPlayer() {
             onClick={toggleLoop}
             className={isLooping ? 'text-primary' : ''}
             title="Toggle loop"
+            aria-label={isLooping ? 'Stop looping' : 'Loop'}
           >
             <Repeat className="h-4 w-4" />
           </Button>
 
           {/* Volume Control */}
-          <div className="flex items-center gap-2 shrink-0 w-[120px]">
+          <div className="flex items-center gap-2 shrink-0 w-[120px]" role="group" aria-label="Volume">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setVolume(volume > 0 ? 0 : 1)}
               className="h-8 w-8"
+              aria-label={volume > 0 ? 'Mute' : 'Unmute'}
             >
               {volume > 0 ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
+            <span id={volumeLabelId} className="sr-only">
+              Volume level, {Math.round(volume * 100)}%
+            </span>
             <Slider
               value={[volume * 100]}
               onValueChange={handleVolumeChange}
               max={100}
               step={1}
               className="flex-1"
+              aria-labelledby={volumeLabelId}
+              aria-valuetext={`${Math.round(volume * 100)}%`}
             />
           </div>
 
@@ -902,6 +919,7 @@ export function AudioPlayer() {
             onClick={handleClose}
             className="shrink-0"
             title="Close player"
+            aria-label="Close player"
           >
             <X className="h-5 w-5" />
           </Button>

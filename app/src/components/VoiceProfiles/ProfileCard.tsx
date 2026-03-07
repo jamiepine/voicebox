@@ -61,6 +61,19 @@ export function ProfileCard({ profile }: ProfileCardProps) {
     exportProfile.mutate(profile.id);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleSelect();
+    }
+  };
+
+  const selectLabel = isSelected
+    ? `${profile.name}, ${profile.language}. Selected as voice for generation.`
+    : `${profile.name}, ${profile.language}. Select as voice for generation.`;
+
   return (
     <>
       <Card
@@ -69,6 +82,11 @@ export function ProfileCard({ profile }: ProfileCardProps) {
           isSelected && 'ring-2 ring-primary shadow-md',
         )}
         onClick={handleSelect}
+        tabIndex={0}
+        role="button"
+        aria-label={selectLabel}
+        aria-pressed={isSelected}
+        onKeyDown={handleKeyDown}
       >
         <CardHeader className="p-3 pb-2">
           <CardTitle className="flex items-center gap-1.5 text-base font-medium">

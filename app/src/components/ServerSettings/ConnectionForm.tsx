@@ -57,7 +57,11 @@ export function ConnectionForm() {
   }
 
   return (
-    <Card>
+    <Card
+      role="region"
+      aria-label="Server Connection"
+      tabIndex={0}
+    >
       <CardHeader>
         <CardTitle>Server Connection</CardTitle>
       </CardHeader>

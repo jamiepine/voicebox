@@ -278,9 +278,25 @@ interface ModelItemProps {
 function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: ModelItemProps) {
   // Use server's downloading state OR local state (for immediate feedback before server updates)
   const showDownloading = model.downloading || isDownloading;
-  
+
+  const statusText = model.loaded
+    ? 'Loaded'
+    : showDownloading
+      ? 'Downloading'
+      : model.downloaded
+        ? 'Downloaded'
+        : 'Not downloaded';
+  const sizeText =
+    model.downloaded && model.size_mb && !showDownloading ? `, ${formatSize(model.size_mb)}` : '';
+  const rowLabel = `${model.display_name}, ${statusText}${sizeText}. Use Tab to reach Download or Delete.`;
+
   return (
-    <div className="flex items-center justify-between p-3 border rounded-lg">
+    <div
+      className="flex items-center justify-between p-3 border rounded-lg"
+      role="group"
+      tabIndex={0}
+      aria-label={rowLabel}
+    >
       <div className="flex-1">
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm">{model.display_name}</span>
@@ -314,17 +330,27 @@ function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: M
               variant="outline"
               disabled={model.loaded}
               title={model.loaded ? 'Unload model before deleting' : 'Delete model'}
+              aria-label={
+                model.loaded
+                  ? 'Unload model before deleting'
+                  : `Delete ${model.display_name}`
+              }
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         ) : showDownloading ? (
-          <Button size="sm" variant="outline" disabled>
+          <Button size="sm" variant="outline" disabled aria-label={`${model.display_name} downloading`}>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             Downloading...
           </Button>
         ) : (
-          <Button size="sm" onClick={onDownload} variant="outline">
+          <Button
+            size="sm"
+            onClick={onDownload}
+            variant="outline"
+            aria-label={`Download ${model.display_name}`}
+          >
             <Download className="h-4 w-4 mr-2" />
             Download
           </Button>
