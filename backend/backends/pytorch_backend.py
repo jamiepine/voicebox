@@ -140,12 +140,12 @@ class PyTorchTTSBackend:
             self.unload_model()
 
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
-    
+        await asyncio.to_thread(self._load_model_sync, model_size, requested_48k)
+
     # Alias for compatibility
     load_model = load_model_async
     
-    def _load_model_sync(self, model_size: str):
+    def _load_model_sync(self, model_size: str, use_48k_speech_tokenizer: bool = False):
         """Synchronous model loading."""
         try:
             progress_manager = get_progress_manager()
@@ -206,13 +206,12 @@ class PyTorchTTSBackend:
                     )
 
                 # optionally replace speech tokenizer with 48kHz version for better audio quality
-                settings = AppSettings(**config.load_app_settings())
-                if settings.use_48k_speech_tokenizer:
+                if use_48k_speech_tokenizer:
                     from qwen_tts import Qwen3TTSTokenizer
                     self.model.model.speech_tokenizer = Qwen3TTSTokenizer.from_pretrained(
                         "takuma104/Qwen3-TTS-Tokenizer-12Hz-48kHz"
                     )
-                self._use_48k_speech_tokenizer = settings.use_48k_speech_tokenizer
+                self._use_48k_speech_tokenizer = use_48k_speech_tokenizer
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
