@@ -9,6 +9,8 @@ import numpy as np
 from pathlib import Path
 
 from . import TTSBackend, STTBackend
+from .. import config
+from ..models import AppSettings
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 from ..utils.audio import normalize_audio, load_audio
 from ..utils.progress import get_progress_manager
@@ -24,6 +26,7 @@ class PyTorchTTSBackend:
         self.model_size = model_size
         self.device = self._get_device()
         self._current_model_size = None
+        self._use_48k_speech_tokenizer = False
     
     def _get_device(self) -> str:
         """Get the best available device."""
@@ -121,22 +124,28 @@ class PyTorchTTSBackend:
         """
         if model_size is None:
             model_size = self.model_size
-            
-        # If already loaded with correct size, return
-        if self.model is not None and self._current_model_size == model_size:
+
+        requested_48k = AppSettings(**config.load_app_settings()).use_48k_speech_tokenizer
+
+        # If already loaded with correct size and same 48k setting, return
+        if (
+            self.model is not None
+            and self._current_model_size == model_size
+            and self._use_48k_speech_tokenizer == requested_48k
+        ):
             return
-        
-        # Unload existing model if different size requested
-        if self.model is not None and self._current_model_size != model_size:
+
+        # Unload existing model if reload is needed
+        if self.model is not None:
             self.unload_model()
-        
+
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
-    
+        await asyncio.to_thread(self._load_model_sync, model_size, requested_48k)
+
     # Alias for compatibility
     load_model = load_model_async
     
-    def _load_model_sync(self, model_size: str):
+    def _load_model_sync(self, model_size: str, use_48k_speech_tokenizer: bool = False):
         """Synchronous model loading."""
         try:
             progress_manager = get_progress_manager()
@@ -195,6 +204,14 @@ class PyTorchTTSBackend:
                         device_map=self.device,
                         torch_dtype=torch.bfloat16,
                     )
+
+                # optionally replace speech tokenizer with 48kHz version for better audio quality
+                if use_48k_speech_tokenizer:
+                    from qwen_tts import Qwen3TTSTokenizer
+                    self.model.model.speech_tokenizer = Qwen3TTSTokenizer.from_pretrained(
+                        "takuma104/Qwen3-TTS-Tokenizer-12Hz-48kHz"
+                    )
+                self._use_48k_speech_tokenizer = use_48k_speech_tokenizer
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)

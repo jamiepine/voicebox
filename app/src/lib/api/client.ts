@@ -24,6 +24,7 @@ import type {
   StoryItemMove,
   StoryItemTrim,
   StoryItemSplit,
+  AppSettings,
 } from './types';
 
 class ApiClient {
@@ -492,6 +493,18 @@ class ApiClient {
   async duplicateStoryItem(storyId: string, itemId: string): Promise<StoryItemDetail> {
     return this.request<StoryItemDetail>(`/stories/${storyId}/items/${itemId}/duplicate`, {
       method: 'POST',
+    });
+  }
+
+  // App Settings
+  async getSettings(): Promise<AppSettings> {
+    return this.request<AppSettings>('/settings');
+  }
+
+  async updateSettings(data: Partial<AppSettings>): Promise<AppSettings> {
+    return this.request<AppSettings>('/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
     });
   }
 

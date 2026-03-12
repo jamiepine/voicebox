@@ -299,3 +299,13 @@ class StoryItemTrim(BaseModel):
 class StoryItemSplit(BaseModel):
     """Request model for splitting a story item."""
     split_time_ms: int = Field(..., ge=0)  # Time within the clip to split at (relative to clip start)
+
+
+class AppSettings(BaseModel):
+    """Application settings."""
+    use_48k_speech_tokenizer: bool = False
+
+
+class AppSettingsUpdate(BaseModel):
+    """Partial update model for application settings."""
+    use_48k_speech_tokenizer: Optional[bool] = None
