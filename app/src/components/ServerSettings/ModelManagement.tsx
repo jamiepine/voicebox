@@ -30,6 +30,11 @@ export function ModelManagement() {
     queryFn: () => apiClient.getSettings(),
   });
 
+  const { data: health } = useQuery({
+    queryKey: ['health'],
+    queryFn: () => apiClient.getHealth(),
+  });
+
   const settingsMutation = useMutation({
     mutationFn: (data: { use_48k_speech_tokenizer: boolean }) => apiClient.updateSettings(data),
     onSuccess: (updated) => {
@@ -39,6 +44,13 @@ export function ModelManagement() {
         description: updated.use_48k_speech_tokenizer
           ? '48kHz speech tokenizer enabled. It will apply from your next generation.'
           : '48kHz speech tokenizer disabled. It will apply from your next generation.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Failed to update setting',
+        description: error.message,
+        variant: 'destructive',
       });
     },
   });
@@ -235,31 +247,33 @@ export function ModelManagement() {
           </div>
         ) : null}
 
-        <div className="mt-6 pt-6 border-t">
-          <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Advanced Settings</h3>
-          <div className="flex items-start space-x-3">
-            <Checkbox
-              id="use48kTokenizer"
-              checked={appSettings?.use_48k_speech_tokenizer ?? false}
-              onCheckedChange={(checked: boolean) => {
-                settingsMutation.mutate({ use_48k_speech_tokenizer: checked });
-              }}
-              disabled={settingsMutation.isPending}
-            />
-            <div className="space-y-1">
-              <label
-                htmlFor="use48kTokenizer"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                Use 48kHz speech tokenizer (experimental)
-              </label>
-              <p className="text-sm text-muted-foreground">
-                Enables a higher quality 48kHz speech tokenizer. Changes take
-                effect from your next generation.
-              </p>
+        {health?.backend_type === 'pytorch' && (
+          <div className="mt-6 pt-6 border-t">
+            <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Advanced Settings</h3>
+            <div className="flex items-start space-x-3">
+              <Checkbox
+                id="use48kTokenizer"
+                checked={appSettings?.use_48k_speech_tokenizer ?? false}
+                onCheckedChange={(checked: boolean) => {
+                  settingsMutation.mutate({ use_48k_speech_tokenizer: checked });
+                }}
+                disabled={settingsMutation.isPending}
+              />
+              <div className="space-y-1">
+                <label
+                  htmlFor="use48kTokenizer"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Use 48kHz speech tokenizer (experimental)
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Enables a higher quality 48kHz speech tokenizer. Changes take
+                  effect from your next generation.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </CardContent>
 
       {/* Delete Confirmation Dialog */}

@@ -26,6 +26,7 @@ class PyTorchTTSBackend:
         self.model_size = model_size
         self.device = self._get_device()
         self._current_model_size = None
+        self._use_48k_speech_tokenizer = False
     
     def _get_device(self) -> str:
         """Get the best available device."""
@@ -123,15 +124,21 @@ class PyTorchTTSBackend:
         """
         if model_size is None:
             model_size = self.model_size
-            
-        # If already loaded with correct size, return
-        if self.model is not None and self._current_model_size == model_size:
+
+        requested_48k = AppSettings(**config.load_app_settings()).use_48k_speech_tokenizer
+
+        # If already loaded with correct size and same 48k setting, return
+        if (
+            self.model is not None
+            and self._current_model_size == model_size
+            and self._use_48k_speech_tokenizer == requested_48k
+        ):
             return
-        
-        # Unload existing model if different size requested
-        if self.model is not None and self._current_model_size != model_size:
+
+        # Unload existing model if reload is needed
+        if self.model is not None:
             self.unload_model()
-        
+
         # Run blocking load in thread pool
         await asyncio.to_thread(self._load_model_sync, model_size)
     
@@ -205,6 +212,7 @@ class PyTorchTTSBackend:
                     self.model.model.speech_tokenizer = Qwen3TTSTokenizer.from_pretrained(
                         "takuma104/Qwen3-TTS-Tokenizer-12Hz-48kHz"
                     )
+                self._use_48k_speech_tokenizer = settings.use_48k_speech_tokenizer
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)

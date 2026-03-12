@@ -79,6 +79,7 @@ export interface HealthResponse {
   model_size?: string;
   gpu_available: boolean;
   vram_used_mb?: number;
+  backend_type?: string;
 }
 
 export interface ModelProgress {

@@ -78,11 +78,13 @@ def load_app_settings() -> dict:
     if path.exists():
         try:
             return json.loads(path.read_text(encoding="utf-8"))
-        except Exception:
+        except (json.JSONDecodeError, OSError) as exc:
+            print(f"[config] Failed to load settings from {path}: {exc}")
             return {}
     return {}
 
 def save_app_settings(data: dict) -> None:
     """Save app settings to JSON file."""
     path = get_settings_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")

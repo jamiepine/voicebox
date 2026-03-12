@@ -1773,12 +1773,15 @@ async def get_settings():
 @app.patch("/settings", response_model=models.AppSettings)
 async def update_settings(update: models.AppSettingsUpdate):
     """Partially update application settings."""
-    current = models.AppSettings(**config.load_app_settings())
-    data = current.model_dump()
+    data = config.load_app_settings()
+    if data == {} and config.get_settings_path().exists():
+        raise HTTPException(status_code=500, detail="Failed to read settings")
+
     patch = update.model_dump(exclude_none=True)
     data.update(patch)
-    config.save_app_settings(data)
-    return models.AppSettings(**data)
+    validated = models.AppSettings(**data)
+    config.save_app_settings(validated.model_dump())
+    return validated
 
 
 @app.on_event("startup")

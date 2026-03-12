@@ -256,6 +256,8 @@ Partially update application settings. Only provided fields are updated.
 
 Settings are persisted to `data/settings.json` and survive server restarts.
 
+> **Note:** `use_48k_speech_tokenizer` is only applied by the PyTorch backend. It has no effect on the MLX backend.
+
 ## Database Schema
 
 ### profiles
