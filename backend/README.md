@@ -230,6 +230,32 @@ Manually load TTS model.
 #### `POST /models/unload`
 Unload TTS model to free memory.
 
+### Settings
+
+#### `GET /settings`
+Get current application settings.
+
+**Response:**
+```json
+{
+  "use_48k_speech_tokenizer": false
+}
+```
+
+#### `PATCH /settings`
+Partially update application settings. Only provided fields are updated.
+
+**Request:**
+```json
+{
+  "use_48k_speech_tokenizer": true
+}
+```
+
+**Response:** Updated settings object (same shape as `GET /settings`).
+
+Settings are persisted to `data/settings.json` and survive server restarts.
+
 ## Database Schema
 
 ### profiles
