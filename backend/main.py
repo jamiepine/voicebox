@@ -1764,6 +1764,23 @@ def _get_gpu_status() -> str:
     return "None (CPU only)"
 
 
+@app.get("/settings", response_model=models.AppSettings)
+async def get_settings():
+    """Return current application settings."""
+    return models.AppSettings(**config.load_app_settings())
+
+
+@app.patch("/settings", response_model=models.AppSettings)
+async def update_settings(update: models.AppSettingsUpdate):
+    """Partially update application settings."""
+    current = models.AppSettings(**config.load_app_settings())
+    data = current.model_dump()
+    patch = update.model_dump(exclude_none=True)
+    data.update(patch)
+    config.save_app_settings(data)
+    return models.AppSettings(**data)
+
+
 @app.on_event("startup")
 async def startup_event():
     """Run on application startup."""

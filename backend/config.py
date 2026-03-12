@@ -4,6 +4,7 @@ Configuration module for voicebox backend.
 Handles data directory configuration for production bundling.
 """
 
+import json
 import os
 from pathlib import Path
 
@@ -66,3 +67,22 @@ def get_models_dir() -> Path:
     path = _data_dir / "models"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+def get_settings_path() -> Path:
+    """Get app settings file path."""
+    return _data_dir / "settings.json"
+
+def load_app_settings() -> dict:
+    """Load app settings from JSON file. Returns empty dict if file not found."""
+    path = get_settings_path()
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return {}
+    return {}
+
+def save_app_settings(data: dict) -> None:
+    """Save app settings to JSON file."""
+    path = get_settings_path()
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")

@@ -9,6 +9,8 @@ import numpy as np
 from pathlib import Path
 
 from . import TTSBackend, STTBackend
+from .. import config
+from ..models import AppSettings
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 from ..utils.audio import normalize_audio, load_audio
 from ..utils.progress import get_progress_manager
@@ -196,11 +198,13 @@ class PyTorchTTSBackend:
                         torch_dtype=torch.bfloat16,
                     )
 
-                # replace speech tokenizer to 48kHz version for better audio quality
-                from qwen_tts import Qwen3TTSTokenizer
-                self.model.model.speech_tokenizer = Qwen3TTSTokenizer.from_pretrained(
-                    "takuma104/Qwen3-TTS-Tokenizer-12Hz-48kHz"
-                )
+                # optionally replace speech tokenizer with 48kHz version for better audio quality
+                settings = AppSettings(**config.load_app_settings())
+                if settings.use_48k_speech_tokenizer:
+                    from qwen_tts import Qwen3TTSTokenizer
+                    self.model.model.speech_tokenizer = Qwen3TTSTokenizer.from_pretrained(
+                        "takuma104/Qwen3-TTS-Tokenizer-12Hz-48kHz"
+                    )
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)

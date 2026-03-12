@@ -202,3 +202,7 @@ export interface StoryItemTrim {
 export interface StoryItemSplit {
   split_time_ms: number;
 }
+
+export interface AppSettings {
+  use_48k_speech_tokenizer: boolean;
+}

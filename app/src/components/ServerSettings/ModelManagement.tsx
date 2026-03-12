@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Loader2, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useCallback, useState } from 'react';
 import {
   AlertDialog,
@@ -23,6 +24,24 @@ export function ModelManagement() {
   const queryClient = useQueryClient();
   const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
   const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
+
+  const { data: appSettings } = useQuery({
+    queryKey: ['appSettings'],
+    queryFn: () => apiClient.getSettings(),
+  });
+
+  const settingsMutation = useMutation({
+    mutationFn: (data: { use_48k_speech_tokenizer: boolean }) => apiClient.updateSettings(data),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(['appSettings'], updated);
+      toast({
+        title: 'Setting updated',
+        description: updated.use_48k_speech_tokenizer
+          ? '48kHz speech tokenizer enabled. It will apply from your next generation.'
+          : '48kHz speech tokenizer disabled. It will apply from your next generation.',
+      });
+    },
+  });
 
   const { data: modelStatus, isLoading } = useQuery({
     queryKey: ['modelStatus'],
@@ -215,6 +234,32 @@ export function ModelManagement() {
 
           </div>
         ) : null}
+
+        <div className="mt-6 pt-6 border-t">
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground">Advanced Settings</h3>
+          <div className="flex items-start space-x-3">
+            <Checkbox
+              id="use48kTokenizer"
+              checked={appSettings?.use_48k_speech_tokenizer ?? false}
+              onCheckedChange={(checked: boolean) => {
+                settingsMutation.mutate({ use_48k_speech_tokenizer: checked });
+              }}
+              disabled={settingsMutation.isPending}
+            />
+            <div className="space-y-1">
+              <label
+                htmlFor="use48kTokenizer"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Use 48kHz speech tokenizer (experimental)
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Enables a higher quality 48kHz speech tokenizer. Changes take
+                effect from your next generation.
+              </p>
+            </div>
+          </div>
+        </div>
       </CardContent>
 
       {/* Delete Confirmation Dialog */}
