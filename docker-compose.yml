@@ -32,6 +32,27 @@ services:
           cpus: '4'
           memory: 8G
 
+  mcp:
+    build:
+      context: mcp
+    container_name: voicebox-mcp
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:3100:3100"
+
+    environment:
+      - VOICEBOX_URL=http://voicebox:17493
+      - VOICEBOX_MCP_TRANSPORT=http
+      - VOICEBOX_MCP_HOST=0.0.0.0
+      - VOICEBOX_MCP_PORT=3100
+
+    depends_on:
+      - voicebox
+
+    networks:
+      - voicebox-net
+
 networks:
   voicebox-net:
     driver: bridge

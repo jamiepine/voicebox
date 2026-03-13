@@ -153,6 +153,36 @@ docs:
 logs:
     tail -f {{ backend_dir }}/logs/*.log 2>/dev/null || echo "No log files found"
 
+# ─── MCP Server ──────────────────────────────────────────────────────
+
+# Build MCP server
+mcp-build:
+    cd mcp && cargo build --release
+
+# Run MCP server (stdio transport)
+mcp-run:
+    cd mcp && cargo run --release
+
+# Run MCP server (HTTP transport)
+mcp-run-http:
+    cd mcp && cargo run --release -- --transport http
+
+# Run MCP tests
+mcp-test:
+    cd mcp && cargo test
+
+# Lint MCP server
+mcp-lint:
+    cd mcp && cargo clippy -- -D warnings
+
+# Format MCP server
+mcp-fmt:
+    cd mcp && cargo fmt
+
+# All MCP checks (fmt + lint + test)
+mcp-check:
+    cd mcp && cargo fmt -- --check && cargo clippy -- -D warnings && cargo test
+
 # ─── Clean ────────────────────────────────────────────────────────────
 
 # Clean build artifacts

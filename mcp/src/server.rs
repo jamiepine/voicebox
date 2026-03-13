@@ -898,4 +898,500 @@ mod tests {
         let result = server.list_history(Parameters(params)).await.unwrap();
         assert!(result.contains("total"));
     }
+
+    // --- Profile workflows ---
+
+    #[tokio::test]
+    async fn profile_create_then_get() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/profiles"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 5,
+                "name": "Test Voice",
+                "language": "en",
+                "description": "A test voice",
+                "created_at": "2025-01-01T00:00:00"
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .create_profile(Parameters(CreateProfileParams {
+                name: "Test Voice".to_string(),
+                language: "en".to_string(),
+                description: Some("A test voice".to_string()),
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("Test Voice"));
+        assert!(result.contains("\"id\": 5"));
+
+        Mock::given(method("GET"))
+            .and(path("/profiles/5"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 5,
+                "name": "Test Voice",
+                "language": "en",
+                "description": "A test voice"
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .get_profile(Parameters(GetProfileParams { profile_id: 5 }))
+            .await
+            .unwrap();
+        assert!(result.contains("Test Voice"));
+    }
+
+    #[tokio::test]
+    async fn profile_update_partial_fields() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("PUT"))
+            .and(path("/profiles/1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 1,
+                "name": "Updated Name",
+                "language": "en"
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .update_profile(Parameters(UpdateProfileParams {
+                profile_id: 1,
+                name: Some("Updated Name".to_string()),
+                language: None,
+                description: None,
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("Updated Name"));
+    }
+
+    #[tokio::test]
+    async fn profile_delete_returns_message() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("DELETE"))
+            .and(path("/profiles/1"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"message": "Profile deleted"})),
+            )
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .delete_profile(Parameters(DeleteProfileParams { profile_id: 1 }))
+            .await
+            .unwrap();
+        assert!(result.contains("deleted"));
+    }
+
+    // --- Generation workflows ---
+
+    #[tokio::test]
+    async fn generate_with_all_options() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/generate"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 42,
+                "profile_id": 1,
+                "text": "Hello world",
+                "language": "en",
+                "audio_path": "/data/generations/42.wav",
+                "duration": 1.8,
+                "seed": 12345,
+                "instruct": "speak slowly"
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .generate_speech(Parameters(GenerateSpeechParams {
+                text: "Hello world".to_string(),
+                profile_id: 1,
+                language: Some("en".to_string()),
+                seed: Some(12345),
+                model_size: Some("1.7B".to_string()),
+                instruct: Some("speak slowly".to_string()),
+                engine: Some("qwen".to_string()),
+            }))
+            .await
+            .unwrap();
+
+        assert!(result.contains("Hello world"));
+        assert!(result.contains("42.wav"));
+        assert!(result.contains("12345"));
+        assert!(result.contains("speak slowly"));
+    }
+
+    #[tokio::test]
+    async fn generate_returns_202_when_model_downloading() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/generate"))
+            .respond_with(ResponseTemplate::new(202).set_body_json(json!({
+                "message": "Model not cached, download started"
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .generate_speech(Parameters(GenerateSpeechParams {
+                text: "test".to_string(),
+                profile_id: 1,
+                language: None,
+                seed: None,
+                model_size: None,
+                instruct: None,
+                engine: None,
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("download started"));
+    }
+
+    #[tokio::test]
+    async fn get_audio_to_temp_dir() {
+        let (mock, server) = setup().await;
+
+        let fake_wav = vec![0u8; 256];
+        Mock::given(method("GET"))
+            .and(path("/audio/99"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(fake_wav))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .get_audio(Parameters(GetAudioParams {
+                generation_id: 99,
+                output_path: None,
+            }))
+            .await
+            .unwrap();
+
+        assert!(result.contains("generation_99.wav"));
+        assert!(result.contains("256"));
+
+        let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+        let path = parsed["output_path"].as_str().unwrap();
+        let _ = std::fs::remove_file(path);
+    }
+
+    // --- History workflows ---
+
+    #[tokio::test]
+    async fn history_with_search_and_pagination() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "items": [
+                    {"id": 1, "text": "hello there", "profile_name": "Alice"},
+                    {"id": 2, "text": "hello world", "profile_name": "Bob"},
+                ],
+                "total": 2
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .list_history(Parameters(ListHistoryParams {
+                profile_id: None,
+                search: Some("hello".to_string()),
+                limit: Some(10),
+                offset: Some(0),
+            }))
+            .await
+            .unwrap();
+
+        assert!(result.contains("hello there"));
+        assert!(result.contains("hello world"));
+        assert!(result.contains("\"total\": 2"));
+    }
+
+    #[tokio::test]
+    async fn history_stats_returns_breakdown() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("GET"))
+            .and(path("/history/stats"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "total_generations": 150,
+                "total_duration_seconds": 3600.5,
+                "by_profile": [
+                    {"profile_id": 1, "profile_name": "Alice", "count": 100},
+                    {"profile_id": 2, "profile_name": "Bob", "count": 50}
+                ]
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server.get_history_stats().await.unwrap();
+        assert!(result.contains("150"));
+        assert!(result.contains("Alice"));
+        assert!(result.contains("Bob"));
+    }
+
+    // --- Transcription ---
+
+    #[tokio::test]
+    async fn transcribe_missing_file_returns_error() {
+        let (_mock, server) = setup().await;
+
+        let result = server
+            .transcribe(Parameters(TranscribeParams {
+                file_path: "/nonexistent/audio.wav".to_string(),
+                language: None,
+            }))
+            .await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("File not found"));
+    }
+
+    // --- Story workflows ---
+
+    #[tokio::test]
+    async fn story_full_workflow() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/stories"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 1,
+                "name": "My Podcast",
+                "description": "Episode 1",
+                "item_count": 0
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .create_story(Parameters(CreateStoryParams {
+                name: "My Podcast".to_string(),
+                description: Some("Episode 1".to_string()),
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("My Podcast"));
+
+        Mock::given(method("POST"))
+            .and(path("/stories/1/items"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 10,
+                "story_id": 1,
+                "generation_id": 42,
+                "start_time_ms": 0,
+                "track": 0
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .add_story_item(Parameters(AddStoryItemParams {
+                story_id: 1,
+                generation_id: 42,
+                start_time_ms: Some(0),
+                track: Some(0),
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("\"generation_id\": 42"));
+
+        Mock::given(method("PUT"))
+            .and(path("/stories/1/items/10/move"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 10,
+                "start_time_ms": 5000,
+                "track": 1
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .move_story_item(Parameters(MoveStoryItemParams {
+                story_id: 1,
+                item_id: 10,
+                start_time_ms: Some(5000),
+                track: Some(1),
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("5000"));
+
+        Mock::given(method("GET"))
+            .and(path("/stories/1"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "id": 1,
+                "name": "My Podcast",
+                "items": [{"id": 10, "generation_id": 42, "track": 1}]
+            })))
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .get_story(Parameters(GetStoryParams { story_id: 1 }))
+            .await
+            .unwrap();
+        assert!(result.contains("\"items\""));
+
+        Mock::given(method("DELETE"))
+            .and(path("/stories/1/items/10"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"message": "Item removed"})),
+            )
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .remove_story_item(Parameters(RemoveStoryItemParams {
+                story_id: 1,
+                item_id: 10,
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("removed"));
+    }
+
+    #[tokio::test]
+    async fn export_story_saves_audio() {
+        let (mock, server) = setup().await;
+
+        let fake_wav = vec![0u8; 1024];
+        Mock::given(method("GET"))
+            .and(path("/stories/1/export-audio"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(fake_wav))
+            .mount(&mock)
+            .await;
+
+        let tmp = std::env::temp_dir().join("voicebox-mcp-test-story-export.wav");
+        let result = server
+            .export_story(Parameters(ExportStoryParams {
+                story_id: 1,
+                output_path: Some(tmp.to_string_lossy().to_string()),
+            }))
+            .await
+            .unwrap();
+
+        assert!(result.contains("1024"));
+        assert!(tmp.exists());
+
+        let _ = std::fs::remove_file(&tmp);
+    }
+
+    // --- Model workflows ---
+
+    #[tokio::test]
+    async fn model_load_unload_cycle() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/models/load"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"message": "Model loaded"})),
+            )
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .load_model(Parameters(LoadModelParams {
+                model_size: Some("1.7B".to_string()),
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("loaded"));
+
+        Mock::given(method("POST"))
+            .and(path("/models/qwen-tts-1.7B/unload"))
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(json!({"message": "Model unloaded"})),
+            )
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .unload_model(Parameters(UnloadModelParams {
+                model_name: Some("qwen-tts-1.7B".to_string()),
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("unloaded"));
+    }
+
+    #[tokio::test]
+    async fn model_download_triggers_background() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/models/download"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({"message": "Download started for chatterbox-tts"})),
+            )
+            .mount(&mock)
+            .await;
+
+        let result = server
+            .download_model(Parameters(DownloadModelParams {
+                model_name: "chatterbox-tts".to_string(),
+            }))
+            .await
+            .unwrap();
+        assert!(result.contains("chatterbox-tts"));
+    }
+
+    // --- System ---
+
+    #[tokio::test]
+    async fn clear_cache_returns_count() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("POST"))
+            .and(path("/cache/clear"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(json!({"message": "Cache cleared", "files_deleted": 42})),
+            )
+            .mount(&mock)
+            .await;
+
+        let result = server.clear_cache().await.unwrap();
+        assert!(result.contains("42"));
+    }
+
+    // --- Error handling ---
+
+    #[tokio::test]
+    async fn server_500_propagates_as_error() {
+        let (mock, server) = setup().await;
+
+        Mock::given(method("GET"))
+            .and(path("/profiles"))
+            .respond_with(
+                ResponseTemplate::new(500).set_body_string("Internal server error: model crashed"),
+            )
+            .mount(&mock)
+            .await;
+
+        let result = server.list_profiles().await;
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("500"));
+    }
+
+    #[tokio::test]
+    async fn connection_refused_propagates_as_error() {
+        let client = VoiceboxClient::new("http://127.0.0.1:1");
+        let server = VoiceboxMcp::new(client);
+
+        let result = server.list_profiles().await;
+        assert!(result.is_err());
+    }
 }

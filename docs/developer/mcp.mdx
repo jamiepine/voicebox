@@ -1,0 +1,186 @@
+---
+title: "MCP Server"
+description: "Using Voicebox as an MCP tool server for AI agents"
+---
+
+## Overview
+
+The Voicebox MCP server exposes all Voicebox capabilities over the [Model Context Protocol](https://modelcontextprotocol.io), letting AI agents and MCP clients (Claude Desktop, spacebot, etc.) generate speech, manage voice profiles, build stories, and more - all through structured tool calls.
+
+Built in Rust with the `rmcp` crate, it runs as a standalone binary that connects to the Voicebox backend API.
+
+## Quick Start
+
+### From source
+
+```bash
+cd mcp
+cargo build --release
+./target/release/voicebox-mcp
+```
+
+### With Docker
+
+```bash
+docker compose up mcp
+```
+
+### With just
+
+```bash
+just mcp-build
+just mcp-run
+```
+
+## Configuration
+
+All options can be set via CLI flags or environment variables:
+
+| Flag | Env Var | Default | Description |
+|------|---------|---------|-------------|
+| `--url` | `VOICEBOX_URL` | `http://localhost:17493` | Voicebox API base URL |
+| `--transport` | `VOICEBOX_MCP_TRANSPORT` | `stdio` | Transport mode: `stdio` or `http` |
+| `--port` | `VOICEBOX_MCP_PORT` | `3100` | Port for HTTP transport |
+| `--host` | `VOICEBOX_MCP_HOST` | `127.0.0.1` | Bind address for HTTP transport |
+
+## Transports
+
+### stdio (default)
+
+Standard input/output - used by most MCP clients like Claude Desktop.
+
+```bash
+voicebox-mcp --url http://localhost:17493
+```
+
+### HTTP (Streamable HTTP)
+
+For networked or containerized deployments. Serves on `/mcp`.
+
+```bash
+voicebox-mcp --transport http --host 0.0.0.0 --port 3100
+```
+
+## Client Configuration
+
+### Claude Desktop
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "voicebox": {
+      "command": "/path/to/voicebox-mcp",
+      "args": ["--url", "http://localhost:17493"]
+    }
+  }
+}
+```
+
+### HTTP clients
+
+Point any MCP client at `http://localhost:3100/mcp`.
+
+## Available Tools
+
+### Voice Profiles
+
+| Tool | Description |
+|------|-------------|
+| `list_profiles` | List all voice profiles |
+| `get_profile` | Get a profile by ID |
+| `create_profile` | Create a new voice profile |
+| `update_profile` | Update profile name, language, or description |
+| `delete_profile` | Delete a voice profile |
+
+### Speech Generation
+
+| Tool | Description |
+|------|-------------|
+| `generate_speech` | Generate speech from text using a voice profile |
+| `get_audio` | Download generated audio to a local file |
+
+### History
+
+| Tool | Description |
+|------|-------------|
+| `list_history` | Search and browse generation history |
+| `get_history_stats` | Get generation statistics by profile |
+
+### Transcription
+
+| Tool | Description |
+|------|-------------|
+| `transcribe` | Transcribe an audio file to text |
+
+### Stories (Timeline Editor)
+
+| Tool | Description |
+|------|-------------|
+| `list_stories` | List all stories |
+| `get_story` | Get story details with items |
+| `create_story` | Create a new story |
+| `update_story` | Update story name or description |
+| `delete_story` | Delete a story |
+| `add_story_item` | Add a generation to a story timeline |
+| `move_story_item` | Move an item's position or track |
+| `remove_story_item` | Remove an item from a story |
+| `export_story` | Export story audio to a file |
+
+### Model Management
+
+| Tool | Description |
+|------|-------------|
+| `list_models` | List available TTS models |
+| `load_model` | Load a model into memory |
+| `unload_model` | Unload a model from memory |
+| `download_model` | Download a model |
+
+### System
+
+| Tool | Description |
+|------|-------------|
+| `get_server_status` | Get backend health and status |
+| `clear_cache` | Clear the audio cache |
+
+## Architecture
+
+```
+┌──────────────┐     MCP (stdio/HTTP)     ┌──────────────┐     HTTP     ┌──────────────┐
+│  MCP Client  │ ◄──────────────────────► │ voicebox-mcp │ ──────────► │   Voicebox   │
+│  (AI Agent)  │                          │  (Rust bin)  │             │  (FastAPI)   │
+└──────────────┘                          └──────────────┘             └──────────────┘
+```
+
+The MCP server is a thin translation layer - it accepts MCP tool calls, maps them to Voicebox REST API requests, and returns structured responses. No state is held in the MCP server itself.
+
+## Development
+
+```bash
+cd mcp
+
+# Run tests
+cargo test
+
+# Lint
+cargo clippy -- -D warnings
+
+# Format
+cargo fmt
+
+# All checks
+just mcp-check
+```
+
+## Docker
+
+The MCP server has its own Dockerfile at `mcp/Dockerfile`. In production, it defaults to HTTP transport on port 3100 and expects the Voicebox backend at `http://voicebox:17493`.
+
+```bash
+# Build standalone
+docker build -t voicebox-mcp mcp/
+
+# Run with docker compose
+docker compose up mcp
+```
