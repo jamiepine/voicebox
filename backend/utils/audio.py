@@ -70,14 +70,43 @@ def save_audio(
     sample_rate: int = 24000,
 ) -> None:
     """
-    Save audio file.
-    
+    Save audio file with atomic write and error handling.
+
+    Writes to a temporary file first, then atomically renames to the
+    target path.  This prevents corrupted/partial WAV files if the
+    process is interrupted mid-write.
+
     Args:
         audio: Audio array
         path: Output path
         sample_rate: Sample rate
+
+    Raises:
+        OSError: If file cannot be written
     """
-    sf.write(path, audio, sample_rate)
+    from pathlib import Path
+    import os
+
+    temp_path = f"{path}.tmp"
+    try:
+        # Ensure parent directory exists
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Write to temporary file first
+        sf.write(temp_path, audio, sample_rate)
+
+        # Atomic rename to final path
+        os.replace(temp_path, path)
+
+    except Exception as e:
+        # Clean up temp file on failure
+        try:
+            if Path(temp_path).exists():
+                Path(temp_path).unlink()
+        except Exception:
+            pass  # Best effort cleanup
+
+        raise OSError(f"Failed to save audio to {path}: {e}") from e
 
 
 def trim_tts_output(

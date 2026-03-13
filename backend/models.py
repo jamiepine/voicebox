@@ -131,6 +131,22 @@ class HealthResponse(BaseModel):
     backend_variant: Optional[str] = None  # Binary variant (cpu or cuda)
 
 
+class DirectoryCheck(BaseModel):
+    """Health status for a single directory."""
+    path: str
+    exists: bool
+    writable: bool
+    error: Optional[str] = None
+
+
+class FilesystemHealthResponse(BaseModel):
+    """Response model for filesystem health check."""
+    healthy: bool
+    disk_free_mb: Optional[float] = None
+    disk_total_mb: Optional[float] = None
+    directories: List[DirectoryCheck]
+
+
 class ModelStatus(BaseModel):
     """Response model for model status."""
     model_name: str

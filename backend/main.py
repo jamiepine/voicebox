@@ -233,6 +233,75 @@ async def health():
     )
 
 
+@app.get("/health/filesystem", response_model=models.FilesystemHealthResponse)
+async def filesystem_health():
+    """Check filesystem health: directory existence, write permissions, and disk space."""
+    import shutil
+
+    dirs_to_check = {
+        "generations": config.get_generations_dir(),
+        "profiles": config.get_profiles_dir(),
+        "data": config.get_data_dir(),
+    }
+
+    checks: list[models.DirectoryCheck] = []
+    all_ok = True
+
+    for _label, dir_path in dirs_to_check.items():
+        exists = dir_path.exists()
+        writable = False
+        error = None
+        if exists:
+            # Probe writability with a temp file
+            probe = dir_path / ".voicebox_probe"
+            try:
+                probe.write_text("ok")
+                probe.unlink()
+                writable = True
+            except PermissionError:
+                error = "Permission denied"
+            except OSError as e:
+                error = str(e)
+            finally:
+                try:
+                    probe.unlink(missing_ok=True)
+                except Exception:
+                    pass
+        else:
+            error = "Directory does not exist"
+
+        if not exists or not writable:
+            all_ok = False
+
+        checks.append(
+            models.DirectoryCheck(
+                path=str(dir_path),
+                exists=exists,
+                writable=writable,
+                error=error,
+            )
+        )
+
+    # Disk space for the data directory
+    disk_free_mb = None
+    disk_total_mb = None
+    try:
+        usage = shutil.disk_usage(str(config.get_data_dir()))
+        disk_free_mb = round(usage.free / (1024 * 1024), 1)
+        disk_total_mb = round(usage.total / (1024 * 1024), 1)
+        if disk_free_mb < 500:
+            all_ok = False
+    except OSError:
+        all_ok = False
+
+    return models.FilesystemHealthResponse(
+        healthy=all_ok,
+        disk_free_mb=disk_free_mb,
+        disk_total_mb=disk_total_mb,
+        directories=checks,
+    )
+
+
 # ============================================
 # VOICE PROFILE ENDPOINTS
 # ============================================
@@ -762,7 +831,30 @@ async def generate_speech(
         audio_path = config.get_generations_dir() / f"{generation_id}.wav"
 
         from .utils.audio import save_audio
-        save_audio(audio, str(audio_path), sample_rate)
+        import errno
+
+        try:
+            save_audio(audio, str(audio_path), sample_rate)
+        except BrokenPipeError:
+            raise HTTPException(
+                status_code=500,
+                detail="Audio save failed: broken pipe (the output stream was closed unexpectedly)",
+            )
+        except OSError as save_err:
+            err_no = getattr(save_err, "errno", None) or (
+                getattr(save_err.__cause__, "errno", None)
+                if save_err.__cause__
+                else None
+            )
+            if err_no == errno.ENOENT:
+                msg = f"Audio save failed: directory not found — {audio_path.parent}"
+            elif err_no == errno.EACCES:
+                msg = f"Audio save failed: permission denied — {audio_path.parent}"
+            elif err_no == errno.ENOSPC:
+                msg = "Audio save failed: no disk space remaining"
+            else:
+                msg = f"Audio save failed: {save_err}"
+            raise HTTPException(status_code=500, detail=msg)
 
         # Create history entry
         generation = await history.create_generation(
