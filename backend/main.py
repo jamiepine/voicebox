@@ -844,6 +844,10 @@ async def generate_speech(
             trim_fn=trim_fn,
         )
 
+        if data.normalize:
+            from .utils.audio import normalize_audio
+            audio = normalize_audio(audio)
+
         # Calculate duration
         duration = len(audio) / sample_rate
 
@@ -974,6 +978,10 @@ async def stream_speech(
         crossfade_ms=data.crossfade_ms,
         trim_fn=trim_fn,
     )
+
+    if data.normalize:
+        from .utils.audio import normalize_audio
+        audio = normalize_audio(audio)
 
     wav_bytes = tts.audio_to_wav_bytes(audio, sample_rate)
 
@@ -1577,6 +1585,141 @@ async def get_model_progress(model_name: str):
         async for event in progress_manager.subscribe(model_name):
             yield event
     
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.get("/models/cache-dir")
+async def get_models_cache_dir():
+    """Get the path to the HuggingFace model cache directory."""
+    from huggingface_hub import constants as hf_constants
+    return {"path": str(Path(hf_constants.HF_HUB_CACHE))}
+
+
+def _get_dir_size(path: Path) -> int:
+    """Get total size of a directory in bytes."""
+    total = 0
+    for f in path.rglob("*"):
+        if f.is_file():
+            total += f.stat().st_size
+    return total
+
+
+def _copy_with_progress(src: Path, dst: Path, progress_manager, copied_so_far: int, total_bytes: int) -> int:
+    """Copy a directory tree with byte-level progress tracking."""
+    import shutil
+    dst.mkdir(parents=True, exist_ok=True)
+    for item in src.iterdir():
+        dest_item = dst / item.name
+        if item.is_dir():
+            copied_so_far = _copy_with_progress(item, dest_item, progress_manager, copied_so_far, total_bytes)
+        else:
+            size = item.stat().st_size
+            shutil.copy2(str(item), str(dest_item))
+            copied_so_far += size
+            progress_manager.update_progress(
+                "migration", copied_so_far, total_bytes,
+                filename=item.name, status="downloading",
+            )
+    return copied_so_far
+
+
+@app.post("/models/migrate")
+async def migrate_models(request: models.ModelMigrateRequest):
+    """Move all downloaded models to a new directory with byte-level progress via SSE."""
+    import shutil
+    from huggingface_hub import constants as hf_constants
+
+    source = Path(hf_constants.HF_HUB_CACHE)
+    destination = Path(request.destination)
+
+    if not source.exists():
+        raise HTTPException(status_code=404, detail="Current model cache directory not found")
+
+    model_dirs = [d for d in source.iterdir() if d.name.startswith("models--") and d.is_dir()]
+    if not model_dirs:
+        return {"moved": 0, "errors": [], "source": str(source), "destination": str(destination)}
+
+    destination.mkdir(parents=True, exist_ok=True)
+
+    progress_manager = get_progress_manager()
+
+    # Check if source and destination are on the same filesystem (rename is instant)
+    same_fs = False
+    try:
+        same_fs = source.stat().st_dev == destination.stat().st_dev
+    except OSError:
+        pass
+
+    async def migrate_background():
+        moved = 0
+        errors = []
+        try:
+            if same_fs:
+                # Same filesystem: rename is instant, just track model count
+                total = len(model_dirs)
+                for i, item in enumerate(model_dirs):
+                    dest_item = destination / item.name
+                    try:
+                        if dest_item.exists():
+                            shutil.rmtree(dest_item)
+                        shutil.move(str(item), str(dest_item))
+                        moved += 1
+                        progress_manager.update_progress(
+                            "migration", i + 1, total,
+                            filename=item.name, status="downloading",
+                        )
+                    except Exception as e:
+                        errors.append(f"{item.name}: {str(e)}")
+            else:
+                # Cross-filesystem: copy with byte-level progress, then delete source
+                total_bytes = sum(_get_dir_size(d) for d in model_dirs)
+                progress_manager.update_progress("migration", 0, total_bytes, filename="Calculating...", status="downloading")
+
+                copied = 0
+                for item in model_dirs:
+                    dest_item = destination / item.name
+                    try:
+                        if dest_item.exists():
+                            shutil.rmtree(dest_item)
+                        copied = await asyncio.to_thread(
+                            _copy_with_progress, item, dest_item, progress_manager, copied, total_bytes
+                        )
+                        # Remove source after successful copy
+                        await asyncio.to_thread(shutil.rmtree, str(item))
+                        moved += 1
+                    except Exception as e:
+                        errors.append(f"{item.name}: {str(e)}")
+
+            progress_manager.update_progress("migration", 1, 1, status="complete")
+            progress_manager.mark_complete("migration")
+        except Exception as e:
+            progress_manager.update_progress("migration", 0, 0, status="error")
+            progress_manager.mark_error("migration", str(e))
+
+    _create_background_task(migrate_background())
+
+    return {"source": str(source), "destination": str(destination)}
+
+
+@app.get("/models/migrate/progress")
+async def get_migration_progress():
+    """Get model migration progress via Server-Sent Events."""
+    from fastapi.responses import StreamingResponse
+
+    progress_manager = get_progress_manager()
+
+    async def event_generator():
+        async for event in progress_manager.subscribe("migration"):
+            yield event
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",

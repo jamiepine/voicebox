@@ -19,6 +19,12 @@ interface ServerStore {
 
   crossfadeMs: number;
   setCrossfadeMs: (value: number) => void;
+
+  normalizeAudio: boolean;
+  setNormalizeAudio: (value: boolean) => void;
+
+  customModelsDir: string | null;
+  setCustomModelsDir: (dir: string | null) => void;
 }
 
 export const useServerStore = create<ServerStore>()(
@@ -41,6 +47,12 @@ export const useServerStore = create<ServerStore>()(
 
       crossfadeMs: 50,
       setCrossfadeMs: (value) => set({ crossfadeMs: value }),
+
+      normalizeAudio: true,
+      setNormalizeAudio: (value) => set({ normalizeAudio: value }),
+
+      customModelsDir: null,
+      setCustomModelsDir: (dir) => set({ customModelsDir: dir }),
     }),
     {
       name: 'voicebox-server',

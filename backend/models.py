@@ -60,6 +60,7 @@ class GenerationRequest(BaseModel):
     engine: Optional[str] = Field(default="qwen", pattern="^(qwen|luxtts|chatterbox|chatterbox_turbo)$")
     max_chunk_chars: int = Field(default=800, ge=100, le=5000, description="Max characters per chunk for long text splitting")
     crossfade_ms: int = Field(default=50, ge=0, le=500, description="Crossfade duration in ms between chunks (0 for hard cut)")
+    normalize: bool = Field(default=True, description="Normalize output audio volume")
 
 
 class GenerationResponse(BaseModel):
@@ -168,6 +169,11 @@ class ModelStatusListResponse(BaseModel):
 class ModelDownloadRequest(BaseModel):
     """Request model for triggering model download."""
     model_name: str
+
+
+class ModelMigrateRequest(BaseModel):
+    """Request model for migrating models to a new directory."""
+    destination: str
 
 
 class ActiveDownloadTask(BaseModel):

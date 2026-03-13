@@ -321,7 +321,7 @@ Notable requests:
 
 ## New Model Integration — Landscape
 
-### Models Worth Supporting (2026 SOTA)
+### Models Worth Supporting (2026 SOTA — updated March 13)
 
 | Model | Cloning | Speed | Sample Rate | Languages | VRAM | Integration Ease | Status |
 |-------|---------|-------|-------------|-----------|------|-----------------|--------|
@@ -329,10 +329,23 @@ Notable requests:
 | **LuxTTS** | 3s zero-shot | 150x RT, CPU ok | 48 kHz | English | <1 GB | **Shipped** | PR #254 |
 | **Chatterbox MTL** | 5s zero-shot | Medium | 24 kHz | 23 | Medium | **Shipped** | PR #257 |
 | **Chatterbox Turbo** | 5s zero-shot | Fast | 24 kHz | English | Low | **PR #258** | In review |
+| **HumeAI TADA 1B/3B** | Zero-shot | 5× faster than LLM-TTS | — | EN (1B), Multilingual (3B) | Medium | Needs vetting | MIT, 700s+ coherent, synced transcript output |
+| **MOSS-TTS Family** | Zero-shot | — | — | Multilingual | Medium | Needs vetting | Apache 2.0, multi-speaker dialogue, text-to-voice design (no ref audio) |
+| **VoxCPM 1.5** | Zero-shot (seconds) | ~0.15 RTF streaming | — | Bilingual (EN/ZH) | Medium | Needs vetting | Apache 2.0, tokenizer-free continuous diffusion, LoRA-friendly |
+| **Pocket TTS** | Zero-shot + streaming | >1× RT on CPU | — | English | ~100M params, CPU-first | Needs vetting | MIT, Kyutai Labs, no GPU required |
+| **Kokoro-82M** | 3s instant | CPU realtime | 24 kHz | English | Tiny (82M) | Ready | Apache 2.0, multi-engine arch in place |
 | **XTTS-v2** | 6s zero-shot | Mid-GPU | 24 kHz | 17+ | Medium | Ready | Multi-engine arch in place |
 | **Fish Speech** | 10-30s few-shot | Real-time | 24-44 kHz | 50+ | Medium | Ready | Multi-engine arch in place |
 | **CosyVoice2-0.5B** | 3-10s zero-shot | Very fast | 24 kHz | Multilingual | Low | Ready | Multi-engine arch in place |
-| **Kokoro-82M** | 3s instant | CPU realtime | 24 kHz | English | Tiny | Ready | Multi-engine arch in place |
+
+#### Notes on New Candidates (March 2026)
+
+- **HumeAI TADA** — Text-Audio Dual Alignment arch. Near-zero hallucinations/drift, free synced transcript. 700+ seconds coherent audio. Best candidate for Stories long-form reliability. [HF: HumeAI/tada-1b](https://huggingface.co/HumeAI/tada-1b) | [GitHub: HumeAI/tada](https://github.com/HumeAI/tada)
+- **MOSS-TTS** — Modular suite: flagship cloning, MOSS-TTSD (multi-speaker dialogue), MOSS-VoiceGenerator (create voices from text descriptions, no ref audio). Unique UX for Stories voice design. [GitHub: OpenMOSS/MOSS-TTS](https://github.com/OpenMOSS/MOSS-TTS)
+- **VoxCPM 1.5** — Tokenizer-free continuous diffusion + autoregressive. No discrete token artifacts. Context-aware prosody/emotion, real-time streaming, LoRA fine-tuning. Trained on 1.8M+ hours. [GitHub: OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM)
+- **Pocket TTS** — 100M param CPU-first model from Kyutai Labs (Moshi team). Runs >1× realtime without GPU. Broadens hardware support significantly. [GitHub: kyutai-labs/pocket-tts](https://github.com/kyutai-labs/pocket-tts)
+- **Watch list:** MioTTS-2.6B (fast LLM-based EN/JP, vLLM compatible), Oolel-Voices (Soynade Research, expressive modular control)
+- **Skipped:** Fish Audio S2 — restrictive research license (commercial use requires approval), despite strong features
 
 ### Adding a New Engine (Now Straightforward)
 
@@ -402,16 +415,21 @@ The generation form now uses a flat model dropdown with engine-based routing. Pe
 
 ### Tier 3 — Future (v0.3.0+)
 
-| Item | Notes |
-|------|-------|
-| XTTS-v2 / Fish Speech / CosyVoice | Multi-engine arch is ready; just needs backend implementation |
-| OpenAI-compatible API (plan doc exists) | Low effort once API is stable |
-| LoRA fine-tuning (PR #195) | Complex, needs rework for multi-engine |
-| External/remote providers | Depends on use case demand |
-| GGUF support (#226) | Depends on model ecosystem maturity |
-| Queue system (#234) | Batch generation |
-| Streaming for non-MLX engines | Currently MLX-only |
-| Kokoro-82M | Tiny model, great for CPU-only machines |
+| Priority | Item | Notes |
+|----------|------|-------|
+| 1 | **HumeAI TADA** | Long-form reliability for Stories, synced transcripts. Addresses #234, #203, #191, #111, #69. Needs API vetting. |
+| 2 | **Pocket TTS** (Kyutai) | CPU-first 100M model, broadens hardware support. Kyutai ships clean code. Needs API vetting. |
+| 3 | **MOSS-TTS** | Text-to-voice design (no ref audio) is unique. Multi-speaker dialogue for Stories. Needs thorough API vetting. |
+| 4 | **Kokoro-82M** | 82M params, CPU realtime, Apache 2.0. Easy win. |
+| 5 | **Model config registry refactor** | Reduce 5-dispatch-point duplication in main.py — do before adding 3+ more engines |
+| 6 | XTTS-v2 / Fish Speech / CosyVoice | Multi-engine arch is ready; just needs backend implementation |
+| 7 | **VoxCPM 1.5** | Tokenizer-free streaming, interesting but uncertain integration surface |
+| 8 | OpenAI-compatible API (plan doc exists) | Low effort once API is stable |
+| 9 | LoRA fine-tuning (PR #195) | Complex, needs rework for multi-engine |
+| 10 | External/remote providers | Depends on use case demand |
+| 11 | GGUF support (#226) | Depends on model ecosystem maturity |
+| 12 | Queue system (#234) | Batch generation |
+| 13 | Streaming for non-MLX engines | Currently MLX-only |
 
 ---
 

@@ -7,6 +7,7 @@ import {
   CircleX,
   Download,
   ExternalLink,
+  FolderOpen,
   HardDrive,
   Heart,
   Loader2,
@@ -41,12 +42,37 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { ActiveDownloadTask, HuggingFaceModelInfo, ModelStatus } from '@/lib/api/types';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
+import { usePlatform } from '@/platform/PlatformContext';
+import { useServerStore } from '@/stores/serverStore';
 
 async function fetchHuggingFaceModelInfo(repoId: string): Promise<HuggingFaceModelInfo> {
   const response = await fetch(`https://huggingface.co/api/models/${repoId}`);
   if (!response.ok) throw new Error(`Failed to fetch model info: ${response.status}`);
   return response.json();
 }
+
+const MODEL_DESCRIPTIONS: Record<string, string> = {
+  'qwen-tts-1.7B':
+    'High-quality multilingual TTS by Alibaba. Supports 10 languages with natural prosody and voice cloning from short reference audio.',
+  'qwen-tts-0.6B':
+    'Lightweight version of Qwen TTS. Same language support with faster inference, ideal for lower-end hardware.',
+  luxtts:
+    'Lightweight ZipVoice-based TTS designed for high quality voice cloning and 48kHz speech generation at speeds exceeding 150x realtime.',
+  'chatterbox-tts':
+    'Production-grade open source TTS by Resemble AI. Supports 23 languages with voice cloning and emotion exaggeration control.',
+  'chatterbox-turbo':
+    'Streamlined 350M parameter TTS by Resemble AI. High-quality English speech with less compute and VRAM than larger models.',
+  'whisper-base':
+    'Smallest Whisper model (74M parameters). Fast transcription with moderate accuracy.',
+  'whisper-small':
+    'Whisper Small (244M parameters). Good balance of speed and accuracy for transcription.',
+  'whisper-medium':
+    'Whisper Medium (769M parameters). Higher accuracy transcription at moderate speed.',
+  'whisper-large':
+    'Whisper Large (1.5B parameters). Best accuracy for speech-to-text across multiple languages.',
+  'whisper-turbo':
+    'Whisper Large v3 Turbo. Pruned for significantly faster inference while maintaining near-large accuracy.',
+};
 
 function formatDownloads(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -85,6 +111,18 @@ function formatBytes(bytes: number): string {
 export function ModelManagement() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const platform = usePlatform();
+  const customModelsDir = useServerStore((state) => state.customModelsDir);
+  const setCustomModelsDir = useServerStore((state) => state.setCustomModelsDir);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState<{
+    current: number;
+    total: number;
+    progress: number;
+    filename?: string;
+    status: string;
+  } | null>(null);
+  const [pendingMigrateDir, setPendingMigrateDir] = useState<string | null>(null);
   const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
   const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -102,6 +140,12 @@ export function ModelManagement() {
       return result;
     },
     refetchInterval: 5000,
+  });
+
+  const { data: cacheDir } = useQuery({
+    queryKey: ['modelsCacheDir'],
+    queryFn: () => apiClient.getModelsCacheDir(),
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: activeTasks } = useQuery({
@@ -382,6 +426,87 @@ export function ModelManagement() {
         </p>
       </div>
 
+      {/* Model storage location */}
+      {platform.metadata.isTauri && cacheDir && (
+        <div className="shrink-0 pb-4 border-b mb-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-xs text-muted-foreground">Storage location</span>
+              <p
+                className="text-xs font-mono text-muted-foreground/70 truncate"
+                title={cacheDir.path}
+              >
+                {cacheDir.path}
+              </p>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground h-7 px-2"
+                onClick={async () => {
+                  try {
+                    const { open } = await import('@tauri-apps/plugin-shell');
+                    await open(cacheDir.path);
+                  } catch {
+                    toast({ title: 'Failed to open model folder', variant: 'destructive' });
+                  }
+                }}
+              >
+                <FolderOpen className="h-3 w-3" />
+                Open
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground h-7 px-2"
+                onClick={async () => {
+                  try {
+                    const { open: openDialog } = await import('@tauri-apps/plugin-dialog');
+                    const selected = await openDialog({
+                      directory: true,
+                      title: 'Choose model storage folder',
+                    });
+                    if (!selected) return;
+                    const newDir =
+                      typeof selected === 'string' ? selected : (selected as { path: string }).path;
+                    if (!newDir) return;
+                    setPendingMigrateDir(newDir);
+                  } catch {
+                    toast({ title: 'Failed to open folder picker', variant: 'destructive' });
+                  }
+                }}
+                disabled={migrating}
+              >
+                {migrating ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <FolderOpen className="h-3 w-3" />
+                )}
+                {migrating ? 'Migrating...' : 'Change'}
+              </Button>
+              {customModelsDir && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground h-7 px-2"
+                  disabled={migrating}
+                  onClick={async () => {
+                    setCustomModelsDir(null);
+                    toast({ title: 'Reset to default location. Restarting server...' });
+                    await platform.lifecycle.restartServer('');
+                    queryClient.invalidateQueries();
+                  }}
+                >
+                  <RotateCcw className="h-3 w-3" />
+                  Reset
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Model list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
@@ -457,9 +582,7 @@ export function ModelManagement() {
                             {formatSize(model.size_mb)}
                           </span>
                         )}
-                        {!model.downloaded && !isDownloading && !hasError && (
-                          <span className="text-xs text-muted-foreground/60">Not downloaded</span>
-                        )}
+
                         <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
                       </div>
                     </button>
@@ -571,13 +694,6 @@ export function ModelManagement() {
                       Error
                     </Badge>
                   )}
-                  {!freshSelectedModel.downloaded &&
-                    !selectedState?.isDownloading &&
-                    !selectedState?.hasError && (
-                      <Badge variant="outline" className="text-xs text-muted-foreground">
-                        Not downloaded
-                      </Badge>
-                    )}
                 </div>
 
                 {/* HuggingFace model card info */}
@@ -586,6 +702,13 @@ export function ModelManagement() {
                     <Loader2 className="h-3 w-3 animate-spin" />
                     Loading model info...
                   </div>
+                )}
+
+                {/* Description */}
+                {MODEL_DESCRIPTIONS[freshSelectedModel.model_name] && (
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {MODEL_DESCRIPTIONS[freshSelectedModel.model_name]}
+                  </p>
                 )}
 
                 {hfModelInfo && (
@@ -810,6 +933,126 @@ export function ModelManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Migration confirmation dialog */}
+      <AlertDialog
+        open={!!pendingMigrateDir}
+        onOpenChange={(open) => !open && setPendingMigrateDir(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move models to new location?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The server will shut down while models are being moved to the new folder. It will
+              restart automatically once the migration is complete.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div
+            className="text-xs font-mono text-muted-foreground bg-muted/50 rounded px-3 py-2 truncate"
+            title={pendingMigrateDir ?? ''}
+          >
+            {pendingMigrateDir}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (!pendingMigrateDir) return;
+                const newDir = pendingMigrateDir;
+                setPendingMigrateDir(null);
+                setMigrating(true);
+                setMigrationProgress({
+                  current: 0,
+                  total: 0,
+                  progress: 0,
+                  status: 'downloading',
+                  filename: 'Preparing...',
+                });
+                try {
+                  // Start the migration (background task)
+                  await apiClient.migrateModels(newDir);
+
+                  // Connect to SSE for progress
+                  await new Promise<void>((resolve, reject) => {
+                    const es = new EventSource(apiClient.getMigrationProgressUrl());
+                    es.onmessage = (event) => {
+                      try {
+                        const data = JSON.parse(event.data);
+                        setMigrationProgress(data);
+                        if (data.status === 'complete') {
+                          es.close();
+                          resolve();
+                        } else if (data.status === 'error') {
+                          es.close();
+                          reject(new Error(data.error || 'Migration failed'));
+                        }
+                      } catch {
+                        /* ignore parse errors */
+                      }
+                    };
+                    es.onerror = () => {
+                      es.close();
+                      reject(new Error('Lost connection during migration'));
+                    };
+                  });
+
+                  setCustomModelsDir(newDir);
+                  setMigrationProgress({
+                    current: 1,
+                    total: 1,
+                    progress: 100,
+                    status: 'complete',
+                    filename: 'Restarting server...',
+                  });
+                  await platform.lifecycle.restartServer(newDir);
+                  queryClient.invalidateQueries();
+                  toast({ title: 'Models moved successfully' });
+                } catch (e) {
+                  toast({
+                    title: 'Migration failed',
+                    description: e instanceof Error ? e.message : 'Failed to migrate models',
+                    variant: 'destructive',
+                  });
+                } finally {
+                  setMigrating(false);
+                  setMigrationProgress(null);
+                }
+              }}
+            >
+              Move Models
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Migration progress overlay */}
+      {migrating && migrationProgress && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex items-center justify-center">
+          <div className="w-full max-w-md px-8 space-y-6 text-center">
+            <div className="space-y-2">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Moving models</h2>
+              <p className="text-sm text-muted-foreground">
+                {migrationProgress.status === 'complete'
+                  ? 'Restarting server...'
+                  : 'The server is offline while models are being moved.'}
+              </p>
+            </div>
+            {migrationProgress.total > 0 && (
+              <div className="space-y-2">
+                <Progress value={migrationProgress.progress} className="h-2" />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span className="truncate max-w-[60%]">{migrationProgress.filename}</span>
+                  <span>
+                    {formatBytes(migrationProgress.current)} /{' '}
+                    {formatBytes(migrationProgress.total)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,9 +5,12 @@ import type { PlatformLifecycle } from '@/platform/types';
 class TauriLifecycle implements PlatformLifecycle {
   onServerReady?: () => void;
 
-  async startServer(remote = false): Promise<string> {
+  async startServer(remote = false, modelsDir?: string | null): Promise<string> {
     try {
-      const result = await invoke<string>('start_server', { remote });
+      const result = await invoke<string>('start_server', {
+        remote,
+        modelsDir: modelsDir ?? undefined,
+      });
       console.log('Server started:', result);
       this.onServerReady?.();
       return result;
@@ -27,9 +30,11 @@ class TauriLifecycle implements PlatformLifecycle {
     }
   }
 
-  async restartServer(): Promise<string> {
+  async restartServer(modelsDir?: string | null): Promise<string> {
     try {
-      const result = await invoke<string>('restart_server');
+      const result = await invoke<string>('restart_server', {
+        modelsDir: modelsDir ?? undefined,
+      });
       console.log('Server restarted:', result);
       this.onServerReady?.();
       return result;

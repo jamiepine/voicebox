@@ -38,6 +38,7 @@ export interface GenerationRequest {
   instruct?: string;
   max_chunk_chars?: number;
   crossfade_ms?: number;
+  normalize?: boolean;
 }
 
 export interface GenerationResponse {

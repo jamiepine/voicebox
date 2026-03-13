@@ -34,6 +34,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
   const setIsGenerating = useGenerationStore((state) => state.setIsGenerating);
   const maxChunkChars = useServerStore((state) => state.maxChunkChars);
   const crossfadeMs = useServerStore((state) => state.crossfadeMs);
+  const normalizeAudio = useServerStore((state) => state.normalizeAudio);
   const [downloadingModelName, setDownloadingModelName] = useState<string | null>(null);
   const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
 
@@ -115,6 +116,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         instruct: isQwen ? data.instruct || undefined : undefined,
         max_chunk_chars: maxChunkChars,
         crossfade_ms: crossfadeMs,
+        normalize: normalizeAudio,
       });
 
       toast({

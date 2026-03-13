@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { useServerStore } from '@/stores/serverStore';
 
@@ -7,6 +8,8 @@ export function GenerationSettings() {
   const setMaxChunkChars = useServerStore((state) => state.setMaxChunkChars);
   const crossfadeMs = useServerStore((state) => state.crossfadeMs);
   const setCrossfadeMs = useServerStore((state) => state.setCrossfadeMs);
+  const normalizeAudio = useServerStore((state) => state.normalizeAudio);
+  const setNormalizeAudio = useServerStore((state) => state.setNormalizeAudio);
 
   return (
     <Card role="region" aria-label="Generation Settings" tabIndex={0}>
@@ -63,6 +66,25 @@ export function GenerationSettings() {
             <p className="text-sm text-muted-foreground">
               Blends audio between chunks to smooth transitions. Set to 0 for a hard cut.
             </p>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="normalizeAudio"
+              checked={normalizeAudio}
+              onCheckedChange={setNormalizeAudio}
+            />
+            <div className="space-y-1">
+              <label
+                htmlFor="normalizeAudio"
+                className="text-sm font-medium leading-none cursor-pointer"
+              >
+                Normalize audio
+              </label>
+              <p className="text-sm text-muted-foreground">
+                Adjusts output volume to a consistent level across generations.
+              </p>
+            </div>
           </div>
         </div>
       </CardContent>

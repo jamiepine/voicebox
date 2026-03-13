@@ -49,9 +49,9 @@ export interface PlatformAudio {
 }
 
 export interface PlatformLifecycle {
-  startServer(remote?: boolean): Promise<string>;
+  startServer(remote?: boolean, modelsDir?: string | null): Promise<string>;
   stopServer(): Promise<void>;
-  restartServer(): Promise<string>;
+  restartServer(modelsDir?: string | null): Promise<string>;
   setKeepServerRunning(keep: boolean): Promise<void>;
   setupWindowCloseHandler(): Promise<void>;
   onServerReady?: () => void;

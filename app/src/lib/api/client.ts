@@ -316,6 +316,21 @@ class ApiClient {
     return this.request<ModelStatusListResponse>('/models/status');
   }
 
+  async getModelsCacheDir(): Promise<{ path: string }> {
+    return this.request<{ path: string }>('/models/cache-dir');
+  }
+
+  async migrateModels(destination: string): Promise<{ source: string; destination: string }> {
+    return this.request('/models/migrate', {
+      method: 'POST',
+      body: JSON.stringify({ destination }),
+    });
+  }
+
+  getMigrationProgressUrl(): string {
+    return `${this.getBaseUrl()}/models/migrate/progress`;
+  }
+
   async triggerModelDownload(modelName: string): Promise<{ message: string }> {
     console.log(
       '[API] triggerModelDownload called for:',
