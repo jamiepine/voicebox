@@ -1,0 +1,36 @@
+[package]
+name = "voicebox-mcp"
+version = "0.1.0"
+edition = "2021"
+description = "MCP server for Voicebox voice synthesis studio"
+rust-version = "1.88.0"
+
+[[bin]]
+name = "voicebox-mcp"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+axum = "0.8"
+clap = { version = "4", features = ["derive", "env"] }
+reqwest = { version = "0.12", features = ["json", "multipart", "stream"] }
+rmcp = { version = "1.2", features = [
+    "server",
+    "macros",
+    "transport-io",
+    "transport-streamable-http-server",
+] }
+schemars = "1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+wiremock = "0.6"
+
+[profile.release]
+strip = true
+lto = true
