@@ -15,6 +15,11 @@ class WebLifecycle implements PlatformLifecycle {
     // No-op for web - server is managed externally
   }
 
+  async restartServer(): Promise<string> {
+    // No-op for web - server is managed externally
+    return import.meta.env.VITE_SERVER_URL || 'http://localhost:17493';
+  }
+
   async setKeepServerRunning(_keep: boolean): Promise<void> {
     // No-op for web
   }

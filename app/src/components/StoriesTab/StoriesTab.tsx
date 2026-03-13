@@ -1,8 +1,11 @@
 import { FloatingGenerateBox } from '@/components/Generation/FloatingGenerateBox';
+import { usePlayerStore } from '@/stores/playerStore';
 import { StoryContent } from './StoryContent';
 import { StoryList } from './StoryList';
 
 export function StoriesTab() {
+  const audioUrl = usePlayerStore((state) => state.audioUrl);
+
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Main content area */}
@@ -18,7 +21,7 @@ export function StoriesTab() {
         </div>
 
         {/* Floating Generate Box - position is managed via storyStore.trackEditorHeight */}
-        <FloatingGenerateBox showVoiceSelector />
+        <FloatingGenerateBox showVoiceSelector isPlayerOpen={!!audioUrl} />
       </div>
     </div>
   );

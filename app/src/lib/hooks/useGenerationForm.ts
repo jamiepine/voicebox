@@ -16,6 +16,7 @@ const generationSchema = z.object({
   seed: z.number().int().optional(),
   modelSize: z.enum(['1.7B', '0.6B']).optional(),
   instruct: z.string().max(500).optional(),
+  engine: z.enum(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo']).optional(),
 });
 
 export type GenerationFormValues = z.infer<typeof generationSchema>;
@@ -47,6 +48,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       seed: undefined,
       modelSize: '1.7B',
       instruct: '',
+      engine: 'qwen',
       ...options.defaultValues,
     },
   });
@@ -67,8 +69,25 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
     try {
       setIsGenerating(true);
 
-      const modelName = `qwen-tts-${data.modelSize}`;
-      const displayName = data.modelSize === '1.7B' ? 'Qwen TTS 1.7B' : 'Qwen TTS 0.6B';
+      const engine = data.engine || 'qwen';
+      const modelName =
+        engine === 'luxtts'
+          ? 'luxtts'
+          : engine === 'chatterbox'
+            ? 'chatterbox-tts'
+            : engine === 'chatterbox_turbo'
+              ? 'chatterbox-turbo'
+              : `qwen-tts-${data.modelSize}`;
+      const displayName =
+        engine === 'luxtts'
+          ? 'LuxTTS'
+          : engine === 'chatterbox'
+            ? 'Chatterbox TTS'
+            : engine === 'chatterbox_turbo'
+              ? 'Chatterbox Turbo'
+              : data.modelSize === '1.7B'
+                ? 'Qwen TTS 1.7B'
+                : 'Qwen TTS 0.6B';
 
       try {
         const modelStatus = await apiClient.getModelStatus();
@@ -82,13 +101,15 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         console.error('Failed to check model status:', error);
       }
 
+      const isQwen = engine === 'qwen';
       const result = await generation.mutateAsync({
         profile_id: selectedProfileId,
         text: data.text,
         language: data.language,
         seed: data.seed,
-        model_size: data.modelSize,
-        instruct: data.instruct || undefined,
+        model_size: isQwen ? data.modelSize : undefined,
+        engine,
+        instruct: isQwen ? data.instruct || undefined : undefined,
       });
 
       toast({
@@ -99,7 +120,14 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       const audioUrl = apiClient.getAudioUrl(result.id);
       setAudioWithAutoPlay(audioUrl, result.id, selectedProfileId, data.text.substring(0, 50));
 
-      form.reset();
+      form.reset({
+        text: '',
+        language: data.language,
+        seed: undefined,
+        modelSize: data.modelSize,
+        instruct: '',
+        engine: data.engine,
+      });
       options.onSuccess?.(result.id);
     } catch (error) {
       toast({

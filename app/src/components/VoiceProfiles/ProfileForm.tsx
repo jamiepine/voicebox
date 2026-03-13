@@ -43,7 +43,7 @@ import {
 } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
-import { formatAudioDuration, getAudioDuration } from '@/lib/utils/audio';
+import { convertToWav, formatAudioDuration, getAudioDuration } from '@/lib/utils/audio';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
 import { type ProfileFormDraft, useUIStore } from '@/stores/uiStore';
@@ -505,10 +505,23 @@ export function ProfileForm() {
           language: data.language,
         });
 
+        // Convert non-WAV uploads to WAV so the backend can always use soundfile.
+        // Recorded audio is already WAV (from useAudioRecording's convertToWav call).
+        let fileToUpload: File = sampleFile;
+        if (!sampleFile.type.includes('wav') && !sampleFile.name.toLowerCase().endsWith('.wav')) {
+          try {
+            const wavBlob = await convertToWav(sampleFile);
+            const wavName = sampleFile.name.replace(/\.[^.]+$/, '.wav');
+            fileToUpload = new File([wavBlob], wavName, { type: 'audio/wav' });
+          } catch {
+            // If browser can't decode the format, send the original and let the backend try.
+          }
+        }
+
         try {
           await addSample.mutateAsync({
             profileId: profile.id,
-            file: sampleFile,
+            file: fileToUpload,
             referenceText: referenceText,
           });
 

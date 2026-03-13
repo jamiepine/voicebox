@@ -19,15 +19,17 @@ def is_apple_silicon() -> bool:
 def get_backend_type() -> Literal["mlx", "pytorch"]:
     """
     Detect the best backend for the current platform.
-    
+
     Returns:
-        "mlx" on Apple Silicon (if MLX is available), "pytorch" otherwise
+        "mlx" on Apple Silicon (if MLX is available and functional), "pytorch" otherwise
     """
     if is_apple_silicon():
         try:
-            import mlx
+            import mlx.core  # noqa: F401 — triggers native lib loading
             return "mlx"
-        except ImportError:
-            # MLX not installed, fallback to PyTorch
+        except (ImportError, OSError, RuntimeError):
+            # MLX not installed, or native libraries failed to load inside a
+            # PyInstaller bundle (OSError on missing .dylib / .metallib).
+            # Fall through to PyTorch.
             return "pytorch"
     return "pytorch"

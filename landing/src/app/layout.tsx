@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { Banner } from '@/components/Banner';
 import { Footer } from '@/components/Footer';
 import { Header } from '@/components/Header';
 
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className="dark">
       <body className={inter.variable}>
         <div className="relative min-h-screen bg-background font-sans flex flex-col">
+          <Banner />
           <Header />
           <main className="container mx-auto px-4 sm:px-6 md:px-4 flex-1 py-4 sm:py-6 md:py-0">
             {children}

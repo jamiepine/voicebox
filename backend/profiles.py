@@ -38,14 +38,22 @@ async def create_profile(
 ) -> VoiceProfileResponse:
     """
     Create a new voice profile.
-    
+
     Args:
         data: Profile creation data
         db: Database session
-        
+
     Returns:
         Created profile
+
+    Raises:
+        ValueError: If a profile with the same name already exists
     """
+    # Check if profile name already exists
+    existing_profile = db.query(DBVoiceProfile).filter_by(name=data.name).first()
+    if existing_profile:
+        raise ValueError(f"A profile with the name '{data.name}' already exists. Please choose a different name.")
+
     # Create profile in database
     db_profile = DBVoiceProfile(
         id=str(uuid.uuid4()),
@@ -55,15 +63,15 @@ async def create_profile(
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
-    
+
     db.add(db_profile)
     db.commit()
     db.refresh(db_profile)
-    
+
     # Create profile directory
     profile_dir = _get_profiles_dir() / db_profile.id
     profile_dir.mkdir(parents=True, exist_ok=True)
-    
+
     return VoiceProfileResponse.model_validate(db_profile)
 
 
@@ -191,28 +199,37 @@ async def update_profile(
 ) -> Optional[VoiceProfileResponse]:
     """
     Update a voice profile.
-    
+
     Args:
         profile_id: Profile ID
         data: Updated profile data
         db: Database session
-        
+
     Returns:
         Updated profile or None if not found
+
+    Raises:
+        ValueError: If a profile with the same name already exists (different profile)
     """
     profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
     if not profile:
         return None
-    
+
+    # Check if the new name conflicts with another profile
+    if profile.name != data.name:
+        existing_profile = db.query(DBVoiceProfile).filter_by(name=data.name).first()
+        if existing_profile:
+            raise ValueError(f"A profile with the name '{data.name}' already exists. Please choose a different name.")
+
     # Update fields
     profile.name = data.name
     profile.description = data.description
     profile.language = data.language
     profile.updated_at = datetime.utcnow()
-    
+
     db.commit()
     db.refresh(profile)
-    
+
     return VoiceProfileResponse.model_validate(profile)
 
 
@@ -327,6 +344,7 @@ async def create_voice_prompt_for_profile(
     profile_id: str,
     db: Session,
     use_cache: bool = True,
+    engine: str = "qwen",
 ) -> dict:
     """
     Create a combined voice prompt from all samples in a profile.
@@ -335,17 +353,20 @@ async def create_voice_prompt_for_profile(
         profile_id: Profile ID
         db: Database session
         use_cache: Whether to use cached prompts
+        engine: TTS engine to create prompt for ("qwen" or "luxtts")
 
     Returns:
         Voice prompt dictionary
     """
+    from .backends import get_tts_backend_for_engine
+
     # Get all samples for profile
     samples = db.query(DBProfileSample).filter_by(profile_id=profile_id).all()
 
     if not samples:
         raise ValueError(f"No samples found for profile {profile_id}")
 
-    tts_model = get_tts_model()
+    tts_model = get_tts_backend_for_engine(engine)
 
     if len(samples) == 1:
         # Single sample - use directly

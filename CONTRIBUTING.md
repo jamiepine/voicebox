@@ -27,12 +27,32 @@ Thank you for your interest in contributing to Voicebox! This document provides 
   ```bash
   rustc --version  # Check if installed
   ```
+- **[Tauri Prerequisites](https://v2.tauri.app/start/prerequisites)** - Tauri-specific system dependencies (varies by OS).
 
 - **Git** - Version control
 
 ### Development Setup
 
-**Using the Makefile (recommended for macOS/Linux):** Run `make setup` to install all dependencies, then `make dev` to start development servers. See `make help` for all available commands.
+**Using `just` (recommended):**
+
+Install [just](https://github.com/casey/just) (`brew install just` or `cargo install just`), then:
+
+```bash
+just setup   # creates venv, installs Python + JS deps
+just dev     # starts backend + desktop app in one terminal
+```
+
+Other useful commands:
+
+```bash
+just dev-web       # backend + web app (no Tauri/Rust build)
+just dev-backend   # backend only
+just kill          # stop all dev processes
+just clean-all     # nuke everything and start fresh
+just --list        # see all available commands
+```
+
+**Using the Makefile:** Run `make setup` then `make dev`. See `make help` for all commands.
 
 **Manual setup (required for Windows):**
 
@@ -407,7 +427,7 @@ See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues and sol
 
 - **Backend won't start:** Check Python version (3.11+), ensure venv is activated, install dependencies
 - **Tauri build fails:** Ensure Rust is installed, clean build with `cd tauri/src-tauri && cargo clean`
-- **OpenAPI client generation fails:** Ensure backend is running, check `curl http://localhost:8000/openapi.json`
+- **OpenAPI client generation fails:** Ensure backend is running, check `curl http://localhost:17493/openapi.json`
 
 ## Questions?
 

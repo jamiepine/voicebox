@@ -51,6 +51,7 @@ export interface PlatformAudio {
 export interface PlatformLifecycle {
   startServer(remote?: boolean): Promise<string>;
   stopServer(): Promise<void>;
+  restartServer(): Promise<string>;
   setKeepServerRunning(keep: boolean): Promise<void>;
   setupWindowCloseHandler(): Promise<void>;
   onServerReady?: () => void;

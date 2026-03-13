@@ -13,13 +13,14 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
+import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useAddStoryItem, useStory } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
 import { useStoryStore } from '@/stores/storyStore';
 import { useUIStore } from '@/stores/uiStore';
+import { ParalinguisticInput } from './ParalinguisticInput';
 
 interface FloatingGenerateBoxProps {
   isPlayerOpen?: boolean;
@@ -111,6 +112,13 @@ export function FloatingGenerateBox({
       setSelectedProfileId(profiles[0].id);
     }
   }, [selectedProfileId, profiles, setSelectedProfileId]);
+
+  // Sync generation form language with selected profile's language
+  useEffect(() => {
+    if (selectedProfile?.language) {
+      form.setValue('language', selectedProfile.language as LanguageCode);
+    }
+  }, [selectedProfile, form]);
 
   // Auto-resize textarea based on content (only when expanded)
   useEffect(() => {
@@ -212,34 +220,57 @@ export function FloatingGenerateBox({
                             transition={{ duration: 0.15, ease: 'easeOut' }}
                             style={{ overflow: 'hidden' }}
                           >
-                            <Textarea
-                              {...field}
-                              ref={(node: HTMLTextAreaElement | null) => {
-                                // Store ref for auto-resize (only for active field)
-                                if (!isInstructMode) {
-                                  textareaRef.current = node;
+                            {form.watch('engine') === 'chatterbox_turbo' ? (
+                              <ParalinguisticInput
+                                value={field.value}
+                                onChange={field.onChange}
+                                placeholder={
+                                  isStoriesRoute && currentStory
+                                    ? `Generate speech for "${currentStory.name}"... (type / for effects)`
+                                    : selectedProfile
+                                      ? `Type / for effects like [laugh], [sigh]...`
+                                      : 'Select a voice profile above...'
                                 }
-                                // Forward ref to react-hook-form
-                                if (typeof field.ref === 'function') {
-                                  field.ref(node);
+                                className="px-3 py-2 resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm w-full"
+                                style={{
+                                  minHeight: isExpanded ? '100px' : '32px',
+                                  maxHeight: '300px',
+                                  overflowY: 'auto',
+                                }}
+                                disabled={!selectedProfileId}
+                                onClick={() => setIsExpanded(true)}
+                                onFocus={() => setIsExpanded(true)}
+                              />
+                            ) : (
+                              <Textarea
+                                {...field}
+                                ref={(node: HTMLTextAreaElement | null) => {
+                                  // Store ref for auto-resize (only for active field)
+                                  if (!isInstructMode) {
+                                    textareaRef.current = node;
+                                  }
+                                  // Forward ref to react-hook-form
+                                  if (typeof field.ref === 'function') {
+                                    field.ref(node);
+                                  }
+                                }}
+                                placeholder={
+                                  isStoriesRoute && currentStory
+                                    ? `Generate speech for "${currentStory.name}"...`
+                                    : selectedProfile
+                                      ? `Generate speech using ${selectedProfile.name}...`
+                                      : 'Select a voice profile above...'
                                 }
-                              }}
-                              placeholder={
-                                isStoriesRoute && currentStory
-                                  ? `Generate speech for "${currentStory.name}"...`
-                                  : selectedProfile
-                                    ? `Generate speech using ${selectedProfile.name}...`
-                                    : 'Select a voice profile above...'
-                              }
-                              className="resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm placeholder:text-muted-foreground/60 w-full"
-                              style={{
-                                minHeight: isExpanded ? '100px' : '32px',
-                                maxHeight: '300px',
-                              }}
-                              disabled={!selectedProfileId}
-                              onClick={() => setIsExpanded(true)}
-                              onFocus={() => setIsExpanded(true)}
-                            />
+                                className="resize-none bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus:outline-none focus:ring-0 outline-none ring-0 rounded-2xl text-sm placeholder:text-muted-foreground/60 w-full"
+                                style={{
+                                  minHeight: isExpanded ? '100px' : '32px',
+                                  maxHeight: '300px',
+                                }}
+                                disabled={!selectedProfileId}
+                                onClick={() => setIsExpanded(true)}
+                                onFocus={() => setIsExpanded(true)}
+                              />
+                            )}
                           </motion.div>
                         </FormControl>
                         <FormMessage className="text-xs" />
@@ -300,6 +331,13 @@ export function FloatingGenerateBox({
                     disabled={isPending || !selectedProfileId}
                     className="h-10 w-10 rounded-full bg-accent hover:bg-accent/90 hover:scale-105 text-accent-foreground shadow-lg hover:shadow-accent/50 transition-all duration-200"
                     size="icon"
+                    aria-label={
+                      isPending
+                        ? 'Generating...'
+                        : !selectedProfileId
+                          ? 'Select a voice profile first'
+                          : 'Generate speech'
+                    }
                   >
                     {isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -316,7 +354,7 @@ export function FloatingGenerateBox({
                   </span>
                 </div>
                 <AnimatePresence>
-                  {isExpanded && (
+                  {isExpanded && form.watch('engine') === 'qwen' && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -336,6 +374,9 @@ export function FloatingGenerateBox({
                               ? 'bg-accent text-accent-foreground border border-accent hover:bg-accent/90'
                               : 'bg-card border border-border hover:bg-background/50',
                           )}
+                          aria-label={
+                            isInstructMode ? 'Fine tune instructions, on' : 'Fine tune instructions'
+                          }
                         >
                           <SlidersHorizontal className="h-4 w-4" />
                         </Button>
@@ -381,51 +422,86 @@ export function FloatingGenerateBox({
                   <FormField
                     control={form.control}
                     name="language"
-                    render={({ field }) => (
-                      <FormItem className="flex-1 space-y-0">
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {LANGUAGE_OPTIONS.map((lang) => (
-                              <SelectItem key={lang.value} value={lang.value} className="text-xs">
-                                {lang.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      const engineLangs = getLanguageOptionsForEngine(
+                        form.watch('engine') || 'qwen',
+                      );
+                      return (
+                        <FormItem className="flex-1 space-y-0">
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {engineLangs.map((lang) => (
+                                <SelectItem key={lang.value} value={lang.value} className="text-xs">
+                                  {lang.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      );
+                    }}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="modelSize"
-                    render={({ field }) => (
-                      <FormItem className="flex-1 space-y-0">
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                          <FormControl>
-                            <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
-                              <SelectValue />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="1.7B" className="text-xs text-muted-foreground">
-                              Qwen3-TTS 1.7B
-                            </SelectItem>
-                            <SelectItem value="0.6B" className="text-xs text-muted-foreground">
-                              Qwen3-TTS 0.6B
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
+                  <FormItem className="flex-1 space-y-0">
+                    <Select
+                      value={
+                        form.watch('engine') === 'luxtts'
+                          ? 'luxtts'
+                          : form.watch('engine') === 'chatterbox'
+                            ? 'chatterbox'
+                            : form.watch('engine') === 'chatterbox_turbo'
+                              ? 'chatterbox_turbo'
+                              : `qwen:${form.watch('modelSize') || '1.7B'}`
+                      }
+                      onValueChange={(value) => {
+                        if (value === 'luxtts') {
+                          form.setValue('engine', 'luxtts');
+                          form.setValue('language', 'en');
+                        } else if (value === 'chatterbox') {
+                          form.setValue('engine', 'chatterbox');
+                        } else if (value === 'chatterbox_turbo') {
+                          form.setValue('engine', 'chatterbox_turbo');
+                          form.setValue('language', 'en');
+                        } else {
+                          const [, modelSize] = value.split(':');
+                          form.setValue('engine', 'qwen');
+                          form.setValue('modelSize', modelSize as '1.7B' | '0.6B');
+                        }
+                      }}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="qwen:1.7B" className="text-xs text-muted-foreground">
+                          Qwen3-TTS 1.7B
+                        </SelectItem>
+                        <SelectItem value="qwen:0.6B" className="text-xs text-muted-foreground">
+                          Qwen3-TTS 0.6B
+                        </SelectItem>
+                        <SelectItem value="luxtts" className="text-xs text-muted-foreground">
+                          LuxTTS
+                        </SelectItem>
+                        <SelectItem value="chatterbox" className="text-xs text-muted-foreground">
+                          Chatterbox
+                        </SelectItem>
+                        <SelectItem
+                          value="chatterbox_turbo"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Chatterbox Turbo
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormItem>
                 </div>
               </motion.div>
             </AnimatePresence>

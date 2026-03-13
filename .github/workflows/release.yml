@@ -22,10 +22,10 @@ jobs:
             args: "--target x86_64-apple-darwin"
             python-version: "3.12"
             backend: "pytorch"
-          # - platform: 'ubuntu-22.04'
-          #   args: ''
-          #   python-version: '3.12'
-          #   backend: 'pytorch'
+          - platform: "ubuntu-22.04"
+            args: ""
+            python-version: "3.12"
+            backend: "pytorch"
           - platform: "windows-latest"
             args: ""
             python-version: "3.12"

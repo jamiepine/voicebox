@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { listen, emit } from '@tauri-apps/api/event';
+import { emit, listen } from '@tauri-apps/api/event';
 import type { PlatformLifecycle } from '@/platform/types';
 
 class TauriLifecycle implements PlatformLifecycle {
@@ -23,6 +23,18 @@ class TauriLifecycle implements PlatformLifecycle {
       console.log('Server stopped');
     } catch (error) {
       console.error('Failed to stop server:', error);
+      throw error;
+    }
+  }
+
+  async restartServer(): Promise<string> {
+    try {
+      const result = await invoke<string>('restart_server');
+      console.log('Server restarted:', result);
+      this.onServerReady?.();
+      return result;
+    } catch (error) {
+      console.error('Failed to restart server:', error);
       throw error;
     }
   }

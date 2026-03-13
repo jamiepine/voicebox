@@ -736,6 +736,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
               className="h-7 w-7"
               onClick={handlePlayPause}
               title="Play/Pause (Space)"
+              aria-label={isCurrentlyPlaying ? 'Pause' : 'Play'}
             >
               {isCurrentlyPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
@@ -745,6 +746,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
               className="h-7 w-7"
               onClick={handleStop}
               disabled={!isCurrentlyPlaying}
+              aria-label="Stop"
             >
               <Square className="h-3 w-3" />
             </Button>
@@ -762,6 +764,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 className="h-7 w-7"
                 onClick={handleSplit}
                 title="Split at playhead (S)"
+                aria-label="Split at playhead"
               >
                 <Scissors className="h-4 w-4" />
               </Button>
@@ -771,6 +774,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 className="h-7 w-7"
                 onClick={handleDuplicate}
                 title="Duplicate (Cmd/Ctrl+D)"
+                aria-label="Duplicate clip"
               >
                 <Copy className="h-4 w-4" />
               </Button>
@@ -780,6 +784,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 className="h-7 w-7"
                 onClick={handleDelete}
                 title="Delete (Delete/Backspace)"
+                aria-label="Delete clip"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -789,10 +794,22 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           {/* Zoom controls - right side */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Zoom:</span>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleZoomOut}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={handleZoomOut}
+              aria-label="Zoom out"
+            >
               <Minus className="h-3 w-3" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleZoomIn}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={handleZoomIn}
+              aria-label="Zoom in"
+            >
               <Plus className="h-3 w-3" />
             </Button>
           </div>

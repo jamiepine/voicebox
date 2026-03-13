@@ -19,10 +19,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
+import { getLanguageOptionsForEngine } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
+import { ParalinguisticInput } from './ParalinguisticInput';
 
 export function GenerationForm() {
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
@@ -64,87 +65,134 @@ export function GenerationForm() {
                 <FormItem>
                   <FormLabel>Text to Speak</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Enter the text you want to generate..."
-                      className="min-h-[150px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>Max 5000 characters</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="instruct"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Delivery Instructions (optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="e.g. Speak slowly with emphasis, Warm and friendly tone, Professional and authoritative..."
-                      className="min-h-[80px]"
-                      {...field}
-                    />
+                    {form.watch('engine') === 'chatterbox_turbo' ? (
+                      <ParalinguisticInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Enter text... type / for effects like [laugh], [sigh]"
+                        className="min-h-[150px] rounded-md border border-input bg-background px-3 py-2"
+                      />
+                    ) : (
+                      <Textarea
+                        placeholder="Enter the text you want to generate..."
+                        className="min-h-[150px]"
+                        {...field}
+                      />
+                    )}
                   </FormControl>
                   <FormDescription>
-                    Natural language instructions to control speech delivery (tone, emotion, pace).
-                    Max 500 characters
+                    {form.watch('engine') === 'chatterbox_turbo'
+                      ? 'Max 5000 characters. Type / to insert sound effects.'
+                      : 'Max 5000 characters'}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid gap-4 md:grid-cols-3">
+            {form.watch('engine') === 'qwen' && (
               <FormField
                 control={form.control}
-                name="language"
+                name="instruct"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Language</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {LANGUAGE_OPTIONS.map((lang) => (
-                          <SelectItem key={lang.value} value={lang.value}>
-                            {lang.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Delivery Instructions (optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="e.g. Speak slowly with emphasis, Warm and friendly tone, Professional and authoritative..."
+                        className="min-h-[80px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Natural language instructions to control speech delivery (tone, emotion,
+                      pace). Max 500 characters
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            )}
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <FormItem>
+                <FormLabel>Model</FormLabel>
+                <Select
+                  value={
+                    form.watch('engine') === 'luxtts'
+                      ? 'luxtts'
+                      : form.watch('engine') === 'chatterbox'
+                        ? 'chatterbox'
+                        : form.watch('engine') === 'chatterbox_turbo'
+                          ? 'chatterbox_turbo'
+                          : `qwen:${form.watch('modelSize') || '1.7B'}`
+                  }
+                  onValueChange={(value) => {
+                    if (value === 'luxtts') {
+                      form.setValue('engine', 'luxtts');
+                      form.setValue('language', 'en');
+                    } else if (value === 'chatterbox') {
+                      form.setValue('engine', 'chatterbox');
+                    } else if (value === 'chatterbox_turbo') {
+                      form.setValue('engine', 'chatterbox_turbo');
+                      form.setValue('language', 'en');
+                    } else {
+                      const [, modelSize] = value.split(':');
+                      form.setValue('engine', 'qwen');
+                      form.setValue('modelSize', modelSize as '1.7B' | '0.6B');
+                    }
+                  }}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="qwen:1.7B">Qwen3-TTS 1.7B</SelectItem>
+                    <SelectItem value="qwen:0.6B">Qwen3-TTS 0.6B</SelectItem>
+                    <SelectItem value="luxtts">LuxTTS</SelectItem>
+                    <SelectItem value="chatterbox">Chatterbox</SelectItem>
+                    <SelectItem value="chatterbox_turbo">Chatterbox Turbo</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  {form.watch('engine') === 'luxtts'
+                    ? 'Fast, English-focused'
+                    : form.watch('engine') === 'chatterbox'
+                      ? '23 languages, incl. Hebrew'
+                      : form.watch('engine') === 'chatterbox_turbo'
+                        ? 'English, [laugh] [cough] tags'
+                        : 'Multi-language, two sizes'}
+                </FormDescription>
+              </FormItem>
 
               <FormField
                 control={form.control}
-                name="modelSize"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Model Size</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="1.7B">Qwen TTS 1.7B (Higher Quality)</SelectItem>
-                        <SelectItem value="0.6B">Qwen TTS 0.6B (Faster)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>Larger models produce better quality</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                name="language"
+                render={({ field }) => {
+                  const engineLangs = getLanguageOptionsForEngine(form.watch('engine') || 'qwen');
+                  return (
+                    <FormItem>
+                      <FormLabel>Language</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {engineLangs.map((lang) => (
+                            <SelectItem key={lang.value} value={lang.value}>
+                              {lang.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -170,11 +218,7 @@ export function GenerationForm() {
               />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isPending || !selectedProfileId}
-            >
+            <Button type="submit" className="w-full" disabled={isPending || !selectedProfileId}>
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

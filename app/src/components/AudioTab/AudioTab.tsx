@@ -124,6 +124,13 @@ export function AudioTab() {
     );
   }
 
+  const handleChannelDelete = async (e, channelId) => {
+    e.stopPropagation();
+    if (await confirm('Delete this channel?')) {
+      deleteChannel.mutate(channelId);
+    }
+  }
+
   const allChannels = channels || [];
   const allDevices = devices || [];
   const selectedChannel = selectedChannelId
@@ -241,12 +248,7 @@ export function AudioTab() {
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (confirm('Delete this channel?')) {
-                                deleteChannel.mutate(channel.id);
-                              }
-                            }}
+                            onClick={(e) => handleChannelDelete(e, channel.id)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

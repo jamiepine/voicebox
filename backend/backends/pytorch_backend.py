@@ -15,6 +15,12 @@ from ..utils.progress import get_progress_manager
 from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback
 from ..utils.tasks import get_task_manager
 
+LANGUAGE_CODE_TO_NAME = {
+    "zh": "chinese", "en": "english", "ja": "japanese", "ko": "korean",
+    "de": "german", "fr": "french", "ru": "russian", "pt": "portuguese",
+    "es": "spanish", "it": "italian",
+}
+
 
 class PyTorchTTSBackend:
     """PyTorch-based TTS backend using Qwen3-TTS."""
@@ -29,9 +35,23 @@ class PyTorchTTSBackend:
         """Get the best available device."""
         if torch.cuda.is_available():
             return "cuda"
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            # MPS can have issues, use CPU for stability
-            return "cpu"
+        # Intel Arc / Intel Xe GPU via intel-extension-for-pytorch (IPEX)
+        try:
+            import intel_extension_for_pytorch  # noqa: F401
+            if hasattr(torch, 'xpu') and torch.xpu.is_available():
+                return "xpu"
+        except ImportError:
+            pass
+        # Any GPU on Windows via DirectML (torch-directml)
+        try:
+            import torch_directml
+            if torch_directml.device_count() > 0:
+                return torch_directml.device(0)
+        except ImportError:
+            pass
+        # MPS (Apple Silicon) — kept for completeness but MLX backend is preferred
+        if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            return "cpu"  # MPS disabled for stability; MLX backend handles Apple Silicon
         return "cpu"
     
     def is_loaded(self) -> bool:
@@ -166,11 +186,21 @@ class PyTorchTTSBackend:
 
             # Load the model (tqdm is patched, but filters out non-download progress)
             try:
-                self.model = Qwen3TTSModel.from_pretrained(
-                    model_path,
-                    device_map=self.device,
-                    torch_dtype=torch.float32 if self.device == "cpu" else torch.bfloat16,
-                )
+                # Don't pass device_map on CPU: accelerate's meta-tensor mechanism
+                # causes "Cannot copy out of meta tensor" when moving to CPU.
+                # Instead load directly then call .to(device) if needed.
+                if self.device == "cpu":
+                    self.model = Qwen3TTSModel.from_pretrained(
+                        model_path,
+                        torch_dtype=torch.float32,
+                        low_cpu_mem_usage=False,
+                    )
+                else:
+                    self.model = Qwen3TTSModel.from_pretrained(
+                        model_path,
+                        device_map=self.device,
+                        torch_dtype=torch.bfloat16,
+                    )
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
@@ -389,6 +419,7 @@ class PyTorchTTSBackend:
             wavs, sample_rate = self.model.generate_voice_clone(
                 text=text,
                 voice_clone_prompt=voice_prompt,
+                language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
                 instruct=instruct,
             )
             return wavs[0], sample_rate
@@ -396,9 +427,18 @@ class PyTorchTTSBackend:
         return await asyncio.to_thread(_generate_sync)
 
 
+WHISPER_HF_REPOS = {
+    "base": "openai/whisper-base",
+    "small": "openai/whisper-small",
+    "medium": "openai/whisper-medium",
+    "large": "openai/whisper-large-v3",
+    "turbo": "openai/whisper-large-v3-turbo",
+}
+
+
 class PyTorchSTTBackend:
     """PyTorch-based STT backend using Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.processor = None
@@ -409,9 +449,22 @@ class PyTorchSTTBackend:
         """Get the best available device."""
         if torch.cuda.is_available():
             return "cuda"
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            # MPS support for Whisper
-            return "cpu"  # Use CPU for stability
+        # Intel Arc / Intel Xe GPU via intel-extension-for-pytorch (IPEX)
+        try:
+            import intel_extension_for_pytorch  # noqa: F401
+            if hasattr(torch, 'xpu') and torch.xpu.is_available():
+                return "xpu"
+        except ImportError:
+            pass
+        # Any GPU on Windows via DirectML (torch-directml)
+        try:
+            import torch_directml
+            if torch_directml.device_count() > 0:
+                return torch_directml.device(0)
+        except ImportError:
+            pass
+        if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            return "cpu"  # MPS disabled for stability
         return "cpu"
     
     def is_loaded(self) -> bool:
@@ -430,18 +483,18 @@ class PyTorchSTTBackend:
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
-            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
-            
+            hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
+            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + hf_repo.replace("/", "--"))
+
             if not repo_cache.exists():
                 return False
-            
+
             # Check for .incomplete files - if any exist, download is still in progress
             blobs_dir = repo_cache / "blobs"
             if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
                 print(f"[_is_model_cached] Found .incomplete files for whisper-{model_size}, treating as not cached")
                 return False
-            
+
             # Check that actual model weight files exist in snapshots
             snapshots_dir = repo_cache / "snapshots"
             if snapshots_dir.exists():
@@ -452,12 +505,12 @@ class PyTorchSTTBackend:
                 if not has_weights:
                     print(f"[_is_model_cached] No model weights found for whisper-{model_size}, treating as not cached")
                     return False
-            
+
             return True
         except Exception as e:
             print(f"[_is_model_cached] Error checking cache for whisper-{model_size}: {e}")
             return False
-    
+
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the Whisper model.
@@ -508,7 +561,7 @@ class PyTorchSTTBackend:
             # Import transformers
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            model_name = f"openai/whisper-{model_size}"
+            model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
             print(f"[DEBUG] Model name: {model_name}")
 
             print(f"Loading Whisper model {model_size} on {self.device}...")
@@ -597,21 +650,20 @@ class PyTorchSTTBackend:
             )
             inputs = inputs.to(self.device)
             
-            # Set language if provided
-            forced_decoder_ids = None
+            # Generate transcription
+            # If language is provided, force it; otherwise let Whisper auto-detect
+            generate_kwargs = {}
             if language:
-                # Support all languages from frontend: en, zh, ja, ko, de, fr, ru, pt, es, it
-                # Whisper supports these and many more
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
                     language=language,
                     task="transcribe",
                 )
+                generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
             
-            # Generate transcription
             with torch.no_grad():
                 predicted_ids = self.model.generate(
                     inputs["input_features"],
-                    forced_decoder_ids=forced_decoder_ids,
+                    **generate_kwargs,
                 )
             
             # Decode

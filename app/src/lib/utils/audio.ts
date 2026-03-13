@@ -22,6 +22,11 @@ export function formatAudioDuration(seconds: number): string {
  * If the file has a recordedDuration property (from recording hooks),
  * use that instead of trying to read metadata. This fixes issues on Windows
  * where WebM files from MediaRecorder don't have proper duration metadata.
+ *
+ * For uploaded files we use AudioContext.decodeAudioData which fully decodes
+ * the audio and returns the exact duration. This is more reliable than
+ * HTMLMediaElement.duration which can return incorrect large values for VBR
+ * MP3 files that lack a proper XING/VBRI header.
  */
 export async function getAudioDuration(
   file: File & { recordedDuration?: number },
@@ -30,26 +35,39 @@ export async function getAudioDuration(
     return file.recordedDuration;
   }
 
-  return new Promise((resolve, reject) => {
-    const audio = new Audio();
-    const url = URL.createObjectURL(file);
+  // Use Web Audio API for accurate duration — avoids VBR MP3 metadata issues.
+  try {
+    const audioContext = new AudioContext();
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      return audioBuffer.duration;
+    } finally {
+      await audioContext.close();
+    }
+  } catch {
+    // Fallback: read duration from the media element (less accurate but works for WAV).
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      const url = URL.createObjectURL(file);
 
-    audio.addEventListener('loadedmetadata', () => {
-      URL.revokeObjectURL(url);
-      if (Number.isFinite(audio.duration) && audio.duration > 0) {
-        resolve(audio.duration);
-      } else {
-        reject(new Error('Audio file has invalid duration metadata'));
-      }
+      audio.addEventListener('loadedmetadata', () => {
+        URL.revokeObjectURL(url);
+        if (Number.isFinite(audio.duration) && audio.duration > 0) {
+          resolve(audio.duration);
+        } else {
+          reject(new Error('Audio file has invalid duration metadata'));
+        }
+      });
+
+      audio.addEventListener('error', () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to load audio file'));
+      });
+
+      audio.src = url;
     });
-
-    audio.addEventListener('error', () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Failed to load audio file'));
-    });
-
-    audio.src = url;
-  });
+  }
 }
 
 /**

@@ -32,11 +32,3 @@ def audio_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
     sf.write(buffer, audio, sample_rate, format="WAV")
     buffer.seek(0)
     return buffer.read()
-
-
-def audio_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:
-    """Convert audio array to WAV bytes."""
-    buffer = io.BytesIO()
-    sf.write(buffer, audio, sample_rate, format="WAV")
-    buffer.seek(0)
-    return buffer.read()

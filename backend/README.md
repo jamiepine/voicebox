@@ -334,18 +334,21 @@ python -m backend.main --host 0.0.0.0 --port 8000
 
 ## Usage Examples
 
+The desktop app, web client, and current development workflow use `http://localhost:17493` by default.
+If you launch the backend manually with a different host or port, substitute that address in the examples below.
+
 ### Creating a Voice Profile
 
 ```bash
 # 1. Create profile
-curl -X POST http://localhost:8000/profiles \
+curl -X POST http://localhost:17493/profiles \
   -H "Content-Type: application/json" \
   -d '{"name": "My Voice", "language": "en"}'
 
 # Response: {"id": "abc-123", ...}
 
 # 2. Add sample
-curl -X POST http://localhost:8000/profiles/abc-123/samples \
+curl -X POST http://localhost:17493/profiles/abc-123/samples \
   -F "file=@sample.wav" \
   -F "reference_text=This is my voice sample"
 ```
@@ -353,7 +356,7 @@ curl -X POST http://localhost:8000/profiles/abc-123/samples \
 ### Generating Speech
 
 ```bash
-curl -X POST http://localhost:8000/generate \
+curl -X POST http://localhost:17493/generate \
   -H "Content-Type: application/json" \
   -d '{
     "profile_id": "abc-123",
@@ -365,13 +368,13 @@ curl -X POST http://localhost:8000/generate \
 # Response: {"id": "gen-456", "audio_path": "/path/to/audio.wav", ...}
 
 # Download audio
-curl http://localhost:8000/audio/gen-456 -o output.wav
+curl http://localhost:17493/audio/gen-456 -o output.wav
 ```
 
 ### Transcribing Audio
 
 ```bash
-curl -X POST http://localhost:8000/transcribe \
+curl -X POST http://localhost:17493/transcribe \
   -F "file=@audio.wav" \
   -F "language=en"
 
@@ -386,12 +389,12 @@ Add multiple samples to a profile for better quality:
 
 ```bash
 # Add first sample
-curl -X POST http://localhost:8000/profiles/abc-123/samples \
+curl -X POST http://localhost:17493/profiles/abc-123/samples \
   -F "file=@sample1.wav" \
   -F "reference_text=First sample"
 
 # Add second sample
-curl -X POST http://localhost:8000/profiles/abc-123/samples \
+curl -X POST http://localhost:17493/profiles/abc-123/samples \
   -F "file=@sample2.wav" \
   -F "reference_text=Second sample"
 
@@ -412,10 +415,10 @@ Models are lazy-loaded and can be manually unloaded:
 
 ```bash
 # Unload TTS model
-curl -X POST http://localhost:8000/models/unload
+curl -X POST http://localhost:17493/models/unload
 
 # Load specific model size
-curl -X POST "http://localhost:8000/models/load?model_size=0.6B"
+curl -X POST "http://localhost:17493/models/load?model_size=0.6B"
 ```
 
 ## Error Handling

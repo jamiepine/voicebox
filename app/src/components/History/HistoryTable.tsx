@@ -253,10 +253,17 @@ export function HistoryTable() {
               return (
                 <div
                   key={gen.id}
+                  role="button"
+                  tabIndex={0}
                   className={cn(
                     'flex items-stretch gap-4 h-26 border rounded-md p-3 bg-card hover:bg-muted/70 transition-colors text-left w-full',
                     isCurrentlyPlaying && 'bg-muted/70',
                   )}
+                  aria-label={
+                    isCurrentlyPlaying
+                      ? `Sample from ${gen.profile_name}, ${formatDuration(gen.duration)}, ${formatDate(gen.created_at)}. Playing. Press Enter to restart.`
+                      : `Sample from ${gen.profile_name}, ${formatDuration(gen.duration)}, ${formatDate(gen.created_at)}. Press Enter to play.`
+                  }
                   onMouseDown={(e) => {
                     // Don't trigger play if clicking on textarea or if text is selected
                     const target = e.target as HTMLElement;
@@ -264,6 +271,14 @@ export function HistoryTable() {
                       return;
                     }
                     handlePlay(gen.id, gen.text, gen.profile_id);
+                  }}
+                  onKeyDown={(e) => {
+                    const target = e.target as HTMLElement;
+                    if (target.closest('textarea') || target.closest('button')) return;
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handlePlay(gen.id, gen.text, gen.profile_id);
+                    }
                   }}
                 >
                   {/* Waveform icon */}
@@ -293,6 +308,7 @@ export function HistoryTable() {
                       value={gen.text}
                       className="flex-1 resize-none text-sm text-muted-foreground select-text"
                       readOnly
+                      aria-label={`Transcript for sample from ${gen.profile_name}, ${formatDuration(gen.duration)}`}
                     />
                   </div>
 

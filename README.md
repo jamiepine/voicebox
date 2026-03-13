@@ -80,10 +80,10 @@ Voicebox is available now for macOS and Windows.
 
 | Platform | Download |
 |----------|----------|
-| macOS (Apple Silicon) | [voicebox_aarch64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/download/v0.1.0/voicebox_aarch64.app.tar.gz) |
-| macOS (Intel) | [voicebox_x64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/download/v0.1.0/voicebox_x64.app.tar.gz) |
-| Windows (MSI) | [voicebox_0.1.0_x64_en-US.msi](https://github.com/jamiepine/voicebox/releases/download/v0.1.0/voicebox_0.1.0_x64_en-US.msi) |
-| Windows (Setup) | [voicebox_0.1.0_x64-setup.exe](https://github.com/jamiepine/voicebox/releases/download/v0.1.0/voicebox_0.1.0_x64-setup.exe) |
+| macOS (Apple Silicon) | [Voicebox_aarch64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/Voicebox_aarch64.app.tar.gz) |
+| macOS (Intel) | [Voicebox_x64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/Voicebox_x64.app.tar.gz) |
+| Windows (MSI) | [Latest Windows MSI](https://github.com/jamiepine/voicebox/releases/latest) |
+| Windows (Setup) | [Latest Windows Setup](https://github.com/jamiepine/voicebox/releases/latest) |
 
 > **Linux builds coming soon** — Currently blocked by GitHub runner disk space limitations.
 
@@ -98,12 +98,12 @@ Powered by Alibaba's **Qwen3-TTS** — a breakthrough model that achieves near-p
 - **Instant cloning** — Upload a sample, get a voice profile
 - **High fidelity** — Natural prosody, emotion, and cadence
 - **Multi-language** — English, Chinese, and more coming
-- **Lightning fast on Mac** — MLX backend leverages Apple Silicon's Neural Engine for super fast generation
+- **Lightning fast on Mac** — MLX backend leverages Apple Silicon's Neural Engine for super-fast generation
 
 ### Voice Profile Management
 
 - **Create profiles** from audio files or record directly in-app
-- **Import/Export** profiles to share or backup
+- **Import/Export** profiles to share or back up
 - **Multi-sample support** — combine multiple samples for higher quality cloning
 - **Organize** with descriptions and language tags
 
@@ -147,17 +147,20 @@ Create multi-voice narratives, podcasts, and conversations with a timeline-based
 
 Voicebox exposes a full REST API, so you can integrate voice synthesis into your own apps.
 
+For the current local app and development workflow, the backend is typically available at `http://localhost:17493`.
+If you launch the backend manually with a different host or port, use that address instead.
+
 ```bash
 # Generate speech
-curl -X POST http://localhost:8000/generate \
+curl -X POST http://localhost:17493/generate \
   -H "Content-Type: application/json" \
   -d '{"text": "Hello world", "profile_id": "abc123", "language": "en"}'
 
 # List voice profiles
-curl http://localhost:8000/profiles
+curl http://localhost:17493/profiles
 
 # Create a profile
-curl -X POST http://localhost:8000/profiles \
+curl -X POST http://localhost:17493/profiles \
   -H "Content-Type: application/json" \
   -d '{"name": "My Voice", "language": "en"}'
 ```
@@ -170,7 +173,7 @@ curl -X POST http://localhost:8000/profiles \
 - Voice assistants
 - Content creation automation
 
-Full API documentation available at `http://localhost:8000/docs` when running.
+Full API documentation is available at `http://localhost:17493/docs` in the default local workflow, or at `/docs` on whatever server address you configured.
 
 ---
 
@@ -225,42 +228,21 @@ Voicebox aims to be the **one-stop shop for everything voice** — cloning, synt
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup and contribution guidelines.
 
-**Using the Makefile (recommended):** Run `make help` to see all available commands for setup, development, building, and testing.
-
 ### Quick Start
 
-**With Makefile (Unix/macOS/Linux):**
-
 ```bash
-# Clone the repo
 git clone https://github.com/jamiepine/voicebox.git
 cd voicebox
 
-# Setup everything
-make setup
-
-# Start development
-make dev
+just setup   # creates Python venv, installs all deps
+just dev     # starts backend + desktop app
 ```
 
-**Manual setup (all platforms):**
+Install [just](https://github.com/casey/just): `brew install just` or `cargo install just`. Run `just --list` to see all commands.
 
-```bash
-# Clone the repo
-git clone https://github.com/jamiepine/voicebox.git
-cd voicebox
+Also available via Makefile: `make setup && make dev` (run `make help` for all commands).
 
-# Install dependencies
-bun install
-
-# Install Python dependencies
-cd backend && pip install -r requirements.txt && cd ..
-
-# Start development
-bun run dev
-```
-
-**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org). [XCode on macOS](https://developer.apple.com/xcode/).
+**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org), [XCode on macOS](https://developer.apple.com/xcode/), [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 **Performance:** 
 - **Apple Silicon (M1/M2/M3)**: Uses MLX backend with native Metal acceleration for 4-5x faster inference

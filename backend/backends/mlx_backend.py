@@ -5,7 +5,14 @@ MLX backend implementation for TTS and STT using mlx-audio.
 from typing import Optional, List, Tuple
 import asyncio
 import numpy as np
+import os
 from pathlib import Path
+
+# PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
+# This prevents mlx_audio from making network requests when models are cached
+from ..utils.hf_offline_patch import patch_huggingface_hub_offline, ensure_original_qwen_config_cached
+patch_huggingface_hub_offline()
+ensure_original_qwen_config_cached()
 
 from . import TTSBackend, STTBackend
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
@@ -13,6 +20,12 @@ from ..utils.audio import normalize_audio, load_audio
 from ..utils.progress import get_progress_manager
 from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback
 from ..utils.tasks import get_task_manager
+
+LANGUAGE_CODE_TO_NAME = {
+    "zh": "chinese", "en": "english", "ja": "japanese", "ko": "korean",
+    "de": "german", "fr": "french", "ru": "russian", "pt": "portuguese",
+    "es": "spanish", "it": "italian",
+}
 
 
 class MLXTTSBackend:
@@ -159,15 +172,35 @@ class MLXTTSBackend:
             tracker_context = tracker.patch_download()
             tracker_context.__enter__()
             
+            # PATCH: Force offline mode when model is already cached
+            # This prevents crashes when HuggingFace is unreachable
+            original_hf_hub_offline = os.environ.get("HF_HUB_OFFLINE")
+            if is_cached:
+                os.environ["HF_HUB_OFFLINE"] = "1"
+                print(f"[PATCH] Model {model_size} is cached, forcing HF_HUB_OFFLINE=1 to avoid network requests")
+            
             # Import mlx_audio AFTER patching tqdm
             from mlx_audio.tts import load
             
             # Load MLX model (downloads automatically)
             try:
                 self.model = load(model_path)
+            except Exception as load_error:
+                # If offline mode failed, try with network enabled as fallback
+                if is_cached and "offline" in str(load_error).lower():
+                    print(f"[PATCH] Offline load failed, trying with network: {load_error}")
+                    os.environ.pop("HF_HUB_OFFLINE", None)
+                    self.model = load(model_path)
+                else:
+                    raise
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
+                # Restore original HF_HUB_OFFLINE setting
+                if original_hf_hub_offline is not None:
+                    os.environ["HF_HUB_OFFLINE"] = original_hf_hub_offline
+                else:
+                    os.environ.pop("HF_HUB_OFFLINE", None)
             
             # Only mark download as complete if we were tracking it
             if not is_cached:
@@ -316,7 +349,8 @@ class MLXTTSBackend:
             # MLX generate() returns a generator yielding GenerationResult objects
             audio_chunks = []
             sample_rate = 24000
-            
+            lang = LANGUAGE_CODE_TO_NAME.get(language, "auto")
+
             # Set seed if provided (MLX uses numpy random)
             if seed is not None:
                 import mlx.core as mx
@@ -344,23 +378,23 @@ class MLXTTSBackend:
                     sig = inspect.signature(self.model.generate)
                     if "ref_audio" in sig.parameters:
                         # Generate with voice cloning
-                        for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text):
+                        for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
                             audio_chunks.append(np.array(result.audio))
                             sample_rate = result.sample_rate
                     else:
                         # Fallback: generate without voice cloning
-                        for result in self.model.generate(text):
+                        for result in self.model.generate(text, lang_code=lang):
                             audio_chunks.append(np.array(result.audio))
                             sample_rate = result.sample_rate
                 else:
                     # No voice prompt, generate normally
-                    for result in self.model.generate(text):
+                    for result in self.model.generate(text, lang_code=lang):
                         audio_chunks.append(np.array(result.audio))
                         sample_rate = result.sample_rate
             except Exception as e:
                 # If voice cloning fails, try without it
                 print(f"Warning: Voice cloning failed, generating without voice prompt: {e}")
-                for result in self.model.generate(text):
+                for result in self.model.generate(text, lang_code=lang):
                     audio_chunks.append(np.array(result.audio))
                     sample_rate = result.sample_rate
             
@@ -379,9 +413,17 @@ class MLXTTSBackend:
         return audio, sample_rate
 
 
+WHISPER_HF_REPOS = {
+    "base": "openai/whisper-base",
+    "small": "openai/whisper-small",
+    "medium": "openai/whisper-medium",
+    "large": "openai/whisper-large-v3",
+}
+
+
 class MLXSTTBackend:
     """MLX-based STT backend using mlx-audio Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.model_size = model_size
@@ -402,8 +444,8 @@ class MLXSTTBackend:
         """
         try:
             from huggingface_hub import constants as hf_constants
-            model_name = f"openai/whisper-{model_size}"
-            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
+            hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
+            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + hf_repo.replace("/", "--"))
             
             if not repo_cache.exists():
                 return False
@@ -474,7 +516,7 @@ class MLXSTTBackend:
             from mlx_audio.stt import load
 
             # MLX Whisper uses the standard OpenAI models
-            model_name = f"openai/whisper-{model_size}"
+            model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
 
             print(f"Loading MLX Whisper model {model_size}...")
 
