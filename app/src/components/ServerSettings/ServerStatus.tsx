@@ -10,7 +10,11 @@ export function ServerStatus() {
   const serverUrl = useServerStore((state) => state.serverUrl);
 
   return (
-    <Card>
+    <Card
+      role="region"
+      aria-label="Server Status"
+      tabIndex={0}
+    >
       <CardHeader>
         <CardTitle>Server Status</CardTitle>
       </CardHeader>

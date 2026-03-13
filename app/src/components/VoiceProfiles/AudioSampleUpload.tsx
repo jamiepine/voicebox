@@ -110,6 +110,7 @@ export function AudioSampleUpload({
                     variant="outline"
                     onClick={onPlayPause}
                     disabled={isValidating}
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
                   >
                     {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </Button>

@@ -1,8 +1,13 @@
 """
 PyInstaller build script for creating standalone Python server binary.
+
+Usage:
+    python build_binary.py           # Build default (CPU) server binary
+    python build_binary.py --cuda    # Build CUDA-enabled server binary
 """
 
 import PyInstaller.__main__
+import argparse
 import os
 import platform
 from pathlib import Path
@@ -13,15 +18,22 @@ def is_apple_silicon():
     return platform.system() == "Darwin" and platform.machine() == "arm64"
 
 
-def build_server():
-    """Build Python server as standalone binary."""
+def build_server(cuda=False):
+    """Build Python server as standalone binary.
+
+    Args:
+        cuda: If True, build with CUDA support and name the binary
+              voicebox-server-cuda instead of voicebox-server.
+    """
     backend_dir = Path(__file__).parent
+
+    binary_name = 'voicebox-server-cuda' if cuda else 'voicebox-server'
 
     # PyInstaller arguments
     args = [
         'server.py',  # Use server.py as entry point instead of main.py
         '--onefile',
-        '--name', 'voicebox-server',
+        '--name', binary_name,
     ]
 
     # Add local qwen_tts path if specified (for editable installs)
@@ -49,6 +61,7 @@ def build_server():
         '--hidden-import', 'backend.utils.progress',
         '--hidden-import', 'backend.utils.hf_progress',
         '--hidden-import', 'backend.utils.validation',
+        '--hidden-import', 'backend.cuda_download',
         '--hidden-import', 'torch',
         '--hidden-import', 'transformers',
         '--hidden-import', 'fastapi',
@@ -70,8 +83,16 @@ def build_server():
         '--collect-submodules', 'jaraco',
     ])
 
-    # Add MLX-specific imports if building on Apple Silicon
-    if is_apple_silicon():
+    # Add CUDA-specific hidden imports
+    if cuda:
+        print("Building with CUDA support")
+        args.extend([
+            '--hidden-import', 'torch.cuda',
+            '--hidden-import', 'torch.backends.cudnn',
+        ])
+
+    # Add MLX-specific imports if building on Apple Silicon (never for CUDA builds)
+    if is_apple_silicon() and not cuda:
         print("Building for Apple Silicon - including MLX dependencies")
         args.extend([
             '--hidden-import', 'backend.backends.mlx_backend',
@@ -91,7 +112,7 @@ def build_server():
             '--collect-all', 'mlx',
             '--collect-all', 'mlx_audio',
         ])
-    else:
+    elif not cuda:
         print("Building for non-Apple Silicon platform - PyTorch only")
 
     args.extend([
@@ -105,8 +126,15 @@ def build_server():
     # Run PyInstaller
     PyInstaller.__main__.run(args)
     
-    print(f"Binary built in {backend_dir / 'dist' / 'voicebox-server'}")
+    print(f"Binary built in {backend_dir / 'dist' / binary_name}")
 
 
 if __name__ == '__main__':
-    build_server()
+    parser = argparse.ArgumentParser(description="Build voicebox-server binary")
+    parser.add_argument(
+        '--cuda',
+        action='store_true',
+        help="Build CUDA-enabled binary (voicebox-server-cuda)",
+    )
+    cli_args = parser.parse_args()
+    build_server(cuda=cli_args.cuda)

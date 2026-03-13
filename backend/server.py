@@ -64,7 +64,29 @@ if __name__ == "__main__":
             default=None,
             help="Data directory for database, profiles, and generated audio",
         )
+        parser.add_argument(
+            "--version",
+            action="store_true",
+            help="Print version and exit",
+        )
         args = parser.parse_args()
+
+        if args.version:
+            from backend import __version__
+            print(f"voicebox-server {__version__}")
+            sys.exit(0)
+
+        # Detect backend variant from binary name
+        # voicebox-server-cuda → sets VOICEBOX_BACKEND_VARIANT=cuda
+        import os
+        binary_name = os.path.basename(sys.executable).lower()
+        if "cuda" in binary_name:
+            os.environ["VOICEBOX_BACKEND_VARIANT"] = "cuda"
+            logger.info("Backend variant: CUDA")
+        else:
+            os.environ["VOICEBOX_BACKEND_VARIANT"] = "cpu"
+            logger.info("Backend variant: CPU")
+
         logger.info(f"Parsed arguments: host={args.host}, port={args.port}, data_dir={args.data_dir}")
 
         # Set data directory if provided

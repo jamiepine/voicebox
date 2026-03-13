@@ -1,0 +1,73 @@
+name: Build CUDA Backend
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-cuda-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r backend/requirements.txt
+
+      - name: Install PyTorch with CUDA 12.1
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cu121 --force-reinstall --no-deps
+          pip install torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+      - name: Verify CUDA support in torch
+        run: |
+          python -c "import torch; print(f'CUDA available in build: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}')"
+
+      - name: Build CUDA server binary
+        shell: bash
+        working-directory: backend
+        run: python build_binary.py --cuda
+
+      - name: Split binary for GitHub Releases
+        shell: bash
+        run: |
+          python scripts/split_binary.py \
+            backend/dist/voicebox-server-cuda.exe \
+            --output release-assets/
+
+      - name: Upload split parts to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-assets/voicebox-server-cuda.part*.exe
+            release-assets/voicebox-server-cuda.sha256
+            release-assets/voicebox-server-cuda.manifest
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload binary as workflow artifact (for testing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicebox-server-cuda-windows
+          path: backend/dist/voicebox-server-cuda.exe
+          retention-days: 7
+
+  # Linux CUDA build can be added later with:
+  # build-cuda-linux:
+  #   runs-on: ubuntu-22.04
+  #   ...

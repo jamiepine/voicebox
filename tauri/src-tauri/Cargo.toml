@@ -37,6 +37,9 @@ core-foundation-sys = "0.8"
 wasapi = "0.22"
 windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "2.0"
+
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2.0"
 tauri-plugin-process = "2.0"

@@ -11,7 +11,7 @@ class VoiceProfileCreate(BaseModel):
     """Request model for creating a voice profile."""
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
+    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$")
 
 
 class VoiceProfileResponse(BaseModel):
@@ -53,10 +53,11 @@ class GenerationRequest(BaseModel):
     """Request model for voice generation."""
     profile_id: str
     text: str = Field(..., min_length=1, max_length=5000)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it)$")
+    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he)$")
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B)$")
     instruct: Optional[str] = Field(None, max_length=500)
+    engine: Optional[str] = Field(default="qwen", pattern="^(qwen|luxtts|chatterbox|chatterbox_turbo)$")
 
 
 class GenerationResponse(BaseModel):
@@ -127,12 +128,30 @@ class HealthResponse(BaseModel):
     gpu_type: Optional[str] = None  # GPU type (CUDA, MPS, or None)
     vram_used_mb: Optional[float] = None
     backend_type: Optional[str] = None  # Backend type (mlx or pytorch)
+    backend_variant: Optional[str] = None  # Binary variant (cpu or cuda)
+
+
+class DirectoryCheck(BaseModel):
+    """Health status for a single directory."""
+    path: str
+    exists: bool
+    writable: bool
+    error: Optional[str] = None
+
+
+class FilesystemHealthResponse(BaseModel):
+    """Response model for filesystem health check."""
+    healthy: bool
+    disk_free_mb: Optional[float] = None
+    disk_total_mb: Optional[float] = None
+    directories: List[DirectoryCheck]
 
 
 class ModelStatus(BaseModel):
     """Response model for model status."""
     model_name: str
     display_name: str
+    hf_repo_id: Optional[str] = None  # HuggingFace repository ID
     downloaded: bool
     downloading: bool = False  # True if download is in progress
     size_mb: Optional[float] = None
@@ -154,6 +173,11 @@ class ActiveDownloadTask(BaseModel):
     model_name: str
     status: str
     started_at: datetime
+    error: Optional[str] = None
+    progress: Optional[float] = None  # 0-100 percentage
+    current: Optional[int] = None     # bytes downloaded
+    total: Optional[int] = None       # total bytes
+    filename: Optional[str] = None    # current file being downloaded
 
 
 class ActiveGenerationTask(BaseModel):

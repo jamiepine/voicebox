@@ -77,7 +77,13 @@ export function AudioSampleSystem({
               </div>
               <p className="text-sm text-muted-foreground text-center">File: {file.name}</p>
               <div className="flex gap-2">
-                <Button type="button" size="icon" variant="outline" onClick={onPlayPause}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={onPlayPause}
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
                   {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 </Button>
                 <Button

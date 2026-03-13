@@ -10,7 +10,7 @@ interface UseModelDownloadToastOptions {
   displayName: string;
   enabled?: boolean;
   onComplete?: () => void;
-  onError?: () => void;
+  onError?: (error: string) => void;
 }
 
 /**
@@ -101,7 +101,7 @@ export function useModelDownloadToast({
               break;
             case 'error':
               statusIcon = <XCircle className="h-4 w-4 text-destructive" />;
-              statusText = `Error: ${progress.error || 'Unknown error'}`;
+              statusText = 'Download failed. See Problems panel for details.';
               break;
             case 'downloading':
               statusIcon = <Loader2 className="h-4 w-4 animate-spin" />;
@@ -131,8 +131,7 @@ export function useModelDownloadToast({
                 )}
               </div>
             ),
-            duration: progress.status === 'complete' ? 5000 : Infinity,
-            variant: progress.status === 'error' ? 'destructive' : 'default',
+            duration: progress.status === 'complete' || progress.status === 'error' ? 5000 : Infinity,
           });
 
           // Close connection and dismiss toast on completion or error
@@ -169,7 +168,7 @@ export function useModelDownloadToast({
               onComplete();
             } else if (isError && onError) {
               console.log('[useModelDownloadToast] Download error, calling onError callback');
-              onError();
+              onError(progress.error || 'Unknown error');
             }
           }
         }

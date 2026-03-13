@@ -179,25 +179,36 @@ function VoiceRow({
   onDelete,
 }: VoiceRowProps) {
   const { data: samples } = useProfileSamples(profile.id);
+  const sampleCount = samples?.length || 0;
+
+  const rowLabel = `${profile.name}, ${profile.language}, ${generationCount} generations, ${sampleCount} samples. Press Enter to edit.`;
 
   return (
     <TableRow className="cursor-pointer" onClick={onEdit}>
       <TableCell>
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="flex w-full min-w-0 items-center gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
+          aria-label={rowLabel}
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit();
+          }}
+        >
           <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
             <Mic className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div>
-            <div className="font-medium">{profile.name}</div>
+          <div className="min-w-0">
+            <div className="font-medium truncate">{profile.name}</div>
             {profile.description && (
-              <div className="text-sm text-muted-foreground">{profile.description}</div>
+              <div className="text-sm text-muted-foreground truncate">{profile.description}</div>
             )}
           </div>
-        </div>
+        </button>
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>{profile.language}</TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>{generationCount}</TableCell>
-      <TableCell onClick={(e) => e.stopPropagation()}>{samples?.length || 0}</TableCell>
+      <TableCell onClick={(e) => e.stopPropagation()}>{sampleCount}</TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
         <MultiSelect
           options={channels.map((ch) => ({
@@ -213,7 +224,7 @@ function VoiceRow({
       <TableCell onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label={`Actions for ${profile.name}`}>
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>

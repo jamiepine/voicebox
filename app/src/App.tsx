@@ -93,10 +93,11 @@ function App() {
     }
 
     serverStartingRef.current = true;
-    console.log('Production mode: Starting bundled server...');
+    const isRemote = useServerStore.getState().mode === 'remote';
+    console.log(`Production mode: Starting bundled server... (remote: ${isRemote})`);
 
     platform.lifecycle
-      .startServer(false)
+      .startServer(isRemote)
       .then((serverUrl) => {
         console.log('Server is ready at:', serverUrl);
         // Update the server URL in the store with the dynamically assigned port

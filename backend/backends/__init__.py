@@ -4,6 +4,7 @@ Backend abstraction layer for TTS and STT.
 Provides a unified interface for MLX and PyTorch backends.
 """
 
+import threading
 from typing import Protocol, Optional, Tuple, List
 from typing_extensions import runtime_checkable
 import numpy as np
@@ -112,29 +113,73 @@ class STTBackend(Protocol):
 
 # Global backend instances
 _tts_backend: Optional[TTSBackend] = None
+_tts_backends: dict[str, TTSBackend] = {}
+_tts_backends_lock = threading.Lock()
 _stt_backend: Optional[STTBackend] = None
+
+# Supported TTS engines
+TTS_ENGINES = {
+    "qwen": "Qwen TTS",
+    "luxtts": "LuxTTS",
+    "chatterbox": "Chatterbox TTS",
+    "chatterbox_turbo": "Chatterbox Turbo",
+}
 
 
 def get_tts_backend() -> TTSBackend:
     """
-    Get or create TTS backend instance based on platform.
+    Get or create the default (Qwen) TTS backend instance based on platform.
     
     Returns:
         TTS backend instance (MLX or PyTorch)
     """
-    global _tts_backend
+    return get_tts_backend_for_engine("qwen")
+
+
+def get_tts_backend_for_engine(engine: str) -> TTSBackend:
+    """
+    Get or create a TTS backend for the given engine.
     
-    if _tts_backend is None:
-        backend_type = get_backend_type()
+    Args:
+        engine: Engine name ("qwen" or "luxtts")
+    
+    Returns:
+        TTS backend instance
+    """
+    global _tts_backends
+    
+    # Fast path: check without lock
+    if engine in _tts_backends:
+        return _tts_backends[engine]
+    
+    # Slow path: create with lock to avoid duplicate instantiation
+    with _tts_backends_lock:
+        # Double-check after acquiring lock
+        if engine in _tts_backends:
+            return _tts_backends[engine]
         
-        if backend_type == "mlx":
-            from .mlx_backend import MLXTTSBackend
-            _tts_backend = MLXTTSBackend()
+        if engine == "qwen":
+            backend_type = get_backend_type()
+            if backend_type == "mlx":
+                from .mlx_backend import MLXTTSBackend
+                backend = MLXTTSBackend()
+            else:
+                from .pytorch_backend import PyTorchTTSBackend
+                backend = PyTorchTTSBackend()
+        elif engine == "luxtts":
+            from .luxtts_backend import LuxTTSBackend
+            backend = LuxTTSBackend()
+        elif engine == "chatterbox":
+            from .chatterbox_backend import ChatterboxTTSBackend
+            backend = ChatterboxTTSBackend()
+        elif engine == "chatterbox_turbo":
+            from .chatterbox_turbo_backend import ChatterboxTurboTTSBackend
+            backend = ChatterboxTurboTTSBackend()
         else:
-            from .pytorch_backend import PyTorchTTSBackend
-            _tts_backend = PyTorchTTSBackend()
-    
-    return _tts_backend
+            raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
+        
+        _tts_backends[engine] = backend
+        return backend
 
 
 def get_stt_backend() -> STTBackend:
@@ -161,6 +206,7 @@ def get_stt_backend() -> STTBackend:
 
 def reset_backends():
     """Reset backend instances (useful for testing)."""
-    global _tts_backend, _stt_backend
+    global _tts_backend, _tts_backends, _stt_backend
     _tts_backend = None
+    _tts_backends.clear()
     _stt_backend = None

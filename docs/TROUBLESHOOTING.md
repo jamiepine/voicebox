@@ -162,7 +162,7 @@ chmod +x voicebox-*.AppImage
 **Solutions:**
 1. **Check server is running**
    ```bash
-   curl http://localhost:8000/health
+   curl http://localhost:17493/health
    ```
 
 2. **Check remote mode**
@@ -170,7 +170,7 @@ chmod +x voicebox-*.AppImage
    - Check firewall settings
 
 3. **Check port availability**
-   - Default port is 8000
+   - The current local app and dev workflow uses port 17493 by default
    - Ensure no other service is using it
 
 ### CORS errors in browser
@@ -276,7 +276,7 @@ chmod +x voicebox-*.AppImage
 
 2. **Check OpenAPI endpoint**
    ```bash
-   curl http://localhost:8000/openapi.json
+   curl http://localhost:17493/openapi.json
    ```
 
 3. **Regenerate client**
