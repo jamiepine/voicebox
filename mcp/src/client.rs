@@ -13,8 +13,13 @@ pub struct VoiceboxClient {
 
 impl VoiceboxClient {
     pub fn new(base_url: &str) -> Self {
+        let http = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(300))
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .build()
+            .expect("Failed to build HTTP client");
         Self {
-            http: reqwest::Client::new(),
+            http,
             base_url: base_url.trim_end_matches('/').to_string(),
         }
     }
@@ -51,7 +56,11 @@ impl VoiceboxClient {
     async fn handle_json(&self, resp: reqwest::Response) -> Result<Value, VoiceboxError> {
         let status = resp.status().as_u16();
         if status >= 400 {
-            let body = resp.text().await.unwrap_or_default();
+            let raw = resp.text().await.unwrap_or_default();
+            let body = serde_json::from_str::<Value>(&raw)
+                .ok()
+                .and_then(|v| v["detail"].as_str().map(String::from))
+                .unwrap_or(raw);
             return Err(VoiceboxError::Api { status, body });
         }
         Ok(resp.json().await?)
@@ -73,7 +82,7 @@ impl VoiceboxClient {
         self.get("/profiles").await
     }
 
-    pub async fn get_profile(&self, profile_id: i64) -> Result<Value, VoiceboxError> {
+    pub async fn get_profile(&self, profile_id: &str) -> Result<Value, VoiceboxError> {
         self.get(&format!("/profiles/{profile_id}")).await
     }
 
@@ -83,24 +92,24 @@ impl VoiceboxClient {
 
     pub async fn update_profile(
         &self,
-        profile_id: i64,
+        profile_id: &str,
         body: &Value,
     ) -> Result<Value, VoiceboxError> {
         self.put_json(&format!("/profiles/{profile_id}"), body)
             .await
     }
 
-    pub async fn delete_profile(&self, profile_id: i64) -> Result<Value, VoiceboxError> {
+    pub async fn delete_profile(&self, profile_id: &str) -> Result<Value, VoiceboxError> {
         self.delete(&format!("/profiles/{profile_id}")).await
     }
 
-    pub async fn list_profile_samples(&self, profile_id: i64) -> Result<Value, VoiceboxError> {
+    pub async fn list_profile_samples(&self, profile_id: &str) -> Result<Value, VoiceboxError> {
         self.get(&format!("/profiles/{profile_id}/samples")).await
     }
 
     pub async fn add_profile_sample(
         &self,
-        profile_id: i64,
+        profile_id: &str,
         file_path: &str,
         reference_text: &str,
     ) -> Result<Value, VoiceboxError> {
@@ -110,9 +119,10 @@ impl VoiceboxClient {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "audio.wav".to_string());
 
+        let mime = mime_from_path(Path::new(file_path));
         let file_part = multipart::Part::bytes(file_bytes)
             .file_name(file_name)
-            .mime_str("audio/wav")
+            .mime_str(mime)
             .map_err(|e| VoiceboxError::Other(e.to_string()))?;
 
         let form = multipart::Form::new()
@@ -134,7 +144,7 @@ impl VoiceboxClient {
         self.post_json("/generate", body).await
     }
 
-    pub async fn get_audio(&self, generation_id: i64) -> Result<Vec<u8>, VoiceboxError> {
+    pub async fn get_audio(&self, generation_id: &str) -> Result<Vec<u8>, VoiceboxError> {
         self.download_bytes(&format!("/audio/{generation_id}"))
             .await
     }
@@ -143,7 +153,7 @@ impl VoiceboxClient {
 
     pub async fn list_history(
         &self,
-        profile_id: Option<i64>,
+        profile_id: Option<&str>,
         search: Option<&str>,
         limit: Option<i64>,
         offset: Option<i64>,
@@ -153,7 +163,7 @@ impl VoiceboxClient {
             query.push(format!("profile_id={pid}"));
         }
         if let Some(s) = search {
-            query.push(format!("search={}", urlencoding(s)));
+            query.push(format!("search={}", urlencoding::encode(s)));
         }
         if let Some(l) = limit {
             query.push(format!("limit={l}"));
@@ -169,11 +179,11 @@ impl VoiceboxClient {
         self.get(&format!("/history{qs}")).await
     }
 
-    pub async fn get_generation(&self, generation_id: i64) -> Result<Value, VoiceboxError> {
+    pub async fn get_generation(&self, generation_id: &str) -> Result<Value, VoiceboxError> {
         self.get(&format!("/history/{generation_id}")).await
     }
 
-    pub async fn delete_generation(&self, generation_id: i64) -> Result<Value, VoiceboxError> {
+    pub async fn delete_generation(&self, generation_id: &str) -> Result<Value, VoiceboxError> {
         self.delete(&format!("/history/{generation_id}")).await
     }
 
@@ -194,9 +204,10 @@ impl VoiceboxClient {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "audio.wav".to_string());
 
+        let mime = mime_from_path(Path::new(file_path));
         let file_part = multipart::Part::bytes(file_bytes)
             .file_name(file_name)
-            .mime_str("audio/wav")
+            .mime_str(mime)
             .map_err(|e| VoiceboxError::Other(e.to_string()))?;
 
         let mut form = multipart::Form::new().part("file", file_part);
@@ -223,21 +234,21 @@ impl VoiceboxClient {
         self.post_json("/stories", body).await
     }
 
-    pub async fn get_story(&self, story_id: i64) -> Result<Value, VoiceboxError> {
+    pub async fn get_story(&self, story_id: &str) -> Result<Value, VoiceboxError> {
         self.get(&format!("/stories/{story_id}")).await
     }
 
-    pub async fn update_story(&self, story_id: i64, body: &Value) -> Result<Value, VoiceboxError> {
+    pub async fn update_story(&self, story_id: &str, body: &Value) -> Result<Value, VoiceboxError> {
         self.put_json(&format!("/stories/{story_id}"), body).await
     }
 
-    pub async fn delete_story(&self, story_id: i64) -> Result<Value, VoiceboxError> {
+    pub async fn delete_story(&self, story_id: &str) -> Result<Value, VoiceboxError> {
         self.delete(&format!("/stories/{story_id}")).await
     }
 
     pub async fn add_story_item(
         &self,
-        story_id: i64,
+        story_id: &str,
         body: &Value,
     ) -> Result<Value, VoiceboxError> {
         self.post_json(&format!("/stories/{story_id}/items"), body)
@@ -246,8 +257,8 @@ impl VoiceboxClient {
 
     pub async fn remove_story_item(
         &self,
-        story_id: i64,
-        item_id: i64,
+        story_id: &str,
+        item_id: &str,
     ) -> Result<Value, VoiceboxError> {
         self.delete(&format!("/stories/{story_id}/items/{item_id}"))
             .await
@@ -255,15 +266,15 @@ impl VoiceboxClient {
 
     pub async fn move_story_item(
         &self,
-        story_id: i64,
-        item_id: i64,
+        story_id: &str,
+        item_id: &str,
         body: &Value,
     ) -> Result<Value, VoiceboxError> {
         self.put_json(&format!("/stories/{story_id}/items/{item_id}/move"), body)
             .await
     }
 
-    pub async fn export_story_audio(&self, story_id: i64) -> Result<Vec<u8>, VoiceboxError> {
+    pub async fn export_story_audio(&self, story_id: &str) -> Result<Vec<u8>, VoiceboxError> {
         self.download_bytes(&format!("/stories/{story_id}/export-audio"))
             .await
     }
@@ -303,16 +314,15 @@ impl VoiceboxClient {
     }
 }
 
-fn urlencoding(s: &str) -> String {
-    s.chars()
-        .map(|c| match c {
-            ' ' => "%20".to_string(),
-            '&' => "%26".to_string(),
-            '=' => "%3D".to_string(),
-            '#' => "%23".to_string(),
-            _ => c.to_string(),
-        })
-        .collect()
+fn mime_from_path(path: &Path) -> &'static str {
+    match path.extension().and_then(|e| e.to_str()) {
+        Some("wav") => "audio/wav",
+        Some("mp3") => "audio/mpeg",
+        Some("flac") => "audio/flac",
+        Some("ogg") => "audio/ogg",
+        Some("m4a") => "audio/mp4",
+        _ => "application/octet-stream",
+    }
 }
 
 #[cfg(test)]
@@ -351,7 +361,7 @@ mod tests {
             .await;
 
         let client = VoiceboxClient::new(&mock.uri());
-        let result = client.get_profile(42).await.unwrap();
+        let result = client.get_profile("42").await.unwrap();
         assert_eq!(result["id"], 42);
     }
 
@@ -365,7 +375,7 @@ mod tests {
             .await;
 
         let client = VoiceboxClient::new(&mock.uri());
-        let err = client.get_profile(999).await.unwrap_err();
+        let err = client.get_profile("999").await.unwrap_err();
         match err {
             VoiceboxError::Api { status, body } => {
                 assert_eq!(status, 404);
@@ -423,7 +433,7 @@ mod tests {
 
         let client = VoiceboxClient::new(&mock.uri());
         let result = client
-            .list_history(Some(1), Some("hello"), Some(10), Some(0))
+            .list_history(Some("1"), Some("hello"), Some(10), Some(0))
             .await
             .unwrap();
         assert_eq!(result["total"], 0);
@@ -465,7 +475,7 @@ mod tests {
             .await;
 
         let client = VoiceboxClient::new(&mock.uri());
-        let result = client.get_audio(1).await.unwrap();
+        let result = client.get_audio("1").await.unwrap();
         assert_eq!(result.len(), 100);
     }
 

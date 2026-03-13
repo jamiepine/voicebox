@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::model::{ServerCapabilities, ServerInfo};
@@ -56,7 +54,7 @@ impl VoiceboxMcp {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetProfileParams {
     #[schemars(description = "The voice profile ID")]
-    pub profile_id: i64,
+    pub profile_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -72,7 +70,7 @@ pub struct CreateProfileParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct UpdateProfileParams {
     #[schemars(description = "The voice profile ID to update")]
-    pub profile_id: i64,
+    pub profile_id: String,
     #[schemars(description = "New name for the profile")]
     pub name: Option<String>,
     #[schemars(description = "New language code")]
@@ -84,19 +82,19 @@ pub struct UpdateProfileParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct DeleteProfileParams {
     #[schemars(description = "The voice profile ID to delete")]
-    pub profile_id: i64,
+    pub profile_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListProfileSamplesParams {
     #[schemars(description = "The voice profile ID")]
-    pub profile_id: i64,
+    pub profile_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AddProfileSampleParams {
     #[schemars(description = "The voice profile ID to add a sample to")]
-    pub profile_id: i64,
+    pub profile_id: String,
     #[schemars(description = "Path to the audio file on disk")]
     pub file_path: String,
     #[schemars(description = "Text that is spoken in the audio sample")]
@@ -110,7 +108,7 @@ pub struct GenerateSpeechParams {
     #[schemars(description = "Text to synthesize into speech")]
     pub text: String,
     #[schemars(description = "Voice profile ID to use")]
-    pub profile_id: i64,
+    pub profile_id: String,
     #[schemars(description = "Language code (e.g. en, zh, ja). Defaults to profile language")]
     pub language: Option<String>,
     #[schemars(description = "Random seed for reproducible generation")]
@@ -128,7 +126,7 @@ pub struct GenerateSpeechParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetAudioParams {
     #[schemars(description = "The generation ID to download audio for")]
-    pub generation_id: i64,
+    pub generation_id: String,
     #[schemars(description = "Path to save the audio file. Uses temp directory if not specified")]
     pub output_path: Option<String>,
 }
@@ -138,7 +136,7 @@ pub struct GetAudioParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListHistoryParams {
     #[schemars(description = "Filter by voice profile ID")]
-    pub profile_id: Option<i64>,
+    pub profile_id: Option<String>,
     #[schemars(description = "Search text in generation history")]
     pub search: Option<String>,
     #[schemars(description = "Maximum number of results (1-100, default 50)")]
@@ -150,13 +148,13 @@ pub struct ListHistoryParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetGenerationParams {
     #[schemars(description = "The generation ID")]
-    pub generation_id: i64,
+    pub generation_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct DeleteGenerationParams {
     #[schemars(description = "The generation ID to delete")]
-    pub generation_id: i64,
+    pub generation_id: String,
 }
 
 // --- Transcription tool params ---
@@ -182,13 +180,13 @@ pub struct CreateStoryParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct GetStoryParams {
     #[schemars(description = "The story ID")]
-    pub story_id: i64,
+    pub story_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct UpdateStoryParams {
     #[schemars(description = "The story ID to update")]
-    pub story_id: i64,
+    pub story_id: String,
     #[schemars(description = "New name")]
     pub name: Option<String>,
     #[schemars(description = "New description")]
@@ -198,15 +196,15 @@ pub struct UpdateStoryParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct DeleteStoryParams {
     #[schemars(description = "The story ID to delete")]
-    pub story_id: i64,
+    pub story_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct AddStoryItemParams {
     #[schemars(description = "The story ID")]
-    pub story_id: i64,
+    pub story_id: String,
     #[schemars(description = "Generation ID to add to the story")]
-    pub generation_id: i64,
+    pub generation_id: String,
     #[schemars(description = "Start time in milliseconds on the timeline")]
     pub start_time_ms: Option<i64>,
     #[schemars(description = "Track number (0-based)")]
@@ -216,17 +214,17 @@ pub struct AddStoryItemParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct RemoveStoryItemParams {
     #[schemars(description = "The story ID")]
-    pub story_id: i64,
+    pub story_id: String,
     #[schemars(description = "The story item ID to remove")]
-    pub item_id: i64,
+    pub item_id: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct MoveStoryItemParams {
     #[schemars(description = "The story ID")]
-    pub story_id: i64,
+    pub story_id: String,
     #[schemars(description = "The story item ID to move")]
-    pub item_id: i64,
+    pub item_id: String,
     #[schemars(description = "New start time in milliseconds")]
     pub start_time_ms: Option<i64>,
     #[schemars(description = "New track number")]
@@ -236,7 +234,7 @@ pub struct MoveStoryItemParams {
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ExportStoryParams {
     #[schemars(description = "The story ID to export")]
-    pub story_id: i64,
+    pub story_id: String,
     #[schemars(
         description = "Path to save the exported audio. Uses temp directory if not specified"
     )]
@@ -290,7 +288,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .get_profile(p.profile_id)
+            .get_profile(&p.profile_id)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -331,7 +329,7 @@ impl VoiceboxMcp {
         }
         let v = self
             .client
-            .update_profile(p.profile_id, &body)
+            .update_profile(&p.profile_id, &body)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -344,7 +342,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .delete_profile(p.profile_id)
+            .delete_profile(&p.profile_id)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -357,7 +355,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .list_profile_samples(p.profile_id)
+            .list_profile_samples(&p.profile_id)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -372,7 +370,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .add_profile_sample(p.profile_id, &p.file_path, &p.reference_text)
+            .add_profile_sample(&p.profile_id, &p.file_path, &p.reference_text)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -418,7 +416,7 @@ impl VoiceboxMcp {
     async fn get_audio(&self, Parameters(p): Parameters<GetAudioParams>) -> Result<String, String> {
         let bytes = self
             .client
-            .get_audio(p.generation_id)
+            .get_audio(&p.generation_id)
             .await
             .map_err(|e| e.to_string())?;
         let default_name = format!("generation_{}.wav", p.generation_id);
@@ -441,7 +439,12 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .list_history(p.profile_id, p.search.as_deref(), p.limit, p.offset)
+            .list_history(
+                p.profile_id.as_deref(),
+                p.search.as_deref(),
+                p.limit,
+                p.offset,
+            )
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -454,7 +457,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .get_generation(p.generation_id)
+            .get_generation(&p.generation_id)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -467,7 +470,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .delete_generation(p.generation_id)
+            .delete_generation(&p.generation_id)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -494,7 +497,7 @@ impl VoiceboxMcp {
         &self,
         Parameters(p): Parameters<TranscribeParams>,
     ) -> Result<String, String> {
-        if !Path::new(&p.file_path).exists() {
+        if !tokio::fs::try_exists(&p.file_path).await.unwrap_or(false) {
             return Err(format!("File not found: {}", p.file_path));
         }
         let v = self
@@ -538,7 +541,7 @@ impl VoiceboxMcp {
     async fn get_story(&self, Parameters(p): Parameters<GetStoryParams>) -> Result<String, String> {
         let v = self
             .client
-            .get_story(p.story_id)
+            .get_story(&p.story_id)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -558,7 +561,7 @@ impl VoiceboxMcp {
         }
         let v = self
             .client
-            .update_story(p.story_id, &body)
+            .update_story(&p.story_id, &body)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -571,7 +574,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .delete_story(p.story_id)
+            .delete_story(&p.story_id)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -591,7 +594,7 @@ impl VoiceboxMcp {
         }
         let v = self
             .client
-            .add_story_item(p.story_id, &body)
+            .add_story_item(&p.story_id, &body)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -604,7 +607,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let v = self
             .client
-            .remove_story_item(p.story_id, p.item_id)
+            .remove_story_item(&p.story_id, &p.item_id)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -624,7 +627,7 @@ impl VoiceboxMcp {
         }
         let v = self
             .client
-            .move_story_item(p.story_id, p.item_id, &body)
+            .move_story_item(&p.story_id, &p.item_id, &body)
             .await
             .map_err(|e| e.to_string())?;
         Ok(Self::pretty_json(&v))
@@ -637,7 +640,7 @@ impl VoiceboxMcp {
     ) -> Result<String, String> {
         let bytes = self
             .client
-            .export_story_audio(p.story_id)
+            .export_story_audio(&p.story_id)
             .await
             .map_err(|e| e.to_string())?;
         let default_name = format!("story_{}.wav", p.story_id);
@@ -777,7 +780,7 @@ mod tests {
 
         let params = GenerateSpeechParams {
             text: "Hello world".to_string(),
-            profile_id: 1,
+            profile_id: "1".to_string(),
             language: Some("en".to_string()),
             seed: None,
             model_size: None,
@@ -815,7 +818,9 @@ mod tests {
             .mount(&mock)
             .await;
 
-        let params = GetProfileParams { profile_id: 999 };
+        let params = GetProfileParams {
+            profile_id: "999".to_string(),
+        };
         let result = server.get_profile(Parameters(params)).await;
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("404"));
@@ -852,7 +857,7 @@ mod tests {
 
         let tmp = std::env::temp_dir().join("voicebox-mcp-test-audio.wav");
         let params = GetAudioParams {
-            generation_id: 42,
+            generation_id: "42".to_string(),
             output_path: Some(tmp.to_string_lossy().to_string()),
         };
         let result = server.get_audio(Parameters(params)).await.unwrap();
@@ -940,7 +945,9 @@ mod tests {
             .await;
 
         let result = server
-            .get_profile(Parameters(GetProfileParams { profile_id: 5 }))
+            .get_profile(Parameters(GetProfileParams {
+                profile_id: "5".to_string(),
+            }))
             .await
             .unwrap();
         assert!(result.contains("Test Voice"));
@@ -962,7 +969,7 @@ mod tests {
 
         let result = server
             .update_profile(Parameters(UpdateProfileParams {
-                profile_id: 1,
+                profile_id: "1".to_string(),
                 name: Some("Updated Name".to_string()),
                 language: None,
                 description: None,
@@ -985,7 +992,9 @@ mod tests {
             .await;
 
         let result = server
-            .delete_profile(Parameters(DeleteProfileParams { profile_id: 1 }))
+            .delete_profile(Parameters(DeleteProfileParams {
+                profile_id: "1".to_string(),
+            }))
             .await
             .unwrap();
         assert!(result.contains("deleted"));
@@ -1015,7 +1024,7 @@ mod tests {
         let result = server
             .generate_speech(Parameters(GenerateSpeechParams {
                 text: "Hello world".to_string(),
-                profile_id: 1,
+                profile_id: "1".to_string(),
                 language: Some("en".to_string()),
                 seed: Some(12345),
                 model_size: Some("1.7B".to_string()),
@@ -1046,7 +1055,7 @@ mod tests {
         let result = server
             .generate_speech(Parameters(GenerateSpeechParams {
                 text: "test".to_string(),
-                profile_id: 1,
+                profile_id: "1".to_string(),
                 language: None,
                 seed: None,
                 model_size: None,
@@ -1071,7 +1080,7 @@ mod tests {
 
         let result = server
             .get_audio(Parameters(GetAudioParams {
-                generation_id: 99,
+                generation_id: "99".to_string(),
                 output_path: None,
             }))
             .await
@@ -1197,8 +1206,8 @@ mod tests {
 
         let result = server
             .add_story_item(Parameters(AddStoryItemParams {
-                story_id: 1,
-                generation_id: 42,
+                story_id: "1".to_string(),
+                generation_id: "42".to_string(),
                 start_time_ms: Some(0),
                 track: Some(0),
             }))
@@ -1218,8 +1227,8 @@ mod tests {
 
         let result = server
             .move_story_item(Parameters(MoveStoryItemParams {
-                story_id: 1,
-                item_id: 10,
+                story_id: "1".to_string(),
+                item_id: "10".to_string(),
                 start_time_ms: Some(5000),
                 track: Some(1),
             }))
@@ -1238,7 +1247,9 @@ mod tests {
             .await;
 
         let result = server
-            .get_story(Parameters(GetStoryParams { story_id: 1 }))
+            .get_story(Parameters(GetStoryParams {
+                story_id: "1".to_string(),
+            }))
             .await
             .unwrap();
         assert!(result.contains("\"items\""));
@@ -1253,8 +1264,8 @@ mod tests {
 
         let result = server
             .remove_story_item(Parameters(RemoveStoryItemParams {
-                story_id: 1,
-                item_id: 10,
+                story_id: "1".to_string(),
+                item_id: "10".to_string(),
             }))
             .await
             .unwrap();
@@ -1275,7 +1286,7 @@ mod tests {
         let tmp = std::env::temp_dir().join("voicebox-mcp-test-story-export.wav");
         let result = server
             .export_story(Parameters(ExportStoryParams {
-                story_id: 1,
+                story_id: "1".to_string(),
                 output_path: Some(tmp.to_string_lossy().to_string()),
             }))
             .await

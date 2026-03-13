@@ -108,7 +108,14 @@ async fn main() -> Result<()> {
                 .context(format!("Failed to bind to {addr}"))?;
 
             tracing::info!("Listening on {addr}/mcp");
-            axum::serve(listener, app).await?;
+            axum::serve(listener, app)
+                .with_graceful_shutdown(async {
+                    tokio::signal::ctrl_c()
+                        .await
+                        .expect("Failed to install CTRL+C handler");
+                    tracing::info!("Shutting down gracefully...");
+                })
+                .await?;
         }
     }
 
