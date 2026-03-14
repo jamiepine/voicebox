@@ -12,7 +12,7 @@ import { useGenerationStore } from '@/stores/generationStore';
 import { useServerStore } from '@/stores/serverStore';
 
 const generationSchema = z.object({
-  text: z.string().min(1, 'Text is required').max(50000),
+  text: z.string().min(1, '').max(50000),
   language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
   seed: z.number().int().optional(),
   modelSize: z.enum(['1.7B', '0.6B']).optional(),

@@ -104,6 +104,7 @@ class GenerationVersion(Base):
     label = Column(String, nullable=False)  # "clean", "processed", or user-defined
     audio_path = Column(String, nullable=False)
     effects_chain = Column(Text, nullable=True)  # JSON-serialized effects config, null for clean
+    source_version_id = Column(String, ForeignKey("generation_versions.id"), nullable=True)  # Which version was used as input
     is_default = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -386,6 +387,16 @@ def _run_migrations(engine):
                 conn.execute(text("ALTER TABLE story_items ADD COLUMN version_id VARCHAR"))
                 conn.commit()
                 print("Added version_id column to story_items")
+
+    # Migration: Add source_version_id to generation_versions table
+    if 'generation_versions' in inspector.get_table_names():
+        columns = {col['name'] for col in inspector.get_columns('generation_versions')}
+        if 'source_version_id' not in columns:
+            print("Migrating generation_versions: adding source_version_id column")
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE generation_versions ADD COLUMN source_version_id VARCHAR"))
+                conn.commit()
+                print("Added source_version_id column to generation_versions")
 
     if 'generations' in inspector.get_table_names():
         columns = {col['name'] for col in inspector.get_columns('generations')}

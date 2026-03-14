@@ -22,6 +22,8 @@ class VoiceProfileResponse(BaseModel):
     language: str
     avatar_path: Optional[str] = None
     effects_chain: Optional[List["EffectConfig"]] = None
+    generation_count: int = 0
+    sample_count: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -408,6 +410,7 @@ class GenerationVersionResponse(BaseModel):
     label: str
     audio_path: str
     effects_chain: Optional[List[EffectConfig]] = None
+    source_version_id: Optional[str] = None
     is_default: bool
     created_at: datetime
 
@@ -418,6 +421,7 @@ class GenerationVersionResponse(BaseModel):
 class ApplyEffectsRequest(BaseModel):
     """Request to apply effects to an existing generation."""
     effects_chain: List[EffectConfig]
+    source_version_id: Optional[str] = Field(None, description="Version to use as source audio (defaults to clean/original)")
     label: Optional[str] = Field(None, max_length=100, description="Label for this version (auto-generated if omitted)")
     set_as_default: bool = Field(default=True, description="Set this version as the default")
 

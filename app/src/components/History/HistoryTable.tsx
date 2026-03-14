@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
+  AlignCenter,
+  AudioLines,
+  AudioWaveform,
   Download,
   FileArchive,
-  GalleryVerticalEnd,
   Loader2,
   MoreHorizontal,
   Play,
@@ -30,10 +32,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
-import type { EffectConfig, HistoryResponse } from '@/lib/api/types';
+import type { EffectConfig, GenerationVersionResponse, HistoryResponse } from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import {
   useDeleteGeneration,
@@ -67,6 +76,10 @@ export function HistoryTable() {
   );
   const [effectsDialogOpen, setEffectsDialogOpen] = useState(false);
   const [effectsTargetId, setEffectsTargetId] = useState<string | null>(null);
+  const [effectsTargetVersions, setEffectsTargetVersions] = useState<GenerationVersionResponse[]>(
+    [],
+  );
+  const [effectsSourceVersionId, setEffectsSourceVersionId] = useState<string | null>(null);
   const [effectsChain, setEffectsChain] = useState<EffectConfig[]>([]);
   const [applyingEffects, setApplyingEffects] = useState(false);
   const [expandedVersionsId, setExpandedVersionsId] = useState<string | null>(null);
@@ -253,7 +266,13 @@ export function HistoryTable() {
   };
 
   const handleApplyEffects = (generationId: string) => {
+    const gen = allHistory.find((g) => g.id === generationId);
+    const versions = gen?.versions ?? [];
     setEffectsTargetId(generationId);
+    setEffectsTargetVersions(versions);
+    // Default to clean/original version (no effects chain)
+    const cleanVersion = versions.find((v) => !v.effects_chain || v.effects_chain.length === 0);
+    setEffectsSourceVersionId(cleanVersion?.id ?? null);
     setEffectsChain([]);
     setEffectsDialogOpen(true);
   };
@@ -264,6 +283,7 @@ export function HistoryTable() {
     try {
       const newVersion = await apiClient.applyEffectsToGeneration(effectsTargetId, {
         effects_chain: effectsChain,
+        source_version_id: effectsSourceVersionId ?? undefined,
         set_as_default: true,
       });
       queryClient.invalidateQueries({ queryKey: ['history'] });
@@ -476,11 +496,41 @@ export function HistoryTable() {
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          'h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground',
+                          gen.is_favorited && 'text-accent hover:text-accent',
+                        )}
+                        aria-label={gen.is_favorited ? 'Unfavorite' : 'Favorite'}
+                        onClick={() => handleToggleFavorite(gen.id)}
+                      >
+                        <Star
+                          className="h-2 w-2"
+                          fill={gen.is_favorited ? 'currentColor' : 'none'}
+                        />
+                      </Button>
+                      {hasVersions && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className={cn(
+                            'h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground',
+                            isVersionsExpanded && 'text-accent hover:text-accent',
+                          )}
+                          aria-label="Toggle versions"
+                          onClick={() => setExpandedVersionsId(isVersionsExpanded ? null : gen.id)}
+                        >
+                          <AudioLines className="h-2 w-2" />
+                        </Button>
+                      )}
+
                       {isFailed ? (
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7 text-muted-foreground hover:bg-muted-foreground/20 hover:text-muted-foreground"
+                          className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
                           aria-label="Retry generation"
                           onClick={() => handleRetry(gen.id)}
                         >
@@ -493,7 +543,7 @@ export function HistoryTable() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 text-muted-foreground hover:bg-muted-foreground/20 hover:text-muted-foreground"
+                                className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
                                 aria-label="Actions"
                                 disabled={isGenerating}
                               >
@@ -539,37 +589,6 @@ export function HistoryTable() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn(
-                              'h-7 w-7 text-muted-foreground hover:bg-muted-foreground/20 hover:text-muted-foreground',
-                              gen.is_favorited && 'text-accent hover:text-accent',
-                            )}
-                            aria-label={gen.is_favorited ? 'Unfavorite' : 'Favorite'}
-                            onClick={() => handleToggleFavorite(gen.id)}
-                          >
-                            <Star
-                              className="h-2 w-2"
-                              fill={gen.is_favorited ? 'currentColor' : 'none'}
-                            />
-                          </Button>
-                          {hasVersions && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={cn(
-                                'h-7 w-7 text-muted-foreground hover:bg-muted-foreground/20 hover:text-muted-foreground',
-                                isVersionsExpanded && 'text-accent hover:text-accent',
-                              )}
-                              aria-label="Toggle versions"
-                              onClick={() =>
-                                setExpandedVersionsId(isVersionsExpanded ? null : gen.id)
-                              }
-                            >
-                              <GalleryVerticalEnd className="h-2 w-2" />
-                            </Button>
-                          )}
                         </>
                       )}
                     </div>
@@ -587,33 +606,49 @@ export function HistoryTable() {
                       >
                         <div className="border-t border-border/50">
                           <div className="divide-y divide-border/40">
-                            {gen.versions.map((v) => (
-                              <button
-                                key={v.id}
-                                type="button"
-                                className="flex items-center gap-2 w-full h-9 px-3 text-left hover:bg-muted/50 transition-colors"
-                                onClick={() => {
-                                  handlePlayVersion(gen.id, v.id, gen.text, gen.profile_id);
-                                  if (!v.is_default) {
-                                    handleSwitchVersion(gen.id, v.id);
-                                  }
-                                }}
-                              >
-                                <Play className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                <span className="truncate text-xs font-medium">{v.label}</span>
-                                {v.effects_chain && v.effects_chain.length > 0 && (
-                                  <span className="text-[10px] text-muted-foreground truncate">
-                                    {v.effects_chain.map((e) => e.type).join(' → ')}
-                                  </span>
-                                )}
-                                <span className="flex-1" />
-                                {v.is_default && (
-                                  <span className="text-[10px] bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">
-                                    active
-                                  </span>
-                                )}
-                              </button>
-                            ))}
+                            {gen.versions.map((v) => {
+                              // Show source provenance when effects were applied to a non-clean version
+                              const sourceVersion = v.source_version_id
+                                ? gen.versions?.find((sv) => sv.id === v.source_version_id)
+                                : null;
+                              const showSource =
+                                sourceVersion &&
+                                sourceVersion.effects_chain &&
+                                sourceVersion.effects_chain.length > 0;
+
+                              return (
+                                <button
+                                  key={v.id}
+                                  type="button"
+                                  className="flex items-center gap-2 w-full h-9 px-3 text-left hover:bg-muted/50 transition-colors"
+                                  onClick={() => {
+                                    handlePlayVersion(gen.id, v.id, gen.text, gen.profile_id);
+                                    if (!v.is_default) {
+                                      handleSwitchVersion(gen.id, v.id);
+                                    }
+                                  }}
+                                >
+                                  <AudioLines className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                  <span className="truncate text-xs font-medium">{v.label}</span>
+                                  {v.effects_chain && v.effects_chain.length > 0 && (
+                                    <span className="text-[10px] text-muted-foreground truncate">
+                                      {v.effects_chain.map((e) => e.type).join(' → ')}
+                                    </span>
+                                  )}
+                                  {showSource && (
+                                    <span className="text-[10px] text-muted-foreground/60 truncate">
+                                      from {sourceVersion.label}
+                                    </span>
+                                  )}
+                                  <span className="flex-1" />
+                                  {v.is_default && (
+                                    <span className="text-[10px] bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">
+                                      active
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       </motion.div>
@@ -710,6 +745,31 @@ export function HistoryTable() {
               created.
             </DialogDescription>
           </DialogHeader>
+          {effectsTargetVersions.length > 1 && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Source</label>
+              <Select
+                value={effectsSourceVersionId ?? ''}
+                onValueChange={(val) => setEffectsSourceVersionId(val || null)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select source version" />
+                </SelectTrigger>
+                <SelectContent>
+                  {effectsTargetVersions.map((v) => (
+                    <SelectItem key={v.id} value={v.id} className="text-xs">
+                      {v.label}
+                      {v.effects_chain && v.effects_chain.length > 0 && (
+                        <span className="text-muted-foreground ml-1.5">
+                          ({v.effects_chain.map((e) => e.type).join(' + ')})
+                        </span>
+                      )}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="py-2 max-h-80 overflow-y-auto">
             <EffectsChainEditor value={effectsChain} onChange={setEffectsChain} />
           </div>

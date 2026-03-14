@@ -14,6 +14,8 @@ export interface VoiceProfileResponse {
   language: string;
   avatar_path?: string;
   effects_chain?: EffectConfig[];
+  generation_count: number;
+  sample_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +57,7 @@ export interface GenerationVersionResponse {
   label: string;
   audio_path: string;
   effects_chain?: EffectConfig[];
+  source_version_id?: string;
   is_default: boolean;
   created_at: string;
 }
@@ -331,6 +334,7 @@ export interface AvailableEffectsResponse {
 
 export interface ApplyEffectsRequest {
   effects_chain: EffectConfig[];
+  source_version_id?: string;
   label?: string;
   set_as_default?: boolean;
 }

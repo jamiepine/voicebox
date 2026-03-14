@@ -1863,16 +1863,25 @@ async def apply_effects_to_generation(
     if error:
         raise HTTPException(status_code=400, detail=error)
 
-    # Find the original unprocessed version (no effects applied)
+    # Determine source audio: use specified version, or fall back to clean/original
     all_versions = versions_mod.list_versions(generation_id, db)
-    clean_version = next(
-        (v for v in all_versions if v.effects_chain is None), None
-    )
-    if not clean_version:
-        # Fallback: use the generation's audio_path directly
-        source_path = gen.audio_path
+    source_version_id = data.source_version_id
+    if source_version_id:
+        source_version = next(
+            (v for v in all_versions if v.id == source_version_id), None
+        )
+        if not source_version:
+            raise HTTPException(status_code=404, detail="Source version not found")
+        source_path = source_version.audio_path
     else:
-        source_path = clean_version.audio_path
+        clean_version = next(
+            (v for v in all_versions if v.effects_chain is None), None
+        )
+        if not clean_version:
+            source_path = gen.audio_path
+        else:
+            source_path = clean_version.audio_path
+            source_version_id = clean_version.id
 
     if not source_path or not Path(source_path).exists():
         raise HTTPException(status_code=404, detail="Source audio file not found")
@@ -1896,6 +1905,7 @@ async def apply_effects_to_generation(
         db=db,
         effects_chain=chain_dicts,
         is_default=data.set_as_default,
+        source_version_id=source_version_id,
     )
 
     return version

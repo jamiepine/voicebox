@@ -8,7 +8,7 @@ import uuid
 import shutil
 from pathlib import Path
 from sqlalchemy.orm import Session
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .models import (
     VoiceProfileCreate,
@@ -19,6 +19,7 @@ from .models import (
 from .database import (
     VoiceProfile as DBVoiceProfile,
     ProfileSample as DBProfileSample,
+    Generation as DBGeneration,
 )
 from .models import EffectConfig
 from .utils.audio import validate_reference_audio, load_audio, save_audio
@@ -29,7 +30,11 @@ from . import config
 import json as _json
 
 
-def _profile_to_response(profile: DBVoiceProfile) -> VoiceProfileResponse:
+def _profile_to_response(
+    profile: DBVoiceProfile,
+    generation_count: int = 0,
+    sample_count: int = 0,
+) -> VoiceProfileResponse:
     """Convert a DB profile to a VoiceProfileResponse, deserializing effects_chain."""
     effects_chain = None
     if profile.effects_chain:
@@ -46,6 +51,8 @@ def _profile_to_response(profile: DBVoiceProfile) -> VoiceProfileResponse:
         language=profile.language,
         avatar_path=profile.avatar_path,
         effects_chain=effects_chain,
+        generation_count=generation_count,
+        sample_count=sample_count,
         created_at=profile.created_at,
         updated_at=profile.updated_at,
     )
@@ -201,7 +208,7 @@ async def get_profile_samples(
 
 async def list_profiles(db: Session) -> List[VoiceProfileResponse]:
     """
-    List all voice profiles.
+    List all voice profiles with generation and sample counts.
     
     Args:
         db: Database session
@@ -212,8 +219,34 @@ async def list_profiles(db: Session) -> List[VoiceProfileResponse]:
     profiles = db.query(DBVoiceProfile).order_by(
         DBVoiceProfile.created_at.desc()
     ).all()
-    
-    return [_profile_to_response(p) for p in profiles]
+
+    if not profiles:
+        return []
+
+    # Batch-fetch generation counts
+    gen_counts_rows = (
+        db.query(DBGeneration.profile_id, func.count(DBGeneration.id))
+        .group_by(DBGeneration.profile_id)
+        .all()
+    )
+    gen_counts = {row[0]: row[1] for row in gen_counts_rows}
+
+    # Batch-fetch sample counts
+    sample_counts_rows = (
+        db.query(DBProfileSample.profile_id, func.count(DBProfileSample.id))
+        .group_by(DBProfileSample.profile_id)
+        .all()
+    )
+    sample_counts = {row[0]: row[1] for row in sample_counts_rows}
+
+    return [
+        _profile_to_response(
+            p,
+            generation_count=gen_counts.get(p.id, 0),
+            sample_count=sample_counts.get(p.id, 0),
+        )
+        for p in profiles
+    ]
 
 
 async def update_profile(

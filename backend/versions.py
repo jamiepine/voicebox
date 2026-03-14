@@ -34,6 +34,7 @@ def _version_response(v: DBGenerationVersion) -> GenerationVersionResponse:
         label=v.label,
         audio_path=v.audio_path,
         effects_chain=effects_chain,
+        source_version_id=v.source_version_id,
         is_default=v.is_default,
         created_at=v.created_at,
     )
@@ -85,6 +86,7 @@ def create_version(
     db: Session,
     effects_chain: Optional[List[dict]] = None,
     is_default: bool = False,
+    source_version_id: Optional[str] = None,
 ) -> GenerationVersionResponse:
     """Create a new version for a generation.
 
@@ -100,6 +102,7 @@ def create_version(
         label=label,
         audio_path=audio_path,
         effects_chain=json.dumps(effects_chain) if effects_chain else None,
+        source_version_id=source_version_id,
         is_default=is_default,
     )
     db.add(version)
