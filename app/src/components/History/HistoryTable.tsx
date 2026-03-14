@@ -234,11 +234,26 @@ export function HistoryTable() {
     if (!effectsTargetId || effectsChain.length === 0) return;
     setApplyingEffects(true);
     try {
-      await apiClient.applyEffectsToGeneration(effectsTargetId, {
+      const newVersion = await apiClient.applyEffectsToGeneration(effectsTargetId, {
         effects_chain: effectsChain,
         set_as_default: true,
       });
       queryClient.invalidateQueries({ queryKey: ['history'] });
+
+      // If the player is currently on this generation, reload with the new version audio
+      if (currentAudioId === effectsTargetId) {
+        const gen = allHistory.find((g) => g.id === effectsTargetId);
+        if (gen) {
+          const versionUrl = apiClient.getVersionAudioUrl(newVersion.id);
+          setAudioWithAutoPlay(
+            versionUrl,
+            effectsTargetId,
+            gen.profile_id,
+            gen.text.substring(0, 50),
+          );
+        }
+      }
+
       setEffectsDialogOpen(false);
       toast({ title: 'Effects applied', description: 'A new version has been created.' });
     } catch (error) {
