@@ -208,7 +208,7 @@ build-server-cuda: _ensure-venv
     $env:PATH = "{{ venv_bin }};$env:PATH"; \
     & "{{ python }}" backend/build_binary.py --cuda; \
     if ($LASTEXITCODE -ne 0) { throw "build_binary.py --cuda failed with exit code $LASTEXITCODE" }; \
-    $dest = "$env:APPDATA/com.voicebox.app/backends/cuda"; \
+    $dest = "$env:APPDATA/sh.voicebox.app/backends/cuda"; \
     if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }; \
     New-Item -ItemType Directory -Path $dest -Force | Out-Null; \
     Copy-Item "backend/dist/voicebox-server-cuda/*" $dest -Recurse -Force; \

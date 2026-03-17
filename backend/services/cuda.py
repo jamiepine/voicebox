@@ -167,60 +167,64 @@ async def _download_and_extract_archive(
         except Exception as e:
             raise RuntimeError(f"{label}: failed to fetch checksum from {sha256_url}") from e
 
-    # Stream download
+    # Stream download, verify, and extract — always clean up temp file
     downloaded = 0
-    async with client.stream("GET", url) as response:
-        response.raise_for_status()
-        with open(temp_path, "wb") as f:
-            async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
-                f.write(chunk)
-                downloaded += len(chunk)
-                progress.update_progress(
-                    PROGRESS_KEY,
-                    current=progress_offset + downloaded,
-                    total=total_size,
-                    filename=f"Downloading {label}",
-                    status="downloading",
-                )
+    try:
+        async with client.stream("GET", url) as response:
+            response.raise_for_status()
+            with open(temp_path, "wb") as f:
+                async for chunk in response.aiter_bytes(chunk_size=1024 * 1024):
+                    f.write(chunk)
+                    downloaded += len(chunk)
+                    progress.update_progress(
+                        PROGRESS_KEY,
+                        current=progress_offset + downloaded,
+                        total=total_size,
+                        filename=f"Downloading {label}",
+                        status="downloading",
+                    )
 
-    # Verify integrity
-    if expected_sha:
+        # Verify integrity
+        if expected_sha:
+            progress.update_progress(
+                PROGRESS_KEY,
+                current=progress_offset + downloaded,
+                total=total_size,
+                filename=f"Verifying {label}...",
+                status="downloading",
+            )
+            sha256 = hashlib.sha256()
+            with open(temp_path, "rb") as f:
+                while True:
+                    data = f.read(1024 * 1024)
+                    if not data:
+                        break
+                    sha256.update(data)
+            actual = sha256.hexdigest()
+            if actual != expected_sha:
+                raise ValueError(
+                    f"{label} integrity check failed: expected {expected_sha[:16]}..., got {actual[:16]}..."
+                )
+            logger.info(f"{label}: integrity verified")
+
+        # Extract (use data filter for path traversal protection on Python 3.12+)
         progress.update_progress(
             PROGRESS_KEY,
             current=progress_offset + downloaded,
             total=total_size,
-            filename=f"Verifying {label}...",
+            filename=f"Extracting {label}...",
             status="downloading",
         )
-        sha256 = hashlib.sha256()
-        with open(temp_path, "rb") as f:
-            while True:
-                data = f.read(1024 * 1024)
-                if not data:
-                    break
-                sha256.update(data)
-        actual = sha256.hexdigest()
-        if actual != expected_sha:
+        with tarfile.open(temp_path, "r:gz") as tar:
+            if sys.version_info >= (3, 12):
+                tar.extractall(path=dest_dir, filter="data")
+            else:
+                tar.extractall(path=dest_dir)
+
+        logger.info(f"{label}: extracted to {dest_dir}")
+    finally:
+        if temp_path.exists():
             temp_path.unlink()
-            raise ValueError(f"{label} integrity check failed: expected {expected_sha[:16]}..., got {actual[:16]}...")
-        logger.info(f"{label}: integrity verified")
-
-    # Extract (use data filter for path traversal protection on Python 3.12+)
-    progress.update_progress(
-        PROGRESS_KEY,
-        current=progress_offset + downloaded,
-        total=total_size,
-        filename=f"Extracting {label}...",
-        status="downloading",
-    )
-    with tarfile.open(temp_path, "r:gz") as tar:
-        if sys.version_info >= (3, 12):
-            tar.extractall(path=dest_dir, filter="data")
-        else:
-            tar.extractall(path=dest_dir)
-
-    temp_path.unlink()
-    logger.info(f"{label}: extracted to {dest_dir}")
     return downloaded
 
 
