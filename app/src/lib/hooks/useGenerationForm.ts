@@ -15,9 +15,11 @@ const generationSchema = z.object({
   text: z.string().min(1, '').max(50000),
   language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
   seed: z.number().int().optional(),
-  modelSize: z.enum(['1.7B', '0.6B', '1B', '3B']).optional(),
+  modelSize: z.enum(['1.7B', '0.6B', '1B', '3B', 'v2', 'v3']).optional(),
   instruct: z.string().max(500).optional(),
-  engine: z.enum(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada']).optional(),
+  engine: z
+    .enum(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada', 'cosyvoice'])
+    .optional(),
 });
 
 export type GenerationFormValues = z.infer<typeof generationSchema>;
@@ -83,7 +85,11 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                 ? data.modelSize === '3B'
                   ? 'tada-3b-ml'
                   : 'tada-1b'
-                : `qwen-tts-${data.modelSize}`;
+                : engine === 'cosyvoice'
+                  ? data.modelSize === 'v3'
+                    ? 'cosyvoice3-0.5b'
+                    : 'cosyvoice2-0.5b'
+                  : `qwen-tts-${data.modelSize}`;
       const displayName =
         engine === 'luxtts'
           ? 'LuxTTS'
@@ -95,9 +101,13 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                 ? data.modelSize === '3B'
                   ? 'TADA 3B Multilingual'
                   : 'TADA 1B'
-                : data.modelSize === '1.7B'
-                  ? 'Qwen TTS 1.7B'
-                  : 'Qwen TTS 0.6B';
+                : engine === 'cosyvoice'
+                  ? data.modelSize === 'v3'
+                    ? 'CosyVoice3 0.5B'
+                    : 'CosyVoice2 0.5B'
+                  : data.modelSize === '1.7B'
+                    ? 'Qwen TTS 1.7B'
+                    : 'Qwen TTS 0.6B';
 
       // Check if model needs downloading
       try {
@@ -112,7 +122,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         console.error('Failed to check model status:', error);
       }
 
-      const hasModelSizes = engine === 'qwen' || engine === 'tada';
+      const hasModelSizes = engine === 'qwen' || engine === 'tada' || engine === 'cosyvoice';
       const effectsChain = options.getEffectsChain?.();
       // This now returns immediately with status="generating"
       const result = await generation.mutateAsync({
@@ -122,7 +132,8 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         seed: data.seed,
         model_size: hasModelSizes ? data.modelSize : undefined,
         engine,
-        instruct: engine === 'qwen' ? data.instruct || undefined : undefined,
+        instruct:
+          engine === 'qwen' || engine === 'cosyvoice' ? data.instruct || undefined : undefined,
         max_chunk_chars: maxChunkChars,
         crossfade_ms: crossfadeMs,
         normalize: normalizeAudio,

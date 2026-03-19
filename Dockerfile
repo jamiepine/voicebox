@@ -39,6 +39,7 @@ RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
 RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
 RUN pip install --no-cache-dir --prefix=/install \
     git+https://github.com/QwenLM/Qwen3-TTS.git
+RUN git clone --recursive --depth 1 https://github.com/FunAudioLLM/CosyVoice.git /build/CosyVoice
 
 
 # === Stage 3: Runtime ===
@@ -61,6 +62,9 @@ COPY --from=backend-builder /install /usr/local
 
 # Copy backend application code
 COPY --chown=voicebox:voicebox backend/ /app/backend/
+
+# Copy CosyVoice source from builder stage
+COPY --from=backend-builder --chown=voicebox:voicebox /build/CosyVoice/ /app/backend/vendors/CosyVoice/
 
 # Copy built frontend from frontend stage
 COPY --from=frontend --chown=voicebox:voicebox /build/web/dist /app/frontend/

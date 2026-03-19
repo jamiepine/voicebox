@@ -59,6 +59,9 @@ tauri/src-tauri/gen/partial.plist
 # Windows artifacts
 nul
 
+# Vendored source clones (fetched at setup time)
+backend/vendors/
+
 # Temporary
 tmp/
 temp/

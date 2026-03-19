@@ -39,6 +39,11 @@ if getattr(sys, 'frozen', False):
     _espeak_data = os.path.join(_meipass, 'piper_phonemize', 'espeak-ng-data')
     if os.path.isdir(_espeak_data):
         os.environ.setdefault('ESPEAK_DATA_PATH', _espeak_data)
+    # CosyVoice source + Matcha-TTS are bundled as --add-data into _MEIPASS.
+    # Add them to sys.path so ``from cosyvoice...`` and ``from matcha...``
+    # resolve at runtime.
+    if os.path.isdir(os.path.join(_meipass, 'cosyvoice')):
+        sys.path.insert(0, _meipass)
 
 # Fast path: handle --version before any heavy imports so the Rust
 # version check doesn't block for 30+ seconds loading torch etc.

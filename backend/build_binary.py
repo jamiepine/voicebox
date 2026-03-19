@@ -228,8 +228,39 @@ def build_server(cuda=False):
             "torchaudio",
             "--collect-submodules",
             "tada",
+            # CosyVoice2/3 — Alibaba TTS with instruct + cloning
+            "--hidden-import",
+            "backend.backends.cosyvoice_backend",
+            # hyperpyyaml dynamically instantiates classes from YAML —
+            # needs source files and the ruamel.yaml backend
+            "--collect-all",
+            "hyperpyyaml",
+            # onnxruntime ships native shared libraries + provider plugins
+            "--collect-all",
+            "onnxruntime",
+            "--copy-metadata",
+            "onnxruntime",
+            # openai-whisper ships mel filter assets and uses tiktoken
+            "--collect-all",
+            "whisper",
+            "--collect-all",
+            "tiktoken",
+            # einops used by CosyVoice flow/decoder
+            "--hidden-import",
+            "einops",
         ]
     )
+
+    # Bundle the vendored CosyVoice source tree for frozen builds.
+    # The clone lives at backend/vendors/CosyVoice/ at build time.
+    cosyvoice_vendor = backend_dir / "vendors" / "CosyVoice"
+    if cosyvoice_vendor.exists():
+        args.extend([
+            "--add-data",
+            f"{cosyvoice_vendor / 'cosyvoice'}{os.pathsep}cosyvoice",
+            "--add-data",
+            f"{cosyvoice_vendor / 'third_party' / 'Matcha-TTS' / 'matcha'}{os.pathsep}matcha",
+        ])
 
     # Add CUDA-specific hidden imports
     if cuda:

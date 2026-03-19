@@ -63,6 +63,7 @@ jobs:
           pip install -r backend/requirements.txt
           pip install --no-deps chatterbox-tts
           pip install --no-deps hume-tada
+          git clone --recursive --depth 1 https://github.com/FunAudioLLM/CosyVoice.git backend/vendors/CosyVoice
 
       - name: Install MLX dependencies (Apple Silicon only)
         if: matrix.backend == 'mlx'
@@ -190,6 +191,7 @@ jobs:
           pip install -r backend/requirements.txt
           pip install --no-deps chatterbox-tts
           pip install --no-deps hume-tada
+          git clone --recursive --depth 1 https://github.com/FunAudioLLM/CosyVoice.git backend/vendors/CosyVoice
 
       - name: Install PyTorch with CUDA 12.8
         run: |

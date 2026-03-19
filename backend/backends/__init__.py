@@ -167,6 +167,7 @@ TTS_ENGINES = {
     "chatterbox": "Chatterbox TTS",
     "chatterbox_turbo": "Chatterbox Turbo",
     "tada": "TADA",
+    "cosyvoice": "CosyVoice",
 }
 
 
@@ -278,6 +279,26 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             size_mb=8000,
             languages=["en", "ar", "zh", "de", "es", "fr", "it", "ja", "pl", "pt"],
         ),
+        ModelConfig(
+            model_name="cosyvoice2-0.5b",
+            display_name="CosyVoice2 0.5B (Multilingual, Instruct)",
+            engine="cosyvoice",
+            hf_repo_id="FunAudioLLM/CosyVoice2-0.5B",
+            model_size="v2",
+            size_mb=4600,
+            supports_instruct=True,
+            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "es", "it"],
+        ),
+        ModelConfig(
+            model_name="cosyvoice3-0.5b",
+            display_name="CosyVoice3 0.5B (Best Quality)",
+            engine="cosyvoice",
+            hf_repo_id="FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            model_size="v3",
+            size_mb=4600,
+            supports_instruct=True,
+            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "es", "it"],
+        ),
     ]
 
 
@@ -362,7 +383,7 @@ async def load_engine_model(engine: str, model_size: str = "default") -> None:
     backend = get_tts_backend_for_engine(engine)
     if engine == "qwen":
         await backend.load_model_async(model_size)
-    elif engine == "tada":
+    elif engine in ("tada", "cosyvoice"):
         await backend.load_model(model_size)
     else:
         await backend.load_model()
@@ -379,7 +400,7 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
             cfg = c
             break
 
-    if engine in ("qwen", "tada"):
+    if engine in ("qwen", "tada", "cosyvoice"):
         if not backend._is_model_cached(model_size):
             raise HTTPException(
                 status_code=400,
@@ -454,6 +475,9 @@ def get_model_load_func(config: ModelConfig):
     if config.engine == "qwen":
         return lambda: tts.get_tts_model().load_model(config.model_size)
 
+    if config.engine in ("tada", "cosyvoice"):
+        return lambda: get_tts_backend_for_engine(config.engine).load_model(config.model_size)
+
     return lambda: get_tts_backend_for_engine(config.engine).load_model()
 
 
@@ -515,6 +539,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .hume_backend import HumeTadaBackend
 
             backend = HumeTadaBackend()
+        elif engine == "cosyvoice":
+            from .cosyvoice_backend import CosyVoiceTTSBackend
+
+            backend = CosyVoiceTTSBackend()
         else:
             raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
 

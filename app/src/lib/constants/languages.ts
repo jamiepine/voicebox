@@ -67,6 +67,7 @@ export const ENGINE_LANGUAGES: Record<string, readonly LanguageCode[]> = {
   ],
   chatterbox_turbo: ['en'],
   tada: ['en', 'ar', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'pl', 'pt'],
+  cosyvoice: ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'ru', 'es', 'it'],
 } as const;
 
 /** Helper: get language options for a given engine. */

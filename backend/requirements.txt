@@ -40,6 +40,16 @@ pyloudnorm
 # provides the only class TADA uses: Snake1d.)
 torchaudio
 
+# CosyVoice2/3 sub-dependencies (the cosyvoice source is cloned at
+# setup time into backend/vendors/CosyVoice — no PyPI package exists)
+hyperpyyaml>=1.2.0
+onnxruntime>=1.18.0
+openai-whisper>=20231117
+tiktoken
+einops
+inflect
+matplotlib
+
 # Audio processing
 librosa>=0.10.0
 soundfile>=0.12.0
