@@ -60,7 +60,7 @@ import { AudioSampleUpload } from './AudioSampleUpload';
 import { SampleList } from './SampleList';
 
 const MAX_AUDIO_DURATION_SECONDS = 30;
-const PRESET_ONLY_ENGINES = new Set(['kokoro']);
+const PRESET_ONLY_ENGINES = new Set(['kokoro', 'minimax']);
 const DEFAULT_ENGINE_OPTIONS = [
   { value: 'qwen', label: 'Qwen3-TTS' },
   { value: 'luxtts', label: 'LuxTTS' },
@@ -68,6 +68,7 @@ const DEFAULT_ENGINE_OPTIONS = [
   { value: 'chatterbox_turbo', label: 'Chatterbox Turbo' },
   { value: 'tada', label: 'TADA' },
   { value: 'kokoro', label: 'Kokoro 82M' },
+  { value: 'minimax', label: 'MiniMax Cloud TTS' },
 ] as const;
 
 const baseProfileSchema = z.object({
@@ -849,6 +850,7 @@ export function ProfileForm() {
                               </FormControl>
                               <SelectContent>
                                 <SelectItem value="kokoro">Kokoro 82M</SelectItem>
+                                <SelectItem value="minimax">MiniMax Cloud TTS</SelectItem>
                               </SelectContent>
                             </Select>
                           </FormItem>

@@ -62,7 +62,7 @@ export interface GenerationRequest {
   language: LanguageCode;
   seed?: number;
   model_size?: '1.7B' | '0.6B' | '1B' | '3B';
-  engine?: 'qwen' | 'luxtts' | 'chatterbox' | 'chatterbox_turbo' | 'tada' | 'kokoro';
+  engine?: 'qwen' | 'luxtts' | 'chatterbox' | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'minimax';
   instruct?: string;
   max_chunk_chars?: number;
   crossfade_ms?: number;

@@ -17,7 +17,7 @@ const generationSchema = z.object({
   seed: z.number().int().optional(),
   modelSize: z.enum(['1.7B', '0.6B', '1B', '3B']).optional(),
   instruct: z.string().max(500).optional(),
-  engine: z.enum(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada', 'kokoro']).optional(),
+  engine: z.enum(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada', 'kokoro', 'minimax']).optional(),
 });
 
 export type GenerationFormValues = z.infer<typeof generationSchema>;
@@ -85,7 +85,9 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'tada-1b'
                 : engine === 'kokoro'
                   ? 'kokoro'
-                  : `qwen-tts-${data.modelSize}`;
+                  : engine === 'minimax'
+                    ? 'minimax-cloud-tts'
+                    : `qwen-tts-${data.modelSize}`;
       const displayName =
         engine === 'luxtts'
           ? 'LuxTTS'
@@ -99,9 +101,11 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'TADA 1B'
                 : engine === 'kokoro'
                   ? 'Kokoro 82M'
-                  : data.modelSize === '1.7B'
-                    ? 'Qwen TTS 1.7B'
-                    : 'Qwen TTS 0.6B';
+                  : engine === 'minimax'
+                    ? 'MiniMax Cloud TTS'
+                    : data.modelSize === '1.7B'
+                      ? 'Qwen TTS 1.7B'
+                      : 'Qwen TTS 0.6B';
 
       // Check if model needs downloading
       try {
