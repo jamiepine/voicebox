@@ -9,7 +9,7 @@ FROM oven/bun:1 AS frontend
 WORKDIR /build
 
 # Copy workspace config and frontend source
-COPY package.json bun.lock ./
+COPY package.json bun.lock CHANGELOG.md ./
 COPY app/ ./app/
 COPY web/ ./web/
 
