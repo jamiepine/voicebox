@@ -7,11 +7,12 @@ import { ProfileCard } from './ProfileCard';
 import { ProfileForm } from './ProfileForm';
 
 /** Engines that use preset (built-in) voices instead of cloned profiles. */
-const PRESET_ENGINES = new Set(['kokoro']);
+const PRESET_ENGINES = new Set(['kokoro', 'qwen_custom_voice']);
 
 /** Human-readable engine names for empty state messages. */
 const ENGINE_NAMES: Record<string, string> = {
   kokoro: 'Kokoro',
+  qwen_custom_voice: 'Qwen CustomVoice',
 };
 
 export function ProfileList() {

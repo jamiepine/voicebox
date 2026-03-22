@@ -60,9 +60,10 @@ import { AudioSampleUpload } from './AudioSampleUpload';
 import { SampleList } from './SampleList';
 
 const MAX_AUDIO_DURATION_SECONDS = 30;
-const PRESET_ONLY_ENGINES = new Set(['kokoro']);
+const PRESET_ONLY_ENGINES = new Set(['kokoro', 'qwen_custom_voice']);
 const DEFAULT_ENGINE_OPTIONS = [
   { value: 'qwen', label: 'Qwen3-TTS' },
+  { value: 'qwen_custom_voice', label: 'Qwen CustomVoice' },
   { value: 'luxtts', label: 'LuxTTS' },
   { value: 'chatterbox', label: 'Chatterbox' },
   { value: 'chatterbox_turbo', label: 'Chatterbox Turbo' },
@@ -374,6 +375,15 @@ export function ProfileForm() {
     }
   }, [availableDefaultEngines, defaultEngine]);
 
+  useEffect(() => {
+    if (!selectedPresetVoiceId) {
+      return;
+    }
+
+    if (!presetVoices.some((voice: PresetVoice) => voice.voice_id === selectedPresetVoiceId)) {
+      setSelectedPresetVoiceId('');
+    }
+  }, [presetVoices, selectedPresetVoiceId]);
   async function handleTranscribe() {
     const file = form.getValues('sampleFile');
     if (!file) {
@@ -849,6 +859,7 @@ export function ProfileForm() {
                               </FormControl>
                               <SelectContent>
                                 <SelectItem value="kokoro">Kokoro 82M</SelectItem>
+                                <SelectItem value="qwen_custom_voice">Qwen CustomVoice</SelectItem>
                               </SelectContent>
                             </Select>
                           </FormItem>

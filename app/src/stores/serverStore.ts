@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { queryClient } from '@/lib/queryClient';
 
 interface ServerStore {
   serverUrl: string;
@@ -30,11 +31,25 @@ interface ServerStore {
   setCustomModelsDir: (dir: string | null) => void;
 }
 
+/**
+ * Invalidate all React Query caches so stale data from the previous
+ * server is not shown. Called when the server URL changes.
+ */
+function invalidateAllServerData() {
+  queryClient.invalidateQueries();
+}
+
 export const useServerStore = create<ServerStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       serverUrl: 'http://127.0.0.1:17493',
-      setServerUrl: (url) => set({ serverUrl: url }),
+      setServerUrl: (url) => {
+        const prev = get().serverUrl;
+        set({ serverUrl: url });
+        if (url !== prev) {
+          invalidateAllServerData();
+        }
+      },
 
       isConnected: false,
       setIsConnected: (connected) => set({ isConnected: connected }),

@@ -78,7 +78,7 @@ class GenerationRequest(BaseModel):
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B)$")
     instruct: Optional[str] = Field(None, max_length=500)
-    engine: Optional[str] = Field(default="qwen", pattern="^(qwen|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$")
+    engine: Optional[str] = Field(default="qwen", pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$")
     max_chunk_chars: int = Field(
         default=800, ge=100, le=5000, description="Max characters per chunk for long text splitting"
     )

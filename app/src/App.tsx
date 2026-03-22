@@ -4,12 +4,41 @@ import voiceboxLogo from '@/assets/voicebox-logo.png';
 import ShinyText from '@/components/ShinyText';
 import { TitleBarDragRegion } from '@/components/TitleBarDragRegion';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
+import { apiClient } from '@/lib/api/client';
+import type { HealthResponse } from '@/lib/api/types';
 import { TOP_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import { cn } from '@/lib/utils/cn';
 import { usePlatform } from '@/platform/PlatformContext';
 import { router } from '@/router';
 import { useLogStore } from '@/stores/logStore';
 import { useServerStore } from '@/stores/serverStore';
+
+/**
+ * Validate that a health response has the expected Voicebox-specific shape.
+ * Prevents misidentifying an unrelated service on the same port.
+ */
+function isVoiceboxHealthResponse(health: HealthResponse): boolean {
+  return (
+    health?.status === 'healthy' &&
+    typeof health.model_loaded === 'boolean' &&
+    typeof health.gpu_available === 'boolean'
+  );
+}
+
+/**
+ * Check whether a startup error indicates the port is occupied by an external
+ * server (which we should try to reuse via health-check polling) vs. a real
+ * failure (missing sidecar, signing issue, etc.) that should surface immediately.
+ */
+function isPortInUseError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error);
+  return (
+    msg.includes('already in use') ||
+    msg.includes('port') ||
+    msg.includes('EADDRINUSE') ||
+    msg.includes('address already in use')
+  );
+}
 
 const LOADING_MESSAGES = [
   'Warming up tensors...',
@@ -37,6 +66,7 @@ const LOADING_MESSAGES = [
 function App() {
   const platform = usePlatform();
   const [serverReady, setServerReady] = useState(false);
+  const [startupError, setStartupError] = useState<string | null>(null);
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const serverStartingRef = useRef(false);
 
@@ -122,6 +152,46 @@ function App() {
         serverStartingRef.current = false;
         // @ts-expect-error - adding property to window
         window.__voiceboxServerStartedByApp = false;
+
+        // Only fall back to health-check polling when the error indicates the
+        // port is occupied (likely an external server). For real failures
+        // (missing sidecar, signing issues, etc.) surface the error immediately.
+        if (!isPortInUseError(error)) {
+          const msg = error instanceof Error ? error.message : String(error);
+          console.error('Real startup failure — not polling:', msg);
+          setStartupError(msg);
+          return;
+        }
+
+        // Fall back to polling: the server may already be running externally
+        // (e.g. started via python/uvicorn/Docker). Poll the health endpoint
+        // until it responds with a valid Voicebox payload, then transition to
+        // the main UI.
+        console.log('Falling back to health-check polling...');
+        const pollInterval = setInterval(async () => {
+          try {
+            const health = await apiClient.getHealth();
+            if (!isVoiceboxHealthResponse(health)) {
+              console.log('Health response is not from a Voicebox server, keep polling...');
+              return;
+            }
+            console.log('External Voicebox server detected via health check');
+            clearInterval(pollInterval);
+            setServerReady(true);
+          } catch {
+            // Server not ready yet, keep polling
+          }
+        }, 2000);
+
+        // Stop polling after 2 minutes and surface the failure
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          serverStartingRef.current = false;
+          setStartupError(
+            'Could not connect to a Voicebox server within 2 minutes. ' +
+              'Please check that the server is running and try again.',
+          );
+        }, 120_000);
       });
 
     // Cleanup: stop server on actual unmount (not StrictMode remount)
@@ -168,15 +238,34 @@ function App() {
               className="w-48 h-48 object-contain animate-fade-in-scale relative z-10"
             />
           </div>
-          <div className="animate-fade-in-delayed">
-            <ShinyText
-              text={LOADING_MESSAGES[loadingMessageIndex]}
-              className="text-lg font-medium text-muted-foreground"
-              speed={2}
-              color="hsl(var(--muted-foreground))"
-              shineColor="hsl(var(--foreground))"
-            />
-          </div>
+          {startupError ? (
+            <div className="animate-fade-in-delayed max-w-md mx-auto space-y-3">
+              <p className="text-lg font-medium text-destructive">Server startup failed</p>
+              <p className="text-sm text-muted-foreground">{startupError}</p>
+              <button
+                type="button"
+                className="mt-2 px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                onClick={() => {
+                  setStartupError(null);
+                  serverStartingRef.current = false;
+                  // Trigger a re-mount of the effect by toggling state
+                  window.location.reload();
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <div className="animate-fade-in-delayed">
+              <ShinyText
+                text={LOADING_MESSAGES[loadingMessageIndex]}
+                className="text-lg font-medium text-muted-foreground"
+                speed={2}
+                color="hsl(var(--muted-foreground))"
+                shineColor="hsl(var(--foreground))"
+              />
+            </div>
+          )}
         </div>
       </div>
     );

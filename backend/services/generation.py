@@ -163,7 +163,7 @@ def _save_generate(
     versions_mod.create_version(
         generation_id=generation_id,
         label="original",
-        audio_path=str(clean_audio_path),
+        audio_path=config.to_storage_path(clean_audio_path),
         db=db,
         effects_chain=None,
         is_default=not has_effects,
@@ -173,6 +173,8 @@ def _save_generate(
 
     if has_effects:
         from ..utils.effects import apply_effects, validate_effects_chain
+
+        assert effects_chain is not None
 
         error_msg = validate_effects_chain(effects_chain)
         if error_msg:
@@ -189,13 +191,13 @@ def _save_generate(
             versions_mod.create_version(
                 generation_id=generation_id,
                 label="version-2",
-                audio_path=str(processed_path),
+                audio_path=config.to_storage_path(processed_path),
                 db=db,
                 effects_chain=effects_chain,
                 is_default=True,
             )
 
-    return final_audio_path
+    return config.to_storage_path(final_audio_path)
 
 
 def _save_retry(
@@ -211,7 +213,7 @@ def _save_retry(
     """
     audio_path = config.get_generations_dir() / f"{generation_id}.wav"
     save_audio(audio, str(audio_path), sample_rate)
-    return str(audio_path)
+    return config.to_storage_path(audio_path)
 
 
 def _save_regenerate(
@@ -244,10 +246,10 @@ def _save_regenerate(
     versions_mod.create_version(
         generation_id=generation_id,
         label=label,
-        audio_path=str(audio_path),
+        audio_path=config.to_storage_path(audio_path),
         db=db,
         effects_chain=None,
         is_default=True,
     )
 
-    return str(audio_path)
+    return config.to_storage_path(audio_path)

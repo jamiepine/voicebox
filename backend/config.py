@@ -22,6 +22,21 @@ if _custom_models_dir:
 _data_dir = Path("data").resolve()
 
 
+def _path_relative_to_any_data_dir(path: Path) -> Path | None:
+    """Extract the path within a data dir from an absolute or relative path."""
+    parts = path.parts
+    for idx, part in enumerate(parts):
+        if part != "data":
+            continue
+
+        tail = parts[idx + 1 :]
+        if tail:
+            return Path(*tail)
+        return Path()
+
+    return None
+
+
 def set_data_dir(path: str | Path):
     """
     Set the data directory path.
@@ -43,6 +58,38 @@ def get_data_dir() -> Path:
         Path to the data directory
     """
     return _data_dir
+
+
+def to_storage_path(path: str | Path) -> str:
+    """Convert a filesystem path to a DB-safe path relative to the data dir."""
+    resolved_path = Path(path).resolve()
+
+    relative_to_any_data_dir = _path_relative_to_any_data_dir(resolved_path)
+    if relative_to_any_data_dir is not None:
+        return str(relative_to_any_data_dir)
+
+    try:
+        return str(resolved_path.relative_to(_data_dir))
+    except ValueError:
+        return str(resolved_path)
+
+
+def resolve_storage_path(path: str | Path | None) -> Path | None:
+    """Resolve a DB-stored path against the configured data dir."""
+    if path is None:
+        return None
+
+    stored_path = Path(path)
+    if stored_path.is_absolute():
+        rebased_path = _path_relative_to_any_data_dir(stored_path)
+        if rebased_path is not None:
+            candidate = (_data_dir / rebased_path).resolve()
+            if candidate.exists() or not stored_path.exists():
+                return candidate
+
+        return stored_path
+
+    return (_data_dir / stored_path).resolve()
 
 
 def get_db_path() -> Path:

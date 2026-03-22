@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Loader2, Mic } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,18 +20,40 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { getLanguageOptionsForEngine } from '@/lib/constants/languages';
+import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
-import { EngineModelSelector, getEngineDescription } from './EngineModelSelector';
+import { EngineModelSelector, applyEngineSelection, getEngineDescription } from './EngineModelSelector';
 import { ParalinguisticInput } from './ParalinguisticInput';
+
+function getEngineSelectValue(engine: string): string {
+  if (engine === 'qwen') return 'qwen:1.7B';
+  if (engine === 'qwen_custom_voice') return 'qwen_custom_voice:1.7B';
+  if (engine === 'tada') return 'tada:1B';
+  return engine;
+}
 
 export function GenerationForm() {
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
 
   const { form, handleSubmit, isPending } = useGenerationForm();
+
+  useEffect(() => {
+    if (!selectedProfile) {
+      return;
+    }
+
+    if (selectedProfile.language) {
+      form.setValue('language', selectedProfile.language as LanguageCode);
+    }
+
+    const preferredEngine = selectedProfile.default_engine || selectedProfile.preset_engine;
+    if (preferredEngine) {
+      applyEngineSelection(form, getEngineSelectValue(preferredEngine));
+    }
+  }, [form, selectedProfile]);
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);
@@ -91,7 +114,7 @@ export function GenerationForm() {
               )}
             />
 
-            {form.watch('engine') === 'qwen' && (
+            {(form.watch('engine') === 'qwen' || form.watch('engine') === 'qwen_custom_voice') && (
               <FormField
                 control={form.control}
                 name="instruct"

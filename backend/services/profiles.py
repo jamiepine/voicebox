@@ -61,6 +61,20 @@ def _profile_to_response(
     )
 
 
+def _get_preset_voice_ids(engine: str) -> set[str]:
+    if engine == "kokoro":
+        from ..backends.kokoro_backend import KOKORO_VOICES
+
+        return {voice_id for voice_id, _name, _gender, _lang in KOKORO_VOICES}
+
+    if engine == "qwen_custom_voice":
+        from ..backends.qwen_custom_voice_backend import QWEN_CUSTOM_VOICES
+
+        return {voice_id for voice_id, _name, _gender, _lang, _desc in QWEN_CUSTOM_VOICES}
+
+    return set()
+
+
 def _validate_profile_fields(
     *,
     voice_type: str,
@@ -74,6 +88,10 @@ def _validate_profile_fields(
             return "Preset profiles require both preset_engine and preset_voice_id"
         if default_engine and default_engine != preset_engine:
             return "Preset profiles must use their preset_engine as default_engine"
+
+        available_voice_ids = _get_preset_voice_ids(preset_engine)
+        if available_voice_ids and preset_voice_id not in available_voice_ids:
+            return f"Preset voice '{preset_voice_id}' is not valid for engine '{preset_engine}'"
         return None
 
     if voice_type == "designed":
@@ -90,6 +108,30 @@ def _validate_profile_fields(
     if default_engine and default_engine not in CLONING_ENGINES:
         return f"Cloned profiles cannot use default engine '{default_engine}'"
     return None
+
+
+def validate_profile_engine(profile, engine: str) -> None:
+    voice_type = getattr(profile, "voice_type", None) or "cloned"
+
+    if voice_type == "preset":
+        preset_engine = getattr(profile, "preset_engine", None)
+        preset_voice_id = getattr(profile, "preset_voice_id", None)
+        if not preset_engine or not preset_voice_id:
+            raise ValueError(f"Preset profile {profile.id} is missing preset engine metadata")
+        if preset_engine != engine:
+            raise ValueError(
+                f"Preset profile {profile.id} only supports engine '{preset_engine}', not '{engine}'"
+            )
+        return
+
+    if voice_type == "designed":
+        design_prompt = getattr(profile, "design_prompt", None)
+        if not design_prompt or not design_prompt.strip():
+            raise ValueError(f"Designed profile {profile.id} is missing design_prompt")
+        return
+
+    if engine not in CLONING_ENGINES:
+        raise ValueError(f"Engine '{engine}' does not support cloned voice profiles")
 
 
 async def create_profile(
@@ -194,7 +236,7 @@ async def add_profile_sample(
     db_sample = DBProfileSample(
         id=sample_id,
         profile_id=profile_id,
-        audio_path=str(dest_path),
+        audio_path=config.to_storage_path(dest_path),
         reference_text=reference_text,
     )
 
@@ -399,8 +441,8 @@ async def delete_profile_sample(
     # Store profile_id before deleting
     profile_id = sample.profile_id
 
-    audio_path = Path(sample.audio_path)
-    if audio_path.exists():
+    audio_path = config.resolve_storage_path(sample.audio_path)
+    if audio_path is not None and audio_path.exists():
         audio_path.unlink()
 
     db.delete(sample)
@@ -476,6 +518,7 @@ async def create_voice_prompt_for_profile(
         raise ValueError(f"Profile not found: {profile_id}")
 
     voice_type = getattr(profile, "voice_type", None) or "cloned"
+    validate_profile_engine(profile, engine)
 
     # ── Preset profiles: return engine-specific voice reference ──
     if voice_type == "preset":
@@ -513,14 +556,22 @@ async def create_voice_prompt_for_profile(
 
     if len(samples) == 1:
         sample = samples[0]
+        sample_audio_path = config.resolve_storage_path(sample.audio_path)
+        if sample_audio_path is None:
+            raise ValueError(f"Sample audio not found for profile {profile_id}")
         voice_prompt, _ = await tts_model.create_voice_prompt(
-            sample.audio_path,
+            str(sample_audio_path),
             sample.reference_text,
             use_cache=use_cache,
         )
         return voice_prompt
 
-    audio_paths = [s.audio_path for s in samples]
+    audio_paths = []
+    for sample in samples:
+        sample_audio_path = config.resolve_storage_path(sample.audio_path)
+        if sample_audio_path is None:
+            raise ValueError(f"Sample audio not found for profile {profile_id}")
+        audio_paths.append(str(sample_audio_path))
     reference_texts = [s.reference_text for s in samples]
 
     combined_audio, combined_text = await tts_model.combine_voice_prompts(
@@ -574,8 +625,8 @@ async def upload_avatar(
         raise ValueError(error_msg)
 
     if profile.avatar_path:
-        old_avatar = Path(profile.avatar_path)
-        if old_avatar.exists():
+        old_avatar = config.resolve_storage_path(profile.avatar_path)
+        if old_avatar is not None and old_avatar.exists():
             old_avatar.unlink()
 
     # Determine file extension from uploaded file
@@ -596,7 +647,7 @@ async def upload_avatar(
 
     process_avatar(image_path, str(output_path))
 
-    profile.avatar_path = str(output_path)
+    profile.avatar_path = config.to_storage_path(output_path)
     profile.updated_at = datetime.utcnow()
 
     db.commit()
@@ -623,8 +674,8 @@ async def delete_avatar(
     if not profile or not profile.avatar_path:
         return False
 
-    avatar_path = Path(profile.avatar_path)
-    if avatar_path.exists():
+    avatar_path = config.resolve_storage_path(profile.avatar_path)
+    if avatar_path is not None and avatar_path.exists():
         avatar_path.unlink()
 
     profile.avatar_path = None

@@ -73,8 +73,8 @@ def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
         # Check if profile has avatar
         has_avatar = False
         if profile.avatar_path:
-            avatar_path = Path(profile.avatar_path)
-            if avatar_path.exists():
+            avatar_path = config.resolve_storage_path(profile.avatar_path)
+            if avatar_path is not None and avatar_path.exists():
                 has_avatar = True
                 # Add avatar to ZIP root with original extension
                 avatar_ext = avatar_path.suffix
@@ -98,7 +98,9 @@ def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
 
         for sample in samples:
             # Get filename from audio_path (should be {sample_id}.wav)
-            audio_path = Path(sample.audio_path)
+            audio_path = config.resolve_storage_path(sample.audio_path)
+            if audio_path is None:
+                raise ValueError(f"Audio file not found: {sample.audio_path}")
             filename = audio_path.name
 
             # Read audio file
@@ -279,7 +281,7 @@ def export_generation_to_zip(generation_id: str, db: Session) -> bytes:
         # Build version manifest entries
         version_entries = []
         for v in versions:
-            v_path = Path(v.audio_path)
+            v_path = config.resolve_storage_path(v.audio_path)
             effects_chain = None
             if v.effects_chain:
                 effects_chain = json.loads(v.effects_chain)
@@ -314,14 +316,14 @@ def export_generation_to_zip(generation_id: str, db: Session) -> bytes:
         
         # Add all version audio files
         for v in versions:
-            v_path = Path(v.audio_path)
-            if v_path.exists():
+            v_path = config.resolve_storage_path(v.audio_path)
+            if v_path is not None and v_path.exists():
                 zip_file.write(v_path, f"audio/{v_path.name}")
 
         # Fallback: if no versions exist, include the generation's main audio
         if not versions:
-            audio_path = Path(generation.audio_path)
-            if audio_path.exists():
+            audio_path = config.resolve_storage_path(generation.audio_path)
+            if audio_path is not None and audio_path.exists():
                 zip_file.write(audio_path, f"audio/{audio_path.name}")
     
     zip_buffer.seek(0)
@@ -426,7 +428,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                     profile_id=profile_id,
                     text=generation_data["text"],
                     language=generation_data["language"],
-                    audio_path=str(audio_dest),
+                    audio_path=config.to_storage_path(audio_dest),
                     duration=generation_data["duration"],
                     seed=generation_data.get("seed"),
                     instruct=generation_data.get("instruct"),

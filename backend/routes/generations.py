@@ -20,6 +20,10 @@ from ..utils.tasks import get_task_manager
 router = APIRouter()
 
 
+def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
+    return data.engine or getattr(profile, "default_engine", None) or getattr(profile, "preset_engine", None) or "qwen"
+
+
 @router.post("/generate", response_model=models.GenerationResponse)
 async def generate_speech(
     data: models.GenerationRequest,
@@ -35,7 +39,12 @@ async def generate_speech(
 
     from ..backends import engine_has_model_sizes
 
-    engine = data.engine or "qwen"
+    engine = _resolve_generation_engine(data, profile)
+    try:
+        profiles.validate_profile_engine(profile, engine)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
     generation = await history.create_generation(
@@ -230,15 +239,11 @@ async def stream_speech(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    # Mirror the regular /generate endpoint behavior more closely:
-    # if the caller doesn't specify an engine, prefer the profile's default
-    # engine (or preset engine) before falling back to qwen.
-    engine = (
-        data.engine
-        or getattr(profile, "default_engine", None)
-        or getattr(profile, "preset_engine", None)
-        or "qwen"
-    )
+    engine = _resolve_generation_engine(data, profile)
+    try:
+        profiles.validate_profile_engine(profile, engine)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     tts_model = get_tts_backend_for_engine(engine)
     model_size = data.model_size or "1.7B"
 

@@ -1,12 +1,10 @@
 """Audio file serving endpoints."""
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import config, models
 from ..services import history
 from ..database import get_db
 
@@ -22,8 +20,8 @@ async def get_version_audio(version_id: str, db: Session = Depends(get_db)):
     if not version:
         raise HTTPException(status_code=404, detail="Version not found")
 
-    audio_path = Path(version.audio_path)
-    if not audio_path.exists():
+    audio_path = config.resolve_storage_path(version.audio_path)
+    if audio_path is None or not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
     return FileResponse(
@@ -40,8 +38,8 @@ async def get_audio(generation_id: str, db: Session = Depends(get_db)):
     if not generation:
         raise HTTPException(status_code=404, detail="Generation not found")
 
-    audio_path = Path(generation.audio_path)
-    if not audio_path.exists():
+    audio_path = config.resolve_storage_path(generation.audio_path)
+    if audio_path is None or not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
     return FileResponse(
@@ -60,8 +58,8 @@ async def get_sample_audio(sample_id: str, db: Session = Depends(get_db)):
     if not sample:
         raise HTTPException(status_code=404, detail="Sample not found")
 
-    audio_path = Path(sample.audio_path)
-    if not audio_path.exists():
+    audio_path = config.resolve_storage_path(sample.audio_path)
+    if audio_path is None or not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
     return FileResponse(

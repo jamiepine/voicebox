@@ -158,8 +158,8 @@ def delete_version(version_id: str, db: Session) -> bool:
     gen_id = version.generation_id
 
     # Delete audio file
-    audio_path = Path(version.audio_path)
-    if audio_path.exists():
+    audio_path = config.resolve_storage_path(version.audio_path)
+    if audio_path is not None and audio_path.exists():
         audio_path.unlink()
 
     db.delete(version)
@@ -193,8 +193,8 @@ def delete_versions_for_generation(generation_id: str, db: Session) -> int:
     )
     count = 0
     for v in versions:
-        audio_path = Path(v.audio_path)
-        if audio_path.exists():
+        audio_path = config.resolve_storage_path(v.audio_path)
+        if audio_path is not None and audio_path.exists():
             audio_path.unlink()
         db.delete(v)
         count += 1

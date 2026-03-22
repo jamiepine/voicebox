@@ -53,6 +53,41 @@ fn find_voicebox_pid_on_port(port: u16) -> Option<u32> {
     None
 }
 
+/// Check if a Voicebox server is responding on the given port.
+///
+/// Sends an HTTP GET to `/health` and returns `true` only if the response
+/// is valid JSON matching the Voicebox `HealthResponse` schema — specifically
+/// `status` must be `"healthy"`, and both `model_loaded` and `gpu_available`
+/// must be present as booleans. This prevents misidentifying an unrelated
+/// service that happens to expose a `/health` endpoint.
+#[allow(dead_code)] // Used in platform-specific cfg blocks
+fn check_health(port: u16) -> bool {
+    let url = format!("http://127.0.0.1:{}/health", port);
+    match reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+    {
+        Ok(client) => match client.get(&url).send() {
+            Ok(resp) => {
+                if !resp.status().is_success() {
+                    return false;
+                }
+                // Parse as JSON and validate Voicebox-specific fields
+                match resp.json::<serde_json::Value>() {
+                    Ok(body) => {
+                        body.get("status").and_then(|v| v.as_str()) == Some("healthy")
+                            && body.get("model_loaded").map(|v| v.is_boolean()).unwrap_or(false)
+                            && body.get("gpu_available").map(|v| v.is_boolean()).unwrap_or(false)
+                    }
+                    Err(_) => false,
+                }
+            }
+            Err(_) => false,
+        },
+        Err(_) => false,
+    }
+}
+
 struct ServerState {
     child: Mutex<Option<tauri_plugin_shell::process::CommandChild>>,
     server_pid: Mutex<Option<u32>>,
@@ -80,7 +115,8 @@ async fn start_server(
         return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
     }
 
-    // Check if a voicebox server is already running on our port (from previous session with keep_running=true)
+    // Check if a voicebox server is already running on our port (from previous session with keep_running=true,
+    // or an externally started server e.g. via `python`, `uvicorn`, Docker, etc.)
     #[cfg(unix)]
     {
         use std::process::Command;
@@ -101,6 +137,20 @@ async fn start_server(
                             *state.server_pid.lock().unwrap() = Some(pid);
                             return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
                         }
+                    } else {
+                        // Process name doesn't contain "voicebox" — could be an external
+                        // Python/uvicorn/Docker server. Verify via HTTP health check.
+                        println!("Port {} in use by '{}' (PID: {}), checking if it's a Voicebox server...", SERVER_PORT, command, pid_str);
+                        if check_health(SERVER_PORT) {
+                            println!("Health check passed — reusing external server on port {}", SERVER_PORT);
+                            return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
+                        }
+                        println!("Health check failed — port is occupied by a non-Voicebox process");
+                        return Err(format!(
+                            "Port {} is already in use by another application ({}). \
+                             Close it or change the Voicebox server port.",
+                            SERVER_PORT, command
+                        ));
                     }
                 }
             }
@@ -114,18 +164,24 @@ async fn start_server(
             &format!("127.0.0.1:{}", SERVER_PORT).parse().unwrap(),
             std::time::Duration::from_secs(1),
         ).is_ok() {
-            // Port is in use — check if it's a voicebox process
+            // Port is in use — check if it's a voicebox process by name first
             if let Some(pid) = find_voicebox_pid_on_port(SERVER_PORT) {
                 println!("Found existing voicebox-server on port {} (PID: {}), reusing it", SERVER_PORT, pid);
                 *state.server_pid.lock().unwrap() = Some(pid);
                 return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
-            } else {
-                return Err(format!(
-                    "Port {} is already in use by another application. \
-                     Close the other application or change the Voicebox port.",
-                    SERVER_PORT
-                ));
             }
+            // Process name doesn't match — could be an external Python/Docker server.
+            // Verify via HTTP health check before giving up.
+            println!("Port {} in use by unknown process, checking if it's a Voicebox server...", SERVER_PORT);
+            if check_health(SERVER_PORT) {
+                println!("Health check passed — reusing external server on port {}", SERVER_PORT);
+                return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
+            }
+            return Err(format!(
+                "Port {} is already in use by another application. \
+                 Close the other application or change the Voicebox port.",
+                SERVER_PORT
+            ));
         }
     }
 
