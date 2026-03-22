@@ -4,15 +4,13 @@ import io
 import json as _json
 import logging
 import tempfile
-import uuid
-from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import config, models
 from ..app import safe_content_disposition
 from ..database import VoiceProfile as DBVoiceProfile, get_db
 from ..services import channels, export_import, profiles
@@ -90,75 +88,22 @@ async def list_preset_voices(engine: str):
                 for vid, name, gender, lang in KOKORO_VOICES
             ],
         }
+    if engine == "qwen_custom_voice":
+        from ..backends.qwen_custom_voice_backend import QWEN_CUSTOM_VOICES
+
+        return {
+            "engine": engine,
+            "voices": [
+                {
+                    "voice_id": speaker_id,
+                    "name": display_name,
+                    "gender": gender,
+                    "language": lang,
+                }
+                for speaker_id, display_name, gender, lang, _desc in QWEN_CUSTOM_VOICES
+            ],
+        }
     return {"engine": engine, "voices": []}
-
-
-@router.post("/profiles/presets/{engine}/seed")
-async def seed_preset_profiles_route(
-    engine: str,
-    db: Session = Depends(get_db),
-):
-    """Seed preset voice profiles for an engine.
-
-    Creates profiles for all available preset voices that don't already exist.
-    Returns the count of newly created profiles.
-    """
-    if engine != "kokoro":
-        raise HTTPException(status_code=400, detail=f"No presets available for engine: {engine}")
-
-    try:
-        from ..backends.kokoro_backend import KOKORO_VOICES
-
-        created = 0
-        for voice_id, display_name, gender, lang in KOKORO_VOICES:
-            profile_name = display_name
-
-            # Disambiguate duplicate display names across languages
-            # (e.g. "Alpha" exists in Hindi and Japanese, "Dora" in Spanish and Portuguese)
-            dupes = [v for v in KOKORO_VOICES if v[1] == display_name]
-            if len(dupes) > 1:
-                lang_labels = {"en": "English", "es": "Spanish", "fr": "French", "hi": "Hindi",
-                               "it": "Italian", "pt": "Portuguese", "ja": "Japanese", "zh": "Chinese"}
-                profile_name = f"{display_name} {lang_labels.get(lang, lang)}"
-
-            # Skip if preset already exists
-            existing = (
-                db.query(DBVoiceProfile)
-                .filter_by(preset_engine="kokoro", preset_voice_id=voice_id)
-                .first()
-            )
-            if existing:
-                continue
-
-            unique_name = profile_name
-            suffix = 2
-            while db.query(DBVoiceProfile).filter_by(name=unique_name).first():
-                unique_name = f"{profile_name} {suffix}"
-                suffix += 1
-
-            profile = DBVoiceProfile(
-                id=str(uuid.uuid4()),
-                name=unique_name,
-                description=f"Kokoro preset voice — {display_name} ({gender})",
-                language=lang,
-                voice_type="preset",
-                preset_engine="kokoro",
-                preset_voice_id=voice_id,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-            )
-            db.add(profile)
-            created += 1
-
-        if created > 0:
-            db.commit()
-            logger.info(f"Seeded {created} Kokoro preset profiles")
-
-        return {"engine": engine, "created": created, "total_available": len(KOKORO_VOICES)}
-    except Exception as e:
-        logger.exception(f"Failed to seed Kokoro profiles: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.get("/profiles/{profile_id}", response_model=models.VoiceProfileResponse)
 async def get_profile(
@@ -313,8 +258,8 @@ async def get_profile_avatar(
     if not profile.avatar_path:
         raise HTTPException(status_code=404, detail="No avatar found for this profile")
 
-    avatar_path = Path(profile.avatar_path)
-    if not avatar_path.exists():
+    avatar_path = config.resolve_storage_path(profile.avatar_path)
+    if avatar_path is None or not avatar_path.exists():
         raise HTTPException(status_code=404, detail="Avatar file not found")
 
     return FileResponse(avatar_path)

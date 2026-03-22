@@ -163,6 +163,7 @@ _stt_backend: Optional[STTBackend] = None
 # The factory function uses this for the if/elif chain; the model configs live on the backend classes.
 TTS_ENGINES = {
     "qwen": "Qwen TTS",
+    "qwen_custom_voice": "Qwen CustomVoice",
     "luxtts": "LuxTTS",
     "chatterbox": "Chatterbox TTS",
     "chatterbox_turbo": "Chatterbox Turbo",
@@ -200,6 +201,32 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             model_size="0.6B",
             size_mb=1200,
             supports_instruct=False,
+            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+        ),
+    ]
+
+
+def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
+    """Return Qwen CustomVoice model configs."""
+    return [
+        ModelConfig(
+            model_name="qwen-custom-voice-1.7B",
+            display_name="Qwen CustomVoice 1.7B",
+            engine="qwen_custom_voice",
+            hf_repo_id="Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+            model_size="1.7B",
+            size_mb=3500,
+            supports_instruct=True,
+            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+        ),
+        ModelConfig(
+            model_name="qwen-custom-voice-0.6B",
+            display_name="Qwen CustomVoice 0.6B",
+            engine="qwen_custom_voice",
+            hf_repo_id="Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+            model_size="0.6B",
+            size_mb=1200,
+            supports_instruct=True,
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
     ]
@@ -333,12 +360,12 @@ def _get_whisper_configs() -> list[ModelConfig]:
 
 def get_all_model_configs() -> list[ModelConfig]:
     """Return the full list of model configs (TTS + STT)."""
-    return _get_qwen_model_configs() + _get_non_qwen_tts_configs() + _get_whisper_configs()
+    return _get_qwen_model_configs() + _get_qwen_custom_voice_configs() + _get_non_qwen_tts_configs() + _get_whisper_configs()
 
 
 def get_tts_model_configs() -> list[ModelConfig]:
     """Return only TTS model configs."""
-    return _get_qwen_model_configs() + _get_non_qwen_tts_configs()
+    return _get_qwen_model_configs() + _get_qwen_custom_voice_configs() + _get_non_qwen_tts_configs()
 
 
 # Lookup helpers — these replace the if/elif chains in main.py
@@ -369,7 +396,7 @@ def engine_has_model_sizes(engine: str) -> bool:
 async def load_engine_model(engine: str, model_size: str = "default") -> None:
     """Load a model for the given engine, handling engines with multiple model sizes."""
     backend = get_tts_backend_for_engine(engine)
-    if engine == "qwen":
+    if engine in ("qwen", "qwen_custom_voice"):
         await backend.load_model_async(model_size)
     elif engine == "tada":
         await backend.load_model(model_size)
@@ -388,7 +415,7 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
             cfg = c
             break
 
-    if engine in ("qwen", "tada"):
+    if engine in ("qwen", "qwen_custom_voice", "tada"):
         if not backend._is_model_cached(model_size):
             raise HTTPException(
                 status_code=400,
@@ -423,6 +450,14 @@ def unload_model_by_config(config: ModelConfig) -> bool:
             return True
         return False
 
+    if config.engine == "qwen_custom_voice":
+        backend = get_tts_backend_for_engine(config.engine)
+        loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
+        if backend.is_loaded() and loaded_size == config.model_size:
+            backend.unload_model()
+            return True
+        return False
+
     # All other TTS engines
     backend = get_tts_backend_for_engine(config.engine)
     if backend.is_loaded():
@@ -446,6 +481,11 @@ def check_model_loaded(config: ModelConfig) -> bool:
             loaded_size = getattr(tts_model, "_current_model_size", None) or getattr(tts_model, "model_size", None)
             return tts_model.is_loaded() and loaded_size == config.model_size
 
+        if config.engine == "qwen_custom_voice":
+            backend = get_tts_backend_for_engine(config.engine)
+            loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
+            return backend.is_loaded() and loaded_size == config.model_size
+
         backend = get_tts_backend_for_engine(config.engine)
         return backend.is_loaded()
     except Exception:
@@ -462,6 +502,9 @@ def get_model_load_func(config: ModelConfig):
 
     if config.engine == "qwen":
         return lambda: tts.get_tts_model().load_model(config.model_size)
+
+    if config.engine == "qwen_custom_voice":
+        return lambda: get_tts_backend_for_engine(config.engine).load_model(config.model_size)
 
     return lambda: get_tts_backend_for_engine(config.engine).load_model()
 
@@ -528,6 +571,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .kokoro_backend import KokoroTTSBackend
 
             backend = KokoroTTSBackend()
+        elif engine == "qwen_custom_voice":
+            from .qwen_custom_voice_backend import QwenCustomVoiceBackend
+
+            backend = QwenCustomVoiceBackend()
         else:
             raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
 

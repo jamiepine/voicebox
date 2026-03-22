@@ -10,6 +10,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from .. import config
 from ..models import (
     StoryCreate,
     StoryResponse,
@@ -826,8 +827,8 @@ async def export_story_audio(
             if version:
                 resolved_audio_path = version.audio_path
 
-        audio_path = Path(resolved_audio_path)
-        if not audio_path.exists():
+        audio_path = config.resolve_storage_path(resolved_audio_path)
+        if audio_path is None or not audio_path.exists():
             continue
 
         try:

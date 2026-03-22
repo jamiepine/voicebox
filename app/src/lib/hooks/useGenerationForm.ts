@@ -17,7 +17,17 @@ const generationSchema = z.object({
   seed: z.number().int().optional(),
   modelSize: z.enum(['1.7B', '0.6B', '1B', '3B']).optional(),
   instruct: z.string().max(500).optional(),
-  engine: z.enum(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada', 'kokoro']).optional(),
+  engine: z
+    .enum([
+      'qwen',
+      'qwen_custom_voice',
+      'luxtts',
+      'chatterbox',
+      'chatterbox_turbo',
+      'tada',
+      'kokoro',
+    ])
+    .optional(),
 });
 
 export type GenerationFormValues = z.infer<typeof generationSchema>;
@@ -85,7 +95,9 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'tada-1b'
                 : engine === 'kokoro'
                   ? 'kokoro'
-                  : `qwen-tts-${data.modelSize}`;
+                  : engine === 'qwen_custom_voice'
+                    ? `qwen-custom-voice-${data.modelSize}`
+                    : `qwen-tts-${data.modelSize}`;
       const displayName =
         engine === 'luxtts'
           ? 'LuxTTS'
@@ -99,9 +111,13 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'TADA 1B'
                 : engine === 'kokoro'
                   ? 'Kokoro 82M'
-                  : data.modelSize === '1.7B'
-                    ? 'Qwen TTS 1.7B'
-                    : 'Qwen TTS 0.6B';
+                  : engine === 'qwen_custom_voice'
+                    ? data.modelSize === '1.7B'
+                      ? 'Qwen CustomVoice 1.7B'
+                      : 'Qwen CustomVoice 0.6B'
+                    : data.modelSize === '1.7B'
+                      ? 'Qwen TTS 1.7B'
+                      : 'Qwen TTS 0.6B';
 
       // Check if model needs downloading
       try {
@@ -116,7 +132,9 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         console.error('Failed to check model status:', error);
       }
 
-      const hasModelSizes = engine === 'qwen' || engine === 'tada';
+      const hasModelSizes =
+        engine === 'qwen' || engine === 'qwen_custom_voice' || engine === 'tada';
+      const supportsInstruct = engine === 'qwen' || engine === 'qwen_custom_voice';
       const effectsChain = options.getEffectsChain?.();
       // This now returns immediately with status="generating"
       const result = await generation.mutateAsync({
@@ -126,7 +144,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         seed: data.seed,
         model_size: hasModelSizes ? data.modelSize : undefined,
         engine,
-        instruct: engine === 'qwen' ? data.instruct || undefined : undefined,
+        instruct: supportsInstruct ? data.instruct || undefined : undefined,
         max_chunk_chars: maxChunkChars,
         crossfade_ms: crossfadeMs,
         normalize: normalizeAudio,

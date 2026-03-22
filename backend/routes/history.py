@@ -1,13 +1,12 @@
 """Generation history endpoints."""
 
 import io
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import config, models
 from ..services import export_import, history
 from ..app import safe_content_disposition
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
@@ -162,8 +161,8 @@ async def export_generation_audio(
     if not generation.audio_path:
         raise HTTPException(status_code=404, detail="Generation has no audio file")
 
-    audio_path = Path(generation.audio_path)
-    if not audio_path.is_file():
+    audio_path = config.resolve_storage_path(generation.audio_path)
+    if audio_path is None or not audio_path.is_file():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
     safe_text = "".join(c for c in generation.text[:30] if c.isalnum() or c in (" ", "-", "_")).strip()

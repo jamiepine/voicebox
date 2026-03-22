@@ -408,7 +408,7 @@ export function FloatingGenerateBox({
                   />
 
                   <FormItem className="flex-1 space-y-0">
-                    <EngineModelSelector form={form} compact selectedProfile={selectedProfile} />
+                    <EngineModelSelector form={form} compact />
                   </FormItem>
 
                   <FormItem className="flex-1 space-y-0">

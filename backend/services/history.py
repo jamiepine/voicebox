@@ -253,8 +253,8 @@ async def delete_generation(
 
     # Delete main audio file (if not already removed by version cleanup)
     if generation.audio_path:
-        audio_path = Path(generation.audio_path)
-        if audio_path.exists():
+        audio_path = config.resolve_storage_path(generation.audio_path)
+        if audio_path is not None and audio_path.exists():
             audio_path.unlink()
 
     # Delete from database
@@ -283,8 +283,8 @@ async def delete_generations_by_profile(
     count = 0
     for generation in generations:
         # Delete audio file
-        audio_path = Path(generation.audio_path)
-        if audio_path.exists():
+        audio_path = config.resolve_storage_path(generation.audio_path)
+        if audio_path is not None and audio_path.exists():
             audio_path.unlink()
         
         # Delete from database

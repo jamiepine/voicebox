@@ -3,7 +3,8 @@
 import json
 import logging
 import uuid
-from pathlib import Path
+
+from .. import config
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,8 @@ def backfill_generation_versions(SessionLocal, Generation, GenerationVersion) ->
         for gen in generations:
             if gen.id in existing_version_gen_ids:
                 continue
-            if not Path(gen.audio_path).exists():
+            resolved_audio_path = config.resolve_storage_path(gen.audio_path)
+            if resolved_audio_path is None or not resolved_audio_path.exists():
                 continue
             version = GenerationVersion(
                 id=str(uuid.uuid4()),

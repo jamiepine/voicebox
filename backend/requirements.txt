@@ -42,7 +42,7 @@ torchaudio
 
 # Kokoro TTS (lightweight 82M-param engine)
 kokoro>=0.9.4
-misaki[en]>=0.9.4
+misaki[en,ja,zh]>=0.9.4
 # spacy model for misaki English G2P — must be pre-installed or misaki
 # tries spacy.cli.download() at runtime which crashes frozen builds
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl

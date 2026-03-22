@@ -17,6 +17,12 @@ import { useDeleteProfile, useExportProfile } from '@/lib/hooks/useProfiles';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/uiStore';
 
+/** Human-readable display names for preset engine badges. */
+const ENGINE_DISPLAY_NAMES: Record<string, string> = {
+  kokoro: 'Kokoro',
+  qwen_custom_voice: 'CustomVoice',
+};
+
 interface ProfileCardProps {
   profile: VoiceProfileResponse;
 }
@@ -99,7 +105,7 @@ export function ProfileCard({ profile }: ProfileCardProps) {
             </Badge>
             {profile.voice_type === 'preset' && (
               <Badge variant="secondary" className="text-xs h-5 px-1.5">
-                {profile.preset_engine}
+                {ENGINE_DISPLAY_NAMES[profile.preset_engine ?? ''] ?? profile.preset_engine}
               </Badge>
             )}
             {profile.voice_type === 'designed' && (

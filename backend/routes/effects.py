@@ -3,7 +3,6 @@
 import asyncio
 import io
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -41,10 +40,11 @@ async def preview_effects(
     all_versions = versions_mod.list_versions(generation_id, db)
     clean_version = next((v for v in all_versions if v.effects_chain is None), None)
     source_path = clean_version.audio_path if clean_version else gen.audio_path
-    if not source_path or not Path(source_path).exists():
+    resolved_source_path = config.resolve_storage_path(source_path)
+    if resolved_source_path is None or not resolved_source_path.exists():
         raise HTTPException(status_code=404, detail="Source audio file not found")
 
-    audio, sample_rate = await asyncio.to_thread(load_audio, source_path)
+    audio, sample_rate = await asyncio.to_thread(load_audio, str(resolved_source_path))
     processed = await asyncio.to_thread(apply_effects, audio, sample_rate, chain_dicts)
 
     import soundfile as sf
@@ -193,10 +193,11 @@ async def apply_effects_to_generation(
             source_path = clean_version.audio_path
             source_version_id = clean_version.id
 
-    if not source_path or not Path(source_path).exists():
+    resolved_source_path = config.resolve_storage_path(source_path)
+    if resolved_source_path is None or not resolved_source_path.exists():
         raise HTTPException(status_code=404, detail="Source audio file not found")
 
-    audio, sample_rate = await asyncio.to_thread(load_audio, source_path)
+    audio, sample_rate = await asyncio.to_thread(load_audio, str(resolved_source_path))
     processed_audio = await asyncio.to_thread(apply_effects, audio, sample_rate, chain_dicts)
 
     version_id = str(uuid.uuid4())
@@ -208,7 +209,7 @@ async def apply_effects_to_generation(
     version = versions_mod.create_version(
         generation_id=generation_id,
         label=label,
-        audio_path=str(processed_path),
+        audio_path=config.to_storage_path(processed_path),
         db=db,
         effects_chain=chain_dicts,
         is_default=data.set_as_default,
