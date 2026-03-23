@@ -90,6 +90,21 @@ async def list_preset_voices(engine: str):
                 for vid, name, gender, lang in KOKORO_VOICES
             ],
         }
+    if engine == "minimax":
+        from ..backends.minimax_backend import MINIMAX_VOICES
+
+        return {
+            "engine": engine,
+            "voices": [
+                {
+                    "voice_id": vid,
+                    "name": name,
+                    "gender": gender,
+                    "language": lang,
+                }
+                for vid, name, gender, lang in MINIMAX_VOICES
+            ],
+        }
     return {"engine": engine, "voices": []}
 
 
