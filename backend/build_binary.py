@@ -52,6 +52,16 @@ def build_server(cuda=False):
     if platform.system() == "Windows":
         args.append("--noconsole")
 
+    # numpy 2.x / torch ABI mismatch fix: install memmove fallback for
+    # torch.from_numpy() before the app starts. Runtime hooks run after
+    # FrozenImporter is registered so frozen torch/numpy are importable.
+    args.extend(
+        [
+            "--runtime-hook",
+            str(backend_dir / "pyi_rth_numpy_compat.py"),
+        ]
+    )
+
     # Add local qwen_tts path if specified (for editable installs)
     qwen_tts_path = os.getenv("QWEN_TTS_PATH")
     if qwen_tts_path and Path(qwen_tts_path).exists():

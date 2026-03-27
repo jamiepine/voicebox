@@ -50,7 +50,7 @@ en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_
 # Audio processing
 librosa>=0.10.0
 soundfile>=0.12.0
-numpy>=1.24.0
+numpy>=1.24.0,<2.0
 numba>=0.60.0,<0.61.0
 pedalboard>=0.9.0
 
