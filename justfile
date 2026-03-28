@@ -74,9 +74,7 @@ setup-python:
     $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0
     $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0
     if ($hasNvidia) { \
-        Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
-        # Nightly index required for RTX 50-series (sm_120/Blackwell) support. \
-        # Switch back to stable cu128 once PyTorch stable ships sm_120 kernels. \
+        Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support (nightly for RTX 50-series)..."; \
         & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128; \
     } elseif ($hasIntelArc) { \
         Write-Host "Intel Arc GPU detected — installing PyTorch with XPU support..."; \
