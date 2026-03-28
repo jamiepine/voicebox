@@ -146,11 +146,18 @@ def _get_gpu_status() -> str:
     """Return a human-readable string describing GPU availability."""
     backend_type = get_backend_type()
     if torch.cuda.is_available():
+        from .backends.base import check_cuda_compatibility
+
         device_name = torch.cuda.get_device_name(0)
+        compatible, _warning = check_cuda_compatibility()
         is_rocm = hasattr(torch.version, "hip") and torch.version.hip is not None
         if is_rocm:
-            return f"ROCm ({device_name})"
-        return f"CUDA ({device_name})"
+            label = f"ROCm ({device_name})"
+        else:
+            label = f"CUDA ({device_name})"
+        if not compatible:
+            label += " [UNSUPPORTED - see logs]"
+        return label
     elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "MPS (Apple Silicon)"
     elif backend_type == "mlx":
@@ -229,6 +236,13 @@ def _register_lifecycle(application: FastAPI) -> None:
         backend_type = get_backend_type()
         logger.info("Backend: %s", backend_type.upper())
         logger.info("GPU: %s", _get_gpu_status())
+
+        # Warn if GPU architecture is not supported by this PyTorch build
+        from .backends.base import check_cuda_compatibility
+
+        _compatible, _cuda_warning = check_cuda_compatibility()
+        if not _compatible:
+            logger.warning("GPU COMPATIBILITY: %s", _cuda_warning)
 
         from .services.cuda import check_and_update_cuda_binary
 

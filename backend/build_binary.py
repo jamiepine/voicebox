@@ -410,7 +410,8 @@ def build_server(cuda=False):
                     "torchvision",
                     "torchaudio",
                     "--index-url",
-                    "https://download.pytorch.org/whl/cu128",
+                    # Nightly for RTX 50-series (sm_120/Blackwell) support
+                    "https://download.pytorch.org/whl/nightly/cu128",
                     "--force-reinstall",
                     "-q",
                 ],

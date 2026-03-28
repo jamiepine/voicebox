@@ -191,10 +191,10 @@ jobs:
           pip install --no-deps chatterbox-tts
           pip install --no-deps hume-tada
 
-      - name: Install PyTorch with CUDA 12.8
+      - name: Install PyTorch with CUDA 12.8 (nightly for RTX 50-series / sm_120 support)
         run: |
-          pip install torch --index-url https://download.pytorch.org/whl/cu128 --force-reinstall --no-deps
-          pip install torchaudio --index-url https://download.pytorch.org/whl/cu128 --force-reinstall --no-deps
+          pip install torch --index-url https://download.pytorch.org/whl/nightly/cu128 --force-reinstall --no-deps
+          pip install torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128 --force-reinstall --no-deps
 
       - name: Verify CUDA support in torch
         run: |

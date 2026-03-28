@@ -182,6 +182,7 @@ class HealthResponse(BaseModel):
     vram_used_mb: Optional[float] = None
     backend_type: Optional[str] = None  # Backend type (mlx or pytorch)
     backend_variant: Optional[str] = None  # Binary variant (cpu or cuda)
+    gpu_compatibility_warning: Optional[str] = None  # Warning if GPU arch unsupported
 
 
 class DirectoryCheck(BaseModel):
