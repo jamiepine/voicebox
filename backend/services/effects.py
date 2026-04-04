@@ -11,7 +11,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
-from backend.utils.effects import validate_effects_chain
+from ..utils.effects import validate_effects_chain
 
 from ..database import EffectPreset as DBEffectPreset
 from ..models import EffectPresetResponse, EffectPresetCreate, EffectPresetUpdate, EffectConfig
