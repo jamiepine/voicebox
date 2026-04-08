@@ -97,10 +97,20 @@ class PyTorchTTSBackend:
             from qwen_tts import Qwen3TTSModel
 
             model_path = self._get_model_path(model_size)
-            logger.info("Loading TTS model %s on %s...", model_size, self.device)
+
+            # 0.6B fits on 8GB GPU (bfloat16 ≈ 1.2GB). 1.7B needs CPU.
+            force_cpu = model_size == "1.7B"
+            device = "cpu" if force_cpu else self.device
+
+            # Free fragmented GPU memory before loading
+            if device == "cuda":
+                empty_device_cache(device)
+                logger.info("GPU memory before load: %.1f MB", torch.cuda.memory_allocated() / 1e6)
+
+            logger.info("Loading TTS model %s on %s...", model_size, device)
 
             with force_offline_if_cached(is_cached, model_name):
-                if self.device == "cpu":
+                if device == "cpu":
                     self.model = Qwen3TTSModel.from_pretrained(
                         model_path,
                         torch_dtype=torch.float32,
@@ -109,9 +119,11 @@ class PyTorchTTSBackend:
                 else:
                     self.model = Qwen3TTSModel.from_pretrained(
                         model_path,
-                        device_map=self.device,
+                        device_map=device,
                         torch_dtype=torch.bfloat16,
                     )
+
+            self.device = device  # override instance device for this model
 
         self._current_model_size = model_size
         self.model_size = model_size
@@ -152,34 +164,33 @@ class PyTorchTTSBackend:
             cache_key = get_cache_key(audio_path, reference_text)
             cached_prompt = get_cached_voice_prompt(cache_key)
             if cached_prompt is not None:
-                # Cache stores as torch.Tensor but actual prompt is dict
-                # Convert if needed
-                if isinstance(cached_prompt, dict):
-                    # For PyTorch backend, the dict should contain tensors, not file paths
-                    # So we can safely return it
+                if isinstance(cached_prompt, dict) and "_prompt_items" in cached_prompt:
                     return cached_prompt, True
-                elif isinstance(cached_prompt, torch.Tensor):
-                    # Legacy cache format - convert to dict
-                    # This shouldn't happen in practice, but handle it
-                    return {"prompt": cached_prompt}, True
+                # Old cache format (dict without _prompt_items or legacy tensor)
+                # is invalid for ICL mode — regenerate.
 
         def _create_prompt_sync():
             """Run synchronous voice prompt creation in thread pool."""
-            return self.model.create_voice_clone_prompt(
+            items = self.model.create_voice_clone_prompt(
                 ref_audio=str(audio_path),
                 ref_text=reference_text,
-                x_vector_only_mode=False,
+                x_vector_only_mode=True,
             )
+            voice_prompt_dict = {
+                "voice_type": "cloned",
+                "_prompt_items": items,
+            }
+            return voice_prompt_dict
 
         # Run blocking operation in thread pool
-        voice_prompt_items = await asyncio.to_thread(_create_prompt_sync)
+        voice_prompt_dict = await asyncio.to_thread(_create_prompt_sync)
 
         # Cache if enabled
         if use_cache:
             cache_key = get_cache_key(audio_path, reference_text)
-            cache_voice_prompt(cache_key, voice_prompt_items)
+            cache_voice_prompt(cache_key, voice_prompt_dict)
 
-        return voice_prompt_items, False
+        return voice_prompt_dict, False
 
     async def combine_voice_prompts(
         self,
@@ -196,40 +207,33 @@ class PyTorchTTSBackend:
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
     ) -> Tuple[np.ndarray, int]:
-        """
-        Generate audio from text using voice prompt.
-
-        Args:
-            text: Text to synthesize
-            voice_prompt: Voice prompt dictionary from create_voice_prompt
-            language: Language code (en or zh)
-            seed: Random seed for reproducibility
-            instruct: Natural language instruction for speech delivery control
-
-        Returns:
-            Tuple of (audio_array, sample_rate)
-        """
-        # Load model
         await self.load_model_async(None)
 
         def _generate_sync():
-            """Run synchronous generation in thread pool."""
-            # Set seed if provided
             if seed is not None:
                 manual_seed(seed, self.device)
 
-            # Generate audio - this is the blocking operation
-            wavs, sample_rate = self.model.generate_voice_clone(
-                text=text,
-                voice_clone_prompt=voice_prompt,
-                language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
-                instruct=instruct,
-            )
+            lang = LANGUAGE_CODE_TO_NAME.get(language, "auto")
+
+            if voice_prompt.get("voice_type") == "preset":
+                speaker = voice_prompt.get("preset_voice_id", "male_1")
+                wavs, sample_rate = self.model.generate_custom_voice(
+                    text=text,
+                    speaker=speaker,
+                    language=lang,
+                    instruct=instruct,
+                )
+            else:
+                prompt_to_use = voice_prompt.get("_prompt_items", voice_prompt)
+                wavs, sample_rate = self.model.generate_voice_clone(
+                    text=text,
+                    voice_clone_prompt=prompt_to_use,
+                    language=lang,
+                    instruct=instruct,
+                )
             return wavs[0], sample_rate
 
-        # Run blocking inference in thread pool to avoid blocking event loop
         audio, sample_rate = await asyncio.to_thread(_generate_sync)
-
         return audio, sample_rate
 
 
