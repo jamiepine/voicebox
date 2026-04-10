@@ -89,11 +89,11 @@ async def get_generation(
         duration=gen.duration,
         seed=gen.seed,
         instruct=gen.instruct,
-        engine=gen.engine,
+        engine=gen.engine or "qwen",
         model_size=gen.model_size,
-        status=gen.status,
+        status=gen.status or "completed",
         error=gen.error,
-        is_favorited=gen.is_favorited,
+        is_favorited=bool(gen.is_favorited),
         created_at=gen.created_at,
     )
 
