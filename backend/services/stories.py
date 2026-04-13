@@ -484,13 +484,15 @@ async def split_story_item(
     Returns:
         List of two updated item details (original and new) or None if not found/invalid
     """
-    # Get the item
+    # Get the item with a row lock to prevent concurrent splits on the
+    # same clip (e.g. from rapid double-clicks racing each other).
     item = (
         db.query(DBStoryItem)
         .filter_by(
             id=item_id,
             story_id=story_id,
         )
+        .with_for_update()
         .first()
     )
     if not item:

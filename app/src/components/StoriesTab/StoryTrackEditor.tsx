@@ -500,7 +500,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   }, [trimmingItem, trimSide, tempTrimValues, storyId, trimItem, toast]);
 
   const handleSplit = useCallback(() => {
-    if (!selectedClipId) return;
+    if (!selectedClipId || splitItem.isPending) return;
 
     const item = items.find((i) => i.id === selectedClipId);
     if (!item) return;
