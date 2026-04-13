@@ -860,6 +860,22 @@ pub fn run() {
                         // Tell the server to disable its watchdog so it survives
                         // after this process exits.
                         println!("Keep server running: disabling watchdog...");
+
+                        // Write a sentinel file as a reliable fallback. On Windows
+                        // the HTTP request below can race with process exit, leaving
+                        // the watchdog unaware it should stay alive. The sentinel
+                        // file is checked during the watchdog grace period.
+                        let data_dir = app
+                            .path()
+                            .app_data_dir()
+                            .unwrap_or_default();
+                        let sentinel = data_dir.join(".keep-running");
+                        if let Err(e) = std::fs::write(&sentinel, b"1") {
+                            eprintln!("Failed to write keep-running sentinel: {}", e);
+                        } else {
+                            println!("Wrote keep-running sentinel to {:?}", sentinel);
+                        }
+
                         let client = reqwest::blocking::Client::builder()
                             .timeout(std::time::Duration::from_secs(2))
                             .build()
