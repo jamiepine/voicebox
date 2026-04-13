@@ -22,15 +22,18 @@ services:
 
     environment:
       - LOG_LEVEL=info
-
-    networks:
-      - voicebox-net
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
     deploy:
       resources:
-        limits:
-          cpus: '4'
-          memory: 8G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    runtime: nvidia
 
 networks:
   voicebox-net:

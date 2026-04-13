@@ -24,13 +24,16 @@ import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
-import { EngineModelSelector, applyEngineSelection, getEngineDescription } from './EngineModelSelector';
+import {
+  EngineModelSelector,
+  applyEngineSelection,
+  getEngineDescription,
+} from './EngineModelSelector';
 import { ParalinguisticInput } from './ParalinguisticInput';
 
 function getEngineSelectValue(engine: string): string {
-  if (engine === 'qwen') return 'qwen:1.7B';
-  if (engine === 'qwen_custom_voice') return 'qwen_custom_voice:1.7B';
-  if (engine === 'tada') return 'tada:1B';
+  if (engine === 'qwen') return 'qwen:0.6B';
+  if (engine === 'qwen_custom_voice') return 'qwen_custom_voice:0.6B';
   return engine;
 }
 

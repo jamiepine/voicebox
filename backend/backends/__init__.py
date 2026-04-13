@@ -165,9 +165,7 @@ TTS_ENGINES = {
     "qwen": "Qwen TTS",
     "qwen_custom_voice": "Qwen CustomVoice",
     "luxtts": "LuxTTS",
-    "chatterbox": "Chatterbox TTS",
     "chatterbox_turbo": "Chatterbox Turbo",
-    "tada": "TADA",
     "kokoro": "Kokoro",
 }
 
@@ -176,23 +174,11 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
     """Return Qwen model configs with backend-aware HF repo IDs."""
     backend_type = get_backend_type()
     if backend_type == "mlx":
-        repo_1_7b = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
-        repo_0_6b = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"  # 0.6B not available in MLX, falls back
+        repo_0_6b = "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16"
     else:
-        repo_1_7b = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         repo_0_6b = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 
     return [
-        ModelConfig(
-            model_name="qwen-tts-1.7B",
-            display_name="Qwen TTS 1.7B",
-            engine="qwen",
-            hf_repo_id=repo_1_7b,
-            model_size="1.7B",
-            size_mb=3500,
-            supports_instruct=False,  # Base model drops instruct silently
-            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
-        ),
         ModelConfig(
             model_name="qwen-tts-0.6B",
             display_name="Qwen TTS 0.6B",
@@ -209,16 +195,6 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
 def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
     """Return Qwen CustomVoice model configs."""
     return [
-        ModelConfig(
-            model_name="qwen-custom-voice-1.7B",
-            display_name="Qwen CustomVoice 1.7B",
-            engine="qwen_custom_voice",
-            hf_repo_id="Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
-            model_size="1.7B",
-            size_mb=3500,
-            supports_instruct=True,
-            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
-        ),
         ModelConfig(
             model_name="qwen-custom-voice-0.6B",
             display_name="Qwen CustomVoice 0.6B",
@@ -247,39 +223,6 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             languages=["en"],
         ),
         ModelConfig(
-            model_name="chatterbox-tts",
-            display_name="Chatterbox TTS (Multilingual)",
-            engine="chatterbox",
-            hf_repo_id="ResembleAI/chatterbox",
-            size_mb=3200,
-            needs_trim=True,
-            languages=[
-                "zh",
-                "en",
-                "ja",
-                "ko",
-                "de",
-                "fr",
-                "ru",
-                "pt",
-                "es",
-                "it",
-                "he",
-                "ar",
-                "da",
-                "el",
-                "fi",
-                "hi",
-                "ms",
-                "nl",
-                "no",
-                "pl",
-                "sv",
-                "sw",
-                "tr",
-            ],
-        ),
-        ModelConfig(
             model_name="chatterbox-turbo",
             display_name="Chatterbox Turbo (English, Tags)",
             engine="chatterbox_turbo",
@@ -287,24 +230,6 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             size_mb=1500,
             needs_trim=True,
             languages=["en"],
-        ),
-        ModelConfig(
-            model_name="tada-1b",
-            display_name="TADA 1B (English)",
-            engine="tada",
-            hf_repo_id="HumeAI/tada-1b",
-            model_size="1B",
-            size_mb=4000,
-            languages=["en"],
-        ),
-        ModelConfig(
-            model_name="tada-3b-ml",
-            display_name="TADA 3B Multilingual",
-            engine="tada",
-            hf_repo_id="HumeAI/tada-3b-ml",
-            model_size="3B",
-            size_mb=8000,
-            languages=["en", "ar", "zh", "de", "es", "fr", "it", "ja", "pl", "pt"],
         ),
         ModelConfig(
             model_name="kokoro",
@@ -360,7 +285,12 @@ def _get_whisper_configs() -> list[ModelConfig]:
 
 def get_all_model_configs() -> list[ModelConfig]:
     """Return the full list of model configs (TTS + STT)."""
-    return _get_qwen_model_configs() + _get_qwen_custom_voice_configs() + _get_non_qwen_tts_configs() + _get_whisper_configs()
+    return (
+        _get_qwen_model_configs()
+        + _get_qwen_custom_voice_configs()
+        + _get_non_qwen_tts_configs()
+        + _get_whisper_configs()
+    )
 
 
 def get_tts_model_configs() -> list[ModelConfig]:
@@ -394,12 +324,27 @@ def engine_has_model_sizes(engine: str) -> bool:
 
 
 async def load_engine_model(engine: str, model_size: str = "default") -> None:
-    """Load a model for the given engine, handling engines with multiple model sizes."""
+    """Load a model for the given engine, handling engines with multiple model sizes.
+
+    Unloads other TTS backends first to avoid GPU OOM on memory-constrained systems.
+    """
+    # Free GPU memory by unloading other engines before loading the requested one
+    for other_engine in TTS_ENGINES:
+        if other_engine != engine and other_engine in _tts_backends:
+            other_backend = _tts_backends[other_engine]
+            if other_backend.is_loaded():
+                other_backend.unload_model()
+
+    import gc
+    import torch
+
+    if torch.cuda.is_available():
+        gc.collect()
+        torch.cuda.empty_cache()
+
     backend = get_tts_backend_for_engine(engine)
     if engine in ("qwen", "qwen_custom_voice"):
         await backend.load_model_async(model_size)
-    elif engine == "tada":
-        await backend.load_model(model_size)
     else:
         await backend.load_model()
 
@@ -415,7 +360,7 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
             cfg = c
             break
 
-    if engine in ("qwen", "qwen_custom_voice", "tada"):
+    if engine in ("qwen", "qwen_custom_voice"):
         if not backend._is_model_cached(model_size):
             raise HTTPException(
                 status_code=400,
@@ -524,7 +469,7 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
     Get or create a TTS backend for the given engine.
 
     Args:
-        engine: Engine name (e.g. "qwen", "luxtts", "chatterbox", "chatterbox_turbo")
+        engine: Engine name (e.g. "qwen", "luxtts", "chatterbox_turbo")
 
     Returns:
         TTS backend instance
@@ -555,18 +500,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .luxtts_backend import LuxTTSBackend
 
             backend = LuxTTSBackend()
-        elif engine == "chatterbox":
-            from .chatterbox_backend import ChatterboxTTSBackend
-
-            backend = ChatterboxTTSBackend()
         elif engine == "chatterbox_turbo":
             from .chatterbox_turbo_backend import ChatterboxTurboTTSBackend
 
             backend = ChatterboxTurboTTSBackend()
-        elif engine == "tada":
-            from .hume_backend import HumeTadaBackend
-
-            backend = HumeTadaBackend()
         elif engine == "kokoro":
             from .kokoro_backend import KokoroTTSBackend
 
@@ -578,8 +515,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
         else:
             raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
 
-        _tts_backends[engine] = backend
-        return backend
+        from ..services.gpu_monitor import wrap_backend_with_idle_tracking
+
+        _tts_backends[engine] = wrap_backend_with_idle_tracking(backend, engine)
+        return _tts_backends[engine]
 
 
 def get_stt_backend() -> STTBackend:
@@ -597,11 +536,15 @@ def get_stt_backend() -> STTBackend:
         if backend_type == "mlx":
             from .mlx_backend import MLXSTTBackend
 
-            _stt_backend = MLXSTTBackend()
+            raw_backend: STTBackend = MLXSTTBackend()
         else:
             from .pytorch_backend import PyTorchSTTBackend
 
-            _stt_backend = PyTorchSTTBackend()
+            raw_backend = PyTorchSTTBackend()
+
+        from ..services.gpu_monitor import wrap_backend_with_idle_tracking
+
+        _stt_backend = wrap_backend_with_idle_tracking(raw_backend, "stt")
 
     return _stt_backend
 

@@ -132,8 +132,8 @@ async def health():
     try:
         from ..backends import get_model_config
 
-        default_config = get_model_config("qwen-tts-1.7B")
-        default_model_id = default_config.hf_repo_id if default_config else "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+        default_config = get_model_config("qwen-tts-0.6B")
+        default_model_id = default_config.hf_repo_id if default_config else "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 
         try:
             from huggingface_hub import scan_cache_dir
@@ -158,6 +158,16 @@ async def health():
     except Exception:
         pass
 
+    gpu_models_loaded: list[dict] = []
+    try:
+        from ..services.gpu_monitor import get_gpu_monitor
+
+        monitor = get_gpu_monitor()
+        if monitor is not None:
+            gpu_models_loaded = monitor.get_loaded_models_status()
+    except Exception:
+        pass
+
     return models.HealthResponse(
         status="healthy",
         model_loaded=model_loaded,
@@ -171,6 +181,7 @@ async def health():
             "VOICEBOX_BACKEND_VARIANT",
             "cuda" if torch.cuda.is_available() else ("xpu" if has_xpu else "cpu"),
         ),
+        gpu_models_loaded=gpu_models_loaded,
     )
 
 

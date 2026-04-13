@@ -3,7 +3,9 @@ Chatterbox Turbo TTS backend implementation.
 
 Wraps ChatterboxTurboTTS from chatterbox-tts for fast, English-only
 voice cloning with paralinguistic tag support ([laugh], [cough], etc.).
-Forces CPU on macOS due to known MPS tensor issues.
+Uses GPU only on 16GB+ VRAM; falls back to CPU on smaller GPUs due to
+model size (~3.8GB weights, requiring ~8GB+ VRAM in FP32).
+MPS is disabled due to known tensor issues.
 """
 
 import asyncio
@@ -50,7 +52,17 @@ class ChatterboxTurboTTSBackend:
         self._model_load_lock = asyncio.Lock()
 
     def _get_device(self) -> str:
-        return "cpu"
+        device = get_torch_device(allow_mps=False)
+        if device == "cuda":
+            import torch
+
+            total_vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3)
+            if total_vram_gb < 16:
+                logger.info(
+                    f"Chatterbox Turbo requires 16GB+ VRAM for GPU ({total_vram_gb:.1f}GB detected). Using CPU."
+                )
+                return "cpu"
+        return device
 
     def is_loaded(self) -> bool:
         return self.model is not None
@@ -104,7 +116,18 @@ class ChatterboxTurboTTSBackend:
                     finally:
                         torch.load = _orig_torch_load
             else:
-                model = ChatterboxTurboTTS.from_local(local_path, device)
+                with ChatterboxTurboTTSBackend._load_lock:
+                    _orig_torch_load = torch.load
+
+                    def _patched_load(*args, **kwargs):
+                        kwargs.setdefault("map_location", device)
+                        return _orig_torch_load(*args, **kwargs)
+
+                    torch.load = _patched_load
+                    try:
+                        model = ChatterboxTurboTTS.from_local(local_path, device)
+                    finally:
+                        torch.load = _orig_torch_load
 
             patch_chatterbox_f32(model)
             self.model = model

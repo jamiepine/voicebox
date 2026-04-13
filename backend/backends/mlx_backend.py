@@ -26,7 +26,7 @@ from ..utils.hf_offline_patch import force_offline_if_cached
 class MLXTTSBackend:
     """MLX-based TTS backend using mlx-audio."""
 
-    def __init__(self, model_size: str = "1.7B"):
+    def __init__(self, model_size: str = "0.6B"):
         self.model = None
         self.model_size = model_size
         self._current_model_size = None
@@ -40,16 +40,15 @@ class MLXTTSBackend:
         Get the MLX model path.
 
         Args:
-            model_size: Model size (1.7B or 0.6B)
+            model_size: Model size (0.6B)
 
         Returns:
             HuggingFace Hub model ID for MLX
         """
         # MLX model mapping
+        # Note: 0.6B not yet converted to MLX bf16 — falls back to 1.7B MLX model
         mlx_model_map = {
-            "1.7B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
-            # 0.6B not yet converted to MLX format
-            "0.6B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",  # Fallback to 1.7B
+            "0.6B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
         }
 
         if model_size not in mlx_model_map:

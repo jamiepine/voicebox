@@ -48,7 +48,7 @@ def _copy_with_progress(src: Path, dst: Path, progress_manager, copied_so_far: i
 
 
 @router.post("/models/load")
-async def load_model(model_size: str = "1.7B"):
+async def load_model(model_size: str = "0.6B"):
     """Manually load TTS model."""
     from ..services import tts
 

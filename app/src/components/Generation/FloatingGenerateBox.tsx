@@ -133,13 +133,7 @@ export function FloatingGenerateBox({
     if (selectedProfile?.default_engine) {
       form.setValue(
         'engine',
-        selectedProfile.default_engine as
-          | 'qwen'
-          | 'luxtts'
-          | 'chatterbox'
-          | 'chatterbox_turbo'
-          | 'tada'
-          | 'kokoro',
+        selectedProfile.default_engine as 'qwen' | 'luxtts' | 'chatterbox_turbo' | 'kokoro',
       );
     }
     // Pre-fill effects from profile defaults

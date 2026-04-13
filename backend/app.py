@@ -198,6 +198,13 @@ def _register_lifecycle(application: FastAPI) -> None:
 
         init_queue()
 
+        try:
+            from .services.gpu_monitor import get_gpu_monitor
+
+            _monitor_task = asyncio.ensure_future(get_gpu_monitor().start())
+        except Exception as e:
+            logger.warning("Could not start GPU monitor: %s", e)
+
         # Mark stale "generating" records as failed -- leftovers from a killed process
         from sqlalchemy import text as sa_text
 
@@ -254,6 +261,12 @@ def _register_lifecycle(application: FastAPI) -> None:
     @application.on_event("shutdown")
     async def shutdown_event():
         logger.info("Voicebox server shutting down...")
+        try:
+            from .services.gpu_monitor import get_gpu_monitor
+
+            await get_gpu_monitor().stop()
+        except Exception as e:
+            logger.warning("Could not stop GPU monitor: %s", e)
         try:
             tts.unload_tts_model()
         except Exception:

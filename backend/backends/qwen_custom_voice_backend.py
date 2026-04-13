@@ -58,7 +58,7 @@ QWEN_CV_HF_REPOS = {
 class QwenCustomVoiceBackend:
     """Qwen3-TTS CustomVoice backend — preset speakers with instruct control."""
 
-    def __init__(self, model_size: str = "1.7B"):
+    def __init__(self, model_size: str = "0.6B"):
         self.model = None
         self.model_size = model_size
         self.device = self._get_device()

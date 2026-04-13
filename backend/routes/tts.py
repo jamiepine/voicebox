@@ -32,14 +32,17 @@ async def tts_generate(
 
     Returns base64-encoded WAV audio.
     """
-    from ..backends.pytorch_backend import PyTorchTTSBackend
+    from ..backends import get_tts_backend_for_engine, load_engine_model
 
-    if model_size not in ("0.6B", "1.7B"):
+    if model_size != "0.6B":
         raise HTTPException(status_code=400, detail=f"Unsupported model_size: {model_size}")
 
+    tmp_path = None
+    backend = None
     try:
-        backend = PyTorchTTSBackend(model_size=model_size)
-        await backend.load_model_async(model_size)
+        backend = get_tts_backend_for_engine("qwen")
+
+        await load_engine_model("qwen", model_size)
 
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             ref_bytes = await ref_audio.read()
@@ -74,7 +77,7 @@ async def tts_generate(
         logger.exception("TTS generation failed")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if "tmp_path" in locals():
+        if tmp_path:
             Path(tmp_path).unlink(missing_ok=True)
 
 

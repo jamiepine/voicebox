@@ -27,7 +27,7 @@ from ..utils.hf_offline_patch import force_offline_if_cached
 class PyTorchTTSBackend:
     """PyTorch-based TTS backend using Qwen3-TTS."""
 
-    def __init__(self, model_size: str = "1.7B"):
+    def __init__(self, model_size: str = "0.6B"):
         self.model = None
         self.model_size = model_size
         self.device = self._get_device()
@@ -46,13 +46,12 @@ class PyTorchTTSBackend:
         Get the HuggingFace Hub model ID.
 
         Args:
-            model_size: Model size (1.7B or 0.6B)
+            model_size: Model size (0.6B)
 
         Returns:
             HuggingFace Hub model ID
         """
         hf_model_map = {
-            "1.7B": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
             "0.6B": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
         }
 
@@ -98,7 +97,7 @@ class PyTorchTTSBackend:
 
             model_path = self._get_model_path(model_size)
 
-            # 0.6B fits on 8GB GPU (bfloat16 ≈ 1.2GB). 1.7B needs CPU.
+            # 0.6B fits on 8GB GPU (bfloat16 ~1.2GB).
             force_cpu = model_size == "1.7B"
             device = "cpu" if force_cpu else self.device
 

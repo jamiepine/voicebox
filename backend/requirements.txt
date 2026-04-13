@@ -15,15 +15,17 @@ huggingface_hub>=0.20.0
 qwen-tts>=0.0.5
 
 # LuxTTS (voice cloning engine)
-# piper-phonemize needs custom index (no PyPI wheels)
+# Installed separately (not via requirements.txt) because git deps
+# fail under pip --prefix in Docker multi-stage builds.
+# Unix:   see justfile setup-python
+# Docker: see Dockerfile backend-builder stage (installed to default
+# site-packages where pip CAN resolve git dependency trees)
 --find-links https://k2-fsa.github.io/icefall/piper_phonemize.html
-# linacodec is a git-only dep of Zipvoice (uv-only source, pip can't resolve it)
-linacodec @ git+https://github.com/ysharma3501/LinaCodec.git
-Zipvoice @ git+https://github.com/ysharma3501/LuxTTS.git
 
 # Chatterbox TTS sub-dependencies (chatterbox-tts itself is installed
 # --no-deps in the setup script because it pins numpy<1.26 / torch==2.6
 # which are incompatible with Python 3.12+)
+# Both Chatterbox Multilingual and Turbo ship from the chatterbox-tts package.
 conformer>=0.3.2
 diffusers>=0.29.0
 omegaconf
@@ -32,13 +34,6 @@ resemble-perth>=1.0.1
 s3tokenizer
 spacy-pkuseg
 pyloudnorm
-
-# HumeAI TADA sub-dependencies (hume-tada itself is installed
-# --no-deps in the setup script because it pins torch>=2.7,<2.8.
-# descript-audio-codec is NOT installed — it pulls onnx/tensorboard
-# via descript-audiotools.  A lightweight shim in utils/dac_shim.py
-# provides the only class TADA uses: Snake1d.)
-torchaudio
 
 # Kokoro TTS (lightweight 82M-param engine)
 kokoro>=0.9.4
