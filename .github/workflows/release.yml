@@ -203,6 +203,12 @@ jobs:
       - name: Build CUDA server binary (onedir)
         shell: bash
         working-directory: backend
+        env:
+          # Include Blackwell (sm_120) via PTX forward compatibility.
+          # Pre-built PyTorch cu128 wheels ship native kernels for sm_80/86/89/90
+          # but not sm_120. Setting this env var causes torch.utils.cpp_extension
+          # (and any JIT-compiled kernels) to target Blackwell GPUs as well.
+          TORCH_CUDA_ARCH_LIST: "8.0;8.6;8.9;9.0;12.0+PTX"
         run: python build_binary.py --cuda
 
       - name: Package into server core + CUDA libs archives
