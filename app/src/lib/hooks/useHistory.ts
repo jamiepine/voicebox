@@ -29,6 +29,17 @@ export function useDeleteGeneration() {
   });
 }
 
+export function useClearFailedGenerations() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => apiClient.clearFailedGenerations(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+    },
+  });
+}
+
 export function useExportGeneration() {
   const platform = usePlatform();
 

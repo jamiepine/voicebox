@@ -62,6 +62,13 @@ async def import_generation(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/history/failed")
+async def clear_failed_generations(db: Session = Depends(get_db)):
+    """Delete every generation with status='failed'. Used by the UI's 'Clear failed' button (#410)."""
+    count = await history.delete_failed_generations(db)
+    return {"deleted": count}
+
+
 @router.get("/history/{generation_id}", response_model=models.HistoryResponse)
 async def get_generation(
     generation_id: str,

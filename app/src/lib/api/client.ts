@@ -270,6 +270,12 @@ class ApiClient {
     });
   }
 
+  async clearFailedGenerations(): Promise<{ deleted: number }> {
+    return this.request<{ deleted: number }>(`/history/failed`, {
+      method: 'DELETE',
+    });
+  }
+
   async exportGeneration(generationId: string): Promise<Blob> {
     const url = `${this.getBaseUrl()}/history/${generationId}/export`;
     const response = await fetch(url);

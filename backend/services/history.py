@@ -264,6 +264,43 @@ async def delete_generation(
     return True
 
 
+async def delete_failed_generations(db: Session) -> int:
+    """
+    Delete every generation whose status is 'failed'.
+
+    Used by the "Clear failed" action in the UI so users can tidy up
+    history after the model wasn't loaded, the app was closed mid-run,
+    or a generation otherwise errored out (see issue #410).
+
+    Returns:
+        Number of generations deleted.
+    """
+    from . import versions as versions_mod
+
+    failed = db.query(DBGeneration).filter(DBGeneration.status == "failed").all()
+    count = 0
+    for generation in failed:
+        # Clean up version files/rows first.
+        versions_mod.delete_versions_for_generation(generation.id, db)
+
+        # Remove the main audio file if it somehow made it to disk.
+        if generation.audio_path:
+            audio_path = config.resolve_storage_path(generation.audio_path)
+            if audio_path is not None and audio_path.exists():
+                try:
+                    audio_path.unlink()
+                except OSError:
+                    # Best-effort cleanup — don't abort the whole sweep
+                    # if a single file can't be removed.
+                    pass
+
+        db.delete(generation)
+        count += 1
+
+    db.commit()
+    return count
+
+
 async def delete_generations_by_profile(
     profile_id: str,
     db: Session,

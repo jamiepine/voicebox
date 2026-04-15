@@ -45,6 +45,7 @@ import { apiClient } from '@/lib/api/client';
 import type { EffectConfig, GenerationVersionResponse, HistoryResponse } from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import {
+  useClearFailedGenerations,
   useDeleteGeneration,
   useExportGeneration,
   useExportGenerationAudio,
@@ -124,6 +125,8 @@ export function HistoryTable() {
   });
 
   const deleteGeneration = useDeleteGeneration();
+  const clearFailed = useClearFailedGenerations();
+  const [clearFailedDialogOpen, setClearFailedDialogOpen] = useState(false);
   const exportGeneration = useExportGeneration();
   const exportGenerationAudio = useExportGenerationAudio();
   const importGeneration = useImportGeneration();
@@ -157,11 +160,11 @@ export function HistoryTable() {
   const pendingCount = useGenerationStore((state) => state.pendingGenerationIds.size);
   const prevPendingCountRef = useRef(pendingCount);
   useEffect(() => {
-    if (deleteGeneration.isSuccess || importGeneration.isSuccess) {
+    if (deleteGeneration.isSuccess || importGeneration.isSuccess || clearFailed.isSuccess) {
       setPage(0);
       setAllHistory([]);
     }
-  }, [deleteGeneration.isSuccess, importGeneration.isSuccess]);
+  }, [deleteGeneration.isSuccess, importGeneration.isSuccess, clearFailed.isSuccess]);
 
   useEffect(() => {
     // A generation finished (pending count decreased) — scroll back to show it
@@ -415,6 +418,27 @@ export function HistoryTable() {
 
   const history = allHistory;
   const hasMore = allHistory.length < total;
+  const failedCount = history.filter((g) => g.status === 'failed').length;
+
+  const handleClearFailedConfirm = () => {
+    clearFailed.mutate(undefined, {
+      onSuccess: (data) => {
+        setClearFailedDialogOpen(false);
+        toast({
+          title: 'Cleared failed generations',
+          description: `${data.deleted} failed ${data.deleted === 1 ? 'generation' : 'generations'} removed.`,
+        });
+      },
+      onError: (error) => {
+        setClearFailedDialogOpen(false);
+        toast({
+          title: 'Failed to clear',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        });
+      },
+    });
+  };
 
   return (
     <div className="flex flex-col h-full min-h-0 relative">
@@ -424,6 +448,23 @@ export function HistoryTable() {
         </div>
       ) : (
         <>
+          {failedCount > 0 && (
+            <div className="flex items-center justify-between px-1 pb-2">
+              <span className="text-xs text-muted-foreground">
+                {failedCount} failed {failedCount === 1 ? 'generation' : 'generations'}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                onClick={() => setClearFailedDialogOpen(true)}
+                disabled={clearFailed.isPending}
+              >
+                <Trash2 className="h-3 w-3 mr-1.5" />
+                {clearFailed.isPending ? 'Clearing...' : 'Clear failed'}
+              </Button>
+            </div>
+          )}
           {isScrolled && (
             <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
           )}
@@ -754,6 +795,31 @@ export function HistoryTable() {
               disabled={deleteGeneration.isPending}
             >
               {deleteGeneration.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={clearFailedDialogOpen} onOpenChange={setClearFailedDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Clear failed generations</DialogTitle>
+            <DialogDescription>
+              This will permanently delete {failedCount} failed{' '}
+              {failedCount === 1 ? 'generation' : 'generations'} from your history. This cannot be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setClearFailedDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleClearFailedConfirm}
+              disabled={clearFailed.isPending}
+            >
+              {clearFailed.isPending ? 'Clearing...' : 'Clear all'}
             </Button>
           </DialogFooter>
         </DialogContent>
