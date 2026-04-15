@@ -124,7 +124,7 @@ export function AudioTab() {
     );
   }
 
-  const handleChannelDelete = async (e, channelId) => {
+  const handleChannelDelete = async (e: React.MouseEvent, channelId: string) => {
     e.stopPropagation();
     if (await confirm('Delete this channel?')) {
       deleteChannel.mutate(channelId);

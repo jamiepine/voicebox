@@ -1,9 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  AlignCenter,
   AudioLines,
-  AudioWaveform,
   Download,
   FileArchive,
   Loader2,

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "preview": "vite preview",
     "lint": "biome lint src",
     "lint:fix": "biome lint --write src",

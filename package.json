@@ -24,12 +24,13 @@
     "update:icons": "./scripts/update-icons.sh",
     "convert:assets": "./scripts/convert-assets.sh",
     "lint": "biome lint .",
+    "typecheck": "bunx tsc -p app/tsconfig.json --noEmit && cd web && bunx tsc --noEmit",
     "lint:fix": "biome lint --write .",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "ci": "biome ci ."
+    "ci": "bun run typecheck && bun run build:web"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.12",
