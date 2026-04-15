@@ -75,6 +75,15 @@ export interface GenerationRequest {
   crossfade_ms?: number;
   normalize?: boolean;
   effects_chain?: EffectConfig[];
+  temperature?: number;
+  top_k?: number;
+  top_p?: number;
+  repetition_penalty?: number;
+  speed?: number;
+  inject_breaths?: boolean;
+  jitter_ms?: number;
+  humanize_text?: boolean;
+  humanize_intensity?: 'light' | 'medium' | 'heavy';
 }
 
 export interface GenerationVersionResponse {
@@ -102,9 +111,27 @@ export interface GenerationResponse {
   status: 'loading_model' | 'generating' | 'completed' | 'failed';
   error?: string;
   is_favorited?: boolean;
+  rating?: number | null;
+  temperature?: number | null;
+  top_k?: number | null;
+  top_p?: number | null;
+  repetition_penalty?: number | null;
+  speed?: number | null;
   created_at: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
+}
+
+export interface GenerationRatingRequest {
+  rating: number; // 1-5
+}
+
+export interface SuggestedParams {
+  temperature?: number | null;
+  top_k?: number | null;
+  top_p?: number | null;
+  repetition_penalty?: number | null;
+  speed?: number | null;
 }
 
 export interface HistoryQuery {
@@ -125,7 +152,7 @@ export interface HistoryListResponse {
   total: number;
 }
 
-export type WhisperModelSize = 'base' | 'small' | 'medium' | 'large' | 'turbo';
+export type WhisperModelSize = 'base' | 'small' | 'medium' | 'large' | 'large-v3' | 'large-v3-mlx' | 'turbo';
 
 export interface TranscriptionRequest {
   language?: LanguageCode;

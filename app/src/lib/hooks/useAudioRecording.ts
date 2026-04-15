@@ -8,7 +8,7 @@ interface UseAudioRecordingOptions {
 }
 
 export function useAudioRecording({
-  maxDurationSeconds = 29,
+  maxDurationSeconds = 39,
   onRecordingComplete,
 }: UseAudioRecordingOptions = {}) {
   const platform = usePlatform();

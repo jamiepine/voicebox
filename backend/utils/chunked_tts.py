@@ -11,7 +11,7 @@ overhead.
 
 import logging
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -173,10 +173,18 @@ def concatenate_audio_chunks(
     chunks: List[np.ndarray],
     sample_rate: int,
     crossfade_ms: int = 50,
+    jitter_ms: int = 0,
 ) -> np.ndarray:
     """Concatenate audio arrays with a short crossfade to eliminate clicks.
 
     Each chunk is expected to be a 1-D float32 ndarray at *sample_rate* Hz.
+
+    Parameters
+    ----------
+    jitter_ms : int
+        If > 0, apply a random micro-timing offset (±jitter_ms) at each
+        chunk boundary.  Positive offsets insert silence; negative offsets
+        increase the crossfade overlap (bounded by available audio).
     """
     if not chunks:
         return np.array([], dtype=np.float32)
@@ -189,14 +197,37 @@ def concatenate_audio_chunks(
     for chunk in chunks[1:]:
         if len(chunk) == 0:
             continue
-        overlap = min(crossfade_samples, len(result), len(chunk))
+
+        effective_crossfade = crossfade_samples
+        extra_silence = 0
+
+        if jitter_ms > 0:
+            jitter_samples = np.random.randint(-jitter_ms, jitter_ms + 1) * sample_rate // 1000
+            if jitter_samples > 0:
+                # Insert silence before this chunk
+                extra_silence = jitter_samples
+            else:
+                # Increase overlap (bounded by available audio and chunk length)
+                additional_overlap = -jitter_samples
+                effective_crossfade = min(
+                    crossfade_samples + additional_overlap,
+                    len(result),
+                    len(chunk),
+                )
+
+        overlap = min(effective_crossfade, len(result), len(chunk))
         if overlap > 0:
             fade_out = np.linspace(1.0, 0.0, overlap, dtype=np.float32)
             fade_in = np.linspace(0.0, 1.0, overlap, dtype=np.float32)
             result[-overlap:] = result[-overlap:] * fade_out + chunk[:overlap] * fade_in
-            result = np.concatenate([result, chunk[overlap:]])
+            tail = chunk[overlap:]
         else:
-            result = np.concatenate([result, chunk])
+            tail = chunk
+
+        if extra_silence > 0:
+            result = np.concatenate([result, np.zeros(extra_silence, dtype=np.float32), tail])
+        else:
+            result = np.concatenate([result, tail])
 
     return result
 
@@ -211,6 +242,8 @@ async def generate_chunked(
     max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
     crossfade_ms: int = 50,
     trim_fn=None,
+    sampling_params: Optional[dict] = None,
+    jitter_ms: int = 0,
 ) -> Tuple[np.ndarray, int]:
     """Generate audio with automatic chunking for long text.
 
@@ -254,6 +287,7 @@ async def generate_chunked(
             language,
             seed,
             instruct,
+            sampling_params,
         )
         if trim_fn is not None:
             audio = trim_fn(audio, sample_rate)
@@ -287,6 +321,7 @@ async def generate_chunked(
             language,
             chunk_seed,
             instruct,
+            sampling_params,
         )
         if trim_fn is not None:
             chunk_audio = trim_fn(chunk_audio, chunk_sr)
@@ -295,5 +330,5 @@ async def generate_chunked(
         if sample_rate is None:
             sample_rate = chunk_sr
 
-    audio = concatenate_audio_chunks(audio_chunks, sample_rate, crossfade_ms=crossfade_ms)
+    audio = concatenate_audio_chunks(audio_chunks, sample_rate, crossfade_ms=crossfade_ms, jitter_ms=jitter_ms)
     return audio, sample_rate

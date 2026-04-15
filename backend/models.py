@@ -86,9 +86,18 @@ class GenerationRequest(BaseModel):
         default=50, ge=0, le=500, description="Crossfade duration in ms between chunks (0 for hard cut)"
     )
     normalize: bool = Field(default=True, description="Normalize output audio volume")
+    inject_breaths: bool = Field(default=False, description="Inject synthetic breaths at pauses")
+    jitter_ms: int = Field(default=0, ge=0, le=50, description="Micro-timing jitter in ms")
     effects_chain: Optional[List["EffectConfig"]] = Field(
         None, description="Effects chain to apply after generation (overrides profile default)"
     )
+    temperature: Optional[float] = Field(None, ge=0.0, le=2.0, description="Sampling temperature")
+    top_k: Optional[int] = Field(None, ge=0, le=5000, description="Top-k sampling")
+    top_p: Optional[float] = Field(None, ge=0.0, le=1.0, description="Nucleus sampling threshold")
+    repetition_penalty: Optional[float] = Field(None, ge=0.5, le=3.0, description="Repetition penalty")
+    speed: Optional[float] = Field(None, ge=0.5, le=2.0, description="Speed factor")
+    humanize_text: bool = Field(default=False, description="Preprocess text with LLM to add natural disfluencies")
+    humanize_intensity: Optional[str] = Field(None, pattern="^(light|medium|heavy)$", description="Disfluency intensity")
 
 
 class GenerationResponse(BaseModel):
@@ -107,6 +116,12 @@ class GenerationResponse(BaseModel):
     status: str = "completed"
     error: Optional[str] = None
     is_favorited: bool = False
+    rating: Optional[int] = None
+    temperature: Optional[float] = None
+    top_k: Optional[int] = None
+    top_p: Optional[float] = None
+    repetition_penalty: Optional[float] = None
+    speed: Optional[float] = None
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
@@ -141,12 +156,34 @@ class HistoryResponse(BaseModel):
     status: str = "completed"
     error: Optional[str] = None
     is_favorited: bool = False
+    rating: Optional[int] = None
+    temperature: Optional[float] = None
+    top_k: Optional[int] = None
+    top_p: Optional[float] = None
+    repetition_penalty: Optional[float] = None
+    speed: Optional[float] = None
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class GenerationRatingRequest(BaseModel):
+    """Request model for rating a generation."""
+
+    rating: int = Field(..., ge=1, le=5)
+
+
+class SuggestedParams(BaseModel):
+    """Suggested generation params derived from highly-rated generations."""
+
+    temperature: Optional[float] = None
+    top_k: Optional[float] = None
+    top_p: Optional[float] = None
+    repetition_penalty: Optional[float] = None
+    speed: Optional[float] = None
 
 
 class HistoryListResponse(BaseModel):
@@ -160,7 +197,7 @@ class TranscriptionRequest(BaseModel):
     """Request model for audio transcription."""
 
     language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
-    model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
+    model: Optional[str] = Field(None, pattern="^(base|small|medium|large|large-v3|large-v3-mlx|turbo)$")
 
 
 class TranscriptionResponse(BaseModel):

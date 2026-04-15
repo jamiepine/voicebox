@@ -32,6 +32,10 @@ from pedalboard import (
     LowpassFilter,
     Delay,
     PitchShift,
+    Distortion,
+    Clipping,
+    NoiseGate,
+    Limiter,
 )
 
 
@@ -144,6 +148,42 @@ EFFECT_REGISTRY: Dict[str, Dict[str, Any]] = {
             "semitones": {"default": 0.0, "min": -12.0, "max": 12.0, "step": 0.5, "description": "Semitones to shift"},
         },
     },
+    "distortion": {
+        "cls": Distortion,
+        "label": "Distortion",
+        "description": "Soft saturation and harmonic warmth",
+        "params": {
+            "drive_db": {"default": 10.0, "min": 0.0, "max": 40.0, "step": 0.5, "description": "Drive amount in dB"},
+        },
+    },
+    "clipping": {
+        "cls": Clipping,
+        "label": "Clipping",
+        "description": "Hard clipping for aggressive saturation",
+        "params": {
+            "threshold_db": {"default": -6.0, "min": -40.0, "max": 0.0, "step": 0.5, "description": "Clipping threshold in dB"},
+        },
+    },
+    "noise_gate": {
+        "cls": NoiseGate,
+        "label": "Noise Gate",
+        "description": "Remove low-level noise and silence",
+        "params": {
+            "threshold_db": {"default": -40.0, "min": -80.0, "max": 0.0, "step": 1.0, "description": "Threshold (dB)"},
+            "ratio": {"default": 10.0, "min": 1.0, "max": 100.0, "step": 1.0, "description": "Gate ratio"},
+            "attack_ms": {"default": 1.0, "min": 0.1, "max": 100.0, "step": 0.1, "description": "Attack time (ms)"},
+            "release_ms": {"default": 100.0, "min": 10.0, "max": 1000.0, "step": 10.0, "description": "Release time (ms)"},
+        },
+    },
+    "limiter": {
+        "cls": Limiter,
+        "label": "Limiter",
+        "description": "Peak limiting to prevent clipping",
+        "params": {
+            "threshold_db": {"default": -1.0, "min": -40.0, "max": 0.0, "step": 0.5, "description": "Threshold (dB)"},
+            "release_ms": {"default": 100.0, "min": 10.0, "max": 1000.0, "step": 10.0, "description": "Release time (ms)"},
+        },
+    },
 }
 
 
@@ -248,6 +288,171 @@ BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
                     "ratio": 3.0,
                     "attack_ms": 10.0,
                     "release_ms": 150.0,
+                },
+            },
+        ],
+    },
+    "warm_voice": {
+        "name": "Warm Voice",
+        "sort_order": 5,
+        "description": "Warm analog-style voice with subtle saturation",
+        "effects_chain": [
+            {
+                "type": "distortion",
+                "enabled": True,
+                "params": {"drive_db": 6.0},
+            },
+            {
+                "type": "lowpass",
+                "enabled": True,
+                "params": {"cutoff_frequency_hz": 8000.0},
+            },
+            {
+                "type": "compressor",
+                "enabled": True,
+                "params": {
+                    "threshold_db": -15.0,
+                    "ratio": 2.5,
+                    "attack_ms": 10.0,
+                    "release_ms": 200.0,
+                },
+            },
+            {
+                "type": "gain",
+                "enabled": True,
+                "params": {"gain_db": 3.0},
+            },
+        ],
+    },
+    "tape": {
+        "name": "Tape",
+        "sort_order": 6,
+        "description": "Vintage tape recorder character",
+        "effects_chain": [
+            {
+                "type": "distortion",
+                "enabled": True,
+                "params": {"drive_db": 12.0},
+            },
+            {
+                "type": "highpass",
+                "enabled": True,
+                "params": {"cutoff_frequency_hz": 60.0},
+            },
+            {
+                "type": "lowpass",
+                "enabled": True,
+                "params": {"cutoff_frequency_hz": 12000.0},
+            },
+            {
+                "type": "chorus",
+                "enabled": True,
+                "params": {
+                    "rate_hz": 0.3,
+                    "depth": 0.1,
+                    "centre_delay_ms": 7.0,
+                    "feedback": 0.05,
+                    "mix": 0.15,
+                },
+            },
+            {
+                "type": "compressor",
+                "enabled": True,
+                "params": {
+                    "threshold_db": -18.0,
+                    "ratio": 3.0,
+                    "attack_ms": 5.0,
+                    "release_ms": 150.0,
+                },
+            },
+        ],
+    },
+    "natural": {
+        "name": "Natural",
+        "sort_order": 7,
+        "description": "Clean natural voice with noise reduction",
+        "effects_chain": [
+            {
+                "type": "noise_gate",
+                "enabled": True,
+                "params": {
+                    "threshold_db": -40.0,
+                    "ratio": 10.0,
+                    "attack_ms": 1.0,
+                    "release_ms": 100.0,
+                },
+            },
+            {
+                "type": "compressor",
+                "enabled": True,
+                "params": {
+                    "threshold_db": -20.0,
+                    "ratio": 2.0,
+                    "attack_ms": 15.0,
+                    "release_ms": 200.0,
+                },
+            },
+            {
+                "type": "limiter",
+                "enabled": True,
+                "params": {
+                    "threshold_db": -1.0,
+                    "release_ms": 100.0,
+                },
+            },
+        ],
+    },
+    "emotion_energetic": {
+        "name": "Emotion: Energetic",
+        "sort_order": 8,
+        "description": "Energetic and upbeat vocal style",
+        "effects_chain": [
+            {
+                "type": "pitch_shift",
+                "enabled": True,
+                "params": {"semitones": 1.0},
+            },
+            {
+                "type": "compressor",
+                "enabled": True,
+                "params": {
+                    "threshold_db": -15.0,
+                    "ratio": 3.0,
+                    "attack_ms": 2.0,
+                    "release_ms": 100.0,
+                },
+            },
+            {
+                "type": "gain",
+                "enabled": True,
+                "params": {"gain_db": 2.0},
+            },
+        ],
+    },
+    "emotion_calm": {
+        "name": "Emotion: Calm",
+        "sort_order": 9,
+        "description": "Calm and soothing vocal tone",
+        "effects_chain": [
+            {
+                "type": "pitch_shift",
+                "enabled": True,
+                "params": {"semitones": -0.5},
+            },
+            {
+                "type": "lowpass",
+                "enabled": True,
+                "params": {"cutoff_frequency_hz": 7000.0},
+            },
+            {
+                "type": "reverb",
+                "enabled": True,
+                "params": {
+                    "room_size": 0.2,
+                    "damping": 0.7,
+                    "wet_level": 0.1,
+                    "dry_level": 0.9,
+                    "width": 0.5,
                 },
             },
         ],

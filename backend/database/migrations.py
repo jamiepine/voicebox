@@ -164,6 +164,20 @@ def _migrate_generations(engine, inspector, tables: set[str]) -> None:
         _add_column(engine, "generations", "model_size VARCHAR", "model_size")
     if "is_favorited" not in columns:
         _add_column(engine, "generations", "is_favorited BOOLEAN DEFAULT 0", "is_favorited")
+    # Rating + sampling params (for suggested-params feature)
+    columns = _get_columns(inspector, "generations")
+    if "rating" not in columns:
+        _add_column(engine, "generations", "rating INTEGER", "rating")
+    if "temperature" not in columns:
+        _add_column(engine, "generations", "temperature FLOAT", "temperature")
+    if "top_k" not in columns:
+        _add_column(engine, "generations", "top_k INTEGER", "top_k")
+    if "top_p" not in columns:
+        _add_column(engine, "generations", "top_p FLOAT", "top_p")
+    if "repetition_penalty" not in columns:
+        _add_column(engine, "generations", "repetition_penalty FLOAT", "repetition_penalty")
+    if "speed" not in columns:
+        _add_column(engine, "generations", "speed FLOAT", "speed")
 
 
 def _migrate_effect_presets(engine, inspector, tables: set[str]) -> None:

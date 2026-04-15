@@ -23,7 +23,22 @@ async def transcribe_audio(
     model: str | None = Form(None),
 ):
     """Transcribe audio file to text."""
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+    _mime_to_ext = {
+        "audio/webm": ".webm",
+        "audio/ogg": ".ogg",
+        "audio/mpeg": ".mp3",
+        "audio/mp4": ".mp4",
+        "audio/flac": ".flac",
+        "audio/wav": ".wav",
+        "audio/x-wav": ".wav",
+    }
+    _content_type = (file.content_type or "").split(";")[0].strip().lower()
+    _suffix = _mime_to_ext.get(_content_type)
+    if not _suffix and file.filename:
+        _suffix = Path(file.filename).suffix or ".wav"
+    if not _suffix:
+        _suffix = ".wav"
+    with tempfile.NamedTemporaryFile(suffix=_suffix, delete=False) as tmp:
         while chunk := await file.read(UPLOAD_CHUNK_SIZE):
             tmp.write(chunk)
         tmp_path = tmp.name
@@ -79,6 +94,7 @@ async def transcribe_audio(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        detail = str(e) or "Unsupported audio format — ensure the file is WAV, MP3, OGG, or FLAC"
+        raise HTTPException(status_code=500, detail=detail)
     finally:
         Path(tmp_path).unlink(missing_ok=True)

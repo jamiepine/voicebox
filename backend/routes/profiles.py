@@ -4,6 +4,7 @@ import io
 import json as _json
 import logging
 import tempfile
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from .. import config, models
 from ..app import safe_content_disposition
 from ..database import VoiceProfile as DBVoiceProfile, get_db
+from ..database import Generation as DBGeneration
 from ..services import channels, export_import, profiles
 from ..services.profiles import _profile_to_response
 
@@ -304,6 +306,59 @@ async def export_profile(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profiles/{profile_id}/suggested-params", response_model=models.SuggestedParams | None)
+async def get_suggested_params(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """Return averaged sampling params from generations with rating >= 4 for this profile.
+
+    Returns None if fewer than 3 highly-rated generations exist.
+    """
+    from sqlalchemy import func
+
+    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    # Query all highly-rated generations that have at least one non-null sampling param
+    rated = (
+        db.query(DBGeneration)
+        .filter(
+            DBGeneration.profile_id == profile_id,
+            DBGeneration.rating >= 4,
+            DBGeneration.status == "completed",
+        )
+        .all()
+    )
+
+    if len(rated) < 3:
+        return None
+
+    # Average across generations that have each param set
+    def _avg(attr: str) -> float | None:
+        vals = [getattr(g, attr) for g in rated if getattr(g, attr) is not None]
+        return sum(vals) / len(vals) if vals else None
+
+    temperature = _avg("temperature")
+    top_k_avg = _avg("top_k")
+    top_p = _avg("top_p")
+    repetition_penalty = _avg("repetition_penalty")
+    speed = _avg("speed")
+
+    # If none of the params are available across all rated gens, no suggestion
+    if all(v is None for v in (temperature, top_k_avg, top_p, repetition_penalty, speed)):
+        return None
+
+    return models.SuggestedParams(
+        temperature=temperature,
+        top_k=top_k_avg,
+        top_p=top_p,
+        repetition_penalty=repetition_penalty,
+        speed=speed,
+    )
 
 
 @router.get("/profiles/{profile_id}/channels")

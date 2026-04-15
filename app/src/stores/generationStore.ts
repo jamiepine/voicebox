@@ -1,4 +1,18 @@
 import { create } from 'zustand';
+import type { EffectConfig } from '@/lib/api/types';
+
+export interface ReuseParams {
+  text: string;
+  language?: string;
+  engine?: string;
+  model_size?: string;
+  temperature?: number | null;
+  top_k?: number | null;
+  top_p?: number | null;
+  repetition_penalty?: number | null;
+  speed?: number | null;
+  effects_chain?: EffectConfig[] | null;
+}
 
 interface GenerationState {
   /** IDs of generations currently in progress */
@@ -13,6 +27,9 @@ interface GenerationState {
   removePendingStoryAdd: (generationId: string) => string | undefined;
   setActiveGenerationId: (id: string | null) => void;
   activeGenerationId: string | null;
+  /** Params to reuse from history — set by HistoryTable, consumed by FloatingGenerateBox */
+  reuseParams: ReuseParams | null;
+  setReuseParams: (params: ReuseParams | null) => void;
 }
 
 export const useGenerationStore = create<GenerationState>((set, get) => ({
@@ -20,6 +37,8 @@ export const useGenerationStore = create<GenerationState>((set, get) => ({
   isGenerating: false,
   activeGenerationId: null,
   pendingStoryAdds: new Map(),
+  reuseParams: null,
+  setReuseParams: (params) => set({ reuseParams: params }),
 
   addPendingGeneration: (id) =>
     set((state) => {

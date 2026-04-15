@@ -41,6 +41,11 @@ async def run_generation(
     max_chunk_chars: Optional[int] = None,
     crossfade_ms: Optional[int] = None,
     version_id: Optional[str] = None,
+    sampling_params: Optional[dict] = None,
+    inject_breaths: bool = False,
+    jitter_ms: int = 0,
+    humanize_text: bool = False,
+    humanize_intensity: Optional[str] = None,
 ) -> None:
     """Execute TTS inference and persist the result.
 
@@ -55,10 +60,20 @@ async def run_generation(
     bg_db = next(get_db())
 
     try:
+        # LLM text preprocessing (before loading TTS model to leave RAM for Ollama)
+        if humanize_text:
+            from ..utils.text_preprocess import inject_disfluencies
+            intensity = humanize_intensity or "light"
+            text = await inject_disfluencies(text, language, intensity)
+
         tts_model = get_tts_backend_for_engine(engine)
 
         if not tts_model.is_loaded():
             await history.update_generation_status(generation_id, "loading_model", bg_db)
+
+        # Free Whisper memory before loading TTS
+        from ..backends import ensure_tts_memory
+        ensure_tts_memory()
 
         await load_engine_model(engine, model_size)
 
@@ -72,18 +87,58 @@ async def run_generation(
         await history.update_generation_status(generation_id, "generating", bg_db)
         trim_fn = trim_tts_output if engine_needs_trim(engine) else None
 
-        gen_kwargs: dict = dict(
-            language=language,
-            seed=seed if mode != "regenerate" else None,
-            instruct=instruct,
-            trim_fn=trim_fn,
-        )
-        if max_chunk_chars is not None:
-            gen_kwargs["max_chunk_chars"] = max_chunk_chars
-        if crossfade_ms is not None:
-            gen_kwargs["crossfade_ms"] = crossfade_ms
+        effective_seed = seed if mode != "regenerate" else None
+        _max_chunk_chars = max_chunk_chars if max_chunk_chars is not None else 800
+        _crossfade_ms = crossfade_ms if crossfade_ms is not None else 50
 
-        audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
+        from ..utils.tag_router import has_paralinguistic_tags
+        if has_paralinguistic_tags(text) and engine in ("qwen",):
+            from ..utils.hybrid_generate import generate_hybrid
+            audio, sample_rate = await generate_hybrid(
+                text,
+                voice_prompt,
+                language=language,
+                seed=effective_seed,
+                instruct=instruct,
+                sampling_params=sampling_params,
+                max_chunk_chars=_max_chunk_chars,
+                crossfade_ms=_crossfade_ms,
+                jitter_ms=jitter_ms,
+                primary_engine=engine,
+                primary_model_size=model_size,
+            )
+        else:
+            gen_kwargs: dict = dict(
+                language=language,
+                seed=effective_seed,
+                instruct=instruct,
+                trim_fn=trim_fn,
+                max_chunk_chars=_max_chunk_chars,
+                crossfade_ms=_crossfade_ms,
+            )
+            if sampling_params:
+                gen_kwargs["sampling_params"] = sampling_params
+            if jitter_ms > 0:
+                gen_kwargs["jitter_ms"] = jitter_ms
+
+            audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
+
+        from ..backends import touch_tts_model
+        touch_tts_model(engine)
+
+        # Trim voice cloning warm-up for Qwen engines
+        if engine in ("qwen",) and voice_prompt.get("ref_audio"):
+            from ..utils.audio import trim_leading_warmup
+            audio = trim_leading_warmup(
+                audio, sample_rate,
+                ref_audio_duration=voice_prompt.get("ref_audio_duration", 0.0),
+                ref_text=voice_prompt.get("ref_text", ""),
+            )
+
+        # Breath injection (if requested)
+        if inject_breaths:
+            from ..utils.breath_injection import inject_breaths as _inject_breaths
+            audio = _inject_breaths(audio, sample_rate)
 
         # --- Normalize (generate and regenerate always; retry skips) -----
         if normalize or mode == "regenerate":

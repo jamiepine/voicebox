@@ -67,6 +67,13 @@ class Generation(Base):
     status = Column(String, default="completed")
     error = Column(Text, nullable=True)
     is_favorited = Column(Boolean, default=False)
+    rating = Column(Integer, nullable=True)  # 1-5, nullable = unrated
+    # Sampling params stored so we can compute suggested-params from highly-rated gens
+    temperature = Column(Float, nullable=True)
+    top_k = Column(Integer, nullable=True)
+    top_p = Column(Float, nullable=True)
+    repetition_penalty = Column(Float, nullable=True)
+    speed = Column(Float, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

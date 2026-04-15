@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMatchRoute } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Loader2, Sparkles } from 'lucide-react';
+import { CheckCircle, Loader2, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -12,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { apiClient } from '@/lib/api/client';
 import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
@@ -40,20 +43,31 @@ export function FloatingGenerateBox({
   const { data: selectedProfile } = useProfile(selectedProfileId || '');
   const { data: profiles } = useProfiles();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const reuseEffectsChainRef = useRef<import('@/lib/api/types').EffectConfig[] | null>(null);
   const matchRoute = useMatchRoute();
   const isStoriesRoute = matchRoute({ to: '/stories' });
   const selectedStoryId = useStoryStore((state) => state.selectedStoryId);
   const trackEditorHeight = useStoryStore((state) => state.trackEditorHeight);
   const { data: currentStory } = useStory(selectedStoryId);
   const addPendingStoryAdd = useGenerationStore((s) => s.addPendingStoryAdd);
+  const reuseParams = useGenerationStore((s) => s.reuseParams);
+  const setReuseParams = useGenerationStore((s) => s.setReuseParams);
 
   // Fetch effect presets for the dropdown
   const { data: effectPresets } = useQuery({
     queryKey: ['effectPresets'],
     queryFn: () => apiClient.listEffectPresets(),
+  });
+
+  // Fetch suggested params for the selected profile
+  const { data: suggestedParams } = useQuery({
+    queryKey: ['suggestedParams', selectedProfileId],
+    queryFn: () => apiClient.getSuggestedParams(selectedProfileId!),
+    enabled: !!selectedProfileId,
   });
 
   // Calculate if track editor is visible (on stories route with items)
@@ -72,6 +86,10 @@ export function FloatingGenerateBox({
       // Profile's own effects chain (no matching preset)
       if (selectedPresetId === '_profile') {
         return selectedProfile?.effects_chain ?? undefined;
+      }
+      // Effects chain reused from history (no matching preset)
+      if (selectedPresetId === '_reuse') {
+        return reuseEffectsChainRef.current ?? undefined;
       }
       if (!effectPresets) return undefined;
       const preset = effectPresets.find((p) => p.id === selectedPresetId);
@@ -217,6 +235,63 @@ export function FloatingGenerateBox({
     };
   }, [isExpanded]);
 
+  // Apply params from history "Reuse" button
+  useEffect(() => {
+    if (!reuseParams) return;
+    form.setValue('text', reuseParams.text);
+    if (reuseParams.language) form.setValue('language', reuseParams.language as LanguageCode);
+    if (reuseParams.engine)
+      form.setValue(
+        'engine',
+        reuseParams.engine as
+          | 'qwen'
+          | 'qwen_custom_voice'
+          | 'luxtts'
+          | 'chatterbox'
+          | 'chatterbox_turbo'
+          | 'tada'
+          | 'kokoro',
+      );
+    if (reuseParams.temperature != null) form.setValue('temperature', reuseParams.temperature);
+    if (reuseParams.top_k != null) form.setValue('top_k', Math.round(reuseParams.top_k));
+    if (reuseParams.top_p != null) form.setValue('top_p', reuseParams.top_p);
+    if (reuseParams.repetition_penalty != null)
+      form.setValue('repetition_penalty', reuseParams.repetition_penalty);
+    if (reuseParams.speed != null) form.setValue('speed', reuseParams.speed);
+    // Apply effects chain if present
+    if (reuseParams.effects_chain && reuseParams.effects_chain.length > 0) {
+      reuseEffectsChainRef.current = reuseParams.effects_chain;
+      if (effectPresets) {
+        const chainJson = JSON.stringify(reuseParams.effects_chain);
+        const matchingPreset = effectPresets.find(
+          (p) => JSON.stringify(p.effects_chain) === chainJson,
+        );
+        if (matchingPreset) {
+          setSelectedPresetId(matchingPreset.id);
+        } else {
+          // No matching preset — use sentinel so getEffectsChain returns the stored chain
+          setSelectedPresetId('_reuse');
+        }
+      } else {
+        setSelectedPresetId('_reuse');
+      }
+    } else {
+      reuseEffectsChainRef.current = null;
+    }
+    setIsExpanded(true);
+    // Consume the params so this effect doesn't re-fire
+    setReuseParams(null);
+  }, [reuseParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function applySuggestedParams() {
+    if (!suggestedParams) return;
+    if (suggestedParams.temperature != null) form.setValue('temperature', suggestedParams.temperature);
+    if (suggestedParams.top_k != null) form.setValue('top_k', Math.round(suggestedParams.top_k));
+    if (suggestedParams.top_p != null) form.setValue('top_p', suggestedParams.top_p);
+    if (suggestedParams.repetition_penalty != null) form.setValue('repetition_penalty', suggestedParams.repetition_penalty);
+    if (suggestedParams.speed != null) form.setValue('speed', suggestedParams.speed);
+  }
+
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);
   }
@@ -262,7 +337,7 @@ export function FloatingGenerateBox({
                           transition={{ duration: 0.15, ease: 'easeOut' }}
                           style={{ overflow: 'hidden' }}
                         >
-                          {form.watch('engine') === 'chatterbox_turbo' ? (
+                          {(form.watch('engine') === 'chatterbox_turbo' || form.watch('engine') === 'qwen') ? (
                             <ParalinguisticInput
                               value={field.value}
                               onChange={field.onChange}
@@ -317,7 +392,270 @@ export function FloatingGenerateBox({
                 />
               </motion.div>
 
-              <div className="relative shrink-0">
+              <div className="relative shrink-0 flex flex-col items-center gap-1">
+                {/* Settings / Advanced popover */}
+                <Popover open={showAdvanced} onOpenChange={setShowAdvanced}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Advanced settings"
+                      className={cn(
+                        'h-7 w-7 rounded-full transition-all duration-200',
+                        showAdvanced
+                          ? 'bg-accent/20 text-accent'
+                          : 'text-muted-foreground hover:text-accent hover:bg-accent/10',
+                      )}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    side="top"
+                    align="end"
+                    sideOffset={8}
+                    className="w-72 space-y-2.5 rounded-2xl border border-accent/20 bg-background/80 backdrop-blur-xl p-4"
+                  >
+                    <p className="text-xs font-medium text-muted-foreground mb-3">Advanced settings</p>
+
+                    {/* Row 1: Temperature + Speed */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="temperature"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-muted-foreground/70">Temp</label>
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {field.value?.toFixed(2) ?? '—'}
+                              </span>
+                            </div>
+                            <FormControl>
+                              <Slider
+                                min={0}
+                                max={2}
+                                step={0.05}
+                                value={field.value !== undefined ? [field.value] : [1]}
+                                onValueChange={([v]) => field.onChange(v)}
+                                className="h-3"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="speed"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-muted-foreground/70">Speed</label>
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {field.value?.toFixed(2) ?? '—'}
+                              </span>
+                            </div>
+                            <FormControl>
+                              <Slider
+                                min={0.5}
+                                max={2}
+                                step={0.05}
+                                value={field.value !== undefined ? [field.value] : [1]}
+                                onValueChange={([v]) => field.onChange(v)}
+                                className="h-3"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Row 2: Top-K + Top-P */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="top_k"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-muted-foreground/70">Top-K</label>
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {field.value !== undefined ? field.value : '—'}
+                              </span>
+                            </div>
+                            <FormControl>
+                              <Slider
+                                min={0}
+                                max={200}
+                                step={1}
+                                value={field.value !== undefined ? [field.value] : [50]}
+                                onValueChange={([v]) => field.onChange(v)}
+                                className="h-3"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="top_p"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-muted-foreground/70">Top-P</label>
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {field.value?.toFixed(2) ?? '—'}
+                              </span>
+                            </div>
+                            <FormControl>
+                              <Slider
+                                min={0}
+                                max={1}
+                                step={0.01}
+                                value={field.value !== undefined ? [field.value] : [0.9]}
+                                onValueChange={([v]) => field.onChange(v)}
+                                className="h-3"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Row 3: Repetition Penalty (half-width, left column) */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <FormField
+                        control={form.control}
+                        name="repetition_penalty"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-muted-foreground/70">Rep. Penalty</label>
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {field.value?.toFixed(2) ?? '—'}
+                              </span>
+                            </div>
+                            <FormControl>
+                              <Slider
+                                min={0.5}
+                                max={2}
+                                step={0.01}
+                                value={field.value !== undefined ? [field.value] : [1]}
+                                onValueChange={([v]) => field.onChange(v)}
+                                className="h-3"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Row 5: Humanize text + intensity */}
+                    <div className="flex items-center gap-2">
+                      <FormField
+                        control={form.control}
+                        name="humanize_text"
+                        render={({ field }) => (
+                          <FormItem className="space-y-0">
+                            <FormControl>
+                              <div className="flex items-center gap-1.5">
+                                <Checkbox
+                                  id="humanize_text_adv"
+                                  checked={!!field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                                <label
+                                  htmlFor="humanize_text_adv"
+                                  className="text-xs text-muted-foreground/70 cursor-pointer select-none"
+                                >
+                                  Humanize
+                                </label>
+                              </div>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="humanize_intensity"
+                        render={({ field }) => (
+                          <FormItem className="flex-1 space-y-0">
+                            <FormControl>
+                              <Select
+                                value={field.value ?? 'medium'}
+                                onValueChange={field.onChange}
+                                disabled={!form.watch('humanize_text')}
+                              >
+                                <SelectTrigger className="h-7 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="light" className="text-xs">Light</SelectItem>
+                                  <SelectItem value="medium" className="text-xs">Medium</SelectItem>
+                                  <SelectItem value="heavy" className="text-xs">Heavy</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {/* Row 6: Inject breaths + Jitter */}
+                    <div className="grid grid-cols-2 gap-3 items-center">
+                      <FormField
+                        control={form.control}
+                        name="inject_breaths"
+                        render={({ field }) => (
+                          <FormItem className="space-y-0">
+                            <FormControl>
+                              <div className="flex items-center gap-1.5">
+                                <Checkbox
+                                  id="inject_breaths_adv"
+                                  checked={!!field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                                <label
+                                  htmlFor="inject_breaths_adv"
+                                  className="text-xs text-muted-foreground/70 cursor-pointer select-none"
+                                >
+                                  Inject breaths
+                                </label>
+                              </div>
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="jitter_ms"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs text-muted-foreground/70">Jitter</label>
+                              <span className="text-xs text-muted-foreground tabular-nums">
+                                {field.value !== undefined ? `${field.value}ms` : '—'}
+                              </span>
+                            </div>
+                            <FormControl>
+                              <Slider
+                                min={0}
+                                max={50}
+                                step={1}
+                                value={field.value !== undefined ? [field.value] : [0]}
+                                onValueChange={([v]) => field.onChange(v)}
+                                className="h-3"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Generate button */}
                 <div className="group relative">
                   <Button
                     type="submit"
@@ -357,6 +695,20 @@ export function FloatingGenerateBox({
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 className=" mt-3"
               >
+                {/* Suggested params banner */}
+                {suggestedParams && (
+                  <div className="flex items-center gap-2 mb-2 px-1 py-1 rounded-xl bg-green-500/10 border border-green-500/20">
+                    <CheckCircle className="h-3 w-3 text-green-500 shrink-0 ml-1" />
+                    <span className="text-xs text-green-500 flex-1">Proven params for this voice</span>
+                    <button
+                      type="button"
+                      className="text-xs text-green-500 font-medium hover:text-green-400 transition-colors px-1.5 py-0.5 rounded-lg hover:bg-green-500/10"
+                      onClick={applySuggestedParams}
+                    >
+                      Apply
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-center gap-2">
                   {showVoiceSelector && (
                     <div className="flex-1">
@@ -414,9 +766,10 @@ export function FloatingGenerateBox({
                   <FormItem className="flex-1 space-y-0">
                     <Select
                       value={selectedPresetId || 'none'}
-                      onValueChange={(value) =>
-                        setSelectedPresetId(value === 'none' ? null : value)
-                      }
+                      onValueChange={(value) => {
+                        if (value !== '_reuse') reuseEffectsChainRef.current = null;
+                        setSelectedPresetId(value === 'none' ? null : value);
+                      }}
                     >
                       <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all">
                         <SelectValue placeholder="No effects" />
@@ -431,6 +784,11 @@ export function FloatingGenerateBox({
                               Profile default
                             </SelectItem>
                           )}
+                        {selectedPresetId === '_reuse' && (
+                          <SelectItem value="_reuse" className="text-xs">
+                            From history
+                          </SelectItem>
+                        )}
                         {effectPresets?.map((preset) => (
                           <SelectItem key={preset.id} value={preset.id} className="text-xs">
                             {preset.name}
@@ -440,6 +798,7 @@ export function FloatingGenerateBox({
                     </Select>
                   </FormItem>
                 </div>
+
               </motion.div>
             </AnimatePresence>
           </form>

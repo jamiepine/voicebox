@@ -1,16 +1,17 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  AlignCenter,
   AudioLines,
-  AudioWaveform,
   Download,
   FileArchive,
   Loader2,
   MoreHorizontal,
   Play,
   RotateCcw,
+  Settings2,
   Star,
+  ThumbsDown,
+  ThumbsUp,
   Trash2,
   Wand2,
 } from 'lucide-react';
@@ -32,6 +33,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -55,6 +57,77 @@ import { cn } from '@/lib/utils/cn';
 import { formatDate, formatDuration, formatEngineName } from '@/lib/utils/format';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
+
+// ─── Params Badge ────────────────────────────────────────────────────────────
+
+function ParamsBadge({ gen }: { gen: HistoryResponse }) {
+  const activeVersion = gen.versions?.find((v) => v.is_default) ?? gen.versions?.[0];
+  const effectsChain = activeVersion?.effects_chain;
+
+  const hasNonDefaultParams =
+    gen.temperature != null ||
+    gen.top_k != null ||
+    gen.top_p != null ||
+    gen.repetition_penalty != null ||
+    gen.speed != null ||
+    (effectsChain && effectsChain.length > 0);
+
+  if (!hasNonDefaultParams) return null;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
+          aria-label="View generation params"
+        >
+          <Settings2 className="h-2 w-2" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent side="left" align="start" className="w-48 p-2 text-xs space-y-1">
+        <p className="font-medium text-muted-foreground mb-1.5">Generation params</p>
+        {gen.temperature != null && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">temp</span>
+            <span className="tabular-nums">{gen.temperature.toFixed(2)}</span>
+          </div>
+        )}
+        {gen.speed != null && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">speed</span>
+            <span className="tabular-nums">{gen.speed.toFixed(2)}</span>
+          </div>
+        )}
+        {gen.top_k != null && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">top_k</span>
+            <span className="tabular-nums">{gen.top_k}</span>
+          </div>
+        )}
+        {gen.top_p != null && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">top_p</span>
+            <span className="tabular-nums">{gen.top_p.toFixed(2)}</span>
+          </div>
+        )}
+        {gen.repetition_penalty != null && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">rep_penalty</span>
+            <span className="tabular-nums">{gen.repetition_penalty.toFixed(2)}</span>
+          </div>
+        )}
+        {effectsChain && effectsChain.length > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">effects</span>
+            <span className="truncate ml-2">{effectsChain.map((e) => e.type).join(', ')}</span>
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ─── Audio Bars ─────────────────────────────────────────────────────────────
 
@@ -128,6 +201,7 @@ export function HistoryTable() {
   const exportGenerationAudio = useExportGenerationAudio();
   const importGeneration = useImportGeneration();
   const addPendingGeneration = useGenerationStore((state) => state.addPendingGeneration);
+  const setReuseParams = useGenerationStore((state) => state.setReuseParams);
   const setAudioWithAutoPlay = usePlayerStore((state) => state.setAudioWithAutoPlay);
   const restartCurrentAudio = usePlayerStore((state) => state.restartCurrentAudio);
   const currentAudioId = usePlayerStore((state) => state.audioId);
@@ -307,6 +381,23 @@ export function HistoryTable() {
     }
   };
 
+  const handleRate = async (generationId: string, rating: number, currentRating: number | null | undefined) => {
+    // Clicking the same rating again clears it — not supported by the API directly,
+    // but we can send rating 0 — backend won't accept it, so we just skip toggling for now.
+    // If user clicks the already-active thumb, we do nothing.
+    if (currentRating === rating) return;
+    try {
+      await apiClient.rateGeneration(generationId, rating);
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+    } catch (error) {
+      toast({
+        title: 'Failed to rate generation',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleApplyEffects = (generationId: string) => {
     const gen = allHistory.find((g) => g.id === generationId);
     const versions = gen?.versions ?? [];
@@ -355,6 +446,25 @@ export function HistoryTable() {
     } finally {
       setApplyingEffects(false);
     }
+  };
+
+  const handleReuseParams = (gen: HistoryResponse) => {
+    // Get effects chain from the active/default version of this generation
+    const activeVersion = gen.versions?.find((v) => v.is_default) ?? gen.versions?.[0];
+    const effectsChain = activeVersion?.effects_chain ?? null;
+    setReuseParams({
+      text: gen.text,
+      language: gen.language,
+      engine: gen.engine ?? undefined,
+      model_size: gen.model_size ?? undefined,
+      temperature: gen.temperature,
+      top_k: gen.top_k,
+      top_p: gen.top_p,
+      repetition_penalty: gen.repetition_penalty,
+      speed: gen.speed,
+      effects_chain: effectsChain,
+    });
+    toast({ title: 'Params applied', description: 'Generation settings loaded into the form.' });
   };
 
   const handleSwitchVersion = async (generationId: string, versionId: string) => {
@@ -538,6 +648,17 @@ export function HistoryTable() {
                       onMouseDown={(e) => e.stopPropagation()}
                       onClick={(e) => e.stopPropagation()}
                     >
+                      <ParamsBadge gen={gen} />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
+                        aria-label="Reuse these params"
+                        title="Reuse text + params"
+                        onClick={() => handleReuseParams(gen)}
+                      >
+                        <RotateCcw className="h-2 w-2" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -551,6 +672,39 @@ export function HistoryTable() {
                         <Star
                           className="h-2 w-2"
                           fill={gen.is_favorited ? 'currentColor' : 'none'}
+                        />
+                      </Button>
+                      {/* Rating: thumbs up (5) / thumbs down (1) */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          'h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground',
+                          gen.rating === 5 && 'text-green-500 hover:text-green-500',
+                        )}
+                        aria-label="Thumbs up"
+                        disabled={isGenerating}
+                        onClick={() => handleRate(gen.id, 5, gen.rating)}
+                      >
+                        <ThumbsUp
+                          className="h-2 w-2"
+                          fill={gen.rating === 5 ? 'currentColor' : 'none'}
+                        />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={cn(
+                          'h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground',
+                          gen.rating === 1 && 'text-destructive hover:text-destructive',
+                        )}
+                        aria-label="Thumbs down"
+                        disabled={isGenerating}
+                        onClick={() => handleRate(gen.id, 1, gen.rating)}
+                      >
+                        <ThumbsDown
+                          className="h-2 w-2"
+                          fill={gen.rating === 1 ? 'currentColor' : 'none'}
                         />
                       </Button>
                       {hasVersions && (

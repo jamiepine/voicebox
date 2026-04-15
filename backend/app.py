@@ -172,6 +172,17 @@ def _get_gpu_status() -> str:
     return "None (CPU only)"
 
 
+async def _idle_unload_loop():
+    """Background task to unload idle models."""
+    while True:
+        await asyncio.sleep(60)
+        try:
+            from .backends import check_idle_models
+            check_idle_models()
+        except Exception as e:
+            logging.getLogger(__name__).warning("Idle unload check failed: %s", e)
+
+
 def _register_lifecycle(application: FastAPI) -> None:
     """Attach startup and shutdown event handlers."""
 
@@ -197,6 +208,7 @@ def _register_lifecycle(application: FastAPI) -> None:
         logger.info("Data directory: %s", config.get_data_dir())
 
         init_queue()
+        asyncio.create_task(_idle_unload_loop())
 
         # Mark stale "generating" records as failed -- leftovers from a killed process
         from sqlalchemy import text as sa_text

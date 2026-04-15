@@ -28,6 +28,15 @@ const generationSchema = z.object({
       'kokoro',
     ])
     .optional(),
+  temperature: z.number().min(0).max(2).optional(),
+  top_k: z.number().int().min(0).max(5000).optional(),
+  top_p: z.number().min(0).max(1).optional(),
+  repetition_penalty: z.number().min(0.5).max(3).optional(),
+  speed: z.number().min(0.5).max(2).optional(),
+  inject_breaths: z.boolean().optional(),
+  jitter_ms: z.number().int().min(0).max(50).optional(),
+  humanize_text: z.boolean().optional(),
+  humanize_intensity: z.enum(['light', 'medium', 'heavy']).optional(),
 });
 
 export type GenerationFormValues = z.infer<typeof generationSchema>;
@@ -149,6 +158,15 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         crossfade_ms: crossfadeMs,
         normalize: normalizeAudio,
         effects_chain: effectsChain?.length ? effectsChain : undefined,
+        temperature: data.temperature,
+        top_k: data.top_k,
+        top_p: data.top_p,
+        repetition_penalty: data.repetition_penalty,
+        speed: data.speed,
+        inject_breaths: data.inject_breaths,
+        jitter_ms: data.jitter_ms,
+        humanize_text: data.humanize_text,
+        humanize_intensity: data.humanize_intensity,
       });
 
       // Track this generation for SSE status updates
@@ -162,6 +180,15 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         modelSize: data.modelSize,
         instruct: '',
         engine: data.engine,
+        temperature: data.temperature,
+        top_k: data.top_k,
+        top_p: data.top_p,
+        repetition_penalty: data.repetition_penalty,
+        speed: data.speed,
+        inject_breaths: data.inject_breaths,
+        jitter_ms: data.jitter_ms,
+        humanize_text: data.humanize_text,
+        humanize_intensity: data.humanize_intensity,
       });
       options.onSuccess?.(result.id);
     } catch (error) {

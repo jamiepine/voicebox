@@ -8,6 +8,7 @@ import type {
   EffectConfig,
   EffectPresetCreate,
   EffectPresetResponse,
+  GenerationRatingRequest,
   GenerationRequest,
   GenerationResponse,
   GenerationVersionResponse,
@@ -30,6 +31,7 @@ import type {
   StoryItemTrim,
   StoryItemVersionUpdate,
   StoryResponse,
+  SuggestedParams,
   TranscriptionResponse,
   VoiceProfileCreate,
   VoiceProfileResponse,
@@ -244,6 +246,17 @@ class ApiClient {
     return this.request<{ is_favorited: boolean }>(`/history/${generationId}/favorite`, {
       method: 'POST',
     });
+  }
+
+  async rateGeneration(generationId: string, rating: number): Promise<{ id: string; rating: number }> {
+    return this.request<{ id: string; rating: number }>(`/generations/${generationId}/rating`, {
+      method: 'PATCH',
+      body: JSON.stringify({ rating } as GenerationRatingRequest),
+    });
+  }
+
+  async getSuggestedParams(profileId: string): Promise<SuggestedParams | null> {
+    return this.request<SuggestedParams | null>(`/profiles/${profileId}/suggested-params`);
   }
 
   // History

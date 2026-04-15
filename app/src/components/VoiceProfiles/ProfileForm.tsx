@@ -54,12 +54,12 @@ import { convertToWav, formatAudioDuration, getAudioDuration } from '@/lib/utils
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
 import { type ProfileFormDraft, useUIStore } from '@/stores/uiStore';
-import { AudioSampleRecording } from './AudioSampleRecording';
+import { AudioSampleRecording, SCRIPT_LINES } from './AudioSampleRecording';
 import { AudioSampleSystem } from './AudioSampleSystem';
 import { AudioSampleUpload } from './AudioSampleUpload';
 import { SampleList } from './SampleList';
 
-const MAX_AUDIO_DURATION_SECONDS = 30;
+const MAX_AUDIO_DURATION_SECONDS = 40;
 const PRESET_ONLY_ENGINES = new Set(['kokoro', 'qwen_custom_voice']);
 const DEFAULT_ENGINE_OPTIONS = [
   { value: 'qwen', label: 'Qwen3-TTS' },
@@ -215,7 +215,7 @@ export function ProfileForm() {
     stopRecording,
     cancelRecording,
   } = useAudioRecording({
-    maxDurationSeconds: 29,
+    maxDurationSeconds: 39,
     onRecordingComplete: (blob, recordedDuration) => {
       const file = new File([blob], `recording-${Date.now()}.webm`, {
         type: blob.type || 'audio/webm',
@@ -225,6 +225,9 @@ export function ProfileForm() {
         file.recordedDuration = recordedDuration;
       }
       form.setValue('sampleFile', file, { shouldValidate: true });
+      // Auto-fill the transcript from the known script
+      const text = SCRIPT_LINES.map((line) => line.text).join(' ');
+      form.setValue('referenceText', text, { shouldValidate: true });
       toast({
         title: 'Recording complete',
         description: 'Audio has been recorded successfully.',
@@ -970,10 +973,8 @@ export function ProfileForm() {
                                     onStart={startRecording}
                                     onStop={stopRecording}
                                     onCancel={handleCancelRecording}
-                                    onTranscribe={handleTranscribe}
                                     onPlayPause={handlePlayPause}
                                     isPlaying={isPlaying}
-                                    isTranscribing={transcribe.isPending}
                                   />
                                 )}
                               />

@@ -65,6 +65,11 @@ async def create_generation(
     status: str = "completed",
     engine: Optional[str] = "qwen",
     model_size: Optional[str] = None,
+    temperature: Optional[float] = None,
+    top_k: Optional[int] = None,
+    top_p: Optional[float] = None,
+    repetition_penalty: Optional[float] = None,
+    speed: Optional[float] = None,
 ) -> GenerationResponse:
     """
     Create a new generation history entry.
@@ -98,6 +103,11 @@ async def create_generation(
         engine=engine,
         model_size=model_size,
         status=status,
+        temperature=temperature,
+        top_k=top_k,
+        top_p=top_p,
+        repetition_penalty=repetition_penalty,
+        speed=speed,
         created_at=datetime.utcnow(),
     )
 
@@ -218,6 +228,12 @@ async def list_generations(
             status=generation.status or "completed",
             error=generation.error,
             is_favorited=bool(generation.is_favorited),
+            rating=generation.rating,
+            temperature=generation.temperature,
+            top_k=generation.top_k,
+            top_p=generation.top_p,
+            repetition_penalty=generation.repetition_penalty,
+            speed=generation.speed,
             created_at=generation.created_at,
             versions=versions,
             active_version_id=active_version_id,

@@ -27,8 +27,9 @@ import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
 import { useAddSample, useProfile } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
+import type { LanguageCode } from '@/lib/constants/languages';
 import { usePlatform } from '@/platform/PlatformContext';
-import { AudioSampleRecording } from './AudioSampleRecording';
+import { AudioSampleRecording, SCRIPT_LINES } from './AudioSampleRecording';
 import { AudioSampleSystem } from './AudioSampleSystem';
 import { AudioSampleUpload } from './AudioSampleUpload';
 
@@ -74,7 +75,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
     stopRecording,
     cancelRecording,
   } = useAudioRecording({
-    maxDurationSeconds: 29,
+    maxDurationSeconds: 39,
     onRecordingComplete: (blob, recordedDuration) => {
       // Convert blob to File object
       const file = new File([blob], `recording-${Date.now()}.webm`, {
@@ -85,6 +86,9 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
         file.recordedDuration = recordedDuration;
       }
       form.setValue('file', file, { shouldValidate: true });
+      // Auto-fill the transcript from the known script
+      const text = SCRIPT_LINES.map((line) => line.text).join(' ');
+      form.setValue('referenceText', text, { shouldValidate: true });
       toast({
         title: 'Recording complete',
         description: 'Audio has been recorded successfully.',
@@ -153,7 +157,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
     }
 
     try {
-      const language = profile?.language as 'en' | 'zh' | undefined;
+      const language = profile?.language as LanguageCode | undefined;
       const result = await transcribe.mutateAsync({ file, language });
 
       form.setValue('referenceText', result.text, { shouldValidate: true });
@@ -164,6 +168,11 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
         variant: 'destructive',
       });
     }
+  }
+
+  function handleAutoFillTranscript() {
+    const text = SCRIPT_LINES.map((line) => line.text).join(' ');
+    form.setValue('referenceText', text, { shouldValidate: true });
   }
 
   async function onSubmit(data: SampleFormValues) {
@@ -281,10 +290,8 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
                       onStart={startRecording}
                       onStop={stopRecording}
                       onCancel={handleCancelRecording}
-                      onTranscribe={handleTranscribe}
                       onPlayPause={handlePlayPause}
                       isPlaying={isPlaying}
-                      isTranscribing={transcribe.isPending}
                     />
                   )}
                 />

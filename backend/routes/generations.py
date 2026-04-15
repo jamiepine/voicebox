@@ -24,6 +24,26 @@ def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
     return data.engine or getattr(profile, "default_engine", None) or getattr(profile, "preset_engine", None) or "qwen"
 
 
+def _build_sampling_params(data: models.GenerationRequest) -> dict | None:
+    """Extract sampling override fields from a GenerationRequest.
+
+    Returns None if no overrides are set so callers can skip the kwarg
+    entirely and preserve existing backend defaults.
+    """
+    params = {}
+    if data.temperature is not None:
+        params["temperature"] = data.temperature
+    if data.top_k is not None:
+        params["top_k"] = data.top_k
+    if data.top_p is not None:
+        params["top_p"] = data.top_p
+    if data.repetition_penalty is not None:
+        params["repetition_penalty"] = data.repetition_penalty
+    if data.speed is not None:
+        params["speed"] = data.speed
+    return params or None
+
+
 @router.post("/generate", response_model=models.GenerationResponse)
 async def generate_speech(
     data: models.GenerationRequest,
@@ -60,6 +80,11 @@ async def generate_speech(
         status="generating",
         engine=engine,
         model_size=model_size if engine_has_model_sizes(engine) else None,
+        temperature=data.temperature,
+        top_k=data.top_k,
+        top_p=data.top_p,
+        repetition_penalty=data.repetition_penalty,
+        speed=data.speed,
     )
 
     task_manager.start_generation(
@@ -81,6 +106,8 @@ async def generate_speech(
             except Exception:
                 pass
 
+    sampling_params = _build_sampling_params(data)
+
     enqueue_generation(
         run_generation(
             generation_id=generation_id,
@@ -96,6 +123,11 @@ async def generate_speech(
             mode="generate",
             max_chunk_chars=data.max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
+            sampling_params=sampling_params,
+            inject_breaths=data.inject_breaths,
+            jitter_ms=data.jitter_ms,
+            humanize_text=data.humanize_text,
+            humanize_intensity=data.humanize_intensity,
         )
     )
 
@@ -274,7 +306,13 @@ async def stream_speech(
         max_chunk_chars=data.max_chunk_chars,
         crossfade_ms=data.crossfade_ms,
         trim_fn=trim_fn,
+        sampling_params=_build_sampling_params(data),
+        jitter_ms=data.jitter_ms,
     )
+
+    if data.inject_breaths:
+        from ..utils.breath_injection import inject_breaths as _inject_breaths
+        audio = _inject_breaths(audio, sample_rate)
 
     effects_chain_config = None
     if data.effects_chain is not None:
@@ -312,3 +350,18 @@ async def stream_speech(
         media_type="audio/wav",
         headers={"Content-Disposition": 'attachment; filename="speech.wav"'},
     )
+
+
+@router.patch("/generations/{generation_id}/rating")
+async def rate_generation(
+    generation_id: str,
+    data: models.GenerationRatingRequest,
+    db: Session = Depends(get_db),
+):
+    """Set or update the rating for a generation (1-5)."""
+    gen = db.query(DBGeneration).filter_by(id=generation_id).first()
+    if not gen:
+        raise HTTPException(status_code=404, detail="Generation not found")
+    gen.rating = data.rating
+    db.commit()
+    return {"id": generation_id, "rating": gen.rating}

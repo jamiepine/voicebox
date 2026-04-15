@@ -153,6 +153,7 @@ class ChatterboxTurboTTSBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        sampling_params: Optional[dict] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio using Chatterbox Turbo TTS.
@@ -184,13 +185,14 @@ class ChatterboxTurboTTSBackend:
 
             logger.info("[Chatterbox Turbo] Generating (English)")
 
+            sp = sampling_params or {}
             wav = self.model.generate(
                 text,
                 audio_prompt_path=ref_audio,
-                temperature=0.8,
-                top_k=1000,
-                top_p=0.95,
-                repetition_penalty=1.2,
+                temperature=sp.get("temperature", 0.8),
+                top_k=sp.get("top_k", 1000),
+                top_p=sp.get("top_p", 0.95),
+                repetition_penalty=sp.get("repetition_penalty", 1.2),
             )
 
             # Convert tensor -> numpy

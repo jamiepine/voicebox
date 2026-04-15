@@ -5,11 +5,15 @@ Provides a unified interface for MLX and PyTorch backends,
 and a model config registry that eliminates per-engine dispatch maps.
 """
 
+import logging
 import threading
+import time as _time
 from dataclasses import dataclass, field
 from typing import Protocol, Optional, Tuple, List
 from typing_extensions import runtime_checkable
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 from ..utils.platform_detect import get_backend_type
 
@@ -31,6 +35,8 @@ WHISPER_HF_REPOS = {
     "small": "openai/whisper-small",
     "medium": "openai/whisper-medium",
     "large": "openai/whisper-large-v3",
+    "large-v3": "openai/whisper-large-v3",
+    "large-v3-mlx": "mlx-community/whisper-large-v3-mlx",
     "turbo": "openai/whisper-large-v3-turbo",
 }
 
@@ -95,6 +101,7 @@ class TTSBackend(Protocol):
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        sampling_params: Optional[dict] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio from text.
@@ -159,6 +166,10 @@ _tts_backends: dict[str, TTSBackend] = {}
 _tts_backends_lock = threading.Lock()
 _stt_backend: Optional[STTBackend] = None
 
+_model_last_used: dict[str, float] = {}
+_stt_last_used: float = 0.0
+IDLE_TIMEOUT_SECONDS = 300  # 5 minutes
+
 # Supported TTS engines — keyed by engine name, value is the backend class import path.
 # The factory function uses this for the if/elif chain; the model configs live on the backend classes.
 TTS_ENGINES = {
@@ -176,8 +187,8 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
     """Return Qwen model configs with backend-aware HF repo IDs."""
     backend_type = get_backend_type()
     if backend_type == "mlx":
-        repo_1_7b = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
-        repo_0_6b = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"  # 0.6B not available in MLX, falls back
+        repo_1_7b = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit"
+        repo_0_6b = "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16"
     else:
         repo_1_7b = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         repo_0_6b = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
@@ -347,6 +358,22 @@ def _get_whisper_configs() -> list[ModelConfig]:
             engine="whisper",
             hf_repo_id="openai/whisper-large-v3",
             model_size="large",
+        ),
+        ModelConfig(
+            model_name="whisper-large-v3",
+            display_name="Whisper Large v3 (Best Spanish)",
+            engine="whisper",
+            hf_repo_id="openai/whisper-large-v3",
+            model_size="large-v3",
+            size_mb=3100,
+        ),
+        ModelConfig(
+            model_name="whisper-large-v3-mlx",
+            display_name="Whisper Large v3 MLX (Best Spanish, Apple Silicon)",
+            engine="whisper",
+            hf_repo_id="mlx-community/whisper-large-v3-mlx",
+            model_size="large-v3-mlx",
+            size_mb=3000,
         ),
         ModelConfig(
             model_name="whisper-turbo",
@@ -604,6 +631,66 @@ def get_stt_backend() -> STTBackend:
             _stt_backend = PyTorchSTTBackend()
 
     return _stt_backend
+
+
+def touch_tts_model(engine: str):
+    """Record that a TTS model was just used."""
+    _model_last_used[engine] = _time.time()
+
+
+def touch_stt_model():
+    """Record that the STT model was just used."""
+    global _stt_last_used
+    _stt_last_used = _time.time()
+
+
+def check_idle_models():
+    """Check for idle models and unload them. Called by background task."""
+    now = _time.time()
+    for engine_name in list(_model_last_used.keys()):
+        last_used = _model_last_used.get(engine_name, 0)
+        if last_used > 0 and now - last_used > IDLE_TIMEOUT_SECONDS:
+            backend = _tts_backends.get(engine_name)
+            if backend and hasattr(backend, 'model') and backend.model is not None:
+                logger.info("Auto-unloading idle TTS engine: %s (idle %.0fs)", engine_name, now - last_used)
+                try:
+                    backend.unload_model()
+                except Exception as e:
+                    logger.warning("Failed to auto-unload TTS %s: %s", engine_name, e)
+                _model_last_used[engine_name] = 0
+
+    if _stt_last_used > 0 and now - _stt_last_used > IDLE_TIMEOUT_SECONDS:
+        if _stt_backend is not None and hasattr(_stt_backend, 'model') and _stt_backend.model is not None:
+            logger.info("Auto-unloading idle Whisper model (idle %.0fs)", now - _stt_last_used)
+            try:
+                _stt_backend.unload_model()
+            except Exception as e:
+                logger.warning("Failed to auto-unload Whisper: %s", e)
+
+
+def ensure_tts_memory():
+    """Unload STT (Whisper) model if loaded, to free memory for TTS."""
+    global _stt_backend
+    if _stt_backend is not None:
+        try:
+            if hasattr(_stt_backend, 'model') and _stt_backend.model is not None:
+                logger.info("Auto-unloading Whisper to free memory for TTS")
+                _stt_backend.unload_model()
+        except Exception as e:
+            logger.warning("Failed to auto-unload Whisper: %s", e)
+
+
+def ensure_exclusive_tts_engine(engine: str) -> None:
+    """Unload all TTS backends except the given engine to free memory."""
+    import gc
+    for name, backend in list(_tts_backends.items()):
+        if name != engine and hasattr(backend, 'model') and backend.model is not None:
+            logger.info("Unloading %s to free memory for %s", name, engine)
+            try:
+                backend.unload_model()
+            except Exception as e:
+                logger.warning("Failed to unload TTS %s: %s", name, e)
+    gc.collect()
 
 
 def reset_backends():

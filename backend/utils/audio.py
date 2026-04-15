@@ -199,10 +199,66 @@ def trim_tts_output(
     return trimmed
 
 
+def trim_leading_warmup(
+    audio: np.ndarray,
+    sample_rate: int,
+    ref_audio_duration: float,
+    ref_text: str,
+) -> np.ndarray:
+    """Trim leading warm-up audio from voice cloning output.
+
+    The Qwen3-TTS ICL mode performs proportional trimming of the reference
+    audio, but it's slightly imprecise and leaves ~0.3-0.5s of residual
+    artifacts at the start. This function handles two cases:
+
+    1. Library trim worked but left residual: trim a small fixed amount
+    2. Library trim didn't work at all: trim the full warmup duration
+    """
+    import logging
+    logger = logging.getLogger(__name__)
+
+    if ref_audio_duration <= 0:
+        return audio
+
+    # Estimate ref_text spoken duration (~2.5 words/sec)
+    words = len(ref_text.split()) if ref_text else 0
+    ref_text_duration = words / 2.5
+    expected_warmup = ref_audio_duration + ref_text_duration
+
+    audio_duration = len(audio) / sample_rate
+
+    if audio_duration >= expected_warmup * 1.5:
+        # Library trim didn't work — cut the full warmup
+        trim_seconds = expected_warmup
+        logger.info("Trimming %.2fs full warmup from audio (total %.2fs)",
+                    trim_seconds, audio_duration)
+    else:
+        # Library trim worked but may have left residual artifacts
+        # Trim a small fixed amount (0.3s) to clean up the boundary
+        trim_seconds = 0.3
+        if audio_duration <= trim_seconds * 2:
+            # Audio is too short to trim safely
+            return audio
+        logger.info("Trimming %.2fs residual artifact from audio (total %.2fs)",
+                    trim_seconds, audio_duration)
+
+    trim_samples = int(trim_seconds * sample_rate)
+    if trim_samples > 0 and trim_samples < len(audio):
+        audio = audio[trim_samples:]
+
+    # Apply 50ms cosine fade-in to eliminate any residual click artifacts
+    fade_samples = min(int(0.05 * sample_rate), len(audio) // 4)
+    if fade_samples > 0:
+        fade = np.cos(np.linspace(np.pi, 2 * np.pi, fade_samples)) * 0.5 + 0.5
+        audio[:fade_samples] = audio[:fade_samples] * fade
+
+    return audio
+
+
 def validate_reference_audio(
     audio_path: str,
     min_duration: float = 2.0,
-    max_duration: float = 30.0,
+    max_duration: float = 40.0,
     min_rms: float = 0.01,
 ) -> Tuple[bool, Optional[str]]:
     """
@@ -226,7 +282,7 @@ def validate_reference_audio(
 def validate_and_load_reference_audio(
     audio_path: str,
     min_duration: float = 2.0,
-    max_duration: float = 30.0,
+    max_duration: float = 40.0,
     min_rms: float = 0.01,
 ) -> Tuple[bool, Optional[str], Optional[np.ndarray], Optional[int]]:
     """

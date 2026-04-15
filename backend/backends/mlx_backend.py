@@ -47,9 +47,9 @@ class MLXTTSBackend:
         """
         # MLX model mapping
         mlx_model_map = {
-            "1.7B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+            "1.7B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-8bit",
             # 0.6B not yet converted to MLX format
-            "0.6B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",  # Fallback to 1.7B
+            "0.6B": "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16",
         }
 
         if model_size not in mlx_model_map:
@@ -114,6 +114,13 @@ class MLXTTSBackend:
             del self.model
             self.model = None
             self._current_model_size = None
+            import gc
+            gc.collect()
+            try:
+                import mlx.core as mx
+                mx.clear_cache()
+            except Exception:
+                pass
             logger.info("MLX TTS model unloaded")
 
     async def create_voice_prompt(
@@ -153,11 +160,20 @@ class MLXTTSBackend:
                         # Cached file no longer exists, invalidate cache
                         logger.warning("Cached audio file not found: %s, regenerating prompt", cached_audio_path)
 
+        # Compute reference audio duration
+        try:
+            import soundfile as sf
+            info = sf.info(str(audio_path))
+            ref_audio_duration = info.duration
+        except Exception:
+            ref_audio_duration = 0.0
+
         # MLX voice prompt format - store audio path and text
         # The model will process this during generation
         voice_prompt_items = {
             "ref_audio": str(audio_path),
             "ref_text": reference_text,
+            "ref_audio_duration": ref_audio_duration,
         }
 
         # Cache if enabled
@@ -177,6 +193,7 @@ class MLXTTSBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        sampling_params: Optional[dict] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio from text using voice prompt.
@@ -187,6 +204,8 @@ class MLXTTSBackend:
             language: Language code (en or zh) - may not be fully supported by MLX
             seed: Random seed for reproducibility
             instruct: Natural language instruction (may not be supported by MLX)
+            sampling_params: Optional dict with temperature, top_k, top_p,
+                repetition_penalty, speed overrides.
 
         Returns:
             Tuple of (audio_array, sample_rate)
@@ -213,12 +232,32 @@ class MLXTTSBackend:
             ref_audio = voice_prompt.get("ref_audio") or voice_prompt.get("ref_audio_path")
             ref_text = voice_prompt.get("ref_text", "")
 
+            logger.info("Voice cloning: ref_audio=%s, ref_text_len=%d, model_type=%s",
+                        bool(ref_audio), len(ref_text) if ref_text else 0,
+                        type(self.model).__name__)
+            if hasattr(self.model, 'speech_tokenizer') and self.model.speech_tokenizer:
+                logger.info("Speech tokenizer has_encoder: %s", self.model.speech_tokenizer.has_encoder)
+
             # Validate that the audio file exists
             if ref_audio and not Path(ref_audio).exists():
                 logger.warning("Audio file not found: %s", ref_audio)
                 logger.warning("This may be due to a cached voice prompt referencing a deleted temp file.")
                 logger.warning("Regenerating without voice prompt.")
                 ref_audio = None
+
+            # Build sampling kwargs from optional overrides
+            sp = sampling_params or {}
+            sampling_kwargs = {}
+            if sp.get("temperature") is not None:
+                sampling_kwargs["temperature"] = sp["temperature"]
+            if sp.get("top_k") is not None:
+                sampling_kwargs["top_k"] = sp["top_k"]
+            if sp.get("top_p") is not None:
+                sampling_kwargs["top_p"] = sp["top_p"]
+            if sp.get("repetition_penalty") is not None:
+                sampling_kwargs["repetition_penalty"] = sp["repetition_penalty"]
+            if sp.get("speed") is not None:
+                sampling_kwargs["speed"] = sp["speed"]
 
             # Check if model supports voice cloning via generate method
             # MLX API may support ref_audio parameter directly
@@ -231,23 +270,23 @@ class MLXTTSBackend:
                     sig = inspect.signature(self.model.generate)
                     if "ref_audio" in sig.parameters:
                         # Generate with voice cloning
-                        for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
+                        for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang, **sampling_kwargs):
                             audio_chunks.append(np.array(result.audio))
                             sample_rate = result.sample_rate
                     else:
                         # Fallback: generate without voice cloning
-                        for result in self.model.generate(text, lang_code=lang):
+                        for result in self.model.generate(text, lang_code=lang, **sampling_kwargs):
                             audio_chunks.append(np.array(result.audio))
                             sample_rate = result.sample_rate
                 else:
                     # No voice prompt, generate normally
-                    for result in self.model.generate(text, lang_code=lang):
+                    for result in self.model.generate(text, lang_code=lang, **sampling_kwargs):
                         audio_chunks.append(np.array(result.audio))
                         sample_rate = result.sample_rate
             except Exception as e:
                 # If voice cloning fails, try without it
                 logger.warning("Voice cloning failed, generating without voice prompt: %s", e)
-                for result in self.model.generate(text, lang_code=lang):
+                for result in self.model.generate(text, lang_code=lang, **sampling_kwargs):
                     audio_chunks.append(np.array(result.audio))
                     sample_rate = result.sample_rate
 
@@ -257,6 +296,16 @@ class MLXTTSBackend:
             else:
                 # Fallback: empty audio
                 audio = np.array([], dtype=np.float32)
+
+            logger.info("Generated audio: duration=%.2fs, samples=%d, sample_rate=%d",
+                        len(audio) / sample_rate, len(audio), sample_rate)
+
+            # Clear MLX inference buffers
+            try:
+                import mlx.core as mx
+                mx.clear_cache()
+            except Exception:
+                pass
 
             return audio, sample_rate
 
@@ -269,7 +318,7 @@ class MLXTTSBackend:
 class MLXSTTBackend:
     """MLX-based STT backend using mlx-audio Whisper."""
 
-    def __init__(self, model_size: str = "base"):
+    def __init__(self, model_size: str = "large-v3-mlx"):
         self.model = None
         self.model_size = model_size
 
@@ -300,6 +349,14 @@ class MLXSTTBackend:
     # Alias for compatibility
     load_model = load_model_async
 
+    # Mapping from MLX-community repos that lack preprocessor_config.json
+    # to the best cached OpenAI repo that has it.
+    # openai/whisper-large-v3-turbo shares the same processor config as large-v3
+    # and is already in the local HF cache, so no download is needed.
+    _PROCESSOR_FALLBACK_MAP = {
+        "mlx-community/whisper-large-v3-mlx": "openai/whisper-large-v3-turbo",
+    }
+
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
         progress_model_name = f"whisper-{model_size}"
@@ -314,6 +371,44 @@ class MLXSTTBackend:
             with force_offline_if_cached(is_cached, progress_model_name):
                 self.model = load(model_name)
 
+        # Option A fallback: if the MLX repo doesn't ship preprocessor_config.json,
+        # WhisperProcessor.from_pretrained silently sets _processor=None, which then
+        # crashes in get_tokenizer() at transcription time.  Load the processor from
+        # the matching OpenAI base repo so the weights stay MLX-optimised but the
+        # feature extractor / tokenizer come from a repo that has all the files.
+        if getattr(self.model, "_processor", None) is None:
+            fallback_repo = self._PROCESSOR_FALLBACK_MAP.get(model_name)
+            if fallback_repo is None:
+                # Generic fallback: try openai/whisper-<size> where size strips any
+                # trailing "-mlx" suffix.
+                base_size = model_size.replace("-mlx", "")
+                fallback_repo = f"openai/whisper-{base_size}"
+            try:
+                from transformers import WhisperProcessor
+                logger.info(
+                    "WhisperProcessor missing for %s — loading from fallback repo %s",
+                    model_name, fallback_repo,
+                )
+                self.model._processor = WhisperProcessor.from_pretrained(
+                    fallback_repo, local_files_only=True
+                )
+                logger.info("WhisperProcessor fallback loaded successfully from %s", fallback_repo)
+            except Exception as exc:
+                # local_files_only failed — try with network access allowed
+                logger.warning(
+                    "WhisperProcessor not in local cache for %s (%s), attempting download...",
+                    fallback_repo, exc,
+                )
+                try:
+                    from transformers import WhisperProcessor
+                    self.model._processor = WhisperProcessor.from_pretrained(fallback_repo)
+                    logger.info("WhisperProcessor fallback downloaded from %s", fallback_repo)
+                except Exception as exc2:
+                    logger.error(
+                        "Could not load WhisperProcessor fallback from %s: %s",
+                        fallback_repo, exc2,
+                    )
+
         self.model_size = model_size
         logger.info("MLX Whisper model %s loaded successfully", model_size)
 
@@ -322,6 +417,13 @@ class MLXSTTBackend:
         if self.model is not None:
             del self.model
             self.model = None
+            import gc
+            gc.collect()
+            try:
+                import mlx.core as mx
+                mx.clear_cache()
+            except Exception:
+                pass
             logger.info("MLX Whisper model unloaded")
 
     async def transcribe(

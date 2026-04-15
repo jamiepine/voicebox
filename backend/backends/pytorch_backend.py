@@ -236,7 +236,7 @@ class PyTorchTTSBackend:
 class PyTorchSTTBackend:
     """PyTorch-based STT backend using Whisper."""
 
-    def __init__(self, model_size: str = "base"):
+    def __init__(self, model_size: str = "large-v3"):
         self.model = None
         self.processor = None
         self.model_size = model_size
