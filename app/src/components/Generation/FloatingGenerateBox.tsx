@@ -699,7 +699,11 @@ export function FloatingGenerateBox({
                 {suggestedParams && (
                   <div className="flex items-center gap-2 mb-2 px-1 py-1 rounded-xl bg-green-500/10 border border-green-500/20">
                     <CheckCircle className="h-3 w-3 text-green-500 shrink-0 ml-1" />
-                    <span className="text-xs text-green-500 flex-1">Proven params for this voice</span>
+                    <span className="text-xs text-green-500 flex-1">
+                      {suggestedParams?.n_samples
+                        ? `Based on ${suggestedParams.n_samples} rating${suggestedParams.n_samples === 1 ? '' : 's'}`
+                        : 'Proven params for this voice'}
+                    </span>
                     <button
                       type="button"
                       className="text-xs text-green-500 font-medium hover:text-green-400 transition-colors px-1.5 py-0.5 rounded-lg hover:bg-green-500/10"

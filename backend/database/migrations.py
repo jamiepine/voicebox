@@ -178,6 +178,12 @@ def _migrate_generations(engine, inspector, tables: set[str]) -> None:
         _add_column(engine, "generations", "repetition_penalty FLOAT", "repetition_penalty")
     if "speed" not in columns:
         _add_column(engine, "generations", "speed FLOAT", "speed")
+    if "humanize_text" not in columns:
+        _add_column(engine, "generations", "humanize_text BOOLEAN DEFAULT 0", "humanize_text")
+    if "humanize_intensity" not in columns:
+        _add_column(engine, "generations", "humanize_intensity VARCHAR", "humanize_intensity")
+    if "jitter_ms" not in columns:
+        _add_column(engine, "generations", "jitter_ms INTEGER DEFAULT 0", "jitter_ms")
 
 
 def _migrate_effect_presets(engine, inspector, tables: set[str]) -> None:

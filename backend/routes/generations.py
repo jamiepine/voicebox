@@ -85,6 +85,9 @@ async def generate_speech(
         top_p=data.top_p,
         repetition_penalty=data.repetition_penalty,
         speed=data.speed,
+        humanize_text=data.humanize_text,
+        humanize_intensity=data.humanize_intensity,
+        jitter_ms=data.jitter_ms,
     )
 
     task_manager.start_generation(

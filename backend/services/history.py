@@ -70,6 +70,9 @@ async def create_generation(
     top_p: Optional[float] = None,
     repetition_penalty: Optional[float] = None,
     speed: Optional[float] = None,
+    humanize_text: bool = False,
+    humanize_intensity: Optional[str] = None,
+    jitter_ms: int = 0,
 ) -> GenerationResponse:
     """
     Create a new generation history entry.
@@ -108,6 +111,9 @@ async def create_generation(
         top_p=top_p,
         repetition_penalty=repetition_penalty,
         speed=speed,
+        humanize_text=humanize_text,
+        humanize_intensity=humanize_intensity,
+        jitter_ms=jitter_ms,
         created_at=datetime.utcnow(),
     )
 
@@ -234,6 +240,9 @@ async def list_generations(
             top_p=generation.top_p,
             repetition_penalty=generation.repetition_penalty,
             speed=generation.speed,
+            humanize_text=bool(generation.humanize_text),
+            humanize_intensity=generation.humanize_intensity,
+            jitter_ms=generation.jitter_ms or 0,
             created_at=generation.created_at,
             versions=versions,
             active_version_id=active_version_id,

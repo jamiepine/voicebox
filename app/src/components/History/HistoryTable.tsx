@@ -70,6 +70,8 @@ function ParamsBadge({ gen }: { gen: HistoryResponse }) {
     gen.top_p != null ||
     gen.repetition_penalty != null ||
     gen.speed != null ||
+    gen.humanize_text === true ||
+    (gen.jitter_ms != null && gen.jitter_ms > 0) ||
     (effectsChain && effectsChain.length > 0);
 
   if (!hasNonDefaultParams) return null;
@@ -116,6 +118,18 @@ function ParamsBadge({ gen }: { gen: HistoryResponse }) {
           <div className="flex justify-between">
             <span className="text-muted-foreground">rep_penalty</span>
             <span className="tabular-nums">{gen.repetition_penalty.toFixed(2)}</span>
+          </div>
+        )}
+        {gen.humanize_text === true && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">humanize</span>
+            <span className="tabular-nums">{gen.humanize_intensity ?? 'on'}</span>
+          </div>
+        )}
+        {gen.jitter_ms != null && gen.jitter_ms > 0 && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">jitter</span>
+            <span className="tabular-nums">{gen.jitter_ms}ms</span>
           </div>
         )}
         {effectsChain && effectsChain.length > 0 && (

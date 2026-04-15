@@ -313,17 +313,18 @@ async def get_suggested_params(
     profile_id: str,
     db: Session = Depends(get_db),
 ):
-    """Return averaged sampling params from generations with rating >= 4 for this profile.
+    """Return exponentially-weighted averaged sampling params from generations with rating >= 4.
 
-    Returns None if fewer than 3 highly-rated generations exist.
+    Weights more recent likes higher: w_i = exp(-0.1 * i) where i=0 is most recent.
+    Returns None only if zero liked generations exist.
     """
-    from sqlalchemy import func
+    import math
 
     profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    # Query all highly-rated generations that have at least one non-null sampling param
+    # Order by most recent first so index 0 = newest like
     rated = (
         db.query(DBGeneration)
         .filter(
@@ -331,22 +332,30 @@ async def get_suggested_params(
             DBGeneration.rating >= 4,
             DBGeneration.status == "completed",
         )
+        .order_by(DBGeneration.created_at.desc())
         .all()
     )
 
-    if len(rated) < 3:
+    if not rated:
         return None
 
-    # Average across generations that have each param set
-    def _avg(attr: str) -> float | None:
-        vals = [getattr(g, attr) for g in rated if getattr(g, attr) is not None]
-        return sum(vals) / len(vals) if vals else None
+    # Weighted average using exponential decay; skip nulls per param
+    def _weighted_avg(attr: str) -> float | None:
+        pairs = [
+            (math.exp(-0.1 * i), getattr(g, attr))
+            for i, g in enumerate(rated)
+            if getattr(g, attr) is not None
+        ]
+        if not pairs:
+            return None
+        total_w = sum(w for w, _ in pairs)
+        return sum(w * v for w, v in pairs) / total_w
 
-    temperature = _avg("temperature")
-    top_k_avg = _avg("top_k")
-    top_p = _avg("top_p")
-    repetition_penalty = _avg("repetition_penalty")
-    speed = _avg("speed")
+    temperature = _weighted_avg("temperature")
+    top_k_avg = _weighted_avg("top_k")
+    top_p = _weighted_avg("top_p")
+    repetition_penalty = _weighted_avg("repetition_penalty")
+    speed = _weighted_avg("speed")
 
     # If none of the params are available across all rated gens, no suggestion
     if all(v is None for v in (temperature, top_k_avg, top_p, repetition_penalty, speed)):
@@ -358,6 +367,7 @@ async def get_suggested_params(
         top_p=top_p,
         repetition_penalty=repetition_penalty,
         speed=speed,
+        n_samples=len(rated),
     )
 
 

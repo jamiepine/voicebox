@@ -122,6 +122,9 @@ class GenerationResponse(BaseModel):
     top_p: Optional[float] = None
     repetition_penalty: Optional[float] = None
     speed: Optional[float] = None
+    humanize_text: bool = False
+    humanize_intensity: Optional[str] = None
+    jitter_ms: int = 0
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
@@ -162,6 +165,9 @@ class HistoryResponse(BaseModel):
     top_p: Optional[float] = None
     repetition_penalty: Optional[float] = None
     speed: Optional[float] = None
+    humanize_text: bool = False
+    humanize_intensity: Optional[str] = None
+    jitter_ms: int = 0
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
@@ -184,6 +190,7 @@ class SuggestedParams(BaseModel):
     top_p: Optional[float] = None
     repetition_penalty: Optional[float] = None
     speed: Optional[float] = None
+    n_samples: int = 0
 
 
 class HistoryListResponse(BaseModel):

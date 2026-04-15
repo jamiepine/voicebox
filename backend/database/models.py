@@ -74,6 +74,10 @@ class Generation(Base):
     top_p = Column(Float, nullable=True)
     repetition_penalty = Column(Float, nullable=True)
     speed = Column(Float, nullable=True)
+    # Humanize / jitter settings
+    humanize_text = Column(Boolean, default=False)
+    humanize_intensity = Column(String, nullable=True)
+    jitter_ms = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

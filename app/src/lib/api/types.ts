@@ -117,6 +117,9 @@ export interface GenerationResponse {
   top_p?: number | null;
   repetition_penalty?: number | null;
   speed?: number | null;
+  humanize_text?: boolean;
+  humanize_intensity?: string | null;
+  jitter_ms?: number | null;
   created_at: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
@@ -132,6 +135,7 @@ export interface SuggestedParams {
   top_p?: number | null;
   repetition_penalty?: number | null;
   speed?: number | null;
+  n_samples?: number;
 }
 
 export interface HistoryQuery {
