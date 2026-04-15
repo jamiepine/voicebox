@@ -8,7 +8,7 @@ sqlalchemy>=2.0.0
 alembic>=1.13.0
 
 # ML models
-torch>=2.7.0
+torch>=2.2.0
 transformers>=4.36.0,<=4.57.6
 accelerate>=0.26.0
 huggingface_hub>=0.20.0
