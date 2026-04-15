@@ -26,8 +26,24 @@ export function useSystemAudioCapture({
 
   // Check if system audio capture is supported
   useEffect(() => {
-    const supported = platform.audio.isSystemAudioSupported();
-    setIsSupported(supported);
+    let isActive = true;
+
+    void platform.audio
+      .isSystemAudioSupported()
+      .then((supported) => {
+        if (isActive) {
+          setIsSupported(supported);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setIsSupported(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, [platform]);
 
   const startRecording = useCallback(async () => {

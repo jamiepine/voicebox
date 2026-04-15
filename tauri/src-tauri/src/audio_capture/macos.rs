@@ -13,6 +13,7 @@ use screencapturekit::{
     },
 };
 use std::io::Cursor;
+use std::process::Command;
 use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 
@@ -20,6 +21,10 @@ pub async fn start_capture(
     state: &AudioCaptureState,
     max_duration_secs: u32,
 ) -> Result<(), String> {
+    if !is_supported() {
+        return Err("System audio capture requires macOS 12.3 or newer.".to_string());
+    }
+
     // Reset previous samples
     state.reset();
 
@@ -144,17 +149,22 @@ pub async fn stop_capture(state: &AudioCaptureState) -> Result<String, String> {
 }
 
 pub fn is_supported() -> bool {
-    // ScreenCaptureKit requires macOS 12.3+
-    // Check if we're on a supported version
-    #[cfg(target_os = "macos")]
-    {
-        // Basic check - ScreenCaptureKit should be available on macOS 12.3+
-        true
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        false
-    }
+    macos_version_at_least(12, 3)
+}
+
+fn macos_version_at_least(required_major: u64, required_minor: u64) -> bool {
+    let output = match Command::new("sw_vers").arg("-productVersion").output() {
+        Ok(output) if output.status.success() => output,
+        _ => return false,
+    };
+
+    let version = String::from_utf8_lossy(&output.stdout);
+    let mut parts = version.trim().split('.');
+
+    let major = parts.next().and_then(|part| part.parse::<u64>().ok()).unwrap_or(0);
+    let minor = parts.next().and_then(|part| part.parse::<u64>().ok()).unwrap_or(0);
+
+    major > required_major || (major == required_major && minor >= required_minor)
 }
 
 fn extract_audio_samples(sample_buffer: CMSampleBuffer) -> Result<Vec<f32>, String> {

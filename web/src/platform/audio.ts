@@ -1,7 +1,7 @@
 import type { PlatformAudio, AudioDevice } from '@/platform/types';
 
 export const webAudio: PlatformAudio = {
-  isSystemAudioSupported(): boolean {
+  async isSystemAudioSupported(): Promise<boolean> {
     return false; // System audio capture not supported in web
   },
 

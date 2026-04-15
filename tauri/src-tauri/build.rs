@@ -5,6 +5,10 @@ fn main() {
     // Link Swift runtime libraries for screencapturekit crate
     #[cfg(target_os = "macos")]
     {
+        // ScreenCaptureKit does not exist on macOS 11, so weak-link it to
+        // allow the app to launch and gate usage at runtime instead.
+        println!("cargo:rustc-link-arg=-Wl,-weak_framework,ScreenCaptureKit");
+
         // Add Swift runtime library paths to RPATH
         println!("cargo:rustc-link-arg=-Wl,-rpath,/usr/lib/swift");
         println!("cargo:rustc-link-arg=-L/usr/lib/swift");
