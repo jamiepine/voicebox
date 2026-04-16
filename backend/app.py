@@ -135,7 +135,7 @@ def _mount_frontend(application: FastAPI) -> None:
     async def serve_spa(full_path: str):
         file_path = (frontend_dir / full_path).resolve()
         # Guard against path traversal — only serve files inside frontend_dir
-        if full_path and file_path.is_file() and str(file_path).startswith(str(frontend_dir)):
+        if full_path and file_path.is_file() and file_path.is_relative_to(frontend_dir):
             return FileResponse(file_path)
         return FileResponse(frontend_dir / "index.html", media_type="text/html")
 

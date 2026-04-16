@@ -64,7 +64,7 @@ def get_cached_voice_prompt(
     cache_file = _get_cache_dir() / f"{cache_key}.prompt"
     if cache_file.exists():
         try:
-            prompt = torch.load(cache_file)
+            prompt = torch.load(cache_file, weights_only=True)
             _memory_cache[cache_key] = prompt
             return prompt
         except Exception:
