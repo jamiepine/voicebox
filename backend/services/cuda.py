@@ -248,6 +248,9 @@ async def download_cuda_binary(version: Optional[str] = None):
     Args:
         version: Version tag (e.g. "v0.3.0"). Defaults to current app version.
     """
+    if _download_lock.locked():
+        logger.info("CUDA download already in progress, skipping duplicate request")
+        return
     async with _download_lock:
         await _download_cuda_binary_locked(version)
 
