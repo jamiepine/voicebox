@@ -72,6 +72,11 @@ def _get_preset_voice_ids(engine: str) -> set[str]:
 
         return {voice_id for voice_id, _name, _gender, _lang, _desc in QWEN_CUSTOM_VOICES}
 
+    if engine == "minimax":
+        from ..backends.minimax_backend import MINIMAX_VOICES
+
+        return {voice_id for voice_id, _name, _lang in MINIMAX_VOICES}
+
     return set()
 
 
