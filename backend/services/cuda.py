@@ -11,6 +11,7 @@ Both archives are extracted into {data_dir}/backends/cuda/ which forms the
 complete PyInstaller --onedir directory structure that torch expects.
 """
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -33,6 +34,12 @@ PROGRESS_KEY = "cuda-backend"
 # The current expected CUDA libs version.  Bump this when we change the
 # CUDA toolkit version or torch's CUDA dependency changes (e.g. cu126 -> cu128).
 CUDA_LIBS_VERSION = "cu128-v1"
+
+# Prevents concurrent download_cuda_binary() calls from racing on the same
+# temp file.  The auto-update background task and the manual HTTP endpoint
+# can both invoke download_cuda_binary(); without this lock the progress-
+# manager status check is a TOCTOU race.
+_download_lock = asyncio.Lock()
 
 
 def get_backends_dir() -> Path:
@@ -241,6 +248,12 @@ async def download_cuda_binary(version: Optional[str] = None):
     Args:
         version: Version tag (e.g. "v0.3.0"). Defaults to current app version.
     """
+    async with _download_lock:
+        await _download_cuda_binary_locked(version)
+
+
+async def _download_cuda_binary_locked(version: Optional[str] = None):
+    """Inner implementation of download_cuda_binary, called under _download_lock."""
     import httpx
 
     if version is None:
