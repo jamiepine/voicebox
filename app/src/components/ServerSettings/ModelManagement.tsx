@@ -977,7 +977,19 @@ export function ModelManagement() {
                 });
                 try {
                   // Start the migration (background task)
-                  await apiClient.migrateModels(newDir);
+                  const migrationResult = await apiClient.migrateModels(newDir);
+
+                  // If no models to migrate, warn user and skip the change
+                  if (migrationResult.moved === 0) {
+                    setMigrating(false);
+                    setMigrationProgress(null);
+                    toast({
+                      title: 'No models to migrate',
+                      description: 'Download at least one model before changing the storage location.',
+                    });
+                    setPendingMigrateDir(null);
+                    return;
+                  }
 
                   // Connect to SSE for progress
                   await new Promise<void>((resolve, reject) => {
