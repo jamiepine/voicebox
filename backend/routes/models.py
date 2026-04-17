@@ -135,13 +135,14 @@ async def migrate_models(request: models.ModelMigrateRequest):
     if destination.resolve().is_relative_to(source.resolve()):
         raise HTTPException(status_code=400, detail="Destination cannot be inside the current cache directory")
 
+    progress_manager = get_progress_manager()
     model_dirs = [d for d in source.iterdir() if d.name.startswith("models--") and d.is_dir()]
     if not model_dirs:
+        progress_manager.update_progress("migration", 1, 1, status="complete")
+        progress_manager.mark_complete("migration")
         return {"moved": 0, "errors": [], "source": str(source), "destination": str(destination)}
 
     destination.mkdir(parents=True, exist_ok=True)
-
-    progress_manager = get_progress_manager()
 
     same_fs = False
     try:
