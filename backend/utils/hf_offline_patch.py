@@ -12,6 +12,11 @@ from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 
+# Module-level flag: if True, we've already tried with network and failed for
+# this model.  Prevents each individual config file from triggering its own
+# 5-retry cycle.
+_offline_retry_done = {}
+
 
 @contextmanager
 def force_offline_if_cached(is_cached: bool, model_label: str = ""):
