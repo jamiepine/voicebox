@@ -105,7 +105,12 @@ Five TTS engines with different strengths, switchable per-generation:
 
 ### Emotions & Paralinguistic Tags
 
-Type `/` in the text input to insert expressive tags that the model synthesizes inline with speech (Chatterbox Turbo):
+Only **Chatterbox Turbo** interprets paralinguistic tags like `[laugh]` and
+`[sigh]`. Qwen3-TTS, LuxTTS, Chatterbox Multilingual, and HumeAI TADA read them
+literally as text.
+
+With **Chatterbox Turbo** selected, type `/` in the text input to open the tag
+inserter and add expressive tags inline with speech:
 
 `[laugh]` `[chuckle]` `[gasp]` `[cough]` `[sigh]` `[groan]` `[sniff]` `[shush]` `[clear throat]`
 
