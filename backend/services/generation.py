@@ -16,6 +16,7 @@ Mode differences:
 
 from __future__ import annotations
 
+import asyncio
 import traceback
 from typing import Literal, Optional
 
@@ -126,6 +127,13 @@ async def run_generation(
             duration=duration,
         )
 
+    except asyncio.CancelledError:
+        await history.update_generation_status(
+            generation_id=generation_id,
+            status="failed",
+            db=bg_db,
+            error="Generation cancelled",
+        )
     except Exception as e:
         traceback.print_exc()
         await history.update_generation_status(

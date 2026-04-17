@@ -1,15 +1,14 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  AlignCenter,
   AudioLines,
-  AudioWaveform,
   Download,
   FileArchive,
   Loader2,
   MoreHorizontal,
   Play,
   RotateCcw,
+  Square,
   Star,
   Trash2,
   Wand2,
@@ -130,6 +129,23 @@ export function HistoryTable() {
   const exportGeneration = useExportGeneration();
   const exportGenerationAudio = useExportGenerationAudio();
   const importGeneration = useImportGeneration();
+  const cancelGeneration = useMutation({
+    mutationFn: (generationId: string) => apiClient.cancelGeneration(generationId),
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ['history'] });
+      toast({
+        title: 'Cancelling generation',
+        description: data.message,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Cancel failed',
+        description: error instanceof Error ? error.message : 'Could not cancel generation',
+        variant: 'destructive',
+      });
+    },
+  });
   const addPendingGeneration = useGenerationStore((state) => state.addPendingGeneration);
   const setAudioWithAutoPlay = usePlayerStore((state) => state.setAudioWithAutoPlay);
   const restartCurrentAudio = usePlayerStore((state) => state.restartCurrentAudio);
@@ -483,6 +499,8 @@ export function HistoryTable() {
               const isPlayable = !isGenerating && !isFailed;
               const hasVersions = gen.versions && gen.versions.length > 1;
               const isVersionsExpanded = expandedVersionsId === gen.id;
+              const isCancelling =
+                cancelGeneration.isPending && cancelGeneration.variables === gen.id;
               return (
                 <div
                   key={gen.id}
@@ -631,60 +649,71 @@ export function HistoryTable() {
                             <Trash2 className="h-2 w-2" />
                           </Button>
                         </>
+                      ) : isGenerating ? (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
+                          aria-label="Cancel generation"
+                          disabled={isCancelling}
+                          onClick={() => cancelGeneration.mutate(gen.id)}
+                        >
+                          {isCancelling ? (
+                            <Loader2 className="h-2 w-2 animate-spin" />
+                          ) : (
+                            <Square className="h-2 w-2" />
+                          )}
+                        </Button>
                       ) : (
-                        <>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
-                                aria-label="Actions"
-                                disabled={isGenerating}
-                              >
-                                <MoreHorizontal className="h-2 w-2" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handlePlay(gen.id, gen.text, gen.profile_id)}
-                              >
-                                <Play className="mr-2 h-4 w-4" />
-                                Play
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDownloadAudio(gen.id, gen.text)}
-                                disabled={exportGenerationAudio.isPending}
-                              >
-                                <Download className="mr-2 h-4 w-4" />
-                                Export Audio
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleExportPackage(gen.id, gen.text)}
-                                disabled={exportGeneration.isPending}
-                              >
-                                <FileArchive className="mr-2 h-4 w-4" />
-                                Export Package
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleApplyEffects(gen.id)}>
-                                <Wand2 className="mr-2 h-4 w-4" />
-                                Apply Effects
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleRegenerate(gen.id)}>
-                                <RotateCcw className="mr-2 h-4 w-4" />
-                                Regenerate
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteClick(gen.id, gen.profile_name)}
-                                disabled={deleteGeneration.isPending}
-                                // className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
+                              aria-label="Actions"
+                              disabled={isGenerating}
+                            >
+                              <MoreHorizontal className="h-2 w-2" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handlePlay(gen.id, gen.text, gen.profile_id)}>
+                              <Play className="mr-2 h-4 w-4" />
+                              Play
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDownloadAudio(gen.id, gen.text)}
+                              disabled={exportGenerationAudio.isPending}
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              Export Audio
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleExportPackage(gen.id, gen.text)}
+                              disabled={exportGeneration.isPending}
+                            >
+                              <FileArchive className="mr-2 h-4 w-4" />
+                              Export Package
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleApplyEffects(gen.id)}>
+                              <Wand2 className="mr-2 h-4 w-4" />
+                              Apply Effects
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleRegenerate(gen.id)}>
+                              <RotateCcw className="mr-2 h-4 w-4" />
+                              Regenerate
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(gen.id, gen.profile_name)}
+                              disabled={deleteGeneration.isPending}
+                              // className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                     </div>
                   </div>

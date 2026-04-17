@@ -14,7 +14,7 @@ from .. import models
 from ..services import history, profiles, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
-from ..services.task_queue import enqueue_generation
+from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
 from ..utils.tasks import get_task_manager
 
 router = APIRouter()
@@ -82,6 +82,7 @@ async def generate_speech(
                 pass
 
     enqueue_generation(
+        generation_id,
         run_generation(
             generation_id=generation_id,
             profile_id=data.profile_id,
@@ -127,6 +128,7 @@ async def retry_generation(generation_id: str, db: Session = Depends(get_db)):
     )
 
     enqueue_generation(
+        generation_id,
         run_generation(
             generation_id=generation_id,
             profile_id=gen.profile_id,
@@ -170,6 +172,7 @@ async def regenerate_generation(generation_id: str, db: Session = Depends(get_db
     version_id = str(uuid.uuid4())
 
     enqueue_generation(
+        generation_id,
         run_generation(
             generation_id=generation_id,
             profile_id=gen.profile_id,
@@ -185,6 +188,34 @@ async def regenerate_generation(generation_id: str, db: Session = Depends(get_db
     )
 
     return models.GenerationResponse.model_validate(gen)
+
+
+@router.post("/generate/{generation_id}/cancel")
+async def cancel_generation(generation_id: str, db: Session = Depends(get_db)):
+    """Cancel a queued or running generation."""
+    gen = db.query(DBGeneration).filter_by(id=generation_id).first()
+    if not gen:
+        raise HTTPException(status_code=404, detail="Generation not found")
+
+    if (gen.status or "completed") not in ("loading_model", "generating"):
+        raise HTTPException(status_code=400, detail="Only active generations can be cancelled")
+
+    cancellation_state = cancel_generation_job(generation_id)
+    if cancellation_state is None:
+        raise HTTPException(status_code=409, detail="Generation is no longer cancellable")
+
+    if cancellation_state == "queued":
+        task_manager = get_task_manager()
+        task_manager.complete_generation(generation_id)
+        await history.update_generation_status(
+            generation_id=generation_id,
+            status="failed",
+            db=db,
+            error="Generation cancelled",
+        )
+        return {"message": "Queued generation cancelled"}
+
+    return {"message": "Generation cancellation requested"}
 
 
 @router.get("/generate/{generation_id}/status")
