@@ -8,12 +8,71 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 
+/// Try to find a PulseAudio/PipeWire monitor source using `pactl`.
+/// Returns the source name (e.g. "alsa_output.pci-0000_0d_00.6.analog-stereo.monitor") if found.
+fn find_monitor_source_via_pactl() -> Option<String> {
+    let output = std::process::Command::new("pactl")
+        .args(["list", "short", "sources"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // First, try to find the monitor of the default sink
+    let default_sink = std::process::Command::new("pactl")
+        .args(["get-default-sink"])
+        .output()
+        .ok()
+        .and_then(|o| {
+            if o.status.success() {
+                Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
+            } else {
+                None
+            }
+        });
+
+    // If we know the default sink, look for its .monitor specifically
+    if let Some(sink_name) = &default_sink {
+        let monitor_name = format!("{}.monitor", sink_name);
+        for line in stdout.lines() {
+            let parts: Vec<&str> = line.split('\t').collect();
+            if parts.len() >= 2 && parts[1] == monitor_name {
+                eprintln!(
+                    "Linux audio capture: Found default sink monitor via pactl: {}",
+                    monitor_name
+                );
+                return Some(monitor_name);
+            }
+        }
+    }
+
+    // Fallback: find any .monitor source
+    for line in stdout.lines() {
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() >= 2 && parts[1].ends_with(".monitor") {
+            let name = parts[1].to_string();
+            eprintln!(
+                "Linux audio capture: Found monitor source via pactl: {}",
+                name
+            );
+            return Some(name);
+        }
+    }
+
+    None
+}
+
 /// Start capturing system audio on Linux using PulseAudio monitor sources.
 ///
-/// PulseAudio exposes "monitor" devices that mirror the output of each sink,
-/// allowing us to capture whatever audio is currently playing on the system.
-/// We use `cpal` with the default host (which will be PulseAudio or PipeWire
-/// on modern Linux) and look for monitor input devices.
+/// On modern Linux with PulseAudio or PipeWire, we first try to detect the
+/// monitor source via `pactl` and set the `PULSE_SOURCE` environment variable.
+/// This tells PulseAudio's ALSA plugin to use the monitor as the default input
+/// source for this process. If `pactl` is unavailable, we fall back to searching
+/// cpal device names for "monitor".
 pub async fn start_capture(
     state: &AudioCaptureState,
     max_duration_secs: u32,
@@ -42,30 +101,62 @@ pub async fn start_capture(
 
     // Spawn capture on a dedicated thread
     thread::spawn(move || {
+        // Try to set PULSE_SOURCE to a monitor before initializing cpal.
+        // This tells PulseAudio/PipeWire's ALSA plugin to use the monitor
+        // as the default input source for this process.
+        let monitor_source = find_monitor_source_via_pactl();
+        if let Some(ref source_name) = monitor_source {
+            eprintln!(
+                "Linux audio capture: Setting PULSE_SOURCE={}",
+                source_name
+            );
+            std::env::set_var("PULSE_SOURCE", source_name);
+        }
+
         let host = cpal::default_host();
 
-        // Try to find a monitor device for system audio capture.
-        // On PulseAudio/PipeWire, monitor sources have "monitor" in their name.
-        let device = {
+        // Select the capture device.
+        // If PULSE_SOURCE was set, the default input device IS the monitor.
+        // Otherwise, fall back to searching device names for "monitor".
+        let device = if monitor_source.is_some() {
+            // PULSE_SOURCE was set — default input IS the monitor now
+            match host.default_input_device() {
+                Some(d) => {
+                    let name = d.name().unwrap_or_default();
+                    eprintln!(
+                        "Linux audio capture: Using PULSE_SOURCE monitor device: {}",
+                        name
+                    );
+                    d
+                }
+                None => {
+                    let error_msg = "No audio input device available".to_string();
+                    eprintln!("{}", error_msg);
+                    *error_arc.lock().unwrap() = Some(error_msg);
+                    return;
+                }
+            }
+        } else {
+            // pactl not available — try to find monitor by name (original approach)
             let mut monitor_device = None;
-
             if let Ok(devices) = host.input_devices() {
                 for d in devices {
                     if let Ok(name) = d.name() {
                         let name_lower = name.to_lowercase();
                         if name_lower.contains("monitor") {
-                            eprintln!("Linux audio capture: Found monitor device: {}", name);
+                            eprintln!(
+                                "Linux audio capture: Found monitor device by name: {}",
+                                name
+                            );
                             monitor_device = Some(d);
                             break;
                         }
                     }
                 }
             }
-
             match monitor_device {
                 Some(d) => d,
                 None => {
-                    // Fallback to default input device (microphone)
                     eprintln!("Linux audio capture: No monitor device found, falling back to default input");
                     match host.default_input_device() {
                         Some(d) => d,
@@ -266,7 +357,11 @@ pub async fn stop_capture(state: &AudioCaptureState) -> Result<String, String> {
 }
 
 pub fn is_supported() -> bool {
-    // Check if we can find a monitor device for system audio capture
+    // Check via pactl first (most reliable on modern Linux)
+    if find_monitor_source_via_pactl().is_some() {
+        return true;
+    }
+    // Fallback: check cpal devices
     let host = cpal::default_host();
     if let Ok(devices) = host.input_devices() {
         for d in devices {
@@ -277,7 +372,6 @@ pub fn is_supported() -> bool {
             }
         }
     }
-    // Even without a monitor, basic input capture is available
     host.default_input_device().is_some()
 }
 
