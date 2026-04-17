@@ -282,6 +282,10 @@ async def delete_generations_by_profile(
     
     count = 0
     for generation in generations:
+        # Delete associated version files and rows first
+        from . import versions as versions_mod
+        versions_mod.delete_versions_for_generation(generation.id, db)
+
         # Delete audio file
         audio_path = config.resolve_storage_path(generation.audio_path)
         if audio_path is not None and audio_path.exists():
