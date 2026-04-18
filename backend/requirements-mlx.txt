@@ -3,3 +3,11 @@
 
 mlx>=0.30.0
 mlx-audio>=0.3.1
+
+# Restate the transformers cap from requirements.txt. mlx-audio depends on
+# `transformers` with no upper bound, so installing it after requirements.txt
+# lets pip upgrade transformers past 4.57.x (latest is 5.x), which breaks
+# qwen-custom-voice (`@check_model_inputs()` API change), tada-1b (dataclass
+# `mutable default` enforcement), and luxtts (Whisper init path) in the
+# frozen MLX bundle. Keep this constraint in sync with requirements.txt.
+transformers>=4.36.0,<=4.57.6
