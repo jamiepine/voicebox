@@ -1680,7 +1680,10 @@ async def delete_model(model_name: str):
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Failed to delete model: {e!s}"
+            ) from e
     
     # Map built-in model names to HuggingFace repo IDs
     model_configs = {

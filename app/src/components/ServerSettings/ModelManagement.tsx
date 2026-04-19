@@ -554,8 +554,10 @@ interface CustomModelItemProps {
  */
 function CustomModelItem({ model, onDownload, onDeleteCache, onRemove, isDownloading, isUnregistering, formatSize }: CustomModelItemProps) {
   const showDownloading = model.downloading || isDownloading;
+  const [isUnregisterDialogOpen, setIsUnregisterDialogOpen] = useState(false);
 
   return (
+    <>
     <div className="flex items-center justify-between p-3 border rounded-lg">
       <div className="flex-1">
         <div className="flex items-center gap-2">
@@ -607,11 +609,7 @@ function CustomModelItem({ model, onDownload, onDeleteCache, onRemove, isDownloa
         )}
         <Button
           size="sm"
-          onClick={() => {
-            if (window.confirm(`Are you sure you want to unregister ${model.display_name}? This will not delete the downloaded model weights from your cache.`)) {
-              onRemove();
-            }
-          }}
+          onClick={() => setIsUnregisterDialogOpen(true)}
           variant="ghost"
           title="Remove custom model from list"
           disabled={model.loaded || isUnregistering}
@@ -620,5 +618,26 @@ function CustomModelItem({ model, onDownload, onDeleteCache, onRemove, isDownloa
         </Button>
       </div>
     </div>
+    
+      <AlertDialog open={isUnregisterDialogOpen} onOpenChange={setIsUnregisterDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unregister Custom Model</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to unregister {model.display_name}? This will not delete the downloaded model weights from your cache.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setIsUnregisterDialogOpen(false);
+              onRemove();
+            }}>
+              Unregister
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
