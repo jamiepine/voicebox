@@ -28,6 +28,24 @@ const TUTORIALS: (Tutorial | null)[] = [
 		author: "Dave Swift",
 		thumbnail: "/tutorials/kqxqjRsdD5E.jpg",
 	},
+	{
+		id: "yu9QHqOEqqA",
+		title: "This FREE AI Tool Just Destroyed ElevenLabs Voice Cloning (VoiceBox)",
+		author: "Danish Sofi",
+		thumbnail: "/tutorials/yu9QHqOEqqA.jpg",
+	},
+	{
+		id: "RRRBxNXgeKQ",
+		title: "Get Started with Voicebox: Open-Source Alternative to ElevenLabs Tutorial",
+		author: "StinkyScrublet",
+		thumbnail: "/tutorials/RRRBxNXgeKQ.jpg",
+	},
+	{
+		id: "PyMx4L9mky4",
+		title: "Free AI Voice Generator (Clones Any Voice)",
+		author: "mikbes",
+		thumbnail: "/tutorials/PyMx4L9mky4.jpg",
+	},
 ];
 
 function TutorialCard({tutorial}: {tutorial: Tutorial}) {

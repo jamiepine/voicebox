@@ -88,7 +88,7 @@ export default function Home() {
 
 					{/* CTAs */}
 					<div
-						className="fade-in mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+						className="fade-in mt-10 flex flex-row items-center justify-center gap-3 sm:gap-4"
 						style={{animationDelay: "300ms"}}
 					>
 						<a

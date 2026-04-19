@@ -32,7 +32,7 @@ export function Navbar() {
 
   return (
     <nav className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto grid max-w-7xl grid-cols-3 items-center px-6 py-3">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3 sm:grid sm:grid-cols-3">
         {/* Logo + wordmark */}
         <a href="/" className="flex items-center gap-2.5 justify-self-start">
           <Image
@@ -87,7 +87,7 @@ export function Navbar() {
             href={DONATE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-[#FFDD00]/40"
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-[#FFDD00]/40"
             aria-label="Donate via Buy Me a Coffee"
           >
             <Coffee className="h-4 w-4 text-[#FFDD00]" />
