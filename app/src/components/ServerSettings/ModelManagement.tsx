@@ -48,7 +48,7 @@ export function ModelManagement() {
   const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
   const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
 
-  const { modelStatus, isLoading } = useModelStatus();
+  const { modelStatus, customModels, isLoading } = useModelStatus();
 
   // Callbacks for download completion
   const handleDownloadComplete = useCallback(() => {
@@ -304,8 +304,7 @@ export function ModelManagement() {
                 </Button>
               </div>
               <div className="space-y-2">
-                {modelStatus.models
-                  .filter((m) => m.is_custom)
+                {customModels
                   .map((model) => (
                     <CustomModelItem
                       key={model.model_name}
@@ -339,7 +338,7 @@ export function ModelManagement() {
                       formatSize={formatSize}
                     />
                   ))}
-                {modelStatus.models.filter((m) => m.is_custom).length === 0 && (
+                {customModels.length === 0 && (
                   <div className="text-sm text-muted-foreground p-3 border border-dashed rounded-lg text-center">
                     No custom models added yet. Click "Add Model" to add a HuggingFace model.
                   </div>

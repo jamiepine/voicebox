@@ -1525,8 +1525,8 @@ async def get_model_status():
             try:
                 tts_model = tts.get_tts_model()
                 loaded = tts_model.is_loaded() and getattr(tts_model, '_current_model_size', None) == model_name
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Loaded-check failed for custom model %s: %s", model_name, exc)
             
             # Check if downloading
             is_downloading = model_name in active_download_names or hf_repo_id in active_download_repos
@@ -1543,7 +1543,8 @@ async def get_model_status():
                 loaded=loaded,
                 is_custom=True,
             ))
-        except Exception:
+        except Exception as exc:
+            logger.debug("Cache inspection failed for custom model %s: %s", model_name, exc)
             is_downloading = model_name in active_download_names
             statuses.append(models.ModelStatus(
                 model_name=model_name,
@@ -1602,20 +1603,20 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
             raise HTTPException(status_code=400, detail=f"Custom model '{custom_id}' not found")
         
         model_size = request.model_name  # Pass full "custom:slug" to load_model
-        config = {
+        model_cfg = {
             "model_size": model_size,
             "load_func": lambda: tts.get_tts_model().load_model(model_size),
         }
     elif request.model_name not in model_configs:
         raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_name}")
     else:
-        config = model_configs[request.model_name]
+        model_cfg = model_configs[request.model_name]
     
     async def download_in_background():
         """Download model in background without blocking the HTTP request."""
         try:
             # Call the load function (which may be async)
-            result = config["load_func"]()
+            result = model_cfg["load_func"]()
             # If it's a coroutine, await it
             if asyncio.iscoroutine(result):
                 await result
