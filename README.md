@@ -83,9 +83,9 @@ Voicebox is a **local-first voice cloning studio** — a free and open-source al
 
 | Platform              | Download                                               |
 | --------------------- | ------------------------------------------------------ |
-| macOS (Apple Silicon) | [Download DMG](https://voicebox.sh/download/mac-arm)   |
-| macOS (Intel)         | [Download DMG](https://voicebox.sh/download/mac-intel) |
-| Windows               | [Download MSI](https://voicebox.sh/download/windows)   |
+| macOS (Apple Silicon) | [Download DMG](https://github.com/jamiepine/voicebox/releases/download/v0.4.1/Voicebox_0.4.1_aarch64.dmg)   |
+| macOS (Intel)         | [Download DMG](https://github.com/jamiepine/voicebox/releases/download/v0.4.1/Voicebox_0.4.1_x64.dmg) |
+| Windows               | [Download MSI](https://github.com/jamiepine/voicebox/releases/download/v0.4.1/Voicebox_0.4.1_x64_en-US.msi)   |
 | Docker                | `docker compose up`                                    |
 
 > **[View all binaries →](https://github.com/jamiepine/voicebox/releases/latest)**
