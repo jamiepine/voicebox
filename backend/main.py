@@ -22,7 +22,10 @@ import uuid
 import asyncio
 import signal
 import os
+import logging
 from urllib.parse import quote
+
+logger = logging.getLogger(__name__)
 
 
 def _safe_content_disposition(disposition_type: str, filename: str) -> str:
@@ -1416,7 +1419,7 @@ async def get_model_status():
                         if blobs_dir.exists():
                             has_incomplete = any(blobs_dir.glob("*.incomplete"))
                     except Exception as exc:
-                        processLogger.debug("Incomplete-check failed for %s: %s", hf_repo_id, exc)
+                        logger.debug("Incomplete-check failed for %s: %s", hf_repo_id, exc)
 
                     if has_model_weights and not has_incomplete:
                         downloaded = True
@@ -1424,7 +1427,7 @@ async def get_model_status():
                             total_size = sum(revision.size_on_disk for revision in repo.revisions)
                             size_mb = total_size / (1024 * 1024)
                         except Exception as exc:
-                            processLogger.debug("Size calc failed for %s: %s", hf_repo_id, exc)
+                            logger.debug("Size calc failed for %s: %s", hf_repo_id, exc)
                     break
 
         # Method 2: Fallback to direct cache directory inspection
@@ -1455,25 +1458,25 @@ async def get_model_status():
                                 )
                                 size_mb = total_size / (1024 * 1024)
                             except Exception as exc:
-                                processLogger.debug("Size calc (fallback) failed for %s: %s", hf_repo_id, exc)
+                                logger.debug("Size calc (fallback) failed for %s: %s", hf_repo_id, exc)
             except Exception as exc:
-                processLogger.debug("Fallback cache check failed for %s: %s", hf_repo_id, exc)
+                logger.debug("Fallback cache check failed for %s: %s", hf_repo_id, exc)
 
         return downloaded, size_mb
     
-    for config in model_configs:
+    for model_cfg in model_configs:
         try:
-            downloaded, size_mb = _inspect_hf_cache(config["hf_repo_id"])
+            downloaded, size_mb = _inspect_hf_cache(model_cfg["hf_repo_id"])
             
             loaded = False
             # Check if loaded in memory
             try:
-                loaded = config["check_loaded"]()
+                loaded = model_cfg["check_loaded"]()
             except Exception:
                 loaded = False
             
             # Check if this model (or its shared repo) is currently being downloaded
-            is_downloading = config["hf_repo_id"] in active_download_repos
+            is_downloading = model_cfg["hf_repo_id"] in active_download_repos
             
             # If downloading, don't report as downloaded (partial files exist)
             if is_downloading:
@@ -1481,8 +1484,8 @@ async def get_model_status():
                 size_mb = None  # Don't show partial size during download
             
             statuses.append(models.ModelStatus(
-                model_name=config["model_name"],
-                display_name=config["display_name"],
+                model_name=model_cfg["model_name"],
+                display_name=model_cfg["display_name"],
                 downloaded=downloaded,
                 downloading=is_downloading,
                 size_mb=size_mb,
@@ -1491,16 +1494,16 @@ async def get_model_status():
         except Exception as e:
             # If check fails, try to at least check if loaded
             try:
-                loaded = config["check_loaded"]()
+                loaded = model_cfg["check_loaded"]()
             except Exception:
                 loaded = False
             
             # Check if this model (or its shared repo) is currently being downloaded
-            is_downloading = config["hf_repo_id"] in active_download_repos
+            is_downloading = model_cfg["hf_repo_id"] in active_download_repos
             
             statuses.append(models.ModelStatus(
-                model_name=config["model_name"],
-                display_name=config["display_name"],
+                model_name=model_cfg["model_name"],
+                display_name=model_cfg["display_name"],
                 downloaded=False,  # Assume not downloaded if check failed
                 downloading=is_downloading,
                 size_mb=None,
@@ -1751,7 +1754,10 @@ async def delete_model(model_name: str):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Failed to delete model: {e!s}"
+        ) from e
 
 
 # ============================================

@@ -160,10 +160,10 @@ export function ModelManagement() {
     mutationFn: async (data: { hf_repo_id: string; display_name: string }) => {
       return apiClient.addCustomModel(data);
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, variables) => {
       toast({
         title: 'Custom model added',
-        description: `${newModelDisplayName} has been added successfully.`,
+        description: `${variables.display_name} has been added successfully.`,
       });
       setAddDialogOpen(false);
       setNewModelRepoId('');
@@ -608,7 +608,11 @@ function CustomModelItem({ model, onDownload, onDeleteCache, onRemove, isDownloa
         )}
         <Button
           size="sm"
-          onClick={onRemove}
+          onClick={() => {
+            if (window.confirm(`Are you sure you want to unregister ${model.display_name}? This will not delete the downloaded model weights from your cache.`)) {
+              onRemove();
+            }
+          }}
           variant="ghost"
           title="Remove custom model from list"
           disabled={model.loaded || isUnregistering}

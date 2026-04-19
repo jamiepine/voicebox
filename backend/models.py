@@ -57,7 +57,7 @@ class GenerationRequest(BaseModel):
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(
         default="1.7B",
-        pattern=r'^(1\.7B|0\.6B|custom:[a-z0-9][a-z0-9._-]*[a-z0-9])$',
+        pattern=r'^(1\.7B|0\.6B|custom:[a-z0-9]([a-z0-9-]*[a-z0-9])?)$',
         description="Built-in model size (1.7B, 0.6B) or custom model identifier (custom:<slug>)",
     )
     instruct: Optional[str] = Field(None, max_length=500)
