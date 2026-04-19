@@ -1,0 +1,13 @@
+{
+  "title": "Profiles",
+  "pages": [
+    "list_profiles_profiles_get",
+    "create_profile_profiles_post",
+    "get_profile_profiles__profile_id__get",
+    "update_profile_profiles__profile_id__put",
+    "delete_profile_profiles__profile_id__delete",
+    "get_profile_samples_profiles__profile_id__samples_get",
+    "add_profile_sample_profiles__profile_id__samples_post",
+    "delete_profile_sample_profiles_samples__sample_id__delete"
+  ]
+}

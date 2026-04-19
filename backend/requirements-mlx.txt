@@ -2,4 +2,14 @@
 # These should only be installed on aarch64-apple-darwin platforms
 
 mlx>=0.30.0
-mlx-audio>=0.3.1
+
+# NOTE: mlx-audio is intentionally not listed here. From 0.3.1 onward it
+# declares `transformers==5.0.0rc3` / `>=5.0.0`, which conflicts with the
+# `transformers<=4.57.6` cap in requirements.txt and breaks CI's clean
+# resolver. The mlx-audio API surface we use (mlx_audio.tts.load,
+# mlx_audio.stt.load) works fine on transformers 4.57.x in practice.
+#
+# Install it via `pip install --no-deps mlx-audio==0.4.1` after this file
+# (see .github/workflows/release.yml). All other mlx-audio runtime deps
+# (huggingface_hub, librosa, miniaudio, mlx-lm, numba, numpy, protobuf,
+# pyloudnorm, sounddevice, tqdm) are already in requirements.txt.

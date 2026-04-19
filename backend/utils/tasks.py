@@ -72,6 +72,15 @@ class TaskManager:
         """Get all active generations."""
         return list(self._active_generations.values())
     
+    def cancel_download(self, model_name: str) -> bool:
+        """Cancel/dismiss a download task (removes it from active list)."""
+        return self._active_downloads.pop(model_name, None) is not None
+
+    def clear_all(self) -> None:
+        """Clear all download and generation tasks."""
+        self._active_downloads.clear()
+        self._active_generations.clear()
+
     def is_download_active(self, model_name: str) -> bool:
         """Check if a download is active."""
         return model_name in self._active_downloads

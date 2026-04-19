@@ -70,6 +70,16 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
     }
   }, []);
 
+  // Resolve the audio buffer key and URL for an item.
+  // When a version_id is pinned, use that version's audio; otherwise use the generation default.
+  const getAudioKey = (item: StoryItemDetail) =>
+    item.version_id ? `v:${item.version_id}` : item.generation_id;
+
+  const getAudioUrlForItem = (item: StoryItemDetail) =>
+    item.version_id
+      ? apiClient.getVersionAudioUrl(item.version_id)
+      : apiClient.getAudioUrl(item.generation_id);
+
   // Preload audio files as AudioBuffers
   useEffect(() => {
     if (!items || items.length === 0) {
@@ -78,12 +88,12 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
       return;
     }
 
-    const currentIds = new Set(items.map((item) => item.generation_id));
+    const currentKeys = new Set(items.map(getAudioKey));
     const audioContext = getAudioContext();
 
     // Remove buffers for items that no longer exist
     for (const [id] of audioBuffersRef.current) {
-      if (!currentIds.has(id)) {
+      if (!currentKeys.has(id)) {
         audioBuffersRef.current.delete(id);
       }
     }
@@ -91,24 +101,25 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
     // Preload audio for new items
     const preloadPromises: Promise<void>[] = [];
     for (const item of items) {
-      if (!audioBuffersRef.current.has(item.generation_id)) {
-        const audioUrl = apiClient.getAudioUrl(item.generation_id);
-        console.log('[StoryPlayback] Preloading audio buffer:', item.generation_id);
+      const key = getAudioKey(item);
+      if (!audioBuffersRef.current.has(key)) {
+        const audioUrl = getAudioUrlForItem(item);
+        console.log('[StoryPlayback] Preloading audio buffer:', key);
 
         const preloadPromise = fetch(audioUrl)
           .then((response) => response.arrayBuffer())
           .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer))
           .then((audioBuffer) => {
-            audioBuffersRef.current.set(item.generation_id, audioBuffer);
+            audioBuffersRef.current.set(key, audioBuffer);
             console.log(
               '[StoryPlayback] Preloaded buffer:',
-              item.generation_id,
+              key,
               'duration:',
               audioBuffer.duration,
             );
           })
           .catch((err) => {
-            console.error('[StoryPlayback] Failed to preload audio:', item.generation_id, err);
+            console.error('[StoryPlayback] Failed to preload audio:', key, err);
           });
 
         preloadPromises.push(preloadPromise);
@@ -216,15 +227,16 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
       // Schedule new sources for items that should be playing
       for (const item of shouldBePlaying) {
         if (!activeSourcesRef.current.has(item.id)) {
-          const buffer = audioBuffersRef.current.get(item.generation_id);
+          const bufferKey = getAudioKey(item);
+          const buffer = audioBuffersRef.current.get(bufferKey);
           if (!buffer) {
-            console.warn('[StoryPlayback] Buffer not loaded for:', item.generation_id);
+            console.warn('[StoryPlayback] Buffer not loaded for:', bufferKey);
             continue;
           }
 
           // Calculate when this item should start in AudioContext time
           const itemStartContextTime = storyTimeToContextTime(item.start_time_ms);
-          
+
           // Calculate effective duration and trim offsets
           const trimStartSec = (item.trim_start_ms || 0) / 1000;
           const trimEndSec = (item.trim_end_ms || 0) / 1000;

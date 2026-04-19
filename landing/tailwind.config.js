@@ -8,6 +8,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -33,6 +36,9 @@ module.exports = {
         accent: {
           DEFAULT: 'hsl(var(--accent))',
           foreground: 'hsl(var(--accent-foreground))',
+          faint: 'hsl(var(--accent-faint))',
+          deep: 'hsl(var(--accent-deep))',
+          glow: 'hsl(var(--accent-glow))',
         },
         popover: {
           DEFAULT: 'hsl(var(--popover))',
@@ -41,6 +47,27 @@ module.exports = {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
+        },
+        // App surface tokens
+        app: {
+          DEFAULT: 'hsl(var(--app))',
+          box: 'hsl(var(--app-box))',
+          darkBox: 'hsl(var(--app-dark-box))',
+          darkerBox: 'hsl(var(--app-darker-box))',
+          lightBox: 'hsl(var(--app-light-box))',
+          line: 'hsl(var(--app-line))',
+          button: 'hsl(var(--app-button))',
+          hover: 'hsl(var(--app-hover))',
+          selected: 'hsl(var(--app-selected))',
+        },
+        ink: {
+          DEFAULT: 'hsl(var(--ink))',
+          dull: 'hsl(var(--ink-dull))',
+          faint: 'hsl(var(--ink-faint))',
+        },
+        sidebar: {
+          DEFAULT: 'hsl(var(--sidebar))',
+          line: 'hsl(var(--sidebar-line))',
         },
       },
       borderRadius: {

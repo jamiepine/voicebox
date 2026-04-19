@@ -1,0 +1,83 @@
+[project]
+name = "voicebox-backend"
+version = "0.2.3"
+requires-python = ">=3.12"
+
+# ---------------------------------------------------------------------------
+# Ruff – linter + formatter
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+src = ["."]
+
+# Files/dirs to skip entirely.
+extend-exclude = [
+    "voicebox-server.spec",
+    "build_binary.py",
+]
+
+[tool.ruff.lint]
+select = [
+    "F",     # pyflakes
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "I",     # isort
+    "N",     # pep8-naming
+    "UP",    # pyupgrade (modernize syntax for 3.12)
+    "B",     # flake8-bugbear
+    "A",     # flake8-builtins (shadowing built-in names)
+    "SIM",   # flake8-simplify
+    "T20",   # flake8-print (flag print() calls)
+    "RET",   # flake8-return
+    "PIE",   # misc lints
+    "PT",    # flake8-pytest-style
+    "RUF",   # ruff-specific rules
+    "ERA",   # commented-out code detection
+    "FIX",   # flag TODO/FIXME/HACK/XXX for review
+]
+
+ignore = [
+    # Allow print() in existing code -- remove items from this list as files
+    # are migrated to logging during the refactor.
+    "T201",   # print() found
+
+    # These conflict with the formatter or are too noisy during migration:
+    "E501",   # line too long (formatter handles this)
+    "RET504", # unnecessary assignment before return
+    "SIM108", # use ternary operator (sometimes less readable)
+    "B008",   # function call in default argument (FastAPI Depends() pattern)
+    "UP007",  # use X | Y for union (auto-fixed by UP, but noisy on big diffs)
+]
+
+# Per-file rule overrides.
+[tool.ruff.lint.per-file-ignores]
+# Tests can use assert, print, and magic values freely.
+"tests/**" = ["S101", "T201", "PLR2004", "ERA001"]
+# __init__.py re-exports are expected to have unused imports.
+"**/__init__.py" = ["F401"]
+# Entry points and scripts legitimately use print.
+"server.py" = ["T201"]
+"main.py" = ["T201"]
+# AMD GPU env vars must be set before torch import.
+"app.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["backend"]
+# Group "from backend.*" imports into the first-party section.
+force-single-line = false
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

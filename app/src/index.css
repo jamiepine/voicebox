@@ -1,4 +1,5 @@
 @import "tailwindcss" source(".");
+@import "loaders.css/loaders.min.css";
 
 @theme {
   --radius-sm: calc(var(--radius) - 4px);
@@ -154,4 +155,19 @@
 .animate-fade-in-delayed {
   animation: fadeIn 0.5s ease-out 0.15s forwards;
   opacity: 0;
+}
+
+/* react-loaders */
+.line-scale-pulse-out-rapid > div,
+.line-scale > div {
+  background-color: hsl(var(--accent)) !important;
+}
+
+.loader-hidden {
+  display: block;
+}
+
+.loader-hidden > div > div {
+  animation-play-state: paused !important;
+  background-color: hsl(var(--muted-foreground)) !important;
 }

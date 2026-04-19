@@ -1,5 +1,5 @@
-import { Plus, BookOpen, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { BookOpen, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,7 +29,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { useStories, useCreateStory, useUpdateStory, useDeleteStory } from '@/lib/hooks/useStories';
+import {
+  useCreateStory,
+  useDeleteStory,
+  useStories,
+  useStory,
+  useUpdateStory,
+} from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/format';
 import { useStoryStore } from '@/stores/storyStore';
@@ -38,6 +44,8 @@ export function StoryList() {
   const { data: stories, isLoading } = useStories();
   const selectedStoryId = useStoryStore((state) => state.selectedStoryId);
   const setSelectedStoryId = useStoryStore((state) => state.setSelectedStoryId);
+  const trackEditorHeight = useStoryStore((state) => state.trackEditorHeight);
+  const { data: selectedStory } = useStory(selectedStoryId);
   const createStory = useCreateStory();
   const updateStory = useUpdateStory();
   const deleteStory = useDeleteStory();
@@ -53,6 +61,13 @@ export function StoryList() {
   const [newStoryName, setNewStoryName] = useState('');
   const [newStoryDescription, setNewStoryDescription] = useState('');
   const { toast } = useToast();
+
+  // Auto-select the first story when the list loads with no selection
+  useEffect(() => {
+    if (!selectedStoryId && stories && stories.length > 0) {
+      setSelectedStoryId(stories[0].id);
+    }
+  }, [selectedStoryId, stories, setSelectedStoryId]);
 
   const handleCreateStory = () => {
     if (!newStoryName.trim()) {
@@ -170,20 +185,29 @@ export function StoryList() {
   }
 
   const storyList = stories || [];
+  const hasTrackEditor = selectedStoryId && selectedStory && selectedStory.items.length > 0;
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 px-1">
-        <h2 className="text-2xl font-bold">Stories</h2>
-        <Button onClick={() => setCreateDialogOpen(true)} size="sm">
-          <Plus className="mr-2 h-4 w-4" />
-          New Story
-        </Button>
+    <div className="h-full flex flex-col relative overflow-hidden">
+      {/* Scroll Mask */}
+      <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
+
+      {/* Fixed Header */}
+      <div className="absolute top-0 left-0 right-0 z-20">
+        <div className="flex items-center justify-between mb-4 px-1">
+          <h2 className="text-2xl font-bold">Stories</h2>
+          <Button onClick={() => setCreateDialogOpen(true)} size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            New Story
+          </Button>
+        </div>
       </div>
 
-      {/* Story List */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+      {/* Scrollable Story List */}
+      <div
+        className="flex-1 overflow-y-auto pt-14 relative z-0"
+        style={{ paddingBottom: hasTrackEditor ? `${trackEditorHeight + 140}px` : '170px' }}
+      >
         {storyList.length === 0 ? (
           <div className="text-center py-12 px-5 border-2 border-dashed border-muted rounded-2xl text-muted-foreground">
             <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -191,62 +215,68 @@ export function StoryList() {
             <p className="text-xs mt-2">Create your first story to get started</p>
           </div>
         ) : (
-          storyList.map((story) => (
-            <div
-              key={story.id}
-              className={cn(
-                'h-24 p-4 border rounded-2xl transition-colors group flex items-center',
-                selectedStoryId === story.id && 'bg-muted border-primary',
-              )}
-            >
-              <div className="flex items-start justify-between gap-2 w-full min-w-0">
-                <button
-                  type="button"
-                  className="flex-1 min-w-0 text-left cursor-pointer overflow-hidden"
-                  onClick={() => setSelectedStoryId(story.id)}
-                >
-                  <h3 className="font-medium truncate">{story.name}</h3>
-                  {story.description && (
-                    <p className="text-sm text-muted-foreground mt-1 truncate">
-                      {story.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span>
-                      {story.item_count} {story.item_count === 1 ? 'item' : 'items'}
-                    </span>
-                    <span>•</span>
-                    <span>{formatDate(story.updated_at)}</span>
+          <div className="space-y-0.5">
+            {storyList.map((story) => (
+              <div
+                key={story.id}
+                role="button"
+                tabIndex={0}
+                className={cn(
+                  'px-5 py-3 rounded-lg transition-colors group flex items-center cursor-pointer',
+                  selectedStoryId === story.id ? 'bg-muted' : 'hover:bg-muted/50',
+                )}
+                aria-label={`Story ${story.name}, ${story.item_count} ${story.item_count === 1 ? 'item' : 'items'}, ${formatDate(story.updated_at)}`}
+                aria-pressed={selectedStoryId === story.id}
+                onClick={() => setSelectedStoryId(story.id)}
+                onKeyDown={(e) => {
+                  if (e.target !== e.currentTarget) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setSelectedStoryId(story.id);
+                  }
+                }}
+              >
+                <div className="flex items-start justify-between gap-2 w-full min-w-0">
+                  <div className="flex-1 min-w-0 text-left overflow-hidden">
+                    <h3 className="text-sm font-medium truncate">{story.name}</h3>
+                    <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                      <span>
+                        {story.item_count} {story.item_count === 1 ? 'item' : 'items'}
+                      </span>
+                      <span>·</span>
+                      <span>{formatDate(story.updated_at)}</span>
+                    </div>
                   </div>
-                </button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleEditClick(story)}>
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => handleDeleteClick(story.id)}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label={`Actions for ${story.name}`}
+                      >
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditClick(story)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleDeleteClick(story.id)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
       </div>
 

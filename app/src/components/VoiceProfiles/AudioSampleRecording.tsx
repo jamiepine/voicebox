@@ -14,12 +14,7 @@ const MemoizedWaveform = memo(function MemoizedWaveform({
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-30">
       <Visualizer audio={audioStream} autoStart strokeColor="#b39a3d">
         {({ canvasRef }) => (
-          <canvas
-            ref={canvasRef}
-            width={500}
-            height={150}
-            className="w-full h-full"
-          />
+          <canvas ref={canvasRef} width={500} height={150} className="w-full h-full" />
         )}
       </Visualizer>
     </div>
@@ -87,9 +82,7 @@ export function AudioSampleRecording({
         <div className="space-y-4">
           {!isRecording && !file && (
             <div className="relative flex flex-col items-center justify-center gap-4 p-4 border-2 border-dashed rounded-lg min-h-[180px] overflow-hidden">
-              {showWaveform && audioStream && (
-                <MemoizedWaveform audioStream={audioStream} />
-              )}
+              {showWaveform && audioStream && <MemoizedWaveform audioStream={audioStream} />}
               <Button
                 type="button"
                 onClick={onStart}
@@ -107,9 +100,7 @@ export function AudioSampleRecording({
 
           {isRecording && (
             <div className="relative flex flex-col items-center justify-center gap-4 p-4 border-2 border-accent rounded-lg bg-accent/5 min-h-[180px] overflow-hidden">
-              {showWaveform && audioStream && (
-                <MemoizedWaveform audioStream={audioStream} />
-              )}
+              {showWaveform && audioStream && <MemoizedWaveform audioStream={audioStream} />}
               <div className="relative z-10 flex items-center gap-4">
                 <div className="flex items-center gap-2">
                   <div className="h-3 w-3 rounded-full bg-accent animate-pulse" />
@@ -140,7 +131,13 @@ export function AudioSampleRecording({
               </div>
               <p className="text-sm text-muted-foreground text-center">File: {file.name}</p>
               <div className="flex gap-2">
-                <Button type="button" size="icon" variant="outline" onClick={onPlayPause}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  onClick={onPlayPause}
+                  aria-label={isPlaying ? 'Pause' : 'Play'}
+                >
                   {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                 </Button>
                 <Button

@@ -1,0 +1,240 @@
+---
+title: "Docker Deployment"
+description: "Run Voicebox as a headless server with a web UI using Docker"
+---
+
+## Overview
+
+Voicebox can run as a Docker container with a full web UI -- no desktop app required. This is ideal for headless servers, shared GPU machines, or self-hosted deployments.
+
+## Quick Start
+
+```bash
+git clone https://github.com/jamiepine/voicebox.git
+cd voicebox
+docker compose up
+```
+
+Open [http://localhost:17493](http://localhost:17493) in your browser. The full Voicebox UI is served directly from the backend.
+
+<Callout type="info">
+  The first build takes a few minutes (compiling the frontend, installing Python dependencies). Subsequent starts are fast thanks to Docker layer caching.
+</Callout>
+
+## How It Works
+
+The Docker image uses a 3-stage build:
+
+1. **Frontend** -- builds the React SPA with Bun and Vite
+2. **Backend** -- installs Python dependencies and TTS model packages
+3. **Runtime** -- combines both into a minimal image running the FastAPI server
+
+The backend serves the web UI automatically when the built frontend is present. All API routes work exactly as they do in the desktop app.
+
+## Configuration
+
+### docker-compose.yml
+
+The default `docker-compose.yml` binds to localhost only, mounts persistent volumes for data and model cache, and sets sensible resource limits:
+
+```yaml
+services:
+  voicebox:
+    build: .
+    container_name: voicebox
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:17493:17493"
+    volumes:
+      - ./output:/app/data/generations
+      - voicebox-data:/app/data
+      - huggingface-cache:/home/voicebox/.cache/huggingface
+    environment:
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+```
+
+### Exposing to Your Network
+
+By default the container only listens on `127.0.0.1`. To allow other machines on your network to connect, change the port binding:
+
+```yaml
+ports:
+  - "0.0.0.0:17493:17493"
+```
+
+<Callout type="warn">
+  The API has no built-in authentication. Only expose to trusted networks, or put a reverse proxy with auth in front of it.
+</Callout>
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_LEVEL` | `info` | Logging verbosity (`debug`, `info`, `warning`, `error`) |
+| `VOICEBOX_MODELS_DIR` | (HuggingFace cache) | Custom path for model storage |
+| `VOICEBOX_CORS_ORIGINS` | (local origins) | Additional CORS origins, comma-separated |
+
+### Resource Limits
+
+The default compose file limits the container to 4 CPUs and 8GB RAM. Adjust these based on your hardware:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '8'
+      memory: 16G
+```
+
+<Callout type="info">
+  TTS model inference is memory-intensive. 8GB is the minimum for running a single engine. 16GB+ is recommended if you want multiple engines loaded simultaneously.
+</Callout>
+
+## Volumes
+
+| Volume | Container Path | Purpose |
+|--------|---------------|---------|
+| `./output` | `/app/data/generations` | Generated audio files (bind-mount, easy access from host) |
+| `voicebox-data` | `/app/data` | Profiles, database, cache |
+| `huggingface-cache` | `/home/voicebox/.cache/huggingface` | Downloaded models (persists across rebuilds) |
+
+The `huggingface-cache` volume is important -- without it, models would be re-downloaded every time the container is rebuilt.
+
+## GPU Acceleration
+
+### NVIDIA GPU (CUDA)
+
+To use your NVIDIA GPU inside the container, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) and add GPU access to your compose file:
+
+```yaml
+services:
+  voicebox:
+    build: .
+    # ... existing config ...
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+```
+
+### AMD GPU (ROCm)
+
+For AMD GPUs, use the ROCm runtime:
+
+```yaml
+services:
+  voicebox:
+    build: .
+    # ... existing config ...
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+```
+
+### CPU Only
+
+The default configuration runs on CPU. This works fine but generation will be slower. LuxTTS is the fastest engine on CPU (150x realtime).
+
+## Security
+
+The Docker image follows security best practices:
+
+- **Non-root user** -- the server runs as `voicebox`, not `root`
+- **Localhost binding** -- only accessible from the host machine by default
+- **Health checks** -- automatic restart if the server hangs (`/health` endpoint polled every 30s)
+- **CORS restricted** -- only local origins allowed by default
+
+### Running Behind a Reverse Proxy
+
+For production deployments, put Voicebox behind nginx or Caddy with TLS and authentication:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name voicebox.example.com;
+
+    ssl_certificate /etc/ssl/certs/voicebox.pem;
+    ssl_certificate_key /etc/ssl/private/voicebox.key;
+
+    auth_basic "Voicebox";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+
+    location / {
+        proxy_pass http://127.0.0.1:17493;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+## Troubleshooting
+
+### Container starts but UI shows JSON
+
+If you see `{"message": "voicebox API", ...}` instead of the web UI, the frontend build may have failed during the Docker build. Check the build logs:
+
+```bash
+docker compose build --no-cache
+```
+
+Look for errors in the "Build frontend" stage.
+
+### Models downloading on every restart
+
+Make sure the `huggingface-cache` volume is configured. Without it, the model cache is lost when the container stops:
+
+```yaml
+volumes:
+  - huggingface-cache:/home/voicebox/.cache/huggingface
+```
+
+### Out of memory
+
+TTS models are large. If the container is killed by the OOM killer, increase the memory limit:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      memory: 16G
+```
+
+### Port already in use
+
+```bash
+# Check what's using port 17493
+lsof -i :17493
+
+# Or use a different port
+ports:
+  - "127.0.0.1:8080:17493"
+```
+
+## Prebuilt Images (Coming Soon)
+
+We plan to publish prebuilt Docker images to GitHub Container Registry so you won't need to build locally:
+
+```bash
+# Not available yet — coming in a future release
+docker run -p 17493:17493 ghcr.io/jamiepine/voicebox:latest
+```
+
+The CPU image will be ~3-4 GB (Python + PyTorch + TTS packages). A separate CUDA tag (~6-8 GB) will be available for NVIDIA GPU users. This is normal for ML containers.
+
+For now, use `docker compose up` to build from source as described above.
+
+## Connecting the Desktop App
+
+You can also use the desktop app as a frontend for a Docker-hosted backend. In the desktop app, go to **Settings -> Server**, enable **Remote Mode**, and enter `http://<server-ip>:17493`.
+
+See the [Remote Mode guide](/overview/remote-mode) for details.

@@ -1,0 +1,9 @@
+{
+  "title": "History",
+  "pages": [
+    "list_history_history_get",
+    "get_generation_history__generation_id__get",
+    "delete_generation_history__generation_id__delete",
+    "get_stats_history_stats_get"
+  ]
+}

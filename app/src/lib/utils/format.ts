@@ -21,8 +21,23 @@ export function formatDate(date: string | Date): string {
   } else {
     dateObj = date;
   }
-  
+
   return formatDistance(dateObj, new Date(), { addSuffix: true }).replace(/^about /i, '');
+}
+
+const ENGINE_DISPLAY_NAMES: Record<string, string> = {
+  qwen: 'Qwen',
+  luxtts: 'LuxTTS',
+  chatterbox: 'Chatterbox',
+  chatterbox_turbo: 'Chatterbox Turbo',
+};
+
+export function formatEngineName(engine?: string, modelSize?: string): string {
+  const name = ENGINE_DISPLAY_NAMES[engine ?? 'qwen'] ?? engine ?? 'Qwen';
+  if (engine === 'qwen' && modelSize) {
+    return `${name} ${modelSize}`;
+  }
+  return name;
 }
 
 export function formatFileSize(bytes: number): string {

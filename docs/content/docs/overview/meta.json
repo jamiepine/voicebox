@@ -1,0 +1,21 @@
+{
+  "title": "Overview",
+  "defaultOpen": true,
+  "pages": [
+    "introduction",
+    "installation",
+    "docker",
+    "quick-start",
+    "gpu-acceleration",
+    "voice-cloning",
+    "preset-voices",
+    "stories-editor",
+    "recording-transcription",
+    "generation-history",
+    "remote-mode",
+    "creating-voice-profiles",
+    "generating-speech",
+    "building-stories",
+    "troubleshooting"
+  ]
+}

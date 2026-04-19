@@ -1,0 +1,10 @@
+{
+  "title": "Models",
+  "pages": [
+    "get_model_status_models_status_get",
+    "load_model_models_load_post",
+    "unload_model_models_unload_post",
+    "trigger_model_download_models_download_post",
+    "get_model_progress_models_progress__model_name__get"
+  ]
+}

@@ -1,0 +1,218 @@
+---
+title: "Auto-Updater"
+description: "How Voicebox automatic updates work"
+---
+
+## Overview
+
+Voicebox uses Tauri's built-in auto-updater to deliver signed updates to users. The system verifies updates cryptographically before installation.
+
+## How It Works
+
+When Voicebox launches (in production Tauri builds only), it checks GitHub Releases for a `latest.json` manifest. If a newer version is available:
+
+1. **Notification** - An update banner appears at the top of the app
+2. **Download** - User clicks "Install Now" to download the update package
+3. **Verification** - The downloaded package is cryptographically verified using the public key embedded in `tauri.conf.json`
+4. **Installation** - After verification, the update is installed
+5. **Restart** - The app restarts automatically with the new version
+
+Users can also check for updates manually via **Settings → Check for Updates**.
+
+## Configuration
+
+The updater is configured in `tauri/src-tauri/tauri.conf.json`:
+
+```json
+{
+  "plugins": {
+    "updater": {
+      "active": true,
+      "dialog": false,
+      "endpoints": [
+        "https://github.com/jamiepine/voicebox/releases/latest/download/latest.json"
+      ],
+      "pubkey": "PASTE_PUBLIC_KEY_CONTENT_HERE"
+    }
+  }
+}
+```
+
+**Key settings:**
+- `endpoints` - URL to the `latest.json` manifest (checked on app startup)
+- `pubkey` - Public key for verifying update signatures
+- `dialog` - Set to `false` (we use custom UI instead of Tauri's built-in dialog)
+
+## Release Manifest
+
+The `latest.json` file defines available updates per platform:
+
+```json
+{
+  "version": "0.2.0",
+  "notes": "Bug fixes and improvements",
+  "pub_date": "2026-01-25T12:00:00Z",
+  "platforms": {
+    "darwin-aarch64": {
+      "signature": "base64_encoded_signature",
+      "url": "https://github.com/jamiepine/voicebox/releases/download/v0.2.0/voicebox_0.2.0_aarch64.app.tar.gz"
+    },
+    "darwin-x86_64": {
+      "signature": "base64_encoded_signature",
+      "url": "https://github.com/jamiepine/voicebox/releases/download/v0.2.0/voicebox_0.2.0_x64.app.tar.gz"
+    },
+    "linux-x86_64": {
+      "signature": "base64_encoded_signature",
+      "url": "https://github.com/jamiepine/voicebox/releases/download/v0.2.0/voicebox_0.2.0_amd64.AppImage"
+    },
+    "windows-x86_64": {
+      "signature": "base64_encoded_signature",
+      "url": "https://github.com/jamiepine/voicebox/releases/download/v0.2.0/voicebox_0.2.0_x64_en-US.msi"
+    }
+  }
+}
+```
+
+## Signing
+
+Updates must be cryptographically signed to be accepted. The signing process:
+
+1. **Generate keys** (one-time setup):
+   ```bash
+   bun tauri signer generate -w ~/.tauri/voicebox.key
+   ```
+   This creates:
+   - Private key: `~/.tauri/voicebox.key` (stored in GitHub Secrets, never committed)
+   - Public key: `~/.tauri/voicebox.key.pub` (pasted into `tauri.conf.json`)
+
+2. **Build with signing** (GitHub Actions handles this):
+   - Set `TAURI_SIGNING_PRIVATE_KEY` environment variable
+   - Tauri signs the update package during build
+   - Generates `.sig` signature file alongside the installer
+
+3. **Verification** - The updater compares the signature against the public key before installing
+
+## GitHub Actions Workflow
+
+The release workflow (`.github/workflows/release.yml`) automatically:
+
+- Builds signed releases for macOS, Windows, and Linux
+- Creates the `latest.json` manifest with signatures
+- Uploads everything to the GitHub Release
+
+Triggered by pushing a git tag:
+
+```bash
+git tag v0.2.0 && git push --tags
+```
+
+## Environment Variables
+
+GitHub Actions needs these secrets set:
+
+- `TAURI_SIGNING_PRIVATE_KEY` - Content of `~/.tauri/voicebox.key`
+- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` - Password for the key (if set)
+
+## Security
+
+<Callout type="warn">
+  **Critical:** Never commit the private key. Store it only in GitHub Secrets. The public key in `tauri.conf.json` is safe to commit and distribute.
+</Callout>
+
+- Updates are cryptographically signed using Ed25519
+- HTTP endpoints are blocked (HTTPS only)
+- Signature verification happens before installation
+- Failed verification aborts the update
+
+## Troubleshooting
+
+### "Invalid signature" error
+- Public key in `tauri.conf.json` doesn't match the private key used to sign
+- Signature file wasn't uploaded to the release
+
+### "No update available" when one exists
+- `latest.json` version isn't higher than current version
+- Wrong endpoint URL in configuration
+- Manifest hasn't propagated to GitHub's CDN yet
+
+### Update check fails in dev mode
+The updater only works in production Tauri builds. It doesn't run during `just dev` or web mode.
+
+### Build fails with signing error
+- GitHub Secrets aren't set correctly
+- Private key file is missing or corrupted
+- Key format is wrong (should start with `dW50cnVzdGVkIGNvbW1lbnQ6`)
+
+## CUDA Backend Updates
+
+The CUDA-enabled backend is distributed separately from the main app because bundling CUDA would bloat the installer by several gigabytes for users who don't have an NVIDIA GPU. Unlike the Tauri auto-updater, the CUDA backend uses a custom download system built into the Python server.
+
+**Size comparison (approximate):**
+- Standard CPU bundle (in the installer): ~200–400 MB
+- CUDA server core: ~945 MB (versioned with each Voicebox release)
+- CUDA libs (NVIDIA runtime DLLs): ~1.7 GB (versioned independently, cached across upgrades)
+
+### Two-archive split
+
+Since v0.4, the CUDA binary is packaged as **two archives** instead of one:
+
+- **Server core** (`voicebox-server-cuda.tar.gz`) — the Python server + PyTorch code, changes every release.
+- **CUDA libs** (`cuda-libs-cu128-v1.tar.gz`) — the heavy NVIDIA CUDA/cuDNN DLLs, only re-downloaded when the CUDA toolkit major version changes.
+
+This means most Voicebox upgrades only re-download the ~945 MB server core, not the full ~2.5 GB bundle.
+
+### Download Process
+
+When a user clicks "Install CUDA backend" in Settings → GPU:
+
+1. **Server-core archive** — Downloaded from GitHub Releases and extracted.
+2. **CUDA libs archive** — Downloaded separately (or reused if the installed version still matches).
+3. **Verification** — SHA-256 checksum verification for integrity.
+4. **Placement** — Extracted into `{data_dir}/backends/cuda/`.
+5. **Restart** — The Voicebox server restarts and swaps in the CUDA backend.
+
+### Auto-Update on Startup
+
+On startup, the backend compares the installed CUDA server-core version with the current app version. If they differ, the core archive is pulled in the background. If the libs version pinned by the new release also differs (rare — e.g. on a cu126 → cu128 bump), the user is prompted to confirm the larger download.
+
+### Storage Location
+
+Downloaded CUDA binaries live in the app's data directory:
+
+```
+{data_dir}/backends/cuda/
+  voicebox-server-cuda.exe    # Windows
+  voicebox-server-cuda        # macOS/Linux
+  <NVIDIA CUDA runtime DLLs>
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/backend/cuda-status` | GET | Check if the CUDA backend is available/active and which versions are installed |
+| `/backend/download-cuda` | POST | Trigger server-core + libs download |
+| `/backend/cuda-progress` | GET | SSE stream of download progress |
+| `/backend/cuda` | DELETE | Remove the downloaded CUDA backend |
+
+### Progress Tracking
+
+Downloads report progress via Server-Sent Events (SSE):
+
+```
+GET /backend/cuda-progress
+
+event: progress
+data: {"current": 52428800, "total": 945000000, "filename": "voicebox-server-cuda.tar.gz", "status": "downloading"}
+```
+
+The frontend subscribes to this endpoint to show real-time progress, including which archive (server core vs libs) is currently downloading.
+
+### Release Artifacts
+
+For each CUDA-capable release, these files are uploaded to GitHub:
+
+- `voicebox-server-cuda.tar.gz` — server-core archive
+- `voicebox-server-cuda.tar.gz.sha256` — checksum
+- `cuda-libs-cu128-v1.tar.gz` — CUDA runtime libs (only when the libs version bumps)
+- `cuda-libs-cu128-v1.tar.gz.sha256` — checksum

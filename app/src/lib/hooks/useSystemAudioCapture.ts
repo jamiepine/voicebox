@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlatform } from '@/platform/PlatformContext';
 
 interface UseSystemAudioCaptureOptions {
@@ -26,8 +26,24 @@ export function useSystemAudioCapture({
 
   // Check if system audio capture is supported
   useEffect(() => {
-    const supported = platform.audio.isSystemAudioSupported();
-    setIsSupported(supported);
+    let isActive = true;
+
+    void platform.audio
+      .isSystemAudioSupported()
+      .then((supported) => {
+        if (isActive) {
+          setIsSupported(supported);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setIsSupported(false);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, [platform]);
 
   const startRecording = useCallback(async () => {
@@ -94,15 +110,13 @@ export function useSystemAudioCapture({
       const blob = await platform.audio.stopSystemAudioCapture();
 
       // Pass the actual recorded duration
-      const recordedDuration = startTimeRef.current 
-        ? (Date.now() - startTimeRef.current) / 1000 
+      const recordedDuration = startTimeRef.current
+        ? (Date.now() - startTimeRef.current) / 1000
         : undefined;
       onRecordingComplete?.(blob, recordedDuration);
     } catch (err) {
       const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Failed to stop system audio capture.';
+        err instanceof Error ? err.message : 'Failed to stop system audio capture.';
       setError(errorMessage);
     }
   }, [isRecording, onRecordingComplete, platform]);

@@ -1,0 +1,236 @@
+---
+title: "GPU Acceleration"
+description: "How Voicebox uses your GPU — auto-detection, manual setup, troubleshooting"
+---
+
+## Overview
+
+Voicebox auto-detects available accelerators on first launch and picks the fastest backend it can use. For most people this just works — open the app and you're already on the right backend.
+
+This page is for the cases where it doesn't:
+
+- You have a GPU but Voicebox is running on CPU
+- You upgraded GPUs (especially to RTX 50-series / Blackwell) and generation broke
+- You want to switch backends manually (e.g. force MLX over PyTorch on Apple Silicon)
+- You see `[UNSUPPORTED - see logs]` next to your GPU in Settings
+
+## Backend Matrix
+
+| Platform                    | Auto-selected backend     | Notes                                                |
+| --------------------------- | ------------------------- | ---------------------------------------------------- |
+| **macOS Apple Silicon**     | MLX (Metal)               | 4-5x faster than PyTorch via Apple Neural Engine     |
+| **macOS Intel**             | PyTorch CPU               | No GPU acceleration available; PyTorch ≥ 2.2 only    |
+| **Windows + NVIDIA**        | PyTorch CUDA (cu128)      | Auto-downloads the CUDA backend binary on first use  |
+| **Windows + Intel Arc**     | PyTorch XPU (IPEX)        | New in 0.4 — works with Arc A-series and B-series    |
+| **Windows generic GPU**     | DirectML                  | Universal Windows GPU support; slower than CUDA      |
+| **Linux + NVIDIA**          | PyTorch CUDA (cu128)      | Same auto-download flow as Windows                   |
+| **Linux + AMD**             | PyTorch ROCm              | Auto-configures `HSA_OVERRIDE_GFX_VERSION`           |
+| **Linux + Intel Arc**       | PyTorch XPU (IPEX)        |                                                      |
+| **Any (no GPU)**            | PyTorch CPU               | Works everywhere; expect 5-50x slower than GPU       |
+
+The detected backend is shown in Settings → GPU. Logs at startup also print the chosen backend and the device name.
+
+## Apple Silicon — MLX vs PyTorch
+
+On M-series Macs, Voicebox ships an MLX-optimized backend that uses the Apple Neural Engine. It's **4-5x faster** than the PyTorch (CPU/Metal) path for supported engines.
+
+| Engine               | MLX support | Notes                                       |
+| -------------------- | ----------- | ------------------------------------------- |
+| Qwen3-TTS            | ✅ Native   | Uses MLX exclusively when available         |
+| Chatterbox / Turbo   | PyTorch MPS | Falls back to Metal via PyTorch             |
+| LuxTTS               | PyTorch MPS |                                             |
+| TADA                 | PyTorch MPS |                                             |
+| Kokoro               | PyTorch MPS | Requires `PYTORCH_ENABLE_MPS_FALLBACK=1`    |
+| Qwen CustomVoice     | PyTorch MPS |                                             |
+| Whisper (transcribe) | ✅ Native   | MLX-Whisper is the default on Apple Silicon |
+
+The Whisper Turbo + MLX combo dropped transcription latency from ~20s to ~2-3s on M-series chips (see CHANGELOG entry for v0.1.10).
+
+## Windows / Linux + NVIDIA — The CUDA Backend Swap
+
+Voicebox doesn't bundle CUDA into the main installer (it would balloon downloads to multi-gigabyte territory for users who don't have an NVIDIA GPU). Instead, when you first need it, the app downloads a separate **CUDA backend binary** that contains the PyTorch + CUDA runtime.
+
+<Steps>
+  <Step title="Open Settings → GPU">
+    If an NVIDIA GPU is detected, you'll see "Install CUDA backend" in the GPU panel
+  </Step>
+  <Step title="Click Install">
+    The app downloads two archives separately:
+    - **Server core** (~200-400 MB) — versioned with each Voicebox release
+    - **CUDA libs** (~4 GB) — the heavy PyTorch + CUDA DLLs, versioned independently
+  </Step>
+  <Step title="Restart">
+    Voicebox restarts to swap in the CUDA backend
+  </Step>
+</Steps>
+
+<Callout type="info">
+  The split-archive design (added in v0.4) means most Voicebox upgrades only redownload the small server-core archive. The 4 GB libs archive is only refreshed when the underlying CUDA toolkit or torch major version changes.
+</Callout>
+
+### Auto-update
+
+When a new Voicebox release ships, the GPU panel checks if the bundled server-core matches the installed CUDA version. If only the core changed (typical), it pulls the new core in the background. If the libs version changed (rare — only happens on cu126 → cu128 type bumps), you'll be prompted to confirm the larger download.
+
+## RTX 50-series / Blackwell
+
+Voicebox 0.4 added explicit RTX 50-series support:
+
+- CUDA toolkit upgraded to **cu128** (previous releases used cu126 which lacks Blackwell kernels)
+- Build pinned with `TORCH_CUDA_ARCH_LIST=...12.0+PTX` for forward-compatibility
+
+If you're on an RTX 5070 / 5080 / 5090 and you see "no kernel image is available" errors:
+
+1. Make sure you're on Voicebox **≥ 0.4.0** (Settings → About)
+2. Reinstall the CUDA backend (Settings → GPU → Reinstall CUDA backend) — older installs may have stale cu126 libs
+3. If errors persist, see the GPU compatibility warnings section below
+
+## Intel Arc (XPU)
+
+New in 0.4. Works with both Arc A-series (Alchemist: A380, A580, A750, A770) and B-series (Battlemage).
+
+### Setup
+
+Voicebox auto-detects Arc GPUs and routes through Intel's PyTorch XPU backend (powered by IPEX — Intel Extension for PyTorch). No extra installation step beyond the standard Voicebox install.
+
+Verify it's working:
+- Settings → GPU should show **XPU** followed by your Arc model name (e.g. `XPU (Intel Arc A770)`)
+- Startup logs print `Backend: PYTORCH` and `GPU: XPU (Intel Arc ...)`
+
+### Engines on XPU
+
+All PyTorch-based engines work on XPU. Performance is generally between CPU and CUDA — expect ~2-3x speedup over CPU for the larger models.
+
+## DirectML
+
+The fallback for Windows users with non-NVIDIA, non-Intel-Arc GPUs (older AMD discrete, integrated GPUs, etc.). Slower than CUDA and XPU but provides some acceleration over CPU.
+
+Auto-selected when no other GPU backend is available.
+
+## AMD ROCm (Linux)
+
+ROCm provides PyTorch GPU acceleration on AMD discrete GPUs. Voicebox auto-configures `HSA_OVERRIDE_GFX_VERSION` for common cards that need the override.
+
+### Verifying
+
+```bash
+# In a terminal
+echo $HSA_OVERRIDE_GFX_VERSION
+# Should show e.g. 10.3.0 for RX 6000 series
+```
+
+If detection fails, set the variable manually before launching Voicebox:
+
+```bash
+export HSA_OVERRIDE_GFX_VERSION=10.3.0
+voicebox
+```
+
+Common values:
+- `10.3.0` — RX 6000 series (RDNA 2)
+- `11.0.0` — RX 7000 series (RDNA 3)
+- `9.0.0` — Older Vega cards
+
+## GPU Compatibility Warnings
+
+Voicebox 0.4 added a runtime check that compares your GPU's compute capability against the architectures the bundled PyTorch was compiled for. If they don't match, you'll see:
+
+- A startup log line: `WARNING: GPU COMPATIBILITY: <your GPU> is not supported by this PyTorch build...`
+- The GPU label in Settings shows `[UNSUPPORTED - see logs]`
+- The `/health` API returns a populated `gpu_compatibility_warning` field
+
+### What to do
+
+The most common trigger is a brand-new GPU architecture that pre-built PyTorch wheels don't yet cover natively. In order of preference:
+
+1. **Update Voicebox** — newer releases ship newer PyTorch with broader arch support
+2. **Reinstall the CUDA backend** — Settings → GPU → Reinstall CUDA backend
+3. **For bleeding-edge GPUs (newer than current Blackwell):** install PyTorch nightly manually:
+   ```bash
+   pip install torch --index-url https://download.pytorch.org/whl/nightly/cu128 --force-reinstall
+   ```
+   Then point Voicebox at that environment via [Remote Mode](/overview/remote-mode) until stable PyTorch catches up.
+4. **Fall back to CPU** temporarily — set `VOICEBOX_FORCE_CPU=1` before launching
+
+## CPU-Only Fallback
+
+When no GPU is available (or you've forced it off), Voicebox runs the PyTorch CPU backend. Expect:
+
+- 5-50x slower generation depending on engine and text length
+- Heavy CPU usage during generation
+- Some engines work better than others on CPU:
+  - **Kokoro 82M** — runs at realtime on modern CPUs
+  - **LuxTTS** — exceeds 150x realtime on CPU
+  - **Chatterbox Turbo (350M)** — usable but slow
+  - Larger models (Qwen 1.7B, Chatterbox Multilingual, TADA 3B) — painful
+
+For CPU-bound use cases, prefer the smaller, lighter engines.
+
+## Verifying Your Setup
+
+Three places to check that the right backend is being used:
+
+<Steps>
+  <Step title="Settings → GPU">
+    Shows the detected backend, GPU model, and VRAM (when applicable). Look for the `[UNSUPPORTED - see logs]` suffix
+  </Step>
+  <Step title="Settings → Logs">
+    The "Server logs" tab shows the startup banner with `Backend: <type>` and `GPU: <name>`
+  </Step>
+  <Step title="Health endpoint">
+    `curl http://localhost:17493/health` returns a JSON payload with `backend_type`, `backend_variant`, and `gpu_compatibility_warning` (when applicable)
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Settings shows CPU instead of my GPU">
+    - On NVIDIA: install the CUDA backend (Settings → GPU)
+    - On Intel Arc: confirm IPEX detection in startup logs; restart the app after a driver update
+    - On AMD Linux: check `HSA_OVERRIDE_GFX_VERSION` is set
+  </Accordion>
+
+  <Accordion title="'no kernel image is available' / 'CUDA error'">
+    Almost always means the bundled PyTorch doesn't have kernels for your GPU's compute capability.
+
+    1. Update to Voicebox ≥ 0.4.0 (Blackwell support added there)
+    2. Reinstall the CUDA backend
+    3. If still broken, install PyTorch nightly via Remote Mode
+  </Accordion>
+
+  <Accordion title="Out of memory (CUDA)">
+    - Switch to a smaller model size (e.g. Qwen3 0.6B instead of 1.7B)
+    - Use Settings → Models to unload other engines you're not using
+    - Enable `low_cpu_mem_usage` is already on for CPU; for CUDA, the engine's `device_map` handles offload automatically
+    - Close other GPU applications
+  </Accordion>
+
+  <Accordion title="MPS fallback errors on macOS">
+    Some operations don't have a Metal implementation. Voicebox sets `PYTORCH_ENABLE_MPS_FALLBACK=1` for engines that need it (notably Kokoro), but if you launch from a custom env, set it manually:
+    ```bash
+    export PYTORCH_ENABLE_MPS_FALLBACK=1
+    ```
+  </Accordion>
+
+  <Accordion title="Generation works but is slow on my GPU">
+    - Check Settings → GPU shows your GPU (not CPU)
+    - Check VRAM usage — you may be paging to system memory
+    - Try a smaller model
+    - For NVIDIA: confirm cu128 is installed (Settings → GPU → version)
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<Cards>
+  <Card title="Remote Mode" href="/overview/remote-mode">
+    Run the backend on a different machine with a stronger GPU
+  </Card>
+  <Card title="Model Management" href="/developer/model-management">
+    Unload models to free GPU memory
+  </Card>
+  <Card title="Troubleshooting" href="/overview/troubleshooting">
+    General troubleshooting beyond GPU
+  </Card>
+</Cards>

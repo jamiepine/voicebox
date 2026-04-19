@@ -37,11 +37,10 @@ async def monitor_sse_stream(model_name: str, timeout: int = 120):
                     if line.startswith("data: "):
                         try:
                             data = json.loads(line[6:])
-                            print(f"[{timestamp}] → SSE Event: {data['status']:12} {data.get('progress', 0):6.1f}% {data.get('filename', '')}")
-                            events.append({
-                                **data,
-                                "_timestamp": timestamp
-                            })
+                            print(
+                                f"[{timestamp}] → SSE Event: {data['status']:12} {data.get('progress', 0):6.1f}% {data.get('filename', '')}"
+                            )
+                            events.append({**data, "_timestamp": timestamp})
 
                             # Stop if complete or error
                             if data.get("status") in ("complete", "error"):
@@ -74,12 +73,15 @@ async def trigger_generation(profile_id: str, text: str, model_size: str = "1.7B
 
     try:
         async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(url, json={
-                "profile_id": profile_id,
-                "text": text,
-                "language": "en",
-                "model_size": model_size,
-            })
+            response = await client.post(
+                url,
+                json={
+                    "profile_id": profile_id,
+                    "text": text,
+                    "language": "en",
+                    "model_size": model_size,
+                },
+            )
 
             print(f"[{_timestamp()}] Response: {response.status_code}")
 
@@ -140,7 +142,7 @@ def _timestamp():
 async def test_generation_with_cached_model():
     """
     Test Case 1: Generation when model is already cached.
-    
+
     This should NOT show any download progress events.
     If it does, that's the UX bug we're trying to fix.
     """
@@ -194,7 +196,7 @@ async def test_generation_with_cached_model():
 async def test_generation_with_fresh_download():
     """
     Test Case 2: Generation when model needs to be downloaded.
-    
+
     This SHOULD show download progress events.
     """
     print("\n" + "=" * 80)
@@ -291,24 +293,6 @@ async def main():
         print("\n⚠ This explains the UX issue!")
         print("  Users see progress events even when the model is already cached,")
         print("  making them think the model is downloading again.")
-
-    # Test Case 2: Fresh download (optional, commented out by default)
-    # Uncomment if you want to test download progress
-    # print("\n" + "🧪 " * 20)
-    # events_download = await test_generation_with_fresh_download()
-    #
-    # print("\n" + "=" * 80)
-    # print("TEST CASE 2 RESULTS: Generation with Model Download")
-    # print("=" * 80)
-    #
-    # if not events_download:
-    #     print("ℹ Model was already cached, no download occurred")
-    # else:
-    #     print(f"✓ Received {len(events_download)} download progress events")
-    #     print("\nDownload Timeline:")
-    #     for i, event in enumerate(events_download, 1):
-    #         timestamp = event.pop("_timestamp", "??:??:??.???")
-    #         print(f"  {i}. [{timestamp}] {event}")
 
     print("\n" + "=" * 80)
     print("Test Complete!")

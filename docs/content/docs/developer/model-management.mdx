@@ -1,0 +1,199 @@
+---
+title: "Model Management"
+description: "How model downloading, loading, and status tracking works across all engines"
+---
+
+## Overview
+
+Voicebox manages two categories of models:
+
+**TTS Models** — Seven engines covering zero-shot cloning and preset voices. Each engine may have one or more size variants.
+
+**ASR Models** — Whisper for transcription. Five sizes, plus MLX-Whisper on Apple Silicon for ~8× faster transcription.
+
+Every model is described by a `ModelConfig` entry in `backend/backends/__init__.py`. Models are downloaded from HuggingFace Hub on first use and cached in the platform-standard HF cache.
+
+## Available TTS Models
+
+| Model | Engine | HuggingFace Repo | Size | VRAM | Languages |
+|-------|--------|------------------|------|------|-----------|
+| **Qwen TTS 1.7B** | `qwen` | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` | 3.5 GB | ~6 GB | 10 |
+| **Qwen TTS 0.6B** | `qwen` | `Qwen/Qwen3-TTS-12Hz-0.6B-Base` | 1.2 GB | ~2 GB | 10 |
+| **Qwen CustomVoice 1.7B** | `qwen_custom_voice` | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` | 3.5 GB | ~6 GB | 10 |
+| **Qwen CustomVoice 0.6B** | `qwen_custom_voice` | `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` | 1.2 GB | ~2 GB | 10 |
+| **LuxTTS** | `luxtts` | `YatharthS/LuxTTS` | 300 MB | ~1 GB | English |
+| **Chatterbox Multilingual** | `chatterbox` | `ResembleAI/chatterbox` | 3.2 GB | ~3 GB | 23 |
+| **Chatterbox Turbo** | `chatterbox_turbo` | `ResembleAI/chatterbox-turbo` | 1.5 GB | ~1.5 GB | English |
+| **TADA 1B** | `tada` | `HumeAI/tada-1b` | 4 GB | ~4 GB | English |
+| **TADA 3B Multilingual** | `tada` | `HumeAI/tada-3b-ml` | 8 GB | ~8 GB | 10 |
+| **Kokoro 82M** | `kokoro` | `hexgrad/Kokoro-82M` | 350 MB | ~150 MB | 8 |
+
+On Apple Silicon, Qwen TTS uses MLX-optimized repos from `mlx-community` instead of the PyTorch repos. The backend picks automatically via `get_backend_type()`.
+
+## Available Whisper Models
+
+| Model | HuggingFace Repo | Size |
+|-------|------------------|------|
+| **Whisper Base** | `openai/whisper-base` | ~300 MB |
+| **Whisper Small** | `openai/whisper-small` | ~500 MB |
+| **Whisper Medium** | `openai/whisper-medium` | ~1.5 GB |
+| **Whisper Large** | `openai/whisper-large-v3` | ~3 GB |
+| **Whisper Turbo** | `openai/whisper-large-v3-turbo` | ~1.5 GB |
+
+On Apple Silicon, MLX-Whisper is preferred automatically — see [Transcription](/developer/transcription).
+
+## Model Storage
+
+Models live in the platform HuggingFace cache:
+
+| Platform | Path |
+|----------|------|
+| macOS | `~/.cache/huggingface/hub/` |
+| Linux | `~/.cache/huggingface/hub/` |
+| Windows | `%USERPROFILE%\.cache\huggingface\hub\` |
+| Docker | `/home/voicebox/.cache/huggingface/hub` (volume-mounted) |
+
+Set `VOICEBOX_MODELS_DIR` to override.
+
+## Progress Tracking
+
+Downloads stream progress to the frontend via Server-Sent Events. The progress pipeline has three pieces:
+
+**`ProgressManager`** (`backend/utils/progress.py`) — in-memory map of `model_name → {current, total, filename, status}`.
+
+**`HFProgressTracker`** — context manager that intercepts HuggingFace Hub downloads to emit byte-level progress. Needed because `huggingface_hub` silently disables tqdm in frozen PyInstaller builds.
+
+**SSE endpoint** — `GET /models/progress/{model_name}` streams updates until `status` is `complete` or `error`.
+
+```python
+# Frontend
+const eventSource = new EventSource(`/models/progress/${modelName}`);
+eventSource.onmessage = (event) => {
+  const { current, total, status } = JSON.parse(event.data);
+  updateProgressBar(current / total);
+  if (status === "complete") eventSource.close();
+};
+```
+
+## Model Status
+
+`GET /models/status` returns every registered model's current state:
+
+```json
+{
+  "models": [
+    {
+      "model_name": "qwen-tts-1.7B",
+      "display_name": "Qwen TTS 1.7B",
+      "engine": "qwen",
+      "downloaded": true,
+      "size_mb": 3500,
+      "loaded": true
+    },
+    ...
+  ]
+}
+```
+
+The handler iterates `get_all_model_configs()` and calls `check_model_loaded(config)` for each entry, so new engines appear automatically once they're registered in `ModelConfig`.
+
+## Manual Model Operations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/models/status` | Status of every registered model |
+| POST | `/models/load` | Load a TTS model into memory |
+| POST | `/models/unload` | Unload a TTS model from memory |
+| POST | `/models/download` | Trigger a background download |
+| GET | `/models/progress/{name}` | Stream download progress (SSE) |
+| DELETE | `/models/{name}` | Delete a downloaded model from cache |
+
+### Load
+
+```http
+POST /models/load
+{
+  "model_name": "qwen-tts-1.7B"
+}
+```
+
+The route looks up the config, dispatches to `get_model_load_func(config)`, and returns once the model is ready.
+
+### Unload
+
+```http
+POST /models/unload
+{
+  "model_name": "chatterbox-tts"
+}
+```
+
+Calls `unload_model_by_config(config)`, which routes to the right backend's `unload_model()` and frees GPU memory.
+
+### Download
+
+```http
+POST /models/download
+{
+  "model_name": "kokoro"
+}
+```
+
+Fires off an async download task. Progress is available via the SSE endpoint. Download is triggered automatically on first generation, so this is only needed for pre-warming.
+
+## Preset Voice Seeding
+
+For engines that use preset voices (Kokoro, Qwen CustomVoice), the backend auto-creates a voice profile per preset voice after the model is downloaded. This is driven by `seed_preset_profiles(engine)` in `backend/services/profiles.py`, called from the models route once download completes.
+
+Preset profiles have:
+
+- `voice_type = "preset"`
+- `preset_engine` = engine name (`"kokoro"`, `"qwen_custom_voice"`)
+- `preset_voice_id` = engine-specific voice ID (`"am_adam"`, `"f000001"`, etc.)
+- No `profile_samples` rows — no audio to store
+
+See [Voice Profiles](/developer/voice-profiles) for the schema.
+
+## Adding a New Model
+
+To add a new size variant of an existing engine, just add another `ModelConfig`:
+
+```python
+ModelConfig(
+    model_name="qwen-tts-3B",
+    display_name="Qwen TTS 3B",
+    engine="qwen",
+    hf_repo_id="Qwen/Qwen3-TTS-12Hz-3B-Base",
+    model_size="3B",
+    size_mb=7000,
+    languages=["zh", "en", ...],
+),
+```
+
+The frontend picks it up via `/models/status`; download/load flow works without further changes.
+
+Adding a whole new engine is a bigger lift — see [TTS Engines](/developer/tts-engines) for the full phased workflow.
+
+## Error Handling
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| Download failed | Network / HF rate limit | Retry |
+| OOM on load | Not enough VRAM | Use a smaller variant, unload other engines |
+| Model not found | Corrupt cache | Re-download via `/models/download` |
+| Stuck progress bar in frozen build | `huggingface_hub` tqdm silenced | `HFProgressTracker` force-enables the internal counter |
+| GPU architecture unsupported | PyTorch wheel doesn't target your GPU | See [GPU Acceleration](/overview/gpu-acceleration) |
+
+## Next Steps
+
+<Cards>
+  <Card title="TTS Generation" href="/developer/tts-generation">
+    How generation flows through the registry
+  </Card>
+  <Card title="TTS Engines" href="/developer/tts-engines">
+    Add a new engine end-to-end
+  </Card>
+  <Card title="Transcription" href="/developer/transcription">
+    Whisper and MLX-Whisper integration
+  </Card>
+</Cards>

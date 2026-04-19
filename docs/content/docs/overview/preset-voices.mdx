@@ -1,0 +1,202 @@
+---
+title: "Preset Voices"
+description: "Use built-in, ready-made voices without recording audio samples"
+---
+
+## Overview
+
+Some Voicebox engines ship with a curated set of pre-built voices. Instead of cloning from your own audio sample, you pick a voice from a fixed catalog and the model speaks in that voice. No recording, no upload, no per-voice training required.
+
+Two engines in 0.4 ship preset voices:
+
+| Engine                | Voices                  | Languages | Strengths                                               |
+| --------------------- | ----------------------- | --------- | ------------------------------------------------------- |
+| **Kokoro 82M**        | 50                      | 9         | Tiny model, CPU-friendly, lowest VRAM of any engine     |
+| **Qwen CustomVoice**  | 9 (premium curated)     | 4         | Natural-language style control over tone, emotion, pace |
+
+<Callout type="info">
+  Looking for cloning a specific person's voice instead? See [Voice Cloning](/overview/voice-cloning).
+</Callout>
+
+## When to Use Preset Voices
+
+<Cards>
+  <Card title="No reference audio">
+    You don't have (or don't want to provide) a recording of the target voice
+  </Card>
+  <Card title="Production reliability">
+    Curated voices have predictable quality across any text input
+  </Card>
+  <Card title="Speed">
+    Skip the audio cleanup, sample preparation, and quality iteration loop
+  </Card>
+  <Card title="Lightweight setup">
+    Kokoro runs at CPU realtime with ~150 MB on disk — no GPU needed
+  </Card>
+</Cards>
+
+## Creating a Preset-Voice Profile
+
+<Steps>
+  <Step title="Open Profiles → New Profile">
+    Same entry point as cloning profiles
+  </Step>
+  <Step title="Choose the engine">
+    Select **Kokoro** or **Qwen CustomVoice** from the engine dropdown
+  </Step>
+  <Step title="Pick a preset voice">
+    The voice catalog for the chosen engine appears — preview each by clicking it
+  </Step>
+  <Step title="Name and save">
+    Give the profile a name. No audio sample needed — just save
+  </Step>
+  <Step title="Generate">
+    Use the profile like any other in the floating generate box or the Generate page
+  </Step>
+</Steps>
+
+<Callout type="info">
+  Preset profiles are locked to their source engine — switching engines won't work since the voice exists only for that model. The profile grid greys out preset profiles when you switch to a different engine, and clicking one auto-switches the engine back to the right one.
+</Callout>
+
+## Kokoro 82M — 50 Voices Across 9 Languages
+
+Kokoro is the smallest engine in Voicebox at 82M parameters. It runs at CPU realtime with negligible VRAM, making it the best option for lightweight local inference. Voices are pre-built style vectors trained into the model — there's no concept of cloning here.
+
+**Repository:** [`hexgrad/Kokoro-82M`](https://huggingface.co/hexgrad/Kokoro-82M) · Apache 2.0 licensed
+
+### American English
+
+| Female  | Male    |
+| ------- | ------- |
+| Alloy   | Adam    |
+| Aoede   | Echo    |
+| Bella   | Eric    |
+| Heart   | Fenrir  |
+| Jessica | Liam    |
+| Kore    | Michael |
+| Nicole  | Onyx    |
+| Nova    | Puck    |
+| River   | Santa   |
+| Sarah   |         |
+| Sky     |         |
+
+### British English
+
+| Female   | Male   |
+| -------- | ------ |
+| Alice    | Daniel |
+| Emma     | Fable  |
+| Isabella | George |
+| Lily     | Lewis  |
+
+### Other Languages
+
+| Language          | Voices                                      |
+| ----------------- | ------------------------------------------- |
+| Spanish (`es`)    | Dora (f), Alex (m), Santa (m)               |
+| French (`fr`)     | Siwis (f)                                   |
+| Hindi (`hi`)      | Alpha (f), Beta (f), Omega (m), Psi (m)     |
+| Italian (`it`)    | Sara (f), Nicola (m)                        |
+| Japanese (`ja`)   | Alpha (f), Gongitsune (f), Nezumi (f), Tebukuro (f), Kumo (m) |
+| Portuguese (`pt`) | Dora (f), Alex (m), Santa (m)               |
+| Chinese (`zh`)    | Xiaobei (f), Xiaoni (f), Xiaoxiao (f), Xiaoyi (f) |
+
+### Kokoro at a Glance
+
+| Property        | Value                                        |
+| --------------- | -------------------------------------------- |
+| Parameters      | 82M                                          |
+| Sample rate     | 24 kHz                                       |
+| VRAM            | ~150 MB (negligible on CPU)                  |
+| Speed           | Realtime on CPU, faster on GPU               |
+| Instruct        | Not supported (preset voice carries the style) |
+| License         | Apache 2.0                                   |
+
+## Qwen CustomVoice — 9 Premium Voices with Instruct Control
+
+Qwen CustomVoice ships with 9 curated speakers and supports **natural-language style control** — you tell the model how to deliver the line ("speak slowly with warmth", "authoritative and clear") and it adapts tone, emotion, and pace.
+
+Two model sizes:
+- **1.7B** — full quality, recommended default
+- **0.6B** — lighter, faster, lower-end hardware
+
+**Repository:** [`Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice) (and 0.6B variant) · by Alibaba
+
+### Voice Catalog
+
+| Speaker   | Gender | Language | Description                                                  |
+| --------- | ------ | -------- | ------------------------------------------------------------ |
+| Vivian    | female | Chinese  | Bright, slightly edgy young female voice                     |
+| Serena    | female | Chinese  | Warm, gentle young female voice                              |
+| Uncle Fu  | male   | Chinese  | Seasoned male voice with a low, mellow timbre                |
+| Dylan     | male   | Chinese  | Youthful Beijing male voice with a clear, natural timbre     |
+| Eric      | male   | Chinese  | Lively Chengdu male voice with a slightly husky brightness   |
+| Ryan      | male   | English  | Dynamic male voice with strong rhythmic drive (default)      |
+| Aiden     | male   | English  | Sunny American male voice with a clear midrange              |
+| Ono Anna  | female | Japanese | Playful Japanese female voice with a light, nimble timbre    |
+| Sohee     | female | Korean   | Warm Korean female voice with rich emotion                   |
+
+### Using Instruct Mode
+
+In the floating generate box, switch to a Qwen CustomVoice profile and click the **delivery instructions** toggle (slider icon, left of the generate button). A second textarea appears below the main text:
+
+- Main text → what you want the voice to say
+- Instruct text → how you want it delivered
+
+Examples of effective instruct prompts:
+
+```
+Speak slowly with emphasis, like reading bedtime stories
+Warm and friendly, conversational tone
+Professional and authoritative, broadcast quality
+Whisper, intimate and close
+Excited and energetic, like sports commentary
+```
+
+The full Generate page also surfaces the instruct field as a separate input.
+
+### Qwen CustomVoice at a Glance
+
+| Property        | Value                                              |
+| --------------- | -------------------------------------------------- |
+| Parameters      | 1.7B / 0.6B                                        |
+| Languages       | Chinese, English, Japanese, Korean (10 supported)  |
+| Voices          | 9 curated preset speakers                          |
+| VRAM            | ~3.5 GB (1.7B), ~1.2 GB (0.6B)                     |
+| Instruct        | Yes — natural-language style control               |
+| Cloning         | No — paired Base Qwen3-TTS engine handles cloning  |
+
+## Cloning vs Preset — Quick Decision
+
+| You want…                                          | Use                                       |
+| -------------------------------------------------- | ----------------------------------------- |
+| To replicate a specific person's voice             | [Voice Cloning](/overview/voice-cloning)  |
+| Production-ready voices with no audio prep         | Kokoro or Qwen CustomVoice                |
+| The smallest possible footprint (CPU-only)         | Kokoro                                    |
+| Fine control over delivery (tone, pace, emotion)   | Qwen CustomVoice                          |
+| The broadest language coverage                     | [Voice Cloning](/overview/voice-cloning) via Chatterbox Multilingual (23 langs) |
+
+## Limitations
+
+<Callout type="warn">
+  Preset voices are fixed — you can't fine-tune or modify the underlying voice. If you want a specific voice that isn't in the catalog, use a cloning engine and provide a reference sample.
+</Callout>
+
+- Preset voices can't be exported to use in other Voicebox installations as audio (only as profile metadata pointing to the same engine + voice ID)
+- The Kokoro voice catalog is set by the upstream model — new voices appear only when hexgrad publishes new model releases
+- Qwen CustomVoice's 9 speakers are part of the model checkpoint — same constraint
+
+## Next Steps
+
+<Cards>
+  <Card title="Voice Cloning" href="/overview/voice-cloning">
+    Clone a specific voice from your own audio
+  </Card>
+  <Card title="Generate Speech" href="/overview/generating-speech">
+    Use a profile to generate audio
+  </Card>
+  <Card title="Build Stories" href="/overview/building-stories">
+    Compose multi-voice narratives
+  </Card>
+</Cards>

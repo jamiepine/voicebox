@@ -87,7 +87,7 @@ export function StoryChatItem({
               alt={`${item.profile_name} avatar`}
               className={cn(
                 'h-full w-full object-cover transition-all duration-200',
-                !isCurrentlyPlaying && 'grayscale'
+                !isCurrentlyPlaying && 'grayscale',
               )}
               onError={() => setAvatarError(true)}
             />
@@ -127,7 +127,10 @@ export function StoryChatItem({
               <Play className="mr-2 h-4 w-4" />
               Play from here
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={onRemove} className="text-destructive focus:text-destructive">
+            <DropdownMenuItem
+              onClick={onRemove}
+              className="text-destructive focus:text-destructive"
+            >
               <Trash2 className="mr-2 h-4 w-4" />
               Remove from Story
             </DropdownMenuItem>
@@ -139,15 +142,12 @@ export function StoryChatItem({
 }
 
 // Sortable wrapper component
-export function SortableStoryChatItem(props: Omit<StoryChatItemProps, 'dragHandleProps' | 'isDragging'>) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: props.item.generation_id });
+export function SortableStoryChatItem(
+  props: Omit<StoryChatItemProps, 'dragHandleProps' | 'isDragging'>,
+) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: props.item.generation_id,
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -156,11 +156,7 @@ export function SortableStoryChatItem(props: Omit<StoryChatItemProps, 'dragHandl
 
   return (
     <div ref={setNodeRef} style={style} {...attributes}>
-      <StoryChatItem
-        {...props}
-        dragHandleProps={listeners}
-        isDragging={isDragging}
-      />
+      <StoryChatItem {...props} dragHandleProps={listeners} isDragging={isDragging} />
     </div>
   );
 }

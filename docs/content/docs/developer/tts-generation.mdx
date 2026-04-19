@@ -1,0 +1,251 @@
+---
+title: "TTS Generation"
+description: "How text-to-speech generation works across Voicebox's multi-engine backend"
+---
+
+## Overview
+
+Voicebox ships seven TTS engines — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, TADA, and Kokoro — behind a single `TTSBackend` Protocol. All of them expose the same async interface so the routes and services don't need per-engine branching.
+
+This page covers how generation flows through that abstraction. For the step-by-step guide to adding a new engine, see [TTS Engines](/developer/tts-engines).
+
+## The `TTSBackend` Protocol
+
+Every engine implements the same contract (defined in `backend/backends/__init__.py`):
+
+```python
+@runtime_checkable
+class TTSBackend(Protocol):
+    async def load_model(self, model_size: str) -> None: ...
+    async def create_voice_prompt(
+        self, audio_path: str, reference_text: str, use_cache: bool = True
+    ) -> Tuple[dict, bool]: ...
+    async def combine_voice_prompts(
+        self, audio_paths: List[str], reference_texts: List[str]
+    ) -> Tuple[np.ndarray, str]: ...
+    async def generate(
+        self,
+        text: str,
+        voice_prompt: dict,
+        language: str = "en",
+        seed: Optional[int] = None,
+        instruct: Optional[str] = None,
+    ) -> Tuple[np.ndarray, int]: ...
+    def unload_model(self) -> None: ...
+    def is_loaded(self) -> bool: ...
+```
+
+## The `ModelConfig` Registry
+
+Each downloadable model variant is described by a `ModelConfig` dataclass:
+
+```python
+@dataclass
+class ModelConfig:
+    model_name: str       # "luxtts", "qwen-tts-1.7B", "kokoro"
+    display_name: str     # "LuxTTS (Fast, CPU-friendly)"
+    engine: str           # "luxtts", "qwen", "kokoro"
+    hf_repo_id: str       # "YatharthS/LuxTTS"
+    model_size: str = "default"
+    size_mb: int = 0
+    needs_trim: bool = False
+    supports_instruct: bool = False
+    languages: list[str] = field(default_factory=lambda: ["en"])
+```
+
+Registry helpers in `backends/__init__.py` replace what used to be per-engine `if/elif` chains:
+
+- `get_all_model_configs()` — every TTS + STT variant
+- `get_tts_model_configs()` — only TTS variants
+- `get_model_config(model_name)` — lookup by name
+- `engine_needs_trim(engine)` — whether output should run through `trim_tts_output()`
+- `load_engine_model(engine, model_size)` — downloads + loads, handles engines with multiple sizes
+- `get_tts_backend_for_engine(engine)` — thread-safe backend factory with double-checked locking
+
+The `TTS_ENGINES` dict is the canonical list of shipped engine names:
+
+```python
+TTS_ENGINES = {
+    "qwen": "Qwen TTS",
+    "qwen_custom_voice": "Qwen CustomVoice",
+    "luxtts": "LuxTTS",
+    "chatterbox": "Chatterbox TTS",
+    "chatterbox_turbo": "Chatterbox Turbo",
+    "tada": "TADA",
+    "kokoro": "Kokoro",
+}
+```
+
+## Voice Prompt Patterns
+
+Each engine chooses how to represent a voice in the prompt dict returned from `create_voice_prompt()`. Three patterns are in use today:
+
+**Pattern A — Pre-computed tensors** (Qwen3-TTS, LuxTTS)
+
+```python
+encoded = model.encode_prompt(audio_path)
+return encoded, False  # (prompt_dict, was_cached)
+```
+
+**Pattern B — Deferred file paths** (Chatterbox, Chatterbox Turbo, TADA)
+
+```python
+return {"ref_audio": audio_path, "ref_text": reference_text}, False
+```
+
+**Pattern C — Preset voice pointer** (Kokoro, Qwen CustomVoice)
+
+```python
+return {
+    "voice_type": "preset",
+    "preset_engine": "kokoro",
+    "preset_voice_id": "am_adam",
+}, False
+```
+
+Pattern C is the shape used for profiles where `voice_type == "preset"` — there's no cloning step; the engine looks up a baked-in voice by ID.
+
+Engines that cache voice prompts prefix their cache keys to avoid collisions:
+
+```python
+cache_key = f"{engine}_{hash(audio_path, reference_text)}"
+```
+
+## Device Selection
+
+Engines pick their device through `get_torch_device()` in `backends/base.py`, which layers:
+
+1. `VOICEBOX_FORCE_CPU` environment override
+2. CUDA (if compiled and available)
+3. XPU (Intel Arc via IPEX)
+4. MPS (Apple Silicon) — **only for engines that support it**; some (Chatterbox, older Qwen paths) skip MPS and fall back to CPU due to upstream operator gaps
+5. CPU
+
+Qwen TTS uses MLX directly on Apple Silicon instead of going through PyTorch — see `mlx_backend.py`.
+
+## Generation Flow
+
+The request path from frontend to audio file:
+
+1. **Request** — `POST /generate` with `GenerationRequest`:
+   ```json
+   {
+     "profile_id": "uuid",
+     "text": "...",
+     "language": "en",
+     "seed": 42,
+     "model_size": "1.7B",
+     "instruct": "warm, slightly amused",
+     "engine": "qwen",
+     "max_chunk_chars": 800
+   }
+   ```
+   The `engine` field is validated against the regex `^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$`.
+
+2. **Route** — `routes/generate.py` validates input and delegates.
+
+3. **Service** — `services/generation.py` fetches the profile, resolves the engine backend via `get_tts_backend_for_engine(engine)`, and ensures the model is loaded (downloading it on first use with live progress).
+
+4. **Voice prompt** — the service calls `create_voice_prompt()` (or the preset equivalent). For cloned profiles with multiple samples, it calls `combine_voice_prompts()` first to merge reference audio.
+
+5. **Queue** — the request is serialized through `services/task_queue.py` to avoid multiple generations fighting for the GPU.
+
+6. **Inference** — the engine's `generate()` returns `(audio_array, sample_rate)`.
+
+7. **Post-process** — if `engine_needs_trim(engine)` is True, `trim_tts_output()` strips trailing silence. Effects chains (if any) are applied per generation version, not the clean version.
+
+8. **Persist** — audio is written to the generations directory, a row is inserted into the `generations` table, and the response includes the generation metadata.
+
+## Chunking for Long Text
+
+Text longer than `max_chunk_chars` (default 800, range 100–5000) is split at sentence boundaries, generated in sequence, and crossfaded together. The chunking behavior is engine-agnostic — it lives in the service layer, not in individual backends.
+
+## Instruct Mode
+
+Two engines support natural-language delivery control via the `instruct` kwarg:
+
+- **Qwen CustomVoice** — `supports_instruct=True`, fully wired to the model's instruct head.
+- **Qwen Base** — silently drops the instruct text (`supports_instruct=False`). The frontend hides the instruct input for Base profiles.
+
+```python
+# Good instruct prompts:
+"warm and conversational, slight smile"
+"whisper, intimate and close"
+"authoritative, broadcast quality"
+```
+
+Other engines ignore `instruct` entirely.
+
+## Memory Management
+
+Models are loaded lazily on first use and kept in memory. Switching between model sizes (e.g. Qwen 1.7B ↔ 0.6B) unloads the previous model before loading the new one to avoid OOM:
+
+```python
+def unload_model(self):
+    if self.model is not None:
+        del self.model
+        self.model = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+```
+
+The model management API (`/models/load`, `/models/unload`) lets users free VRAM manually — see [Model Management](/developer/model-management).
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/generate` | Generate speech from text |
+| GET | `/audio/{generation_id}` | Serve generated audio file |
+
+### Response schema
+
+```json
+{
+  "id": "generation_uuid",
+  "profile_id": "profile_uuid",
+  "text": "...",
+  "language": "en",
+  "audio_path": "/path/to/audio.wav",
+  "duration": 3.5,
+  "seed": 42,
+  "engine": "qwen",
+  "model_size": "1.7B",
+  "instruct": "...",
+  "created_at": "2026-04-18T10:30:00Z"
+}
+```
+
+## Performance Considerations
+
+- **CUDA** is the fastest backend for every PyTorch-based engine. Apple Silicon MLX is competitive with CUDA for Qwen TTS specifically.
+- **Serial queue** — only one generation runs at a time per process; concurrent requests are queued.
+- **Voice prompt caching** saves ~1-2s on repeated generations from the same profile.
+- **Model pinning** — the first load is slow (download + load), subsequent generations reuse the cached model in memory.
+
+### Per-engine VRAM (approximate, on CUDA)
+
+| Engine | VRAM |
+|--------|------|
+| Kokoro | ~150 MB |
+| LuxTTS | ~1 GB |
+| Chatterbox Turbo | ~1.5 GB |
+| Qwen 0.6B / Qwen CustomVoice 0.6B | ~2 GB |
+| Chatterbox Multilingual | ~3 GB |
+| Qwen 1.7B / Qwen CustomVoice 1.7B | ~6 GB |
+| TADA 1B | ~4 GB |
+| TADA 3B | ~8 GB |
+
+## Next Steps
+
+<Cards>
+  <Card title="TTS Engines" href="/developer/tts-engines">
+    Add a new engine — full phased workflow
+  </Card>
+  <Card title="Model Management" href="/developer/model-management">
+    Downloading, loading, and unloading models
+  </Card>
+  <Card title="Voice Profiles" href="/developer/voice-profiles">
+    Cloned vs preset profile schema
+  </Card>
+</Cards>

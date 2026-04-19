@@ -35,10 +35,7 @@ target/
 Thumbs.db
 
 # Data (user-generated)
-data/profiles/*
-data/generations/*
-data/projects/*
-data/voicebox.db
+data/
 !data/.gitkeep
 
 # Logs
@@ -52,8 +49,22 @@ logs/
 # Generated files
 app/openapi.json
 tauri/src-tauri/binaries/*
+tauri/src-tauri/gen/Assets.car
+tauri/src-tauri/gen/voicebox.icns
+tauri/src-tauri/gen/partial.plist
+
+# PyInstaller
+*.spec
+
+# Windows artifacts
+nul
 
 # Temporary
 tmp/
 temp/
 *.tmp
+
+# E2E test artifacts
+backend/tests/results/
+backend/tests/fixtures/reference_voice.wav
+backend/tests/fixtures/reference_voice.txt

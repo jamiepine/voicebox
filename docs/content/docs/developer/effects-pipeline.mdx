@@ -1,0 +1,257 @@
+---
+title: "Effects Pipeline"
+description: "Audio post-processing effects and generation versioning"
+---
+
+The effects pipeline provides professional-grade DSP audio processing using Spotify's Pedalboard library. Each generation can have multiple versions with different effect chains applied.
+
+## Overview
+
+**Key concepts:**
+
+- **Effects Chain** — JSON-serializable list of effect configurations applied sequentially
+- **Generation Version** — A processed variant of a generation with its own audio file and effects chain
+- **Effect Preset** — Saved effects chain configuration (built-in or user-created)
+- **Clean Version** — The original unprocessed generation audio
+
+**Flow:**
+
+1. TTS Generation creates clean audio
+2. Effects Chain processes the audio
+3. Processed Version is saved as a new generation version
+
+Each generation maintains a clean version (original) plus any number of processed versions with different effect chains applied.
+
+## Effect Types
+
+The following effect types are available, each with configurable parameters:
+
+### Chorus / Flanger
+
+Modulated delay effect. Short centre_delay_ms gives flanger; longer gives chorus.
+
+**Parameters:**
+- rate_hz: LFO speed in Hz (range: 0.01 to 20, default: 1.0)
+- depth: Modulation depth (range: 0.0 to 1.0, default: 0.5)
+- feedback: Feedback amount (range: 0.0 to 0.95, default: 0.0)
+- centre_delay_ms: Centre delay in milliseconds (range: 0.5 to 50, default: 7.0)
+- mix: Wet/dry mix (range: 0.0 to 1.0, default: 0.5)
+
+### Reverb
+
+Room reverb effect.
+
+**Parameters:**
+- room_size: Room size (range: 0.0 to 1.0, default: 0.5)
+- damping: High frequency damping (range: 0.0 to 1.0, default: 0.5)
+- wet_level: Wet level (range: 0.0 to 1.0, default: 0.33)
+- dry_level: Dry level (range: 0.0 to 1.0, default: 0.4)
+- width: Stereo width (range: 0.0 to 1.0, default: 1.0)
+
+### Delay
+
+Echo / delay line.
+
+**Parameters:**
+- delay_seconds: Delay time in seconds (range: 0.01 to 2.0, default: 0.3)
+- feedback: Feedback amount (range: 0.0 to 0.95, default: 0.3)
+- mix: Wet/dry mix (range: 0.0 to 1.0, default: 0.3)
+
+### Compressor
+
+Dynamic range compression for consistent loudness.
+
+**Parameters:**
+- threshold_db: Threshold in dB (range: -60 to 0, default: -20.0)
+- ratio: Compression ratio (range: 1.0 to 20.0, default: 4.0)
+- attack_ms: Attack time in ms (range: 0.1 to 100, default: 10.0)
+- release_ms: Release time in ms (range: 10 to 1000, default: 100.0)
+
+### Gain
+
+Volume adjustment in decibels.
+
+**Parameters:**
+- gain_db: Gain in dB (range: -40 to 40, default: 0.0)
+
+### High-Pass Filter
+
+Removes frequencies below the cutoff.
+
+**Parameters:**
+- cutoff_frequency_hz: Cutoff frequency in Hz (range: 20 to 8000, default: 80.0)
+
+### Low-Pass Filter
+
+Removes frequencies above the cutoff.
+
+**Parameters:**
+- cutoff_frequency_hz: Cutoff frequency in Hz (range: 200 to 20000, default: 8000.0)
+
+### Pitch Shift
+
+Shift pitch up or down by semitones.
+
+**Parameters:**
+- semitones: Semitones to shift (range: -12 to 12, default: 0.0)
+
+## Generation Versions
+
+Each generation starts with a clean version (no effects). Users can create processed versions by applying effect chains.
+
+**Version properties:**
+- id — Unique version identifier
+- label — User-defined name (e.g., "robotic", "with reverb")
+- audio_path — Path to the processed audio file
+- effects_chain — JSON array of effect configurations
+- source_version_id — Which version this was derived from
+- is_default — Whether this is the default audio for the generation
+
+**File storage:**
+
+<Files>
+  <Folder name="data/generations" defaultOpen>
+    <File name="{generation_id}.wav" />
+    <File name="{generation_id}_{version_id}.wav" />
+  </Folder>
+</Files>
+
+**Default version behavior:**
+- One version per generation is marked as default
+- The generation's audio_path always points to the default version's audio
+- Deleting the default version automatically promotes another version
+
+## Effect Presets
+
+Presets are saved effects chains that can be reused across generations.
+
+**Built-in presets:**
+
+- **Robotic**: Metallic robotic voice using chorus (flanger-style)
+- **Radio**: Thin AM-radio voice with band-pass filtering and light compression
+- **Echo Chamber**: Spacious reverb with trailing echo
+- **Deep Voice**: Lower pitch with added warmth using pitch shift and compression
+
+**User presets:**
+- Created via the effects UI
+- Stored in the database (SQLite)
+- Cannot modify/delete built-in presets
+- Used to quickly apply favorite effect combinations
+
+## API Endpoints
+
+### Effects Management
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /effects/available | GET | List all effect types with parameter definitions |
+| /effects/presets | GET | List all presets (built-in + user) |
+| /effects/presets | POST | Create a new user preset |
+| /effects/presets/:id | GET | Get a specific preset |
+| /effects/presets/:id | PUT | Update a user preset |
+| /effects/presets/:id | DELETE | Delete a user preset |
+| /effects/preview/:generation_id | POST | Preview effects on a generation (returns audio stream) |
+
+### Generation Versions
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /generations/:id/versions | GET | List all versions for a generation |
+| /generations/:id/versions/apply-effects | POST | Apply effects chain, create new version |
+| /generations/:id/versions/:version_id/set-default | PUT | Set a version as default |
+| /generations/:id/versions/:version_id | DELETE | Delete a version |
+
+### Request Body: Apply Effects
+
+Request body for applying effects:
+
+- effects_chain: Array of effect objects
+- label: Version label (e.g., "with reverb")
+- set_as_default: Whether to set as default
+- source_version_id: Source version ID (optional)
+
+## Implementation
+
+### Backend Architecture
+
+**Files:**
+
+| File | Purpose |
+|------|---------|
+| backend/utils/effects.py | Effect registry, validation, and audio processing |
+| backend/services/versions.py | Generation version CRUD operations |
+| backend/services/effects.py | Effect preset CRUD operations |
+| backend/routes/effects.py | API endpoints for effects and versions |
+
+**Effect Registry:**
+
+The EFFECT_REGISTRY dict in utils/effects.py defines all available effects with their parameters, defaults, and ranges.
+
+**Validation:**
+
+Effects chains are validated before application:
+- Each effect type must exist in the registry
+- Parameters must be numbers within min/max bounds
+- Unknown parameters are rejected
+
+**Audio Processing:**
+
+Uses Spotify's Pedalboard library:
+
+```python
+from pedalboard import Pedalboard
+
+# Build pedalboard from chain
+board = build_pedalboard(effects_chain)
+
+# Apply to audio (async via thread)
+processed = await asyncio.to_thread(lambda: board(audio, sample_rate))
+```
+
+### Frontend Integration
+
+**Key components:**
+
+| Component | Location |
+|-----------|----------|
+| Effects chain editor | app/src/components/Effects/ |
+| Version selector | Generation detail view |
+| Preset manager | Effects panel |
+| Live preview | Preview button (streams processed audio) |
+
+**State management:**
+- Effects chains are stored as JSON arrays
+- Live preview fetches processed audio without saving
+- Applied effects create new versions via POST endpoint
+
+## Adding New Effects
+
+To add a new effect type:
+
+1. **Add to registry** (backend/utils/effects.py):
+   - Add entry to EFFECT_REGISTRY with cls, label, description, and params
+   - Import the effect class from Pedalboard
+
+2. **Update frontend types** if needed
+
+The new effect automatically appears in /effects/available and the chain editor UI.
+
+## Best Practices
+
+**Effect ordering matters.** Process effects in this order for best results:
+1. Pitch shift (if needed)
+2. High/low-pass filters
+3. Chorus/flanger (time-based)
+4. Reverb/delay (spatial)
+5. Compressor
+6. Gain (final level adjustment)
+
+**CPU usage:**
+- Effects are applied in real-time during generation
+- Pitch shift and reverb are the most CPU-intensive
+- Consider previewing complex chains before applying
+
+**Storage:**
+- Each version creates a new audio file
+- Clean version always exists (can be reverted to)
+- Processed versions can be deleted to save space

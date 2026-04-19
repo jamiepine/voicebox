@@ -1,0 +1,8 @@
+{
+  "title": "Generation",
+  "pages": [
+    "generate_speech_generate_post",
+    "transcribe_audio_transcribe_post",
+    "get_audio_audio__generation_id__get"
+  ]
+}

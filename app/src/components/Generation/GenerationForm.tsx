@@ -1,4 +1,5 @@
 import { Loader2, Mic } from 'lucide-react';
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -21,11 +22,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { LANGUAGE_OPTIONS } from '@/lib/constants/languages';
+import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
-import { useModelStatus } from '@/lib/hooks/useModelStatus';
 import { useProfile } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
+import {
+  applyEngineSelection,
+  EngineModelSelector,
+  getEngineDescription,
+} from './EngineModelSelector';
+import { ParalinguisticInput } from './ParalinguisticInput';
+
+function getEngineSelectValue(engine: string): string {
+  if (engine === 'qwen') return 'qwen:1.7B';
+  if (engine === 'qwen_custom_voice') return 'qwen_custom_voice:1.7B';
+  if (engine === 'tada') return 'tada:1B';
+  return engine;
+}
 
 export function GenerationForm() {
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
@@ -33,8 +46,20 @@ export function GenerationForm() {
 
   const { form, handleSubmit, isPending } = useGenerationForm();
 
-  // Use shared hook for model status fetching and grouping
-  const { builtInModels, customModels } = useModelStatus();
+  useEffect(() => {
+    if (!selectedProfile) {
+      return;
+    }
+
+    if (selectedProfile.language) {
+      form.setValue('language', selectedProfile.language as LanguageCode);
+    }
+
+    const preferredEngine = selectedProfile.default_engine || selectedProfile.preset_engine;
+    if (preferredEngine) {
+      applyEngineSelection(form, getEngineSelectValue(preferredEngine));
+    }
+  }, [form, selectedProfile]);
 
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
     await handleSubmit(data, selectedProfileId);
@@ -70,114 +95,90 @@ export function GenerationForm() {
                 <FormItem>
                   <FormLabel>Text to Speak</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Enter the text you want to generate..."
-                      className="min-h-[150px]"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>Max 5000 characters</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="instruct"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Delivery Instructions (optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="e.g. Speak slowly with emphasis, Warm and friendly tone, Professional and authoritative..."
-                      className="min-h-[80px]"
-                      {...field}
-                    />
+                    {form.watch('engine') === 'chatterbox_turbo' ? (
+                      <ParalinguisticInput
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Enter text... type / for effects like [laugh], [sigh]"
+                        className="min-h-[150px] rounded-md border border-input bg-background px-3 py-2"
+                      />
+                    ) : (
+                      <Textarea
+                        placeholder="Enter the text you want to generate..."
+                        className="min-h-[150px]"
+                        {...field}
+                      />
+                    )}
                   </FormControl>
                   <FormDescription>
-                    Natural language instructions to control speech delivery (tone, emotion, pace).
-                    Max 500 characters
+                    {form.watch('engine') === 'chatterbox_turbo'
+                      ? 'Max 5000 characters. Type / to insert sound effects.'
+                      : 'Max 5000 characters'}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid gap-4 md:grid-cols-3">
+            {form.watch('engine') === 'qwen_custom_voice' && (
               <FormField
                 control={form.control}
-                name="language"
+                name="instruct"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Language</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {LANGUAGE_OPTIONS.map((lang) => (
-                          <SelectItem key={lang.value} value={lang.value}>
-                            {lang.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormLabel>Delivery Instructions (optional)</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="e.g. Speak slowly with emphasis, Warm and friendly tone, Professional and authoritative..."
+                        className="min-h-[80px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Natural language instructions to control speech delivery (tone, emotion,
+                      pace). Max 500 characters
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+            )}
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <FormItem>
+                <FormLabel>Model</FormLabel>
+                <EngineModelSelector form={form} selectedProfile={selectedProfile} />
+                <FormDescription>
+                  {getEngineDescription(form.watch('engine') || 'qwen')}
+                </FormDescription>
+              </FormItem>
 
               <FormField
                 control={form.control}
-                name="modelSize"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Model</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Built-in</SelectLabel>
-                          {builtInModels.length > 0 ? (
-                            builtInModels.map((model) => {
-                              // Map model_name (qwen-tts-1.7B) back to model_size value (1.7B)
-                              const sizeValue = model.model_name.replace('qwen-tts-', '');
-                              return (
-                                <SelectItem key={model.model_name} value={sizeValue}>
-                                  {model.display_name}
-                                </SelectItem>
-                              );
-                            })
-                          ) : (
-                            <>
-                              <SelectItem value="1.7B">Qwen TTS 1.7B (Higher Quality)</SelectItem>
-                              <SelectItem value="0.6B">Qwen TTS 0.6B (Faster)</SelectItem>
-                            </>
-                          )}
-                        </SelectGroup>
-                        {customModels.length > 0 && (
-                          <SelectGroup>
-                            <SelectLabel>Custom</SelectLabel>
-                            {customModels.map((model) => (
-                              <SelectItem key={model.model_name} value={model.model_name}>
-                                {model.display_name}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>Select voice generation model</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                name="language"
+                render={({ field }) => {
+                  const engineLangs = getLanguageOptionsForEngine(form.watch('engine') || 'qwen');
+                  return (
+                    <FormItem>
+                      <FormLabel>Language</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {engineLangs.map((lang) => (
+                            <SelectItem key={lang.value} value={lang.value}>
+                              {lang.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  );
+                }}
               />
 
               <FormField
@@ -203,11 +204,7 @@ export function GenerationForm() {
               />
             </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isPending || !selectedProfileId}
-            >
+            <Button type="submit" className="w-full" disabled={isPending || !selectedProfileId}>
               {isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

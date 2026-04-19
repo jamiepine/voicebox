@@ -22,10 +22,6 @@ jobs:
             args: "--target x86_64-apple-darwin"
             python-version: "3.12"
             backend: "pytorch"
-          # - platform: 'ubuntu-22.04'
-          #   args: ''
-          #   python-version: '3.12'
-          #   backend: 'pytorch'
           - platform: "windows-latest"
             args: ""
             python-version: "3.12"
@@ -37,10 +33,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: contains(matrix.platform, 'ubuntu') || contains(matrix.platform, 'namespace')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf llvm-dev
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf llvm-dev libasound2-dev
 
       - name: Install LLVM (macOS)
         if: matrix.platform == 'macos-latest' || matrix.platform == 'macos-15-intel'
@@ -55,22 +51,32 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
 
+      - name: Install CPU-only PyTorch (Linux)
+        if: contains(matrix.platform, 'ubuntu') || contains(matrix.platform, 'namespace')
+        run: |
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r backend/requirements.txt
+          pip install --no-deps chatterbox-tts
+          pip install --no-deps hume-tada
 
       - name: Install MLX dependencies (Apple Silicon only)
         if: matrix.backend == 'mlx'
         run: |
           pip install -r backend/requirements-mlx.txt
-
-      # - name: Install PyTorch with CUDA (Windows only)
-      #   if: matrix.platform == 'windows-latest'
-      #   run: |
-      #     pip install torch --index-url https://download.pytorch.org/whl/cu121 --force-reinstall --no-deps
-      #     pip install torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+          # mlx-audio>=0.3.1 and mlx-lm>=0.31.1 both declare transformers>=5.x,
+          # which conflicts with our 4.57.x cap. The runtime APIs we use work
+          # fine on transformers 4.57.x in practice (verified in dev), so install
+          # them --no-deps. mlx-audio's other runtime deps (huggingface_hub,
+          # librosa, numpy, numba, pyloudnorm) are already in requirements.txt;
+          # the rest (sounddevice, miniaudio, protobuf, sentencepiece, pyyaml,
+          # jinja2) are pulled in by other engines.
+          pip install --no-deps mlx-lm==0.31.1
+          pip install --no-deps mlx-audio==0.4.1
 
       - name: Build Python server (Linux/macOS)
         if: matrix.platform != 'windows-latest'
@@ -127,7 +133,30 @@ jobs:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
-      - uses: tauri-apps/tauri-action@v0
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
+        shell: bash
+        run: |
+          # Get the version from the tag (strip leading 'v')
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          # Extract the section for this version from CHANGELOG.md
+          # Matches from "## [X.Y.Z]" until the next "## [" heading
+          NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/{/^## \[${VERSION}\]/d;/^## \[/d;p;}" CHANGELOG.md)
+
+          # Fall back to a placeholder if the version isn't in the changelog
+          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+            NOTES="See the assets below to download and install this version."
+          fi
+
+          # Use multiline output syntax
+          {
+            echo "notes<<CHANGELOG_EOF"
+            echo "$NOTES"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: tauri-apps/tauri-action@v0.6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -143,18 +172,80 @@ jobs:
           projectPath: tauri
           tagName: v__VERSION__
           releaseName: "voicebox v__VERSION__"
-          releaseBody: |
-            ## What's Changed
-            See the assets below to download and install this version.
-
-            ### Installation
-            - **macOS (Apple Silicon)**: Download the `aarch64.dmg` file - uses MLX for fast native inference
-            - **macOS (Intel)**: Download the `x64.dmg` file - uses PyTorch
-            - **Windows**: Download the `.msi` installer
-            - **Linux**: Download the `.AppImage` or `.deb` package
-
-            The app includes automatic updates - future updates will be installed automatically.
+          releaseBody: ${{ steps.changelog.outputs.notes }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
           includeUpdaterJson: true
+
+  build-cuda-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r backend/requirements.txt
+          pip install --no-deps chatterbox-tts
+          pip install --no-deps hume-tada
+
+      - name: Install PyTorch with CUDA 12.8
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cu128 --force-reinstall --no-deps
+          pip install torchaudio --index-url https://download.pytorch.org/whl/cu128 --force-reinstall --no-deps
+
+      - name: Verify CUDA support in torch
+        run: |
+          python -c "import torch; print(f'CUDA available in build: {torch.cuda.is_available()}'); print(f'CUDA version: {torch.version.cuda}')"
+
+      - name: Build CUDA server binary (onedir)
+        shell: bash
+        working-directory: backend
+        env:
+          # Include Blackwell (sm_120) via PTX forward compatibility.
+          # Pre-built PyTorch cu128 wheels ship native kernels for sm_80/86/89/90
+          # but not sm_120. Setting this env var causes torch.utils.cpp_extension
+          # (and any JIT-compiled kernels) to target Blackwell GPUs as well.
+          TORCH_CUDA_ARCH_LIST: "8.0;8.6;8.9;9.0;12.0+PTX"
+        run: python build_binary.py --cuda
+
+      - name: Package into server core + CUDA libs archives
+        shell: bash
+        run: |
+          python scripts/package_cuda.py \
+            backend/dist/voicebox-server-cuda/ \
+            --output release-assets/ \
+            --cuda-libs-version cu128-v1 \
+            --torch-compat ">=2.7.0,<2.11.0"
+
+      - name: Upload archives to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/voicebox-server-cuda.tar.gz
+            release-assets/voicebox-server-cuda.tar.gz.sha256
+            release-assets/cuda-libs-cu128-v1.tar.gz
+            release-assets/cuda-libs-cu128-v1.tar.gz.sha256
+            release-assets/cuda-libs.json
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload onedir as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicebox-server-cuda-windows
+          path: backend/dist/voicebox-server-cuda/
+          retention-days: 7

@@ -6,8 +6,8 @@ We release patches for security vulnerabilities. Which versions are eligible for
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+| 0.3.x   | :white_check_mark: |
+| < 0.3   | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -82,7 +82,7 @@ Timeline may vary based on severity and complexity.
 ## Security Updates
 
 Security updates will be:
-- Released as patch versions (e.g., 0.1.1)
+- Released as patch versions (e.g., 0.3.2)
 - Documented in CHANGELOG.md
 - Announced via GitHub releases
 - Automatically delivered via auto-updater

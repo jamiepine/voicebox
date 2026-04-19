@@ -12,10 +12,87 @@ use tokio::sync::mpsc;
 const LEGACY_PORT: u16 = 8000;
 const SERVER_PORT: u16 = 17493;
 
+/// Find a voicebox-server process listening on a given port (Windows only).
+///
+/// Uses PowerShell `Get-NetTCPConnection` to look up the PID owning the port,
+/// then verifies via `tasklist` that it's a voicebox process. The caller is
+/// responsible for checking port occupancy first (e.g. `TcpStream::connect_timeout`).
+/// Replaces the previous `netstat -ano` approach which failed on systems with
+/// corrupted system DLLs (see #277).
+#[cfg(windows)]
+fn find_voicebox_pid_on_port(port: u16) -> Option<u32> {
+    use std::process::Command;
+
+    // Use PowerShell's Get-NetTCPConnection to find the PID listening on the port.
+    // This is a built-in cmdlet that doesn't depend on netstat.exe.
+    let ps_script = format!(
+        "Get-NetTCPConnection -LocalPort {} -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess",
+        port
+    );
+    if let Ok(output) = Command::new("powershell")
+        .args(["-NoProfile", "-Command", &ps_script])
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        for line in output_str.lines() {
+            if let Ok(pid) = line.trim().parse::<u32>() {
+                // Verify this PID is a voicebox process
+                if let Ok(tasklist_output) = Command::new("tasklist")
+                    .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
+                    .output()
+                {
+                    let tasklist_str = String::from_utf8_lossy(&tasklist_output.stdout);
+                    if tasklist_str.to_lowercase().contains("voicebox") {
+                        return Some(pid);
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
+
+/// Check if a Voicebox server is responding on the given port.
+///
+/// Sends an HTTP GET to `/health` and returns `true` only if the response
+/// is valid JSON matching the Voicebox `HealthResponse` schema — specifically
+/// `status` must be `"healthy"`, and both `model_loaded` and `gpu_available`
+/// must be present as booleans. This prevents misidentifying an unrelated
+/// service that happens to expose a `/health` endpoint.
+#[allow(dead_code)] // Used in platform-specific cfg blocks
+fn check_health(port: u16) -> bool {
+    let url = format!("http://127.0.0.1:{}/health", port);
+    match reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(3))
+        .build()
+    {
+        Ok(client) => match client.get(&url).send() {
+            Ok(resp) => {
+                if !resp.status().is_success() {
+                    return false;
+                }
+                // Parse as JSON and validate Voicebox-specific fields
+                match resp.json::<serde_json::Value>() {
+                    Ok(body) => {
+                        body.get("status").and_then(|v| v.as_str()) == Some("healthy")
+                            && body.get("model_loaded").map(|v| v.is_boolean()).unwrap_or(false)
+                            && body.get("gpu_available").map(|v| v.is_boolean()).unwrap_or(false)
+                    }
+                    Err(_) => false,
+                }
+            }
+            Err(_) => false,
+        },
+        Err(_) => false,
+    }
+}
+
 struct ServerState {
     child: Mutex<Option<tauri_plugin_shell::process::CommandChild>>,
     server_pid: Mutex<Option<u32>>,
     keep_running_on_close: Mutex<bool>,
+    models_dir: Mutex<Option<String>>,
 }
 
 #[command]
@@ -23,13 +100,23 @@ async fn start_server(
     app: tauri::AppHandle,
     state: State<'_, ServerState>,
     remote: Option<bool>,
+    models_dir: Option<String>,
 ) -> Result<String, String> {
+    // Store models_dir for use on restart (empty string means reset to default)
+    if let Some(ref dir) = models_dir {
+        if dir.is_empty() {
+            *state.models_dir.lock().unwrap() = None;
+        } else {
+            *state.models_dir.lock().unwrap() = Some(dir.clone());
+        }
+    }
     // Check if server is already running (managed by this app instance)
     if state.child.lock().unwrap().is_some() {
         return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
     }
 
-    // Check if a voicebox server is already running on our port (from previous session with keep_running=true)
+    // Check if a voicebox server is already running on our port (from previous session with keep_running=true,
+    // or an externally started server e.g. via `python`, `uvicorn`, Docker, etc.)
     #[cfg(unix)]
     {
         use std::process::Command;
@@ -50,6 +137,20 @@ async fn start_server(
                             *state.server_pid.lock().unwrap() = Some(pid);
                             return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
                         }
+                    } else {
+                        // Process name doesn't contain "voicebox" — could be an external
+                        // Python/uvicorn/Docker server. Verify via HTTP health check.
+                        println!("Port {} in use by '{}' (PID: {}), checking if it's a Voicebox server...", SERVER_PORT, command, pid_str);
+                        if check_health(SERVER_PORT) {
+                            println!("Health check passed — reusing external server on port {}", SERVER_PORT);
+                            return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
+                        }
+                        println!("Health check failed — port is occupied by a non-Voicebox process");
+                        return Err(format!(
+                            "Port {} is already in use by another application ({}). \
+                             Close it or change the Voicebox server port.",
+                            SERVER_PORT, command
+                        ));
                     }
                 }
             }
@@ -58,32 +159,29 @@ async fn start_server(
     
     #[cfg(windows)]
     {
-        use std::process::Command;
-        if let Ok(output) = Command::new("netstat")
-            .args(["-ano"])
-            .output()
-        {
-            let output_str = String::from_utf8_lossy(&output.stdout);
-            for line in output_str.lines() {
-                if line.contains(&format!(":{}", SERVER_PORT)) && line.contains("LISTENING") {
-                    if let Some(pid_str) = line.split_whitespace().last() {
-                        if let Ok(pid) = pid_str.parse::<u32>() {
-                            if let Ok(tasklist_output) = Command::new("tasklist")
-                                .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
-                                .output()
-                            {
-                                let tasklist_str = String::from_utf8_lossy(&tasklist_output.stdout);
-                                if tasklist_str.to_lowercase().contains("voicebox") {
-                                    println!("Found existing voicebox-server on port {} (PID: {}), reusing it", SERVER_PORT, pid);
-                                    // Store the PID so we can kill it on exit if needed
-                                    *state.server_pid.lock().unwrap() = Some(pid);
-                                    return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
-                                }
-                            }
-                        }
-                    }
-                }
+        use std::net::TcpStream;
+        if TcpStream::connect_timeout(
+            &format!("127.0.0.1:{}", SERVER_PORT).parse().unwrap(),
+            std::time::Duration::from_secs(1),
+        ).is_ok() {
+            // Port is in use — check if it's a voicebox process by name first
+            if let Some(pid) = find_voicebox_pid_on_port(SERVER_PORT) {
+                println!("Found existing voicebox-server on port {} (PID: {}), reusing it", SERVER_PORT, pid);
+                *state.server_pid.lock().unwrap() = Some(pid);
+                return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
             }
+            // Process name doesn't match — could be an external Python/Docker server.
+            // Verify via HTTP health check before giving up.
+            println!("Port {} in use by unknown process, checking if it's a Voicebox server...", SERVER_PORT);
+            if check_health(SERVER_PORT) {
+                println!("Health check passed — reusing external server on port {}", SERVER_PORT);
+                return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
+            }
+            return Err(format!(
+                "Port {} is already in use by another application. \
+                 Close the other application or change the Voicebox port.",
+                SERVER_PORT
+            ));
         }
     }
 
@@ -92,24 +190,20 @@ async fn start_server(
     #[cfg(unix)]
     {
         use std::process::Command;
-        // Find processes listening on legacy port 8000 with their command names
         if let Ok(output) = Command::new("lsof")
             .args(["-i", &format!(":{}", LEGACY_PORT), "-sTCP:LISTEN"])
             .output()
         {
             let output_str = String::from_utf8_lossy(&output.stdout);
-            for line in output_str.lines().skip(1) { // Skip header line
-                // lsof output format: COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME
+            for line in output_str.lines().skip(1) {
                 let parts: Vec<&str> = line.split_whitespace().collect();
                 if parts.len() >= 2 {
                     let command = parts[0];
                     let pid_str = parts[1];
                     
-                    // Only kill if it's a voicebox-server process
                     if command.contains("voicebox") {
                         if let Ok(pid) = pid_str.parse::<i32>() {
                             println!("Found orphaned voicebox-server on legacy port {} (PID: {}, CMD: {}), killing it...", LEGACY_PORT, pid, command);
-                            // Kill the process group
                             let _ = Command::new("kill")
                                 .args(["-9", "--", &format!("-{}", pid)])
                                 .output();
@@ -127,35 +221,16 @@ async fn start_server(
     
     #[cfg(windows)]
     {
-        use std::process::Command;
-        // On Windows, find PIDs on legacy port 8000, then check their names
-        if let Ok(output) = Command::new("netstat")
-            .args(["-ano"])
-            .output()
-        {
-            let output_str = String::from_utf8_lossy(&output.stdout);
-            for line in output_str.lines() {
-                if line.contains(&format!(":{}", LEGACY_PORT)) && line.contains("LISTENING") {
-                    if let Some(pid_str) = line.split_whitespace().last() {
-                        if let Ok(pid) = pid_str.parse::<u32>() {
-                            // Get process name for this PID
-                            if let Ok(tasklist_output) = Command::new("tasklist")
-                                .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
-                                .output()
-                            {
-                                let tasklist_str = String::from_utf8_lossy(&tasklist_output.stdout);
-                                if tasklist_str.to_lowercase().contains("voicebox") {
-                                    println!("Found orphaned voicebox-server on legacy port {} (PID: {}), killing it...", LEGACY_PORT, pid);
-                                    let _ = Command::new("taskkill")
-                                        .args(["/PID", &pid.to_string(), "/T", "/F"])
-                                        .output();
-                                } else {
-                                    println!("Legacy port {} is in use by non-voicebox process (PID: {}), not killing", LEGACY_PORT, pid);
-                                }
-                            }
-                        }
-                    }
-                }
+        use std::net::TcpStream;
+        if TcpStream::connect_timeout(
+            &format!("127.0.0.1:{}", LEGACY_PORT).parse().unwrap(),
+            std::time::Duration::from_secs(1),
+        ).is_ok() {
+            if let Some(pid) = find_voicebox_pid_on_port(LEGACY_PORT) {
+                println!("Found orphaned voicebox-server on legacy port {} (PID: {}), killing it...", LEGACY_PORT, pid);
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/PID", &pid.to_string(), "/T", "/F"])
+                    .output();
             }
         }
     }
@@ -177,6 +252,58 @@ async fn start_server(
     println!("Starting voicebox-server sidecar");
     println!("Data directory: {:?}", data_dir);
     println!("Remote mode: {}", remote.unwrap_or(false));
+
+    // Check for CUDA backend in data directory (onedir layout: backends/cuda/)
+    let cuda_binary = {
+        let cuda_dir = data_dir.join("backends").join("cuda");
+        let cuda_name = if cfg!(windows) {
+            "voicebox-server-cuda.exe"
+        } else {
+            "voicebox-server-cuda"
+        };
+        let exe_path = cuda_dir.join(cuda_name);
+        if exe_path.exists() {
+            println!("Found CUDA backend at {:?}", cuda_dir);
+
+            // Version check: run --version from the onedir directory so
+            // PyInstaller can find its support files for the fast --version path
+            let app_version = app.config().version.clone().unwrap_or_default();
+            let version_ok = match std::process::Command::new(&exe_path)
+                .arg("--version")
+                .current_dir(&cuda_dir)
+                .output()
+            {
+                Ok(output) => {
+                    // Output format: "voicebox-server X.Y.Z\n"
+                    let version_str = String::from_utf8_lossy(&output.stdout);
+                    let binary_version = version_str.trim().split_whitespace().last().unwrap_or("");
+                    if binary_version == app_version {
+                        println!("CUDA binary version {} matches app version", binary_version);
+                        true
+                    } else {
+                        println!(
+                            "CUDA binary version mismatch: binary={}, app={}. Falling back to CPU.",
+                            binary_version, app_version
+                        );
+                        false
+                    }
+                }
+                Err(e) => {
+                    println!("Failed to check CUDA binary version: {}. Falling back to CPU.", e);
+                    false
+                }
+            };
+
+            if version_ok {
+                Some(exe_path)
+            } else {
+                None
+            }
+        } else {
+            println!("No CUDA backend found, using bundled CPU binary");
+            None
+        }
+    };
 
     let sidecar_result = app.shell().sidecar("voicebox-server");
 
@@ -216,22 +343,49 @@ async fn start_server(
 
     println!("Sidecar command created successfully");
 
-    // Pass data directory and port to Python server
-    sidecar = sidecar.args([
-        "--data-dir",
-        data_dir
-            .to_str()
-            .ok_or_else(|| "Invalid data dir path".to_string())?,
-        "--port",
-        &SERVER_PORT.to_string(),
-    ]);
+    // Build common args
+    let data_dir_str = data_dir
+        .to_str()
+        .ok_or_else(|| "Invalid data dir path".to_string())?
+        .to_string();
+    let port_str = SERVER_PORT.to_string();
+    let parent_pid_str = std::process::id().to_string();
+    let is_remote = remote.unwrap_or(false);
 
-    if remote.unwrap_or(false) {
-        sidecar = sidecar.args(["--host", "0.0.0.0"]);
+    // Resolve the custom models directory from the parameter or stored state
+    let effective_models_dir = models_dir.or_else(|| state.models_dir.lock().unwrap().clone());
+    if let Some(ref dir) = effective_models_dir {
+        println!("Custom models directory: {}", dir);
     }
 
-    println!("Spawning server process...");
-    let spawn_result = sidecar.spawn();
+    // If CUDA binary exists, launch it from the onedir directory.
+    // .current_dir() is critical: PyInstaller onedir expects all DLLs and
+    // support files (nvidia/, _internal/, etc.) relative to the exe.
+    let spawn_result = if let Some(ref cuda_path) = cuda_binary {
+        let cuda_dir = cuda_path.parent().unwrap();
+        println!("Launching CUDA backend: {:?} (cwd: {:?})", cuda_path, cuda_dir);
+        let mut cmd = app.shell().command(cuda_path.to_str().unwrap());
+        cmd = cmd.current_dir(cuda_dir);
+        cmd = cmd.args(["--data-dir", &data_dir_str, "--port", &port_str, "--parent-pid", &parent_pid_str]);
+        if is_remote {
+            cmd = cmd.args(["--host", "0.0.0.0"]);
+        }
+        if let Some(ref dir) = effective_models_dir {
+            cmd = cmd.env("VOICEBOX_MODELS_DIR", dir);
+        }
+        cmd.spawn()
+    } else {
+        // Use the bundled CPU sidecar
+        sidecar = sidecar.args(["--data-dir", &data_dir_str, "--port", &port_str, "--parent-pid", &parent_pid_str]);
+        if is_remote {
+            sidecar = sidecar.args(["--host", "0.0.0.0"]);
+        }
+        if let Some(ref dir) = effective_models_dir {
+            sidecar = sidecar.env("VOICEBOX_MODELS_DIR", dir);
+        }
+        println!("Spawning server process...");
+        sidecar.spawn()
+    };
 
     let (mut rx, child) = match spawn_result {
         Ok(result) => result,
@@ -321,6 +475,10 @@ async fn start_server(
                     tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
                         let line_str = String::from_utf8_lossy(&line);
                         println!("Server output: {}", line_str);
+                        let _ = app.emit("server-log", serde_json::json!({
+                            "stream": "stdout",
+                            "line": line_str.trim_end(),
+                        }));
 
                         if line_str.contains("Uvicorn running") || line_str.contains("Application startup complete") {
                             println!("Server is ready!");
@@ -330,6 +488,10 @@ async fn start_server(
                     tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
                         let line_str = String::from_utf8_lossy(&line).to_string();
                         eprintln!("Server: {}", line_str);
+                        let _ = app.emit("server-log", serde_json::json!({
+                            "stream": "stderr",
+                            "line": line_str.trim_end(),
+                        }));
 
                         // Collect error lines for debugging
                         if line_str.contains("ERROR") || line_str.contains("Error") || line_str.contains("Failed") {
@@ -390,15 +552,26 @@ async fn start_server(
         }
     }
 
-    // Spawn task to continue reading output
+    // Spawn task to continue reading output and emit to frontend
+    let app_handle = app.clone();
     tokio::spawn(async move {
         while let Some(event) = rx.recv().await {
             match event {
                 tauri_plugin_shell::process::CommandEvent::Stdout(line) => {
-                    println!("Server: {}", String::from_utf8_lossy(&line));
+                    let line_str = String::from_utf8_lossy(&line);
+                    println!("Server: {}", line_str);
+                    let _ = app_handle.emit("server-log", serde_json::json!({
+                        "stream": "stdout",
+                        "line": line_str.trim_end(),
+                    }));
                 }
                 tauri_plugin_shell::process::CommandEvent::Stderr(line) => {
-                    eprintln!("Server error: {}", String::from_utf8_lossy(&line));
+                    let line_str = String::from_utf8_lossy(&line);
+                    eprintln!("Server error: {}", line_str);
+                    let _ = app_handle.emit("server-log", serde_json::json!({
+                        "stream": "stderr",
+                        "line": line_str.trim_end(),
+                    }));
                 }
                 _ => {}
             }
@@ -408,67 +581,13 @@ async fn start_server(
     Ok(format!("http://127.0.0.1:{}", SERVER_PORT))
 }
 
-/// Check if a Windows process is still running
-#[cfg(windows)]
-fn is_process_running(pid: u32) -> bool {
-    use std::process::Command;
-    if let Ok(output) = Command::new("tasklist")
-        .args(["/FI", &format!("PID eq {}", pid), "/FO", "CSV", "/NH"])
-        .output()
-    {
-        // If process exists, tasklist returns it in output
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        return !output_str.trim().is_empty() && output_str.contains(&pid.to_string());
-    }
-    false
-}
-
-/// Kill entire Windows process tree by enumerating children
-#[cfg(windows)]
-fn kill_windows_process_tree(parent_pid: u32) -> Result<(), String> {
-    use std::process::Command;
-
-    // Find all child processes using WMIC
-    let output = Command::new("wmic")
-        .args([
-            "process",
-            "where",
-            &format!("ParentProcessId={}", parent_pid),
-            "get",
-            "ProcessId"
-        ])
-        .output();
-
-    if let Ok(output) = output {
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        for line in output_str.lines().skip(1) { // Skip header
-            if let Ok(child_pid) = line.trim().parse::<u32>() {
-                println!("Found child process: {}", child_pid);
-                // Recursively kill child's children
-                let _ = kill_windows_process_tree(child_pid);
-                // Kill the child
-                let _ = Command::new("taskkill")
-                    .args(["/PID", &child_pid.to_string(), "/F"])
-                    .output();
-            }
-        }
-    }
-
-    // Kill the parent process
-    let _ = Command::new("taskkill")
-        .args(["/PID", &parent_pid.to_string(), "/F"])
-        .output();
-
-    Ok(())
-}
-
 #[command]
 async fn stop_server(state: State<'_, ServerState>) -> Result<(), String> {
     let pid = state.server_pid.lock().unwrap().take();
     let _child = state.child.lock().unwrap().take();
     
     if let Some(pid) = pid {
-        println!("stop_server: Killing server process group with PID: {}", pid);
+        println!("stop_server: Stopping server with PID: {}", pid);
         
         #[cfg(unix)]
         {
@@ -487,62 +606,25 @@ async fn stop_server(state: State<'_, ServerState>) -> Result<(), String> {
             let _ = Command::new("kill")
                 .args(["-9", &pid.to_string()])
                 .output();
+            
+            println!("stop_server: Process group kill completed");
         }
         
         #[cfg(windows)]
         {
-            // Layer 1: Try graceful HTTP shutdown first
-            println!("Attempting graceful shutdown via HTTP...");
+            // Send graceful shutdown via HTTP — the server's parent-pid watchdog
+            // will also handle cleanup if this app process exits.
+            println!("Sending graceful shutdown via HTTP...");
             let client = reqwest::blocking::Client::builder()
                 .timeout(std::time::Duration::from_secs(2))
                 .build()
                 .unwrap();
 
-            let shutdown_result = client
+            let _ = client
                 .post(&format!("http://127.0.0.1:{}/shutdown", SERVER_PORT))
                 .send();
 
-            if shutdown_result.is_ok() {
-                println!("HTTP shutdown sent, waiting for graceful exit...");
-                // Wait up to 3 seconds for graceful shutdown
-                for i in 0..30 {
-                    std::thread::sleep(std::time::Duration::from_millis(100));
-                    if !is_process_running(pid) {
-                        println!("Process exited gracefully after {}ms", i * 100);
-                        return Ok(());
-                    }
-                }
-                println!("Graceful shutdown timed out, forcing kill...");
-            } else {
-                println!("HTTP shutdown failed, forcing kill...");
-            }
-
-            // Layer 2: Kill process tree with enumeration
-            println!("Killing process tree for wrapper PID {}...", pid);
-            kill_windows_process_tree(pid)?;
-
-            // Layer 3: Verify and kill by name if still running
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            if is_process_running(pid) {
-                println!("Process tree kill failed, killing by name...");
-                use std::process::Command;
-                let _ = Command::new("taskkill")
-                    .args(["/IM", "voicebox-server.exe", "/T", "/F"])
-                    .output();
-            }
-
-            // Layer 4: Final verification
-            std::thread::sleep(std::time::Duration::from_millis(200));
-            if is_process_running(pid) {
-                eprintln!("WARNING: Failed to kill server after all attempts");
-            } else {
-                println!("Server killed successfully");
-            }
-        }
-
-        #[cfg(unix)]
-        {
-            println!("stop_server: Process group kill completed");
+            println!("Shutdown request sent (server watchdog will handle cleanup)");
         }
     }
     
@@ -550,7 +632,37 @@ async fn stop_server(state: State<'_, ServerState>) -> Result<(), String> {
 }
 
 #[command]
+async fn restart_server(
+    app: tauri::AppHandle,
+    state: State<'_, ServerState>,
+    models_dir: Option<String>,
+) -> Result<String, String> {
+    println!("restart_server: stopping current server...");
+
+    // Update stored models_dir: empty string means reset to default, non-empty means set
+    if let Some(ref dir) = models_dir {
+        if dir.is_empty() {
+            *state.models_dir.lock().unwrap() = None;
+        } else {
+            *state.models_dir.lock().unwrap() = Some(dir.clone());
+        }
+    }
+
+    // Stop the current server
+    stop_server(state.clone()).await?;
+
+    // Wait for port to be released
+    println!("restart_server: waiting for port release...");
+    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+    // Start server again (will auto-detect CUDA binary and use stored models_dir)
+    println!("restart_server: starting server...");
+    start_server(app, state, None, None).await
+}
+
+#[command]
 fn set_keep_server_running(state: State<'_, ServerState>, keep_running: bool) {
+    println!("set_keep_server_running called with: {}", keep_running);
     *state.keep_running_on_close.lock().unwrap() = keep_running;
 }
 
@@ -607,6 +719,7 @@ pub fn run() {
             child: Mutex::new(None),
             server_pid: Mutex::new(None),
             keep_running_on_close: Mutex::new(false),
+            models_dir: Mutex::new(None),
         })
         .manage(audio_capture::AudioCaptureState::new())
         .manage(audio_output::AudioOutputState::new())
@@ -635,11 +748,49 @@ pub fn run() {
                 }
             }
 
+            // Enable microphone access on Linux (WebKitGTK denies getUserMedia by default)
+            #[cfg(target_os = "linux")]
+            {
+                use tauri::Manager;
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.with_webview(|webview| {
+                        use webkit2gtk::{WebViewExt, SettingsExt, PermissionRequestExt};
+                        use webkit2gtk::glib::ObjectExt;
+                        let wk_webview = webview.inner();
+
+                        // Enable media stream support in WebKitGTK settings
+                        if let Some(settings) = WebViewExt::settings(&wk_webview) {
+                            settings.set_enable_media_stream(true);
+                        }
+
+                        // Auto-grant UserMediaPermissionRequest (microphone access)
+                        // Only for trusted local origins (Tauri dev server or custom protocol)
+                        wk_webview.connect_permission_request(move |webview, request: &webkit2gtk::PermissionRequest| {
+                            if request.is::<webkit2gtk::UserMediaPermissionRequest>() {
+                                let uri = WebViewExt::uri(webview).unwrap_or_default();
+                                let is_trusted = uri.starts_with("tauri://")
+                                    || uri.starts_with("https://tauri.localhost")
+                                    || uri.starts_with("http://localhost")
+                                    || uri.starts_with("http://127.0.0.1");
+                                if is_trusted {
+                                    request.allow();
+                                    return true;
+                                }
+                                request.deny();
+                                return true;
+                            }
+                            false
+                        });
+                    });
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             start_server,
             stop_server,
+            restart_server,
             set_keep_server_running,
             start_system_audio_capture,
             stop_system_audio_capture,
@@ -648,9 +799,17 @@ pub fn run() {
             play_audio_to_devices,
             stop_audio_playback
         ])
-        .on_window_event(|window, event| {
+        .on_window_event({
+            let closing = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            move |window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                // Prevent automatic close
+                // If we're already in the close flow, let it proceed
+                if closing.load(std::sync::atomic::Ordering::SeqCst) {
+                    return;
+                }
+                closing.store(true, std::sync::atomic::Ordering::SeqCst);
+
+                // Prevent automatic close so frontend can clean up
                 api.prevent_close();
 
                 // Emit event to frontend to check setting and stop server if needed
@@ -658,160 +817,99 @@ pub fn run() {
 
                 if let Err(e) = app_handle.emit("window-close-requested", ()) {
                     eprintln!("Failed to emit window-close-requested event: {}", e);
-                    // If event emission fails, allow close anyway
                     window.close().ok();
                     return;
                 }
 
                 // Set up listener for frontend response
                 let window_for_close = window.clone();
+                let closing_for_timeout = closing.clone();
                 let (tx, mut rx) = mpsc::unbounded_channel::<()>();
 
-                // Listen for response from frontend using window's listen method
                 let listener_id = window.listen("window-close-allowed", move |_| {
-                    // Frontend has checked setting and stopped server if needed
-                    // Signal that we can close
                     let _ = tx.send(());
                 });
 
-                // Wait for frontend response or timeout
-                tokio::spawn(async move {
+                tauri::async_runtime::spawn(async move {
                     tokio::select! {
                         _ = rx.recv() => {
-                            // Frontend responded, close window
                             window_for_close.close().ok();
                         }
                         _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
-                            // Timeout - close anyway
                             eprintln!("Window close timeout, closing anyway");
                             window_for_close.close().ok();
                         }
                     }
-                    // Clean up listener
                     window_for_close.unlisten(listener_id);
+                    closing_for_timeout.store(false, std::sync::atomic::Ordering::SeqCst);
                 });
             }
-        })
+        }})
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
+            let _ = &app; // used on unix
             match &event {
                 RunEvent::Exit => {
-                    println!("=================================================================");
-                    println!("RunEvent::Exit received - checking server cleanup");
                     let state = app.state::<ServerState>();
                     let keep_running = *state.keep_running_on_close.lock().unwrap();
-                    println!("keep_running_on_close = {}", keep_running);
-                    
-                    if !keep_running {
-                        // Get the stored PID for process group killing
-                        let pid = state.server_pid.lock().unwrap().take();
-                        // Also take the child to clean up
-                        let _child = state.child.lock().unwrap().take();
-                        
-                        if let Some(pid) = pid {
-                            println!("Killing server process group with PID: {}", pid);
-                            
-                            // Kill the entire process group on Unix systems
-                            // Using negative PID sends signal to all processes in the group
-                            #[cfg(unix)]
-                            {
+                    let has_pid = state.server_pid.lock().unwrap().is_some();
+                    println!("RunEvent::Exit — keep_running={}, has_pid={}", keep_running, has_pid);
+
+                    if keep_running {
+                        // Tell the server to disable its watchdog so it survives
+                        // after this process exits.
+                        println!("Keep server running: disabling watchdog...");
+
+                        // Write a sentinel file as a reliable fallback. On Windows
+                        // the HTTP request below can race with process exit, leaving
+                        // the watchdog unaware it should stay alive. The sentinel
+                        // file is checked during the watchdog grace period.
+                        let data_dir = app
+                            .path()
+                            .app_data_dir()
+                            .unwrap_or_default();
+                        let sentinel = data_dir.join(".keep-running");
+                        if let Err(e) = std::fs::write(&sentinel, b"1") {
+                            eprintln!("Failed to write keep-running sentinel: {}", e);
+                        } else {
+                            println!("Wrote keep-running sentinel to {:?}", sentinel);
+                        }
+
+                        let client = reqwest::blocking::Client::builder()
+                            .timeout(std::time::Duration::from_secs(2))
+                            .build()
+                            .unwrap();
+                        match client
+                            .post(&format!("http://127.0.0.1:{}/watchdog/disable", SERVER_PORT))
+                            .send()
+                        {
+                            Ok(resp) => println!("Watchdog disable response: {}", resp.status()),
+                            Err(e) => eprintln!("Failed to disable watchdog: {}", e),
+                        }
+                    } else {
+                        // Server will self-terminate via parent-pid watchdog when
+                        // this process exits. On Unix, also send SIGTERM for
+                        // immediate cleanup.
+                        println!("RunEvent::Exit - server will self-terminate via watchdog");
+
+                        #[cfg(unix)]
+                        {
+                            if let Some(pid) = state.server_pid.lock().unwrap().take() {
                                 use std::process::Command;
-                                // First try SIGTERM to the process group
-                                let pgid_kill = Command::new("kill")
+                                let _ = Command::new("kill")
                                     .args(["-TERM", "--", &format!("-{}", pid)])
                                     .output();
-                                
-                                match pgid_kill {
-                                    Ok(output) => {
-                                        if output.status.success() {
-                                            println!("SIGTERM sent to process group -{}", pid);
-                                        } else {
-                                            // Process group kill failed, try direct kill
-                                            println!("Process group kill failed, trying direct kill");
-                                            let _ = Command::new("kill")
-                                                .args(["-TERM", &pid.to_string()])
-                                                .output();
-                                        }
-                                    }
-                                    Err(e) => {
-                                        eprintln!("Failed to execute kill command: {}", e);
-                                    }
-                                }
-                                
-                                // Give it a moment, then force kill if needed
                                 std::thread::sleep(std::time::Duration::from_millis(100));
-                                
-                                // Force kill with SIGKILL
                                 let _ = Command::new("kill")
                                     .args(["-9", "--", &format!("-{}", pid)])
                                     .output();
                                 let _ = Command::new("kill")
                                     .args(["-9", &pid.to_string()])
                                     .output();
-                                
-                                println!("Server process group kill completed");
                             }
-                            
-                            #[cfg(windows)]
-                            {
-                                // Layer 1: Try graceful HTTP shutdown first
-                                println!("Attempting graceful shutdown via HTTP...");
-                                let client = reqwest::blocking::Client::builder()
-                                    .timeout(std::time::Duration::from_secs(2))
-                                    .build()
-                                    .unwrap();
-
-                                let shutdown_result = client
-                                    .post(&format!("http://127.0.0.1:{}/shutdown", SERVER_PORT))
-                                    .send();
-
-                                if shutdown_result.is_ok() {
-                                    println!("HTTP shutdown sent, waiting for graceful exit...");
-                                    // Wait up to 3 seconds for graceful shutdown
-                                    for i in 0..30 {
-                                        std::thread::sleep(std::time::Duration::from_millis(100));
-                                        if !is_process_running(pid) {
-                                            println!("Process exited gracefully after {}ms", i * 100);
-                                            println!("Server process tree kill completed");
-                                            return;
-                                        }
-                                    }
-                                    println!("Graceful shutdown timed out, forcing kill...");
-                                } else {
-                                    println!("HTTP shutdown failed, forcing kill...");
-                                }
-
-                                // Layer 2: Kill process tree with enumeration
-                                println!("Killing process tree for wrapper PID {}...", pid);
-                                let _ = kill_windows_process_tree(pid);
-
-                                // Layer 3: Verify and kill by name if still running
-                                std::thread::sleep(std::time::Duration::from_millis(200));
-                                if is_process_running(pid) {
-                                    println!("Process tree kill failed, killing by name...");
-                                    use std::process::Command;
-                                    let _ = Command::new("taskkill")
-                                        .args(["/IM", "voicebox-server.exe", "/T", "/F"])
-                                        .output();
-                                }
-
-                                // Layer 4: Final verification
-                                std::thread::sleep(std::time::Duration::from_millis(200));
-                                if is_process_running(pid) {
-                                    eprintln!("WARNING: Failed to kill server after all attempts");
-                                } else {
-                                    println!("Server killed successfully");
-                                }
-                                println!("Server process tree kill completed");
-                            }
-                        } else {
-                            println!("No server PID found (already stopped or never started)");
                         }
-                    } else {
-                        println!("Keeping server running per user setting");
                     }
-                    println!("=================================================================");
                 }
                 RunEvent::ExitRequested { api, .. } => {
                     println!("RunEvent::ExitRequested received");

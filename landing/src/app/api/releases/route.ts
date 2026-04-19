@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getLatestRelease } from '@/lib/releases';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 600; // Revalidate every 10 minutes
 
 export async function GET() {
   try {

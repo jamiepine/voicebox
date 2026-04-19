@@ -1,0 +1,232 @@
+---
+title: "Voice Profiles"
+description: "How voice profile management works in Voicebox"
+---
+
+## Overview
+
+Voice profiles are the unit of "a saved voice" in Voicebox. As of 0.4 they support two flavors backed by the same `profiles` table:
+
+- **Cloned profiles** — store one or more reference audio samples; the cloning engine generates a voice embedding at use time
+- **Preset profiles** — store no audio; just a pointer to an engine-specific pre-built voice (e.g. Kokoro's `am_adam`, Qwen CustomVoice's `Ryan`)
+
+The schema also reserves a third type, `designed`, for future text-described voices. Not currently used by any shipped engine.
+
+## Architecture
+
+The voice profile system consists of three main components:
+
+**Database Layer:** SQLite tables store profile metadata, sample references (cloned), and engine + voice ID (preset).
+
+**File Storage:** Audio samples are stored on disk in a structured directory format. Preset profiles have no on-disk audio.
+
+**Profile Module:** `backend/services/profiles.py` provides the business logic for CRUD operations and dispatches to the appropriate engine based on `voice_type`.
+
+## Data Model
+
+### VoiceProfile Table
+
+```python
+class VoiceProfile(Base):
+    __tablename__ = "profiles"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, unique=True, nullable=False)
+    description = Column(Text)
+    language = Column(String, default="en")
+    avatar_path = Column(String, nullable=True)
+    effects_chain = Column(Text, nullable=True)
+
+    # Voice type system — added v0.3.x
+    voice_type = Column(String, default="cloned")    # "cloned" | "preset" | "designed"
+    preset_engine = Column(String, nullable=True)    # e.g. "kokoro" — only for preset
+    preset_voice_id = Column(String, nullable=True)  # e.g. "am_adam" — only for preset
+    design_prompt = Column(Text, nullable=True)      # text description — only for designed (reserved)
+    default_engine = Column(String, nullable=True)   # auto-selected engine, locked for preset
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+The `voice_type` column discriminates the three flavors:
+
+| `voice_type` | `preset_engine` | `preset_voice_id` | Samples in `profile_samples` |
+| ------------ | --------------- | ----------------- | ---------------------------- |
+| `cloned`     | NULL            | NULL              | Required (≥1 row)            |
+| `preset`     | engine name     | voice ID string   | None                         |
+| `designed`   | NULL            | NULL              | None (uses `design_prompt`)  |
+
+The `default_engine` column is set automatically when the profile is created. For preset profiles it's locked to the source engine — switching engines at generation time will skip the profile (and the UI auto-switches back when the user clicks a greyed-out card; see the floating generate box and profile grid).
+
+### ProfileSample Table
+
+```python
+class ProfileSample(Base):
+    __tablename__ = "profile_samples"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    profile_id = Column(String, ForeignKey("profiles.id"))
+    audio_path = Column(String, nullable=False)
+    reference_text = Column(Text, nullable=False)
+```
+
+Only populated for cloned profiles. Preset and designed profiles have zero rows in this table.
+
+## File Structure
+
+Profiles are stored in the data directory:
+
+<Files>
+  <Folder name="data" defaultOpen>
+    <Folder name="profiles">
+      <Folder name="{profile_id}">
+        <File name="{sample_id_1}.wav" />
+        <File name="{sample_id_2}.wav" />
+      </Folder>
+    </Folder>
+  </Folder>
+</Files>
+
+## Core Functions
+
+### Creating a Profile
+
+```python
+async def create_profile(data: VoiceProfileCreate, db: Session) -> VoiceProfileResponse:
+    # 1. Create database record
+    db_profile = DBVoiceProfile(
+        id=str(uuid.uuid4()),
+        name=data.name,
+        description=data.description,
+        language=data.language,
+    )
+    db.add(db_profile)
+    db.commit()
+    
+    # 2. Create profile directory
+    profile_dir = profiles_dir / db_profile.id
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    
+    return VoiceProfileResponse.model_validate(db_profile)
+```
+
+### Adding Samples
+
+When a sample is added, the audio is validated and copied to the profile directory:
+
+```python
+async def add_profile_sample(
+    profile_id: str,
+    audio_path: str,
+    reference_text: str,
+    db: Session,
+) -> ProfileSampleResponse:
+    # 1. Validate audio (duration, format, quality)
+    is_valid, error_msg = validate_reference_audio(audio_path)
+    if not is_valid:
+        raise ValueError(f"Invalid reference audio: {error_msg}")
+    
+    # 2. Copy to profile directory
+    sample_id = str(uuid.uuid4())
+    dest_path = profile_dir / f"{sample_id}.wav"
+    audio, sr = load_audio(audio_path)
+    save_audio(audio, str(dest_path), sr)
+    
+    # 3. Create database record
+    db_sample = DBProfileSample(
+        id=sample_id,
+        profile_id=profile_id,
+        audio_path=str(dest_path),
+        reference_text=reference_text,
+    )
+    db.add(db_sample)
+    db.commit()
+```
+
+### Voice Prompt Creation
+
+When generating speech, samples are combined into a voice prompt:
+
+```python
+async def create_voice_prompt_for_profile(
+    profile_id: str,
+    db: Session,
+) -> dict:
+    samples = db.query(DBProfileSample).filter_by(profile_id=profile_id).all()
+    
+    if len(samples) == 1:
+        # Single sample - use directly
+        voice_prompt, _ = await tts_model.create_voice_prompt(
+            sample.audio_path,
+            sample.reference_text,
+        )
+    else:
+        # Multiple samples - combine them
+        combined_audio, combined_text = await tts_model.combine_voice_prompts(
+            [s.audio_path for s in samples],
+            [s.reference_text for s in samples],
+        )
+        voice_prompt, _ = await tts_model.create_voice_prompt(
+            combined_audio_path,
+            combined_text,
+        )
+    
+    return voice_prompt
+```
+
+## Audio Validation
+
+Reference audio is validated before being accepted:
+
+- **Duration:** 3-30 seconds recommended
+- **Format:** WAV, MP3, FLAC, OGG, M4A supported
+- **Sample Rate:** Engine-specific — the audio utility resamples to whatever the active engine expects (Whisper uses 16 kHz, most TTS engines use 24 kHz, LuxTTS outputs 48 kHz). Resampling happens on the fly; the stored sample retains its original rate.
+- **Channels:** Converted to mono if stereo
+
+## Export/Import
+
+Profiles can be exported as ZIP archives for sharing:
+
+<Files>
+  <Folder name="profile_export.zip" defaultOpen>
+    <File name="profile.json" />
+    <Folder name="samples">
+      <File name="sample_1.wav" />
+      <File name="sample_1.json" />
+    </Folder>
+  </Folder>
+</Files>
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/profiles` | List all profiles |
+| POST | `/profiles` | Create a profile |
+| GET | `/profiles/{id}` | Get profile by ID |
+| PUT | `/profiles/{id}` | Update profile |
+| DELETE | `/profiles/{id}` | Delete profile |
+| GET | `/profiles/{id}/samples` | Get profile samples |
+| POST | `/profiles/{id}/samples` | Add sample to profile |
+| PUT | `/profiles/samples/{id}` | Update sample text |
+| DELETE | `/profiles/samples/{id}` | Delete sample |
+| GET | `/profiles/{id}/export` | Export as ZIP |
+| POST | `/profiles/import` | Import from ZIP |
+
+## Best Practices
+
+### Sample Quality
+
+- Use clean audio with minimal background noise
+- Ensure the reference text exactly matches what is spoken
+- Multiple samples (3-5) improve voice cloning quality
+
+### Language Matching
+
+- Set the profile language to match the reference audio
+- Supported languages: en, zh, ja, ko, de, fr, ru, pt, es, it
+
+### Naming Conventions
+
+- Use descriptive names that identify the voice
+- Avoid special characters that may cause filesystem issues

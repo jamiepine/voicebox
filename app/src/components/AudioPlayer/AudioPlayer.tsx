@@ -1,22 +1,22 @@
 import { useQuery } from '@tanstack/react-query';
 import { Pause, Play, Repeat, Volume2, VolumeX, X } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { apiClient } from '@/lib/api/client';
 import { formatAudioDuration } from '@/lib/utils/audio';
 import { debug } from '@/lib/utils/debug';
-import { usePlayerStore } from '@/stores/playerStore';
 import { usePlatform } from '@/platform/PlatformContext';
+import { usePlayerStore } from '@/stores/playerStore';
 
 export function AudioPlayer() {
   const platform = usePlatform();
+  const volumeLabelId = useId();
   const {
     audioUrl,
     audioId,
     profileId,
-    title,
     isPlaying,
     currentTime,
     duration,
@@ -62,7 +62,7 @@ export function AudioPlayer() {
     );
 
     return shouldUseNative;
-  }, [profileChannels, channels, profileId]);
+  }, [profileChannels, channels, platform.metadata.isTauri]);
 
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
@@ -72,31 +72,21 @@ export function AudioPlayer() {
   const isUsingNativePlaybackRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wsReady, setWsReady] = useState(false);
 
-  // Initialize WaveSurfer (only when audioUrl exists and container is ready)
+  // Create WaveSurfer once when the player becomes visible (audioUrl is set).
+  // This instance is reused for all subsequent audio loads - never destroyed until unmount.
   useEffect(() => {
-    // Don't initialize if no audioUrl or already initialized
-    if (!audioUrl) {
-      return;
-    }
+    if (!audioUrl) return;
+    if (wavesurferRef.current) return; // already created
 
-    if (wavesurferRef.current) {
-      debug.log('WaveSurfer already initialized, skipping');
-      return;
-    }
-
-    debug.log('Creating NEW WaveSurfer instance');
-
-    // Wait for container to be properly rendered
     const initWaveSurfer = () => {
       const container = waveformRef.current;
       if (!container) {
-        // Container not ready yet, retry
         setTimeout(initWaveSurfer, 50);
         return;
       }
 
-      // Check if container has dimensions and is visible
       const rect = container.getBoundingClientRect();
       const style = window.getComputedStyle(container);
       const isVisible =
@@ -106,488 +96,221 @@ export function AudioPlayer() {
         style.visibility !== 'hidden';
 
       if (!isVisible) {
-        // Retry after a short delay
         setTimeout(initWaveSurfer, 50);
         return;
       }
 
-      debug.log('Initializing WaveSurfer...', {
-        container,
+      debug.log('Creating WaveSurfer instance', {
         width: rect.width,
         height: rect.height,
       });
 
       try {
-        // Get computed CSS variable values
         const root = document.documentElement;
         const getCSSVar = (varName: string) => {
           const value = getComputedStyle(root).getPropertyValue(varName).trim();
           return value ? `hsl(${value})` : '';
         };
 
-        const waveColor = getCSSVar('--muted');
-        const progressColor = getCSSVar('--accent');
-        const cursorColor = getCSSVar('--accent');
-
         const wavesurfer = WaveSurfer.create({
-          container: container,
-          waveColor: waveColor,
-          progressColor: progressColor,
-          cursorColor: cursorColor,
+          container,
+          waveColor: getCSSVar('--muted'),
+          progressColor: getCSSVar('--accent'),
+          cursorColor: getCSSVar('--accent'),
+          cursorWidth: 3,
           barWidth: 2,
           barRadius: 2,
           height: 80,
           normalize: true,
+          interact: true,
+          dragToSeek: { debounceTime: 0 },
+          mediaControls: false,
           backend: 'WebAudio',
-          interact: true, // Enable interaction (click to seek)
-          mediaControls: false, // Don't show native controls
+        });
+
+        // Wire up event handlers (these persist for the lifetime of the instance)
+        wavesurfer.on('timeupdate', (time) => {
+          const dur = usePlayerStore.getState().duration;
+          if (dur > 0 && time >= dur) {
+            setCurrentTime(dur);
+            const loop = usePlayerStore.getState().isLooping;
+            if (loop) {
+              wavesurfer.seekTo(0);
+              wavesurfer.play().catch((err) => debug.error('Loop play failed:', err));
+            } else {
+              wavesurfer.pause();
+              setIsPlaying(false);
+            }
+            return;
+          }
+          setCurrentTime(time);
+        });
+
+        wavesurfer.on('ready', () => {
+          const dur = wavesurfer.getDuration();
+          setDuration(dur);
+          loadingRef.current = false;
+          setIsLoading(false);
+          setError(null);
+          debug.log('Audio ready, duration:', dur);
+
+          wavesurfer.setVolume(usePlayerStore.getState().volume);
+          wavesurfer.setMuted(false);
+
+          // Auto-play if the flag is set (story mode advance or explicit play)
+          const shouldAutoPlayNow = usePlayerStore.getState().shouldAutoPlay;
+          if (shouldAutoPlayNow) {
+            usePlayerStore.getState().clearAutoPlayFlag();
+            wavesurfer.play().catch((err) => {
+              debug.error('Failed to autoplay:', err);
+            });
+          } else {
+            debug.log('Skipping auto-play - shouldAutoPlay is false');
+          }
+        });
+
+        wavesurfer.on('play', () => setIsPlaying(true));
+        wavesurfer.on('pause', () => {
+          setIsPlaying(false);
+          setCurrentTime(wavesurfer.getCurrentTime());
+        });
+
+        wavesurfer.on('seeking', (time) => setCurrentTime(time));
+
+        // Mute audio during drag-to-seek to prevent popping from the WebAudio
+        // backend's hard stop/start cycle on each seek. Unmute with a short
+        // fade-in when the drag ends.
+        const seekMedia = wavesurfer.getMediaElement() as any;
+        const seekGain: GainNode | null = seekMedia?.getGainNode?.() ?? null;
+        if (seekGain) {
+          const ctx = seekGain.context as AudioContext;
+          wavesurfer.on('dragstart', () => {
+            seekGain.gain.cancelScheduledValues(ctx.currentTime);
+            seekGain.gain.setTargetAtTime(0, ctx.currentTime, 0.002);
+          });
+          wavesurfer.on('dragend', () => {
+            seekGain.gain.cancelScheduledValues(ctx.currentTime);
+            seekGain.gain.setTargetAtTime(1, ctx.currentTime, 0.01);
+          });
+        }
+        wavesurfer.on('finish', () => {
+          const loop = usePlayerStore.getState().isLooping;
+          if (loop) {
+            wavesurfer.seekTo(0);
+            wavesurfer.play().catch((err) => debug.error('Loop play failed:', err));
+          } else {
+            setIsPlaying(false);
+            const onFinish = usePlayerStore.getState().onFinish;
+            if (onFinish) onFinish();
+          }
+        });
+
+        wavesurfer.on('error', (err) => {
+          debug.error('WaveSurfer error:', err);
+          setIsLoading(false);
+          setError(`Audio error: ${err instanceof Error ? err.message : String(err)}`);
+        });
+
+        wavesurfer.on('loading', (percent) => {
+          setIsLoading(true);
+          if (percent === 100) setIsLoading(false);
         });
 
         wavesurferRef.current = wavesurfer;
+        setWsReady(true);
         debug.log('WaveSurfer created successfully');
-      } catch (error) {
-        debug.error('Failed to create WaveSurfer:', error);
+      } catch (err) {
+        debug.error('Failed to create WaveSurfer:', err);
         setError(
-          `Failed to initialize waveform: ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to initialize waveform: ${err instanceof Error ? err.message : String(err)}`,
         );
-        return;
-      }
-
-      const wavesurfer = wavesurferRef.current;
-      if (!wavesurfer) return;
-
-      // Update store when time changes
-      wavesurfer.on('timeupdate', (time) => {
-        setCurrentTime(time);
-      });
-
-      // Update store when duration is loaded
-      wavesurfer.on('ready', async () => {
-        const dur = wavesurfer.getDuration();
-        setDuration(dur);
-        loadingRef.current = false;
-        setIsLoading(false);
-        setError(null);
-        debug.log('Audio ready, duration:', dur);
-        debug.log('Waveform should be visible now');
-
-        // Ensure volume is set
-        const currentVolume = usePlayerStore.getState().volume;
-        wavesurfer.setVolume(currentVolume);
-
-        // Get the underlying audio element and ensure it's not muted
-        // (unless we're using native playback, which will be set later)
-        const mediaElement = wavesurfer.getMediaElement();
-        if (mediaElement && !isUsingNativePlaybackRef.current) {
-          mediaElement.volume = currentVolume;
-          mediaElement.muted = false;
-          debug.log('Audio element volume:', mediaElement.volume, 'muted:', mediaElement.muted);
-        }
-
-        // Auto-play when ready - check if we should use native playback
-        // Get current values from the store and queries at runtime (not captured closure values)
-        const currentAudioUrl = usePlayerStore.getState().audioUrl;
-        const currentProfileId = usePlayerStore.getState().profileId;
-
-        debug.log('Auto-play check - capturing runtime values...');
-
-        // Fetch profile channels at runtime (not using captured value)
-        let runtimeProfileChannels = null;
-        let runtimeChannels = null;
-
-        if (platform.metadata.isTauri && currentProfileId) {
-          try {
-            runtimeProfileChannels = await apiClient.getProfileChannels(currentProfileId);
-            debug.log('Runtime profileChannels:', runtimeProfileChannels);
-
-            if (runtimeProfileChannels && runtimeProfileChannels.channel_ids.length > 0) {
-              runtimeChannels = await apiClient.listChannels();
-              debug.log('Runtime channels:', runtimeChannels);
-            }
-          } catch (error) {
-            debug.error('Failed to fetch runtime channel data:', error);
-          }
-        }
-
-        debug.log('Auto-play check:', {
-          isTauri: platform.metadata.isTauri,
-          currentAudioUrl,
-          currentProfileId,
-          hasProfileChannels: !!runtimeProfileChannels,
-          hasChannels: !!runtimeChannels,
-        });
-
-        if (
-          platform.metadata.isTauri &&
-          currentAudioUrl &&
-          currentProfileId &&
-          runtimeProfileChannels &&
-          runtimeChannels
-        ) {
-          debug.log('Attempting native audio playback...');
-
-          // Stop any existing native playback first
-          if (isUsingNativePlaybackRef.current) {
-            try {
-              platform.audio.stopPlayback();
-              debug.log('Stopped existing native playback before starting new one');
-            } catch (error) {
-              debug.error('Failed to stop existing playback:', error);
-            }
-          }
-
-          try {
-            // Collect all device IDs from assigned channels
-            const assignedChannels = runtimeChannels.filter((ch: any) =>
-              runtimeProfileChannels.channel_ids.includes(ch.id),
-            );
-            debug.log('Assigned channels for playback:', assignedChannels);
-
-            // Check if any assigned channel has non-default devices
-            const shouldUseNative = assignedChannels.some(
-              (ch: any) => ch.device_ids.length > 0 && !ch.is_default,
-            );
-            debug.log('Should use native playback:', shouldUseNative);
-
-            if (!shouldUseNative) {
-              debug.log('No custom devices assigned, falling back to WaveSurfer');
-              // Reset native playback flag and unmute WaveSurfer
-              isUsingNativePlaybackRef.current = false;
-              const mediaElement = wavesurfer.getMediaElement();
-              if (mediaElement) {
-                const currentVolume = usePlayerStore.getState().volume;
-                mediaElement.volume = currentVolume;
-                mediaElement.muted = false;
-                debug.log(
-                  'WaveSurfer unmuted for normal playback - volume:',
-                  mediaElement.volume,
-                  'muted:',
-                  mediaElement.muted,
-                );
-              }
-            } else {
-              const deviceIds = assignedChannels.flatMap((ch: any) => ch.device_ids);
-              debug.log('Device IDs to play to:', deviceIds);
-
-              if (deviceIds.length > 0) {
-                debug.log('Fetching audio data from:', currentAudioUrl);
-                // Fetch audio data
-                const response = await fetch(currentAudioUrl);
-                const audioData = new Uint8Array(await response.arrayBuffer());
-                debug.log('Audio data size:', audioData.length);
-
-                // Play via native audio
-                debug.log('Invoking play_audio_to_devices...');
-                try {
-                  await platform.audio.playToDevices(audioData, deviceIds);
-                  debug.log('play_audio_to_devices completed successfully');
-
-                  // Mark that we're using native playback
-                  isUsingNativePlaybackRef.current = true;
-
-                  // Mute WaveSurfer's audio element to prevent UI audio output
-                  // Keep WaveSurfer running for visualization
-                  const mediaElement = wavesurfer.getMediaElement();
-                  if (mediaElement) {
-                    mediaElement.volume = 0;
-                    mediaElement.muted = true;
-                    debug.log(
-                      'WaveSurfer muted for native playback - volume:',
-                      mediaElement.volume,
-                      'muted:',
-                      mediaElement.muted,
-                    );
-                  }
-
-                  // Start WaveSurfer playback for visualization (muted)
-                  wavesurfer.play().catch((error) => {
-                    debug.error('Failed to start WaveSurfer visualization:', error);
-                  });
-
-                  setIsPlaying(true);
-                  debug.log('Auto-playing via native audio routing - SUCCESS');
-                  return;
-                } catch (invokeError) {
-                  debug.error('play_audio_to_devices invoke failed:', invokeError);
-                  throw invokeError;
-                }
-              } else {
-                debug.log('No device IDs found, falling back to WaveSurfer');
-              }
-            }
-          } catch (error) {
-            debug.error(
-              'Native playback failed during auto-play, falling back to WaveSurfer:',
-              error,
-            );
-            // Reset native playback flag and unmute WaveSurfer
-            isUsingNativePlaybackRef.current = false;
-            const mediaElement = wavesurfer.getMediaElement();
-            if (mediaElement) {
-              const currentVolume = usePlayerStore.getState().volume;
-              mediaElement.volume = currentVolume;
-              mediaElement.muted = false;
-              debug.log(
-                'WaveSurfer unmuted after native playback failure - volume:',
-                mediaElement.volume,
-                'muted:',
-                mediaElement.muted,
-              );
-            }
-            // Fall through to WaveSurfer playback
-          }
-        } else {
-          debug.log('Not using native playback, using WaveSurfer');
-          // Reset native playback flag and unmute WaveSurfer
-          isUsingNativePlaybackRef.current = false;
-          const mediaElement = wavesurfer.getMediaElement();
-          if (mediaElement) {
-            const currentVolume = usePlayerStore.getState().volume;
-            mediaElement.volume = currentVolume;
-            mediaElement.muted = false;
-            debug.log(
-              'WaveSurfer unmuted for normal playback - volume:',
-              mediaElement.volume,
-              'muted:',
-              mediaElement.muted,
-            );
-          }
-        }
-
-        // Only auto-play if shouldAutoPlay flag is set (user explicitly clicked to play)
-        const shouldAutoPlayNow = usePlayerStore.getState().shouldAutoPlay;
-        if (shouldAutoPlayNow) {
-          // Clear the flag first
-          usePlayerStore.getState().clearAutoPlayFlag();
-          
-          // Use a small delay to ensure audio element is fully ready
-          setTimeout(() => {
-            wavesurfer.play().catch((error) => {
-              debug.error('Failed to autoplay:', error);
-              // Don't show error for autoplay failures (browser restrictions)
-            });
-          }, 100);
-        } else {
-          debug.log('Skipping auto-play - shouldAutoPlay is false');
-        }
-      });
-
-      // Handle play/pause
-      wavesurfer.on('play', () => {
-        setIsPlaying(true);
-        // Ensure audio element volume is set correctly
-        const mediaElement = wavesurfer.getMediaElement();
-        if (mediaElement) {
-          // Double-check: if using native playback, keep WaveSurfer muted
-          // Otherwise, ensure it's unmuted
-          if (isUsingNativePlaybackRef.current) {
-            mediaElement.volume = 0;
-            mediaElement.muted = true;
-            debug.log('Playing (native mode) - WaveSurfer muted for visualization only');
-          } else {
-            // Ensure WaveSurfer is unmuted for normal playback
-            const currentVolume = usePlayerStore.getState().volume;
-            mediaElement.volume = currentVolume;
-            mediaElement.muted = false;
-            debug.log(
-              'Playing (normal mode) - volume:',
-              mediaElement.volume,
-              'muted:',
-              mediaElement.muted,
-            );
-          }
-        }
-      });
-      wavesurfer.on('pause', () => setIsPlaying(false));
-      wavesurfer.on('finish', () => {
-        // Check loop state from store
-        const loop = usePlayerStore.getState().isLooping;
-        if (loop) {
-          wavesurfer.seekTo(0);
-          wavesurfer.play();
-        } else {
-          setIsPlaying(false);
-          // Trigger finish callback if set
-          const onFinish = usePlayerStore.getState().onFinish;
-          if (onFinish) {
-            onFinish();
-          }
-        }
-      });
-
-      // Handle errors
-      wavesurfer.on('error', (error) => {
-        debug.error('WaveSurfer error:', error);
-        setIsLoading(false);
-        setError(`Audio error: ${error instanceof Error ? error.message : String(error)}`);
-      });
-
-      // Handle loading
-      wavesurfer.on('loading', (percent) => {
-        setIsLoading(true);
-        if (percent === 100) {
-          setIsLoading(false);
-        }
-      });
-
-      // Load audio immediately if audioUrl is already set
-      if (audioUrl) {
-        debug.log('WaveSurfer ready, loading audio:', audioUrl);
-        loadingRef.current = true;
-        setIsLoading(true);
-        // Stop any current playback before loading new audio
-        if (wavesurfer.isPlaying()) {
-          wavesurfer.pause();
-        }
-        wavesurfer
-          .load(audioUrl)
-          .then(() => {
-            debug.log('Audio loaded into WaveSurfer');
-            loadingRef.current = false;
-          })
-          .catch((error) => {
-            debug.error('Failed to load audio into WaveSurfer:', error);
-            loadingRef.current = false;
-            setIsLoading(false);
-            setError(
-              `Failed to load audio: ${error instanceof Error ? error.message : String(error)}`,
-            );
-          });
       }
     };
 
-    // Use double requestAnimationFrame to ensure DOM is fully rendered
-    let rafId1: number;
-    let rafId2: number;
-    let timeoutId: number | null = null;
-
-    rafId1 = requestAnimationFrame(() => {
-      rafId2 = requestAnimationFrame(() => {
-        // Add a small delay to ensure container is fully laid out
-        timeoutId = setTimeout(() => {
-          initWaveSurfer();
-        }, 10);
-      });
+    let rafId: number;
+    rafId = requestAnimationFrame(() => {
+      initWaveSurfer();
     });
 
     return () => {
-      debug.log('Cleaning up WaveSurfer initialization effect');
-      if (rafId1) cancelAnimationFrame(rafId1);
-      if (rafId2) cancelAnimationFrame(rafId2);
-      if (timeoutId) clearTimeout(timeoutId);
+      cancelAnimationFrame(rafId);
+    };
+    // Only run on mount-like conditions. audioUrl is here so we create the instance
+    // when the player first appears, but we guard against re-creation above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audioUrl, setIsPlaying, setDuration, setCurrentTime]);
+
+  // Destroy WaveSurfer only on unmount
+  useEffect(() => {
+    return () => {
       if (wavesurferRef.current) {
-        debug.log('Destroying WaveSurfer instance');
+        debug.log('Destroying WaveSurfer instance (unmount)');
         try {
-          const mediaElement = wavesurferRef.current.getMediaElement();
-          if (mediaElement) {
-            mediaElement.pause();
-            mediaElement.src = '';
-          }
           wavesurferRef.current.destroy();
-        } catch (error) {
-          debug.error('Error destroying WaveSurfer:', error);
+        } catch (err) {
+          debug.error('Error destroying WaveSurfer:', err);
         }
         wavesurferRef.current = null;
+        setWsReady(false);
       }
     };
-  }, [audioUrl, setIsPlaying, setCurrentTime, setDuration]);
+  }, []);
 
-  // Load audio when URL changes (only if WaveSurfer is already initialized)
+  // Load audio when URL changes (reuses the existing WaveSurfer instance)
   useEffect(() => {
     const wavesurfer = wavesurferRef.current;
+    if (!wavesurfer || !wsReady) return;
 
-    if (!audioUrl || !wavesurfer) {
-      // Reset state when no audio or WaveSurfer not ready
-      if (!audioUrl && wavesurfer) {
-        wavesurfer.pause();
-        wavesurfer.seekTo(0);
-        loadingRef.current = false;
-        setIsLoading(false);
-        setDuration(0);
-        setCurrentTime(0);
-        setError(null);
-        // Reset native playback flag
-        isUsingNativePlaybackRef.current = false;
-      }
+    if (!audioUrl) {
+      // No audio - pause and reset
+      wavesurfer.pause();
+      wavesurfer.seekTo(0);
+      loadingRef.current = false;
+      setIsLoading(false);
+      setDuration(0);
+      setCurrentTime(0);
+      setError(null);
+      isUsingNativePlaybackRef.current = false;
       return;
     }
 
-    // Stop native playback if it was active
-    if (isUsingNativePlaybackRef.current && platform.metadata.isTauri) {
-      try {
-        platform.audio.stopPlayback();
-        debug.log('Stopped native audio playback');
-      } catch (error) {
-        debug.error('Failed to stop native playback:', error);
-      }
-    }
-
-    // Reset native playback flag when loading new audio
-    // Also unmute WaveSurfer if it was muted
-    if (isUsingNativePlaybackRef.current) {
-      const mediaElement = wavesurfer.getMediaElement();
-      if (mediaElement) {
-        mediaElement.muted = false;
-        mediaElement.volume = usePlayerStore.getState().volume;
-      }
-    }
+    // Reset native playback state
     isUsingNativePlaybackRef.current = false;
+    wavesurfer.setMuted(false);
+    wavesurfer.setVolume(usePlayerStore.getState().volume);
 
-    // CRITICAL: Force stop any current playback and cancel any pending loads
-    // This must happen BEFORE any early returns
-    debug.log('Audio URL changed to:', audioUrl);
-
-    // COMPLETELY stop and destroy the current audio
+    // Stop current playback and reset position before loading new audio.
+    // With the WebAudio backend, pause() accumulates playedDuration internally.
+    // seekTo(0) resets it so the new track starts from the beginning.
+    debug.log('Loading new audio URL:', audioUrl);
     try {
-      // First pause if playing
       if (wavesurfer.isPlaying()) {
-        debug.log('Pausing current playback');
         wavesurfer.pause();
       }
-
-      // Stop the media element explicitly
-      const mediaElement = wavesurfer.getMediaElement();
-      if (mediaElement) {
-        debug.log('Stopping media element');
-        mediaElement.pause();
-        mediaElement.currentTime = 0;
-        mediaElement.src = '';
-      }
-
-      // Use empty() to completely destroy the waveform and media element
-      debug.log('Calling wavesurfer.empty() to destroy audio');
-      wavesurfer.empty();
-    } catch (error) {
-      debug.error('Error stopping previous audio:', error);
-      // Continue anyway to load new audio
+      wavesurfer.seekTo(0);
+    } catch (err) {
+      debug.error('Error resetting before load:', err);
     }
 
-    // Reset loading state to allow new load (cancel any pending loads)
-    loadingRef.current = false;
-
-    // Now start the new load
     loadingRef.current = true;
     setIsLoading(true);
     setError(null);
     setCurrentTime(0);
     setDuration(0);
 
-    // Load new audio
-    debug.log('Starting new audio load for:', audioUrl);
     wavesurfer
       .load(audioUrl)
       .then(() => {
-        debug.log('Audio load promise resolved');
-        // Don't set loading to false here - wait for 'ready' event
+        debug.log('Audio loaded into WaveSurfer');
+        loadingRef.current = false;
       })
-      .catch((error) => {
-        debug.error('Failed to load audio:', error);
-        debug.error('Audio URL:', audioUrl);
+      .catch((err) => {
+        debug.error('Failed to load audio:', err);
         loadingRef.current = false;
         setIsLoading(false);
-        setError(`Failed to load audio: ${error instanceof Error ? error.message : String(error)}`);
+        setError(`Failed to load audio: ${err instanceof Error ? err.message : String(err)}`);
       });
-  }, [audioUrl, setCurrentTime, setDuration]);
+  }, [audioUrl, wsReady, setCurrentTime, setDuration]);
 
   // Sync play/pause state (only when user clicks play/pause button, not auto-sync)
   // This effect is kept for external state changes but should be minimal
@@ -595,7 +318,6 @@ export function AudioPlayer() {
     if (!wavesurferRef.current || duration === 0) return;
 
     if (isPlaying && wavesurferRef.current.isPlaying() === false) {
-      // Only auto-play if audio is ready
       wavesurferRef.current.play().catch((error) => {
         debug.error('Failed to play:', error);
         setIsPlaying(false);
@@ -610,20 +332,6 @@ export function AudioPlayer() {
   useEffect(() => {
     if (wavesurferRef.current) {
       wavesurferRef.current.setVolume(volume);
-      // Also ensure the underlying audio element volume is set
-      const mediaElement = wavesurferRef.current.getMediaElement();
-      if (mediaElement) {
-        // If using native playback, keep WaveSurfer muted regardless of volume setting
-        if (isUsingNativePlaybackRef.current) {
-          mediaElement.volume = 0;
-          mediaElement.muted = true;
-          debug.log('Volume sync: Using native playback, keeping WaveSurfer muted');
-        } else {
-          mediaElement.volume = volume;
-          mediaElement.muted = volume === 0;
-          debug.log('Volume synced:', volume, 'muted:', mediaElement.muted);
-        }
-      }
     }
   }, [volume]);
 
@@ -648,7 +356,6 @@ export function AudioPlayer() {
       return;
     }
 
-    // Reset to beginning and play
     debug.log('Restarting current audio from beginning');
     wavesurfer.seekTo(0);
     wavesurfer.play().catch((error) => {
@@ -657,34 +364,35 @@ export function AudioPlayer() {
       setError(`Playback error: ${error instanceof Error ? error.message : String(error)}`);
     });
 
-    // Clear the restart flag
     clearRestartFlag();
   }, [shouldRestart, duration, setIsPlaying, clearRestartFlag]);
 
-  // Handle shouldAutoPlay flag - for story mode auto-advance
-  const shouldAutoPlay = usePlayerStore((state) => state.shouldAutoPlay);
-  const clearAutoPlayFlag = usePlayerStore((state) => state.clearAutoPlayFlag);
-  
+  // Auto-play is handled exclusively in the WaveSurfer 'ready' event handler.
+  // A separate effect here would race with the ready event since the WebAudio
+  // backend needs to fully decode the audio before play() works correctly.
+
+  // Spacebar to play/pause (capture phase so it fires before focused elements)
   useEffect(() => {
-    const wavesurfer = wavesurferRef.current;
-    if (!wavesurfer || !shouldAutoPlay || duration === 0) {
-      return;
-    }
-
-    // Auto-play the newly loaded audio
-    debug.log('Auto-playing next track in story mode');
-    wavesurfer.seekTo(0);
-    wavesurfer.play().catch((error) => {
-      debug.error('Failed to auto-play:', error);
-      setIsPlaying(false);
-      setError(`Playback error: ${error instanceof Error ? error.message : String(error)}`);
-    });
-
-    // Clear the auto-play flag
-    clearAutoPlayFlag();
-  }, [shouldAutoPlay, duration, setIsPlaying, clearAutoPlayFlag]);
-
-  // Handle loop - WaveSurfer handles this via the 'finish' event
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== 'Space') return;
+      // Ignore if user is typing in an input/textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target as HTMLElement)?.isContentEditable) {
+        return;
+      }
+      if (audioUrl && duration > 0 && wavesurferRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (wavesurferRef.current.isPlaying()) {
+          wavesurferRef.current.pause();
+        } else {
+          wavesurferRef.current.play().catch((err) => debug.error('Spacebar play failed:', err));
+        }
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [audioUrl, duration]);
 
   const handlePlayPause = async () => {
     // Standard WaveSurfer playback (works for both normal and native playback modes)
@@ -743,11 +451,8 @@ export function AudioPlayer() {
           isUsingNativePlaybackRef.current = true;
 
           // Mute WaveSurfer and start it for visualization
-          const mediaElement = wavesurferRef.current.getMediaElement();
-          if (mediaElement) {
-            mediaElement.volume = 0;
-            mediaElement.muted = true;
-          }
+          wavesurferRef.current.setVolume(0);
+          wavesurferRef.current.setMuted(true);
 
           // Start WaveSurfer for visualization (muted)
           wavesurferRef.current.play().catch((error) => {
@@ -771,11 +476,8 @@ export function AudioPlayer() {
     } else {
       // Ensure WaveSurfer is not muted if not using native playback
       if (!isUsingNativePlaybackRef.current) {
-        const mediaElement = wavesurferRef.current.getMediaElement();
-        if (mediaElement) {
-          mediaElement.muted = false;
-          mediaElement.volume = volume;
-        }
+        wavesurferRef.current.setMuted(false);
+        wavesurferRef.current.setVolume(volume);
       }
 
       wavesurferRef.current.play().catch((error) => {
@@ -829,27 +531,32 @@ export function AudioPlayer() {
             size="icon"
             onClick={handlePlayPause}
             disabled={isLoading || duration === 0}
-            className="shrink-0"
+            className={`shrink-0 -mt-2 ${isPlaying ? 'bg-accent text-accent-foreground' : ''}`}
             title={duration === 0 && !isLoading ? 'Audio not loaded' : ''}
+            aria-label={
+              duration === 0 && !isLoading ? 'Audio not loaded' : isPlaying ? 'Pause' : 'Play'
+            }
           >
-            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+            {isPlaying ? (
+              <Pause className="h-5 w-5 fill-current" />
+            ) : (
+              <Play className="h-5 w-5 fill-current" />
+            )}
           </Button>
 
           {/* Waveform */}
           <div className="flex-1 min-w-0 flex flex-col gap-1">
-            <div ref={waveformRef} className="w-full min-h-[80px]" />
-            {duration > 0 && (
-              <Slider
-                value={duration > 0 ? [(currentTime / duration) * 100] : [0]}
-                onValueChange={handleSeek}
-                max={100}
-                step={0.1}
-                className="w-full"
-              />
-            )}
-            {isLoading && (
-              <div className="text-xs text-muted-foreground text-center py-2">Loading audio...</div>
-            )}
+            <div ref={waveformRef} className="w-full min-h-[80px] select-none" />
+            <Slider
+              value={duration > 0 ? [(currentTime / duration) * 100] : [0]}
+              onValueChange={handleSeek}
+              max={100}
+              step={0.1}
+              className="w-full"
+              aria-label="Playback position"
+              aria-valuetext={`${formatAudioDuration(currentTime)} of ${formatAudioDuration(duration)}`}
+            />
+
             {error && <div className="text-xs text-destructive text-center py-2">{error}</div>}
           </div>
 
@@ -860,38 +567,44 @@ export function AudioPlayer() {
             <span className="font-mono">{formatAudioDuration(duration)}</span>
           </div>
 
-          {/* Title */}
-          {title && (
-            <div className="text-sm font-medium truncate max-w-[200px] shrink-0">{title}</div>
-          )}
-
           {/* Loop Button */}
           <Button
             variant="ghost"
             size="icon"
             onClick={toggleLoop}
-            className={isLooping ? 'text-primary' : ''}
+            className={isLooping ? 'bg-accent text-accent-foreground' : ''}
             title="Toggle loop"
+            aria-label={isLooping ? 'Stop looping' : 'Loop'}
           >
             <Repeat className="h-4 w-4" />
           </Button>
 
           {/* Volume Control */}
-          <div className="flex items-center gap-2 shrink-0 w-[120px]">
+          <div
+            className="flex items-center gap-2 shrink-0 w-[120px]"
+            role="group"
+            aria-label="Volume"
+          >
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setVolume(volume > 0 ? 0 : 1)}
               className="h-8 w-8"
+              aria-label={volume > 0 ? 'Mute' : 'Unmute'}
             >
               {volume > 0 ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
+            <span id={volumeLabelId} className="sr-only">
+              Volume level, {Math.round(volume * 100)}%
+            </span>
             <Slider
               value={[volume * 100]}
               onValueChange={handleVolumeChange}
               max={100}
               step={1}
               className="flex-1"
+              aria-labelledby={volumeLabelId}
+              aria-valuetext={`${Math.round(volume * 100)}%`}
             />
           </div>
 
@@ -902,6 +615,7 @@ export function AudioPlayer() {
             onClick={handleClose}
             className="shrink-0"
             title="Close player"
+            aria-label="Close player"
           >
             <X className="h-5 w-5" />
           </Button>

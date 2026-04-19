@@ -1,0 +1,20 @@
+{
+  "title": "Developer",
+  "defaultOpen": true,
+  "pages": [
+    "setup",
+    "architecture",
+    "contributing",
+    "building",
+    "autoupdater",
+    "voice-profiles",
+    "tts-generation",
+    "tts-engines",
+    "effects-pipeline",
+    "history",
+    "stories",
+    "transcription",
+    "audio-channels",
+    "model-management"
+  ]
+}

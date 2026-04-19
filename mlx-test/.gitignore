@@ -1,9 +1,0 @@
-# Virtual environment
-venv/
-
-# Generated test files
-*.wav
-
-# Python cache
-__pycache__/
-*.pyc

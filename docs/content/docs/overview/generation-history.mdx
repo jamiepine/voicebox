@@ -1,0 +1,88 @@
+---
+title: "Generation History"
+description: "Track and manage all your generated audio"
+---
+
+## Overview
+
+Voicebox keeps a complete history of all generated audio, making it easy to find, reuse, and manage your creations.
+
+## Features
+
+<Cards>
+  <Card title="Full History" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}>
+    Every generation is automatically saved
+  </Card>
+  <Card title="Search & Filter" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>}>
+    Find by text, voice, or date
+  </Card>
+  <Card title="Re-generate" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>}>
+    Regenerate any past generation with one click
+  </Card>
+  <Card title="Export" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}>
+    Download individual or batch exports
+  </Card>
+</Cards>
+
+## Viewing History
+
+Navigate to the **History** tab to see all your generations.
+
+Each entry shows:
+- Generated text
+- Voice profile used
+- Timestamp
+- Audio duration
+- Language
+
+## Actions
+
+### Play
+Click any generation to play it immediately.
+
+### Re-generate
+Regenerate with the same settings or modify the text/voice.
+
+### Download
+Export as WAV, MP3, or M4A.
+
+### Delete
+Remove unwanted generations to free up space.
+
+### Add to Story
+Drag generations to the Stories Editor timeline.
+
+## Search & Filter
+
+<Tabs items={["By Text", "By Voice", "By Date"]}>
+  <Tab value="By Text">
+    Search for specific text content
+    ```
+    "Hello world"
+    ```
+  </Tab>
+  <Tab value="By Voice">
+    Filter by voice profile
+    ```
+    Select from dropdown
+    ```
+  </Tab>
+  <Tab value="By Date">
+    Filter by date range
+    ```
+    Last 7 days, Last 30 days, Custom range
+    ```
+  </Tab>
+</Tabs>
+
+## Storage
+
+History is stored locally:
+
+- **macOS**: `~/Library/Application Support/sh.voicebox.app/data/`
+- **Windows**: `%APPDATA%/sh.voicebox.app/data/`
+- **Linux**: `~/.config/sh.voicebox.app/data/`
+
+<Callout type="warn">
+  Deleting the data directory will remove all history. Export important files first.
+</Callout>

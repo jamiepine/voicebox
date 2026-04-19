@@ -27,87 +27,47 @@ Thank you for your interest in contributing to Voicebox! This document provides 
   ```bash
   rustc --version  # Check if installed
   ```
+- **[Tauri Prerequisites](https://v2.tauri.app/start/prerequisites)** - Tauri-specific system dependencies (varies by OS).
 
 - **Git** - Version control
 
 ### Development Setup
 
-**Using the Makefile (recommended for macOS/Linux):** Run `make setup` to install all dependencies, then `make dev` to start development servers. See `make help` for all available commands.
+Install [just](https://github.com/casey/just) (`brew install just`, `cargo install just`, or `winget install Casey.Just`), then:
 
-**Manual setup (required for Windows):**
+```bash
+git clone https://github.com/YOUR_USERNAME/voicebox.git
+cd voicebox
 
-1. **Fork and clone the repository**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/voicebox.git
-   cd voicebox
-   ```
+just setup   # creates venv, installs Python + JS deps
+just dev     # starts backend + desktop app
+```
 
-2. **Install JavaScript dependencies**
-   ```bash
-   bun install
-   ```
-   This installs dependencies for:
-   - `app/` - Shared React frontend
-   - `tauri/` - Tauri desktop wrapper
-   - `web/` - Web deployment wrapper
+`just setup` handles everything automatically, including:
+- Creating a Python virtual environment
+- Installing Python dependencies (with CUDA PyTorch on Windows if an NVIDIA GPU is detected)
+- Installing MLX dependencies on Apple Silicon
+- Installing JavaScript dependencies
 
-3. **Set up Python backend**
-   ```bash
-   cd backend
-   
-   # Create virtual environment
-   python -m venv venv
-   
-   # Activate virtual environment
-   source venv/bin/activate  # On macOS/Linux
-   # or
-   venv\Scripts\activate  # On Windows
-   
-   # Install Python dependencies
-   pip install -r requirements.txt
-   
-   # Install MLX dependencies (Apple Silicon only - for faster inference)
-   # On Apple Silicon, this enables native Metal acceleration
-   if [[ $(uname -m) == "arm64" ]]; then
-     pip install -r requirements-mlx.txt
-   fi
-   
-   # Install Qwen3-TTS (required for voice synthesis)
-   pip install git+https://github.com/QwenLM/Qwen3-TTS.git
-   ```
+`just dev` starts the backend and desktop app together. If a backend is already running (e.g. from `just dev-backend` in another terminal), it detects it and only starts the frontend.
 
-4. **Start development servers**
+Other useful commands:
 
-   Development requires two terminals: one for the Python backend, one for the Tauri app.
+```bash
+just dev-web       # backend + web app (no Tauri/Rust build)
+just dev-backend   # backend only
+just dev-frontend  # Tauri app only (backend must be running)
+just kill          # stop all dev processes
+just clean-all     # nuke everything and start fresh
+just --list        # see all available commands
+```
 
-   **Terminal 1: Backend server** (start this first)
-   ```bash
-   cd backend
-   source venv/bin/activate  # Activate venv if not already active
-   bun run dev:server
-   # Or manually: uvicorn main:app --reload --port 17493
-   ```
-   Backend will be available at `http://localhost:17493`
+> **Note:** In dev mode, the app connects to a manually-started Python server.
+> The bundled server binary is only used in production builds.
 
-   **Terminal 2: Desktop app**
-   ```bash
-   bun run dev
-   ```
-   This will:
-   - Create a placeholder sidecar binary (for Tauri compilation)
-   - Start Vite dev server on port 5173
-   - Launch Tauri window pointing to localhost:5173
-   - Connect to the Python server you started in Terminal 1
-   - Enable hot reload
+#### Windows Notes
 
-   > **Note:** In dev mode, the app connects to your manually-started Python server.
-   > The bundled server binary is only used in production builds.
-
-   **Optional: Web app**
-   ```bash
-   bun run dev:web
-   ```
-   Web app will be available at `http://localhost:5174`
+The justfile works natively on Windows via PowerShell. No WSL or Git Bash required. On Windows with an NVIDIA GPU, `just setup` automatically installs CUDA-enabled PyTorch for GPU acceleration.
 
 ### Model Downloads
 
@@ -119,25 +79,30 @@ First-time usage will be slower due to model downloads, but subsequent runs will
 
 ### Building
 
-**Build everything (recommended):**
+**Build production app:**
+
 ```bash
-bun run build
+just build        # Build CPU server binary + Tauri installer
 ```
-This automatically:
-1. Builds the Python server binary (`./scripts/build-server.sh`)
-2. Builds the Tauri desktop app (`cd tauri && bun run tauri build`)
+
+On Windows, to build with CUDA support for local testing:
+
+```bash
+just build-local  # Build CPU + CUDA server binaries + Tauri installer
+```
+
+This builds the CPU sidecar (bundled with the app), the CUDA binary (placed in `%APPDATA%/com.voicebox.app/backends/` for runtime GPU switching), and the installable Tauri app.
 
 Creates platform-specific installers (`.dmg`, `.msi`, `.AppImage`) in `tauri/src-tauri/target/release/bundle/`.
 
-**Note:** The build process detects your platform and includes the appropriate backend (MLX for Apple Silicon, PyTorch for others).
+**Individual build targets:**
 
-**Build server binary only:**
 ```bash
-bun run build:server
-# or
-./scripts/build-server.sh
+just build-server       # CPU server binary only
+just build-server-cuda  # CUDA server binary only (Windows)
+just build-tauri        # Tauri desktop app only
+just build-web          # Web app only
 ```
-Creates platform-specific binary in `tauri/src-tauri/binaries/`
 
 **Building with local Qwen3-TTS development version:**
 
@@ -145,17 +110,10 @@ If you're actively developing or modifying the Qwen3-TTS library, set the `QWEN_
 
 ```bash
 export QWEN_TTS_PATH=~/path/to/your/Qwen3-TTS
-bun run build:server
+just build-server
 ```
 
-This makes PyInstaller use your local qwen-tts version instead of the pip-installed package. Useful when testing changes to the TTS library before they're published to PyPI or when using an editable install (`pip install -e`).
-
-**Build web app:**
-```bash
-cd web
-bun run build
-```
-Output in `web/dist/`
+This makes PyInstaller use your local qwen-tts version instead of the pip-installed package.
 
 ### Generate OpenAPI Client
 
@@ -302,7 +260,7 @@ voicebox/
 
 ### ✨ New Features
 
-- Check the roadmap in README.md
+- Check the roadmap in README.md and the engineering status in [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) before proposing work — it lists prioritized tasks (Tier 1 → 3), known architectural bottlenecks, and candidate TTS engines already under evaluation (including why some have been backlogged)
 - Discuss major features in an issue first
 - Keep features focused and well-scoped
 
@@ -401,25 +359,26 @@ Releases are managed by maintainers:
 
 ## Troubleshooting
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues and solutions.
+See [docs/content/docs/overview/troubleshooting.mdx](docs/content/docs/overview/troubleshooting.mdx) for common issues and solutions.
 
 **Quick fixes:**
 
 - **Backend won't start:** Check Python version (3.11+), ensure venv is activated, install dependencies
 - **Tauri build fails:** Ensure Rust is installed, clean build with `cd tauri/src-tauri && cargo clean`
-- **OpenAPI client generation fails:** Ensure backend is running, check `curl http://localhost:8000/openapi.json`
+- **OpenAPI client generation fails:** Ensure backend is running, check `curl http://localhost:17493/openapi.json`
 
 ## Questions?
 
 - Open an issue for bugs or feature requests
 - Check existing issues and discussions
 - Review the codebase to understand patterns
-- See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for common issues
+- See [docs/content/docs/overview/troubleshooting.mdx](docs/content/docs/overview/troubleshooting.mdx) for common issues
 
 ## Additional Resources
 
 - [README.md](README.md) - Project overview
 - [backend/README.md](backend/README.md) - API documentation
+- [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) - Living engineering roadmap: architecture, shipped vs in-flight work, prioritized open issues, candidate TTS engines under evaluation, architectural bottlenecks. Keep this updated when you ship significant features, close or backlog a model integration, or identify new bottlenecks.
 - [docs/AUTOUPDATER_QUICKSTART.md](docs/AUTOUPDATER_QUICKSTART.md) - Auto-updater setup
 - [SECURITY.md](SECURITY.md) - Security policy
 - [CHANGELOG.md](CHANGELOG.md) - Version history

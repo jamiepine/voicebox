@@ -1,0 +1,68 @@
+---
+title: "Introduction"
+description: "Voicebox is a local-first voice cloning studio -- a free and open-source alternative to ElevenLabs."
+---
+
+## What is Voicebox?
+
+Voicebox is a **local-first voice cloning studio** -- a free and open-source alternative to ElevenLabs. Clone voices from a few seconds of audio or pick from 50+ preset voices, generate speech in 23 languages across 7 TTS engines, apply post-processing effects, and compose multi-voice projects with a timeline editor.
+
+- **Complete privacy** -- models and voice data stay on your machine
+- **7 TTS engines** -- Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, and Kokoro
+- **Cloning and preset voices** -- zero-shot cloning from a reference sample, or curated preset voices via Kokoro (50 voices) and Qwen CustomVoice (9 voices)
+- **23 languages** -- from English to Arabic, Japanese, Hindi, Swahili, and more
+- **Post-processing effects** -- pitch shift, reverb, delay, chorus, compression, and filters
+- **Expressive speech** -- paralinguistic tags like `[laugh]`, `[sigh]`, `[gasp]` via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice
+- **Unlimited length** -- auto-chunking with crossfade for scripts, articles, and chapters
+- **Stories editor** -- multi-track timeline for conversations, podcasts, and narratives
+- **API-first** -- REST API for integrating voice synthesis into your own projects
+- **Native performance** -- built with Tauri (Rust), not Electron
+- **Runs everywhere** -- macOS (MLX/Metal), Windows (CUDA), Linux, AMD ROCm, Intel Arc, Docker
+
+## TTS Engines
+
+Seven engines with different strengths, switchable per-generation:
+
+| Engine | Profile Type | Languages | Strengths |
+|--------|--------------|-----------|-----------|
+| **Qwen3-TTS** (0.6B / 1.7B) | Cloned | 10 | High-quality multilingual cloning |
+| **Qwen CustomVoice** (0.6B / 1.7B) | Preset (9 voices) | 10 | Natural-language delivery control (tone, emotion, pace) |
+| **LuxTTS** | Cloned | English | Lightweight (~1GB VRAM), 48kHz output, 150x realtime on CPU |
+| **Chatterbox Multilingual** | Cloned | 23 | Broadest language coverage |
+| **Chatterbox Turbo** | Cloned | English | Fast 350M model with paralinguistic emotion/sound tags |
+| **TADA** (1B / 3B) | Cloned | 10 | HumeAI speech-language model -- 700s+ coherent audio |
+| **Kokoro** | Preset (50 voices) | 9 | 82M parameters, CPU realtime, lowest VRAM of any engine |
+
+## GPU Support
+
+| Platform | Backend | Notes |
+|----------|---------|-------|
+| macOS (Apple Silicon) | MLX (Metal) | 4-5x faster via Neural Engine |
+| Windows / Linux (NVIDIA) | PyTorch (CUDA) | Auto-downloads CUDA binary from within the app |
+| Linux (AMD) | PyTorch (ROCm) | Auto-configures HSA_OVERRIDE_GFX_VERSION |
+| Windows (any GPU) | DirectML | Universal Windows GPU support |
+| Intel Arc | IPEX/XPU | Intel discrete GPU acceleration |
+| Any | CPU | Works everywhere, just slower |
+
+## Use Cases
+
+- **Game development** -- generate dynamic dialogue for characters
+- **Content creation** -- produce podcasts and video voiceovers
+- **Accessibility** -- build text-to-speech tools for users who need them
+- **Voice assistants** -- create custom voice interfaces
+- **Production pipelines** -- automate voiceover workflows via the REST API
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Desktop App | Tauri (Rust) |
+| Frontend | React, TypeScript, Tailwind CSS |
+| State | Zustand, React Query |
+| Backend | FastAPI (Python) |
+| TTS Engines | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
+| Effects | Pedalboard (Spotify) |
+| Transcription | Whisper / Whisper Turbo (PyTorch or MLX) |
+| Inference | MLX (Apple Silicon) / PyTorch (CUDA/ROCm/XPU/CPU) |
+| Database | SQLite |
+| Audio | WaveSurfer.js, librosa |

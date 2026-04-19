@@ -1,0 +1,703 @@
+---
+title: "TTS Engines"
+description: "How to add new text-to-speech engines to Voicebox"
+---
+
+> **For humans:** This doc is optimized for AI agents to implement new TTS engines autonomously. It's structured as a phased workflow with explicit gates and a checklist so an agent can do the full integration — dependency research, backend, frontend, bundling — and hand you a draft release or prod build to test locally. It's also a useful reference if you're doing it yourself.
+
+Adding an engine touches ~10 files across 4 layers. The backend protocol work is straightforward — the real time sink is dependency hell, upstream library bugs, and PyInstaller bundling.
+
+**Do not start writing code until you complete Phase 0.** The v0.2.3 release was three patch releases of PyInstaller fixes because dependency research was skipped. Every issue — `inspect.getsource()` failures, missing native data files, metadata lookups, dtype mismatches — was discoverable by reading the model library's source code before integration began.
+
+## Architecture Overview
+
+The backend is split into layers:
+
+| Layer | Purpose | Files Touched |
+|-------|---------|---------------|
+| `routes/` | Thin HTTP handlers | None (auto-dispatch) |
+| `services/` | Business logic | None (auto-dispatch) |
+| `backends/` | Engine implementations | `your_engine_backend.py` |
+| `utils/` | Shared utilities | As needed |
+
+New engines only need to touch `backends/` and `models.py` on the backend side — the route and service layers use a model config registry that handles dispatch automatically.
+
+## Phase 0: Dependency Research
+
+**This phase is mandatory.** Clone the model library and its key dependencies into a temporary directory and inspect them before writing any integration code. The goal is to produce a dependency audit that identifies every PyInstaller-incompatible pattern, every native data file, and every upstream bug you'll need to work around.
+
+### 0.1 Clone and Inspect the Model Library
+
+```bash
+# Create a throwaway workspace
+mkdir /tmp/engine-research && cd /tmp/engine-research
+
+# Clone the model library
+git clone https://github.com/org/model-library.git
+cd model-library
+```
+
+**Read these files first, in order:**
+
+1. **`setup.py` / `setup.cfg` / `pyproject.toml`** — Check pinned dependency versions. If the library pins `torch==2.6.0` or `numpy<1.26`, you'll need `--no-deps` installation and manual sub-dependency listing (this is what happened with `chatterbox-tts`).
+
+2. **`__init__.py` and the main model class** — Trace the import chain. Look for:
+   - `from_pretrained()` — does it call `huggingface_hub` internally? Does it pass `token=True` (which crashes without a stored HF token)?
+   - `from_local()` — does it exist? You may need manual `snapshot_download()` + `from_local()` to bypass download bugs.
+   - Device handling — does it default to CUDA? Does it support MPS? Many libraries crash on MPS with unsupported operators.
+
+3. **All `import` statements** — Recursively trace what the library imports. You're looking for:
+   - `inspect.getsource()` anywhere in the chain (search all `.py` files)
+   - `typeguard` / `@typechecked` decorators (these call `inspect.getsource()` at import time)
+   - `importlib.metadata.version()` or `pkg_resources.get_distribution()` (need `--copy-metadata`)
+   - `lazy_loader` (needs `--collect-all` to bundle `.pyi` stubs)
+
+### 0.2 Scan for PyInstaller-Incompatible Patterns
+
+Run these searches against the cloned library **and** its transitive dependencies:
+
+```bash
+# inspect.getsource — will crash in frozen binary without --collect-all
+grep -r "inspect.getsource\|getsource(" .
+
+# typeguard / @typechecked — calls inspect.getsource at import time
+grep -r "@typechecked\|from typeguard" .
+
+# importlib.metadata — needs --copy-metadata
+grep -r "importlib.metadata\|pkg_resources.get_distribution\|pkg_resources.require" .
+
+# Data files loaded at runtime — need --collect-all or --collect-data
+grep -r "Path(__file__).parent\|os.path.dirname(__file__)\|resources_path\|pkg_resources.resource_filename" .
+
+# Native library paths — may need env var override in frozen builds
+grep -r "/usr/share\|/usr/lib\|/usr/local\|espeak\|phonemize" .
+
+# torch.load without map_location — will crash on CPU-only builds
+grep -r "torch.load(" . | grep -v "map_location"
+
+# HuggingFace token bugs
+grep -r 'token=True\|token=os.getenv' .
+
+# Float64/Float32 assumptions — librosa returns float64, many models assume float32
+grep -r "torch.from_numpy\|\.double()\|float64" .
+
+# @torch.jit.script — calls inspect.getsource(), crashes in frozen builds
+grep -r "@torch.jit.script\|torch.jit.script" .
+
+# torchaudio.load — requires torchcodec in torchaudio 2.10+, use soundfile.read() instead
+grep -r "torchaudio.load\|torchaudio.save" .
+
+# Gated HuggingFace repos — models that hardcode gated repos as tokenizer/config sources
+grep -r "from_pretrained\|tokenizer_name\|AutoTokenizer" . | grep -i "llama\|meta-llama\|gated"
+```
+
+### 0.3 Install and Trace in a Throwaway Venv
+
+```bash
+# Create isolated venv
+python -m venv /tmp/engine-venv
+source /tmp/engine-venv/bin/activate
+
+# Install the package (try normally first)
+pip install model-package
+
+# Check if it conflicts with our stack
+pip install model-package torch==2.10 transformers==4.57.3 numpy>=1.26
+# If this fails, you need --no-deps:
+pip install --no-deps model-package
+
+# Get the full dependency tree
+pip show model-package  # Check Requires: field
+pip show -f model-package  # List all installed files (look for data files)
+
+# Check for non-PyPI dependencies
+pip install model-package 2>&1 | grep -i "no matching distribution"
+```
+
+### 0.4 Test Model Loading on CPU
+
+Before writing any integration code, verify the model works on CPU in a plain Python script:
+
+```python
+import torch
+# Force CPU to catch map_location bugs early
+model = ModelClass.from_pretrained("org/model", device="cpu")
+
+# Test with a float32 audio array (not float64)
+import numpy as np
+audio = np.random.randn(16000).astype(np.float32)
+output = model.generate("Hello world", audio)
+print(f"Output shape: {output.shape}, dtype: {output.dtype}, sample rate: {model.sample_rate}")
+```
+
+If this crashes, you've found a bug you'll need to monkey-patch. Common ones:
+- `RuntimeError: expected scalar type Float but found Double` → needs float32 cast
+- `RuntimeError: map_location` → needs `torch.load` patch
+- `RuntimeError: Unsupported operator aten::...` → needs MPS skip
+
+### 0.5 Produce a Dependency Audit
+
+Before proceeding to Phase 1, write down:
+
+1. **PyPI vs non-PyPI deps** — which packages need `--find-links`, `git+https://`, or `--no-deps`?
+2. **PyInstaller directives needed** — which packages need `--collect-all`, `--copy-metadata`, `--hidden-import`?
+3. **Runtime data files** — which packages ship data files (YAML, pretrained weights, phoneme tables, shader libraries) that must be bundled?
+4. **Native library paths** — which packages look for data at system paths that won't exist in a frozen binary?
+5. **Monkey-patches needed** — `torch.load` map_location, float64→float32 casts, MPS skip, HF token bypass, etc.
+6. **Sample rate** — what does the engine output? (24kHz, 44.1kHz, 48kHz)
+7. **Model download method** — `from_pretrained()` with library-managed download, or manual `snapshot_download()` + `from_local()`?
+
+This audit becomes your implementation plan for Phases 1, 4, and 5.
+
+## Phase 1: Backend Implementation
+
+### 1.1 Create the Backend File
+
+Create `backend/backends/<engine>_backend.py` (~200-300 lines) implementing the `TTSBackend` protocol:
+
+```python
+class YourBackend:
+    """Must satisfy the TTSBackend protocol."""
+
+    async def load_model(self, model_size: str = "default") -> None: ...
+    async def create_voice_prompt(self, audio_path: str, reference_text: str, use_cache: bool = True) -> tuple[dict, bool]: ...
+    async def combine_voice_prompts(self, audio_paths: list[str], ref_texts: list[str]) -> tuple[np.ndarray, str]: ...
+    async def generate(self, text: str, voice_prompt: dict, language: str = "en", seed: int | None = None, instruct: str | None = None) -> tuple[np.ndarray, int]: ...
+    def unload_model(self) -> None: ...
+    def is_loaded(self) -> bool: ...
+    def _get_model_path(self, model_size: str) -> str: ...
+```
+
+**Key decisions per engine:**
+
+| Decision | Options | Examples |
+|----------|---------|---------|
+| **Voice prompt storage** | Pre-computed tensors vs deferred file paths | Qwen stores tensor dicts; Chatterbox stores paths |
+| **Caching** | Use voice prompt cache or skip it | LuxTTS caches with prefix; Chatterbox skips caching |
+| **Device selection** | CUDA / MPS / CPU | Chatterbox forces CPU on macOS (MPS bugs) |
+| **Model download** | Library handles it vs manual `snapshot_download` | Turbo uses manual download to bypass `token=True` bug |
+| **Sample rate** | Engine-specific | LuxTTS outputs 48kHz, everything else is 24kHz |
+
+### 1.2 Voice Prompt Patterns
+
+**Pattern A: Pre-computed tensors** (Qwen, LuxTTS)
+```python
+encoded = model.encode_prompt(audio_path)
+return encoded, False  # (prompt_dict, was_cached)
+```
+
+**Pattern B: Deferred file paths** (Chatterbox, MLX)
+```python
+return {"ref_audio": audio_path, "ref_text": reference_text}, False
+```
+
+**Pattern C: Hybrid** (possible for new engines)
+```python
+embedding = model.extract_speaker(audio_path)
+return {"embedding": embedding, "ref_audio": audio_path}, False
+```
+
+If caching, prefix your cache keys:
+```python
+cache_key = "yourengine_" + get_cache_key(audio_path, reference_text)
+```
+
+### 1.3 Register the Engine
+
+In `backend/backends/__init__.py`:
+
+**Add a `ModelConfig` entry:**
+
+```python
+ModelConfig(
+    model_name="your-engine",
+    display_name="Your Engine",
+    engine="your_engine",
+    hf_repo_id="org/model-repo",
+    size_mb=3200,
+    needs_trim=False,  # set True if output needs trim_tts_output()
+    languages=["en", "fr", "de"],
+),
+```
+
+**Add to `TTS_ENGINES` dict:**
+
+```python
+TTS_ENGINES = {
+    ...
+    "your_engine": "Your Engine",
+}
+```
+
+**Add factory branch:**
+
+```python
+elif engine == "your_engine":
+    from .your_backend import YourBackend
+    backend = YourBackend()
+```
+
+### 1.4 Update Request Models
+
+In `backend/models.py`:
+- Add engine name to `GenerationRequest.engine` regex pattern
+- Add any new language codes to the language regex
+
+## Phase 2: Route and Service Integration
+
+With the model config registry, route and service layers have **zero per-engine dispatch points**. All endpoints use registry helpers like `get_model_config()`, `load_engine_model()`, `engine_needs_trim()`, `check_model_loaded()`, etc.
+
+**You don't need to touch any route or service files** unless your engine needs custom behavior in the generate pipeline.
+
+### Post-Processing
+
+If your model produces trailing silence, set `needs_trim=True` on your `ModelConfig`. The generation service applies `trim_tts_output()` automatically.
+
+## Phase 3: Frontend Integration
+
+### 3.1 TypeScript Types
+
+In `app/src/lib/api/types.ts`:
+- Add to the `engine` union type on `GenerationRequest`
+
+### 3.2 Language Maps
+
+In `app/src/lib/constants/languages.ts`:
+- Add entry to `ENGINE_LANGUAGES` record
+- Add any new language codes to `ALL_LANGUAGES` if needed
+
+### 3.3 Engine/Model Selector
+
+In `app/src/components/Generation/EngineModelSelector.tsx`:
+- Add entry to `ENGINE_OPTIONS` and `ENGINE_DESCRIPTIONS`
+- Add to `ENGLISH_ONLY_ENGINES` if applicable
+
+### 3.4 Form Hook
+
+In `app/src/lib/hooks/useGenerationForm.ts`:
+- Add to Zod schema enum for `engine`
+- Add engine-to-model-name mapping
+- Update payload construction for engine-specific fields
+
+**Watch out for model naming inconsistencies.** The HuggingFace repo name, the model size label, and the API model name don't always follow predictable patterns. For example, TADA's 3B model is named `tada-3b-ml` (not `tada-3b`), because it's a multilingual variant. Always check the actual repo names and build the frontend model name mapping from those, not from assumptions like `{engine}-{size}`.
+
+### 3.5 Model Management
+
+In `app/src/components/ServerSettings/ModelManagement.tsx`:
+- Add description to `MODEL_DESCRIPTIONS` record
+- Add model name to `voiceModels` filter condition
+
+### 3.6 Non-Cloning Engines (Preset Voices)
+
+If your engine uses **pre-built voices** instead of zero-shot cloning from reference audio (e.g. Kokoro), additional integration is needed:
+
+**Backend:**
+- In `kokoro_backend.py` (or your engine), define a `VOICES` list of `(voice_id, display_name, gender, language)` tuples
+- `create_voice_prompt()` should return `{"voice_type": "preset", "preset_engine": "<engine>", "preset_voice_id": "<id>"}`
+- `generate()` should read `voice_prompt.get("preset_voice_id")` to select the voice
+- Add a `seed_preset_profiles("<engine>")` call in `backend/routes/models.py` after model download completes
+- The `seed_preset_profiles()` function in `backend/services/profiles.py` creates DB profiles with `voice_type="preset"`
+
+**Frontend:**
+- The `EngineModelSelector` filters options based on `selectedProfile.voice_type`:
+  - `"cloned"` profiles → only cloning engines shown (Kokoro hidden)
+  - `"preset"` profiles → only the preset's engine shown
+- Profile cards show the engine name as a badge for preset profiles
+- When a preset profile is selected, the engine auto-switches
+
+**Profile schema fields for presets:**
+- `voice_type: "preset"` (vs `"cloned"` for traditional profiles)
+- `preset_engine: "<engine>"` — which engine owns this voice
+- `preset_voice_id: "<id>"` — the engine-specific voice identifier
+
+**For future "designed" voices** (text description instead of audio, e.g. Qwen CustomVoice):
+- Use `voice_type: "designed"` with `design_prompt` field
+- `create_voice_prompt_for_profile()` already returns the design prompt for this type
+
+## Phase 4: Dependencies
+
+Use the dependency audit from Phase 0 to drive this phase. You should already know what packages are needed, which conflict, and which require special installation.
+
+### 4.1 Python Dependencies
+
+Add to `backend/requirements.txt`. There are three installation patterns, depending on what Phase 0 revealed:
+
+**Normal PyPI packages:**
+```
+some-model-package>=1.0.0
+```
+
+**Pinned dependency conflicts (`--no-deps`)** — If the model package pins old versions of torch/numpy/transformers, install with `--no-deps` and list sub-dependencies manually. This is the pattern used for `chatterbox-tts`:
+```bash
+# In justfile / CI setup:
+pip install --no-deps chatterbox-tts
+
+# In requirements.txt — list each actual sub-dependency:
+conformer>=0.3.2
+diffusers>=0.31.0
+omegaconf>=2.3.0
+resemble-perth>=0.0.2
+s3tokenizer>=0.1.6
+```
+
+To identify sub-deps: `pip show chatterbox-tts` → `Requires:` field, then cross-reference against existing `requirements.txt` to avoid duplicates.
+
+**Non-PyPI packages** — Some libraries only exist on GitHub or require custom indexes:
+```
+# Git-only packages (no PyPI release)
+linacodec @ git+https://github.com/ysharma3501/LinaCodec.git
+Zipvoice @ git+https://github.com/ysharma3501/LuxTTS.git
+
+# Custom package indexes (C extensions with platform-specific wheels)
+--find-links https://k2-fsa.github.io/icefall/piper_phonemize.html
+piper-phonemize>=1.2.0
+```
+
+### 4.2 Dependency Conflict Resolution
+
+Check for conflicts with the existing stack before adding anything:
+
+```bash
+# Our current stack pins (approximate):
+# Python 3.12+, torch>=2.10, transformers>=4.57, numpy>=1.26
+
+# Test compatibility
+pip install model-package torch==2.10 transformers==4.57.3 numpy>=1.26
+
+# If it fails, check what the package pins:
+pip show model-package | grep Requires
+# Look at setup.py/pyproject.toml for version constraints
+```
+
+**Known incompatible patterns in the wild:**
+- `torch==2.6.0` — many older packages pin this
+- `numpy<1.26` — conflicts with Python 3.12+
+- `transformers==4.46.3` — many packages pin old transformers
+- `onnxruntime` pinned versions — often conflict with torch
+
+### 4.3 Update Installation Scripts
+
+Dependencies must be added in multiple places:
+
+| File | What to add |
+|------|------------|
+| `backend/requirements.txt` | Package and version constraint |
+| `justfile` | `--no-deps` install line if needed (in `setup-python` and `setup-python-release` targets) |
+| `.github/workflows/release.yml` | Same `--no-deps` line in CI build steps |
+| `Dockerfile` | Same install commands for Docker builds |
+
+## Phase 5: PyInstaller Bundling (`build_binary.py`)
+
+This is where most of the pain lives. **The v0.2.3 release was entirely dedicated to fixing bundling issues** — every new engine that shipped in v0.2.1 (LuxTTS, Chatterbox, Chatterbox Turbo) worked in dev but failed in production builds. Don't skip this phase.
+
+### 5.1 Register Your Engine in `build_binary.py`
+
+Every new engine needs entries in `backend/build_binary.py`. This file drives PyInstaller and is the single most common source of "works in dev, breaks in prod" bugs. You need to decide which PyInstaller directives your engine's dependencies require:
+
+| Directive | What It Does | When You Need It |
+|-----------|-------------|-----------------|
+| `--hidden-import <module>` | Includes a module PyInstaller can't detect via static analysis | Dynamic imports, lazy imports, plugin architectures |
+| `--collect-all <package>` | Bundles source `.py` files, data files, AND native libraries | Packages that call `inspect.getsource()` at import time (e.g. `inflect` via `typeguard`'s `@typechecked`), or that ship pretrained model files (e.g. `perth` ships `.pth.tar` + `hparams.yaml`) |
+| `--collect-data <package>` | Bundles only data files (not source or native libs) | Packages with YAML configs, vocab files, etc. |
+| `--collect-submodules <package>` | Bundles all submodules | Packages with deep module trees that PyInstaller misses |
+| `--copy-metadata <package>` | Copies `importlib.metadata` info | Packages that call `importlib.metadata.version()` or `pkg_resources.get_distribution()` at runtime. Already required for: `requests`, `transformers`, `huggingface-hub`, `tokenizers`, `safetensors`, `tqdm` |
+
+**Example: adding hidden imports and collect-all for a new engine:**
+
+```python
+# In build_binary.py, inside the args list:
+"--hidden-import",
+"backend.backends.your_engine_backend",
+"--hidden-import",
+"your_engine_package",
+"--hidden-import",
+"your_engine_package.inference",
+"--collect-all",
+"some_dependency_that_uses_inspect_getsource",
+"--copy-metadata",
+"some_dependency_that_checks_its_own_version",
+```
+
+### 5.2 Lessons from v0.2.3 — Real Failures and Their Fixes
+
+These are actual production failures from shipping new engines. Every one of these passed `python -m uvicorn` in dev:
+
+| Engine | Failure | Root Cause | Fix |
+|--------|---------|-----------|-----|
+| LuxTTS | `"could not get source code"` on import | `inflect` uses `typeguard`'s `@typechecked` which calls `inspect.getsource()` — needs `.py` source files, not just bytecode | `--collect-all inflect` |
+| LuxTTS | `espeak-ng-data` not found | `piper_phonemize` C library looks for data at `/usr/share/espeak-ng-data/` which doesn't exist in the bundle | `--collect-all piper_phonemize` + set `ESPEAK_DATA_PATH` env var at runtime (see 5.3) |
+| LuxTTS | `inspect.getsource` error in Vocos codec | `linacodec` and `zipvoice` use source introspection | `--collect-all linacodec` + `--collect-all zipvoice` |
+| Chatterbox | `FileNotFoundError` for watermark model | `perth` ships pretrained model files (`hparams.yaml`, `.pth.tar`) that PyInstaller doesn't bundle by default | `--collect-all perth` |
+| All engines | `importlib.metadata` failures | Frozen binary doesn't include package metadata for `huggingface-hub`, `transformers`, etc. | `--copy-metadata` for each affected package |
+| All engines | Download progress bars stuck at 0% | `huggingface_hub` silently disables tqdm progress bars based on logger level in frozen builds — our progress tracker never receives byte updates | Force-enable tqdm's internal counter in `HFProgressTracker` |
+| TADA | `inspect.getsource` error in DAC's `Snake1d` | `@torch.jit.script` calls `inspect.getsource()` which fails without `.py` source files | Wrote a lightweight shim (`dac_shim.py`) reimplementing `Snake1d` without `@torch.jit.script`, registered fake `dac.*` modules in `sys.modules` |
+| All engines | `NameError: name 'obj' is not defined` on macOS | Python 3.12.0 has a [CPython bug](https://github.com/pyinstaller/pyinstaller/issues/7992) that corrupts bytecode when PyInstaller rewrites code objects | Upgrade to Python 3.12.13+ |
+| All engines | `resource_tracker` subprocess crash | `multiprocessing` in frozen binaries needs `freeze_support()` called before anything else | Added to `server.py` entry point |
+
+### 5.3 Runtime Frozen-Build Handling (`server.py`)
+
+Some fixes can't live in `build_binary.py` — they need runtime detection. The entry point `backend/server.py` handles these before any heavy imports:
+
+```python
+# 1. freeze_support() — MUST be called before any multiprocessing use
+import multiprocessing
+multiprocessing.freeze_support()
+
+# 2. Native data paths — redirect C libraries to bundled data
+if getattr(sys, 'frozen', False):
+    _meipass = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+    _espeak_data = os.path.join(_meipass, 'piper_phonemize', 'espeak-ng-data')
+    if os.path.isdir(_espeak_data):
+        os.environ.setdefault('ESPEAK_DATA_PATH', _espeak_data)
+
+# 3. stdout/stderr safety — PyInstaller --noconsole on Windows sets these to None
+if not _is_writable(sys.stdout):
+    sys.stdout = open(os.devnull, 'w')
+```
+
+If your engine's dependencies include native libraries that look for data at system paths (like espeak-ng does), you'll need to add a similar `os.environ.setdefault()` block here.
+
+### 5.4 CUDA vs CPU Build Branching
+
+`build_binary.py` produces two different binaries:
+
+- **`voicebox-server`** (CPU) — excludes all `nvidia.*` packages to avoid bundling ~3 GB of CUDA DLLs
+- **`voicebox-server-cuda`** — includes `torch.cuda` and `torch.backends.cudnn`
+
+On Windows, if the build environment has CUDA torch installed but you're building the CPU binary, the script temporarily swaps to CPU-only torch and restores CUDA torch afterward. This prevents PyInstaller from accidentally bundling CUDA libraries into the CPU build.
+
+New engine imports go in the **common section** (not the CUDA or MLX conditional blocks) unless your engine has platform-specific dependencies.
+
+### 5.5 MLX Conditional Inclusion
+
+Apple Silicon builds conditionally include MLX hidden imports and `--collect-all mlx` / `--collect-all mlx_audio`. If your engine has an MLX-specific backend variant, add its imports inside the `if is_apple_silicon() and not cuda:` block.
+
+### 5.6 Testing Frozen Builds
+
+You can't skip this. Models that work in `python -m uvicorn` will break in the PyInstaller binary. The v0.2.3 release required **three patch releases** (v0.2.1 → v0.2.2 → v0.2.3) to get all engines working in production.
+
+1. Build: `just build`
+2. Launch the binary directly (not via `python -m`)
+3. Test the **full chain**: download → load → generate → progress tracking
+4. Check stderr for the actual error (logs go to stderr for Tauri sidecar capture)
+5. Fix, rebuild, repeat
+
+**Common gotcha:** testing only generation with a pre-cached model from your dev install. Always test with a clean model cache to verify downloads work too.
+
+## Phase 6: Common Upstream Workarounds
+
+### torch.load device mismatch
+```python
+_original_torch_load = torch.load
+def _patched_torch_load(*args, **kwargs):
+    kwargs.setdefault("map_location", "cpu")
+    return _original_torch_load(*args, **kwargs)
+torch.load = _patched_torch_load
+```
+
+### Float64/Float32 dtype mismatch
+```python
+original_fn = SomeClass.some_method
+def patched_fn(self, *args, **kwargs):
+    result = original_fn(self, *args, **kwargs)
+    return result.float()
+SomeClass.some_method = patched_fn
+```
+
+### HuggingFace token bug
+```python
+from huggingface_hub import snapshot_download
+local_path = snapshot_download(repo_id=REPO, token=None)
+model = ModelClass.from_local(local_path, device=device)
+```
+
+### MPS tensor issues
+Skip MPS entirely if operators aren't supported:
+```python
+def _get_device(self):
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"  # Skip MPS
+```
+
+### Gated HuggingFace repos as hardcoded config sources
+
+Some models hardcode a gated HuggingFace repo as their tokenizer or config source (e.g., TADA hardcodes `"meta-llama/Llama-3.2-1B"` in both its `AlignerConfig` and `TadaConfig`). This silently fails without HF authentication.
+
+**Fix:** Download from an ungated mirror and patch the config objects directly:
+
+```python
+# Download tokenizer from ungated mirror
+UNGATED_TOKENIZER = "unsloth/Llama-3.2-1B"
+tokenizer_path = snapshot_download(UNGATED_TOKENIZER, token=None)
+
+# Patch the model config to use the local path instead of the gated repo
+config = ModelConfig.from_pretrained(model_path)
+config.tokenizer_name = tokenizer_path
+model = ModelClass.from_pretrained(model_path, config=config)
+```
+
+**Do NOT monkey-patch `AutoTokenizer.from_pretrained`** — it's a classmethod, and replacing it corrupts the descriptor, which breaks other engines that use different tokenizers (e.g., Qwen uses a Qwen tokenizer via `AutoTokenizer`). Always patch at the config level, not the class method level.
+
+### `torchaudio.load()` requires `torchcodec` in 2.10+
+
+As of `torchaudio>=2.10`, `torchaudio.load()` requires the `torchcodec` package for audio I/O. If your engine or backend code uses `torchaudio.load()`, replace it with `soundfile`:
+
+```python
+# Before (breaks without torchcodec):
+import torchaudio
+waveform, sr = torchaudio.load("audio.wav")
+
+# After:
+import soundfile as sf
+import torch
+data, sr = sf.read("audio.wav", dtype="float32")
+waveform = torch.from_numpy(data).unsqueeze(0)
+```
+
+Note: `torchaudio.functional.resample()` and other pure-PyTorch math functions work fine without `torchcodec` — only the I/O functions are affected.
+
+### `@torch.jit.script` breaks in frozen builds
+
+`torch.jit.script` calls `inspect.getsource()` to parse the decorated function's source code. In a PyInstaller binary, `.py` source files aren't available, so this crashes at import time.
+
+**Fix:** Remove or avoid `@torch.jit.script` decorators. If the decorated function comes from an upstream dependency, write a shim that reimplements the function without the decorator (see "Toxic dependency chains" below).
+
+### Toxic dependency chains — the shim pattern
+
+Sometimes a model library depends on a package with a massive, hostile transitive dependency tree, but only uses a tiny piece of it. When the dependency chain is unbuildable or would pull in dozens of unwanted packages, the right move is to write a lightweight shim.
+
+**Example:** TADA depends on `descript-audio-codec` (DAC), which pulls in `descript-audiotools` -> `onnx`, `tensorboard`, `protobuf`, `matplotlib`, `pystoi`, etc. The `onnx` package fails to build from source on macOS. But TADA only uses `Snake1d` from DAC — a 7-line PyTorch module.
+
+**Solution:** Create a shim at `backend/utils/dac_shim.py` that registers fake modules in `sys.modules`:
+
+```python
+import sys
+import types
+import torch
+from torch import nn
+
+def snake(x, alpha):
+    """Snake activation — reimplemented without @torch.jit.script."""
+    return x + (1.0 / (alpha + 1e-9)) * torch.sin(alpha * x).pow(2)
+
+class Snake1d(nn.Module):
+    def __init__(self, channels):
+        super().__init__()
+        self.alpha = nn.Parameter(torch.ones(1, channels, 1))
+    def forward(self, x):
+        return snake(x, self.alpha)
+
+# Register fake dac.* modules so "from dac.nn.layers import Snake1d" works
+_nn = types.ModuleType("dac.nn")
+_layers = types.ModuleType("dac.nn.layers")
+_layers.Snake1d = Snake1d
+_nn.layers = _layers
+
+for name, mod in [("dac", types.ModuleType("dac")),
+                   ("dac.nn", _nn), ("dac.nn.layers", _layers)]:
+    sys.modules[name] = mod
+```
+
+**Key rules for shims:**
+- Import the shim **before** importing the model library (so it finds the fake modules first)
+- Do NOT use `@torch.jit.script` in the shim (see above)
+- Only reimplement what the model actually uses — check the import chain carefully
+
+## Candidate Engines
+
+The [`docs/PROJECT_STATUS.md`](https://github.com/jamiepine/voicebox/blob/main/docs/PROJECT_STATUS.md) file is the canonical, living list of candidates under evaluation — including why some have been backlogged (e.g. VoxCPM, which is effectively CUDA-only upstream).
+
+At a glance, current top candidates:
+
+| Model | Tier | Size | Cross-platform? | Key Features |
+|-------|------|------|-----------------|--------------|
+| **MOSS-TTS-Nano** | 1 | 0.1 B | Yes (CPU realtime) | 48 kHz stereo, Apache 2.0, released 2026-04-13 |
+| **Voxtral TTS** | 2 | 4 B | Likely | `mistralai/Voxtral-4B-TTS-2603` — presets + cloning |
+| **VibeVoice** | 2 | ~500 M | Yes | Podcast-style multi-speaker dialogue |
+| **Dia2** | 3 | TBD | TBD | Successor to the original Dia |
+| **Fish Audio S2 Pro** | 3 | Medium | Yes | Word-level control via inline text |
+
+**Backlogged:**
+
+- **VoxCPM** (2B, Apache 2.0) — CUDA ≥12 required upstream; MPS broken in issues #232/#248; CPU path rejected by maintainers (#256). Keep watching for a PR that relaxes the device requirement.
+
+Update `PROJECT_STATUS.md` when you pick one up or mark one as shipped/backlogged.
+
+## Implementation Checklist
+
+Use this as a gate between phases. Do not proceed to the next phase until every item in the current phase is checked.
+
+### Phase 0: Dependency Research
+- [ ] Cloned model library source into a temp directory
+- [ ] Read `setup.py` / `pyproject.toml` — noted pinned dependency versions
+- [ ] Traced all imports from the model class through to leaf dependencies
+- [ ] Searched for `inspect.getsource`, `@typechecked`, `typeguard` in the full dependency tree
+- [ ] Searched for `importlib.metadata`, `pkg_resources.get_distribution` in the dependency tree
+- [ ] Searched for `Path(__file__).parent`, `os.path.dirname(__file__)`, hardcoded system paths
+- [ ] Searched for `torch.load` calls missing `map_location`
+- [ ] Searched for `torch.from_numpy` without `.float()` cast
+- [ ] Searched for `token=True` or `token=os.getenv("HF_TOKEN")` in HuggingFace calls
+- [ ] Searched for `@torch.jit.script` / `torch.jit.script` (crashes in frozen builds)
+- [ ] Searched for `torchaudio.load` / `torchaudio.save` (requires `torchcodec` in 2.10+)
+- [ ] Searched for hardcoded gated HuggingFace repo names (e.g., `meta-llama/*`)
+- [ ] Evaluated whether any dependency is used minimally enough to shim instead of install
+- [ ] Tested model loading and generation on CPU in a throwaway venv
+- [ ] Tested with a clean HuggingFace cache (no pre-downloaded models)
+- [ ] Produced a written dependency audit documenting all findings
+
+### Phase 1: Backend Implementation
+- [ ] Created `backend/backends/<engine>_backend.py` implementing `TTSBackend` protocol
+- [ ] Chose voice prompt pattern (pre-computed tensors vs deferred file paths)
+- [ ] Implemented all monkey-patches identified in Phase 0
+- [ ] Used `get_torch_device()` from `backends/base.py` for device selection
+- [ ] Used `model_load_progress()` from `backends/base.py` for download/load tracking
+- [ ] Tested: model downloads correctly
+- [ ] Tested: model loads on CPU
+- [ ] Tested: generation produces valid audio
+- [ ] Tested: voice cloning from reference audio works
+- [ ] Registered `ModelConfig` in `backends/__init__.py`
+- [ ] Added to `TTS_ENGINES` dict
+- [ ] Added factory branch in `get_tts_backend_for_engine()`
+- [ ] Updated engine regex in `backend/models.py`
+
+### Phase 2–3: Route, Service, and Frontend
+- [ ] Confirmed zero changes needed in routes/services (or documented why custom behavior is needed)
+- [ ] Added engine to TypeScript union type in `app/src/lib/api/types.ts`
+- [ ] Added language map entry in `app/src/lib/constants/languages.ts`
+- [ ] Added to `ENGINE_OPTIONS` and `ENGINE_DESCRIPTIONS` in `EngineModelSelector.tsx`
+- [ ] Added to Zod schema and model-name mapping in `useGenerationForm.ts`
+- [ ] Added description in `ModelManagement.tsx`
+
+### Phase 4: Dependencies
+- [ ] Added packages to `backend/requirements.txt`
+- [ ] If `--no-deps` needed: listed sub-dependencies explicitly
+- [ ] If git-only packages: added `@ git+https://...` entries
+- [ ] If custom index needed: added `--find-links` line
+- [ ] Updated `justfile` setup targets
+- [ ] Updated `.github/workflows/release.yml` build steps
+- [ ] Updated `Dockerfile` if applicable
+- [ ] Verified `pip install` succeeds in a clean venv with existing requirements
+
+### Phase 5: PyInstaller Bundling
+- [ ] Added `--hidden-import` entries in `build_binary.py` for:
+  - [ ] `backend.backends.<engine>_backend`
+  - [ ] The model package and its key submodules
+- [ ] Added `--collect-all` for any packages that:
+  - [ ] Use `inspect.getsource()` / `@typechecked`
+  - [ ] Ship pretrained model data files (`.pth.tar`, `.yaml`, etc.)
+  - [ ] Ship native data files (phoneme tables, shader libraries, etc.)
+- [ ] Added `--copy-metadata` for any packages that use `importlib.metadata`
+- [ ] If engine has native data paths: added `os.environ.setdefault()` in `server.py`
+- [ ] Built frozen binary with `just build`
+- [ ] Tested in frozen binary with **clean model cache** (not pre-cached from dev):
+  - [ ] Model download works with real-time progress
+  - [ ] Model loading works
+  - [ ] Generation produces valid audio
+  - [ ] No errors in stderr logs
+
+### Phase 6: Final Verification
+- [ ] Engine works in dev mode (`just dev`)
+- [ ] Engine works in frozen binary (`just build` → run binary directly)
+- [ ] Tested on target platform (macOS for MLX, Windows/Linux for CUDA)
+- [ ] No regressions in existing engines

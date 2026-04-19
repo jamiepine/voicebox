@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { ProfileList } from '@/components/VoiceProfiles/ProfileList';
-import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
+
 import { useImportProfile } from '@/lib/hooks/useProfiles';
 import { cn } from '@/lib/utils/cn';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -77,9 +77,9 @@ export function MainEditor() {
 
   return (
     // Main view: Profiles top left, Generator bottom left, History right
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full min-h-0 overflow-hidden relative">
+    <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-6 h-full min-h-0 overflow-hidden relative">
       {/* Left Column */}
-      <div className="flex flex-col min-h-0 overflow-hidden relative">
+      <div className="flex flex-col min-h-0 overflow-hidden relative lg:overflow-hidden">
         {/* Scroll Mask - Always visible, behind content */}
         <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent z-0 pointer-events-none" />
 
@@ -110,10 +110,7 @@ export function MainEditor() {
         {/* Scrollable Content */}
         <div
           ref={scrollRef}
-          className={cn(
-            'flex-1 min-h-0 overflow-y-auto pt-14',
-            isPlayerVisible ? BOTTOM_SAFE_AREA_PADDING : 'pb-4',
-          )}
+          className={cn('flex-1 min-h-0 overflow-y-auto pt-14 pb-4', isPlayerVisible && 'lg:pb-32')}
         >
           <div className="flex flex-col gap-6">
             <div className="shrink-0 flex flex-col">
@@ -122,6 +119,9 @@ export function MainEditor() {
           </div>
         </div>
       </div>
+
+      {/* Divider - single column only */}
+      {/* <div className="border-t border-border -my-3 lg:hidden" /> */}
 
       {/* Right Column - History */}
       <div className="flex flex-col min-h-0 overflow-hidden">

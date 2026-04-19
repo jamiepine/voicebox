@@ -13,8 +13,11 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { Link } from '@tanstack/react-router';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Download, Plus } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Loader from 'react-loaders';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -28,6 +31,7 @@ import {
   useStory,
 } from '@/lib/hooks/useStories';
 import { useStoryPlayback } from '@/lib/hooks/useStoryPlayback';
+import { useGenerationStore } from '@/stores/generationStore';
 import { useStoryStore } from '@/stores/storyStore';
 import { SortableStoryChatItem } from './StoryChatItem';
 
@@ -40,6 +44,7 @@ export function StoryContent() {
   const addStoryItem = useAddStoryItem();
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingCount = useGenerationStore((s) => s.pendingGenerationIds.size);
 
   // Add generation popover state
   const [searchQuery, setSearchQuery] = useState('');
@@ -53,9 +58,9 @@ export function StoryContent() {
     const query = searchQuery.toLowerCase();
     return historyData.items.filter(
       (gen) =>
+        gen.status === 'completed' &&
         !storyGenerationIds.has(gen.id) &&
-        (gen.text.toLowerCase().includes(query) ||
-          gen.profile_name.toLowerCase().includes(query)),
+        (gen.text.toLowerCase().includes(query) || gen.profile_name.toLowerCase().includes(query)),
     );
   }, [historyData, story, searchQuery]);
 
@@ -267,7 +272,31 @@ export function StoryContent() {
             <p className="text-sm text-muted-foreground mt-1">{story.description}</p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          <AnimatePresence>
+            {pendingCount > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, width: 0 }}
+                animate={{ opacity: 1, scale: 1, width: 'auto' }}
+                exit={{ opacity: 0, scale: 0.9, width: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Link
+                  to="/"
+                  className="flex items-center gap-2 h-8 pl-1.5 pr-3 rounded-full bg-card border border-border hover:bg-muted/50 transition-all duration-200 cursor-pointer"
+                >
+                  <div className="shrink-0 w-10 h-5 overflow-hidden flex items-center justify-center">
+                    <div className="scale-[0.45]">
+                      <Loader type="line-scale" active />
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    Generating {pendingCount} {pendingCount === 1 ? 'audio' : 'audios'}
+                  </span>
+                </Link>
+              </motion.div>
+            )}
+          </AnimatePresence>
           <Popover open={isAddOpen} onOpenChange={setIsAddOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
@@ -287,9 +316,7 @@ export function StoryContent() {
               <div className="max-h-60 overflow-y-auto">
                 {availableGenerations.length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground">
-                    {searchQuery
-                      ? 'No matching generations found'
-                      : 'No available generations'}
+                    {searchQuery ? 'No matching generations found' : 'No available generations'}
                   </div>
                 ) : (
                   availableGenerations.map((gen) => (

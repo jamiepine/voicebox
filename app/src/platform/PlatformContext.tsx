@@ -9,11 +9,7 @@ export interface PlatformProviderProps {
 }
 
 export function PlatformProvider({ platform, children }: PlatformProviderProps) {
-  return (
-    <PlatformContext.Provider value={platform}>
-      {children}
-    </PlatformContext.Provider>
-  );
+  return <PlatformContext.Provider value={platform}>{children}</PlatformContext.Provider>;
 }
 
 export function usePlatform(): Platform {

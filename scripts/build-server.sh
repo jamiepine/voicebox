@@ -9,12 +9,14 @@ PLATFORM=$(rustc --print host-tuple 2>/dev/null || echo "unknown")
 echo "Building voicebox-server for platform: $PLATFORM"
 
 # Build Python binary
+# Resolve PATH to absolute paths before changing directory
+export PATH="$(cd "$(dirname "$0")/.." && pwd)/backend/venv/bin:$PATH"
 cd backend
 
 # Check if PyInstaller is installed
 if ! python -c "import PyInstaller" 2>/dev/null; then
     echo "Installing PyInstaller..."
-    pip install pyinstaller
+    python -m pip install pyinstaller
 fi
 
 # Build binary

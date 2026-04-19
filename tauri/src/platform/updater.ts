@@ -64,13 +64,17 @@ class TauriUpdater implements PlatformUpdater {
       }
       this.notifySubscribers();
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      // Tauri updater throws on 404 / no published release / network errors.
+      // Treat "no update available" style errors as up-to-date, not failures.
+      const isNoUpdate = /404|not found|no update|up.to.date/i.test(message);
       this.status = {
         checking: false,
         available: false,
         downloading: false,
         installing: false,
         readyToInstall: false,
-        error: error instanceof Error ? error.message : 'Failed to check for updates',
+        error: isNoUpdate ? undefined : message,
       };
       this.notifySubscribers();
     }

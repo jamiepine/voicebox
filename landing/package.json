@@ -1,19 +1,22 @@
 {
   "name": "@voicebox/landing",
-  "version": "0.1.13",
+  "version": "0.4.1",
   "description": "Landing page for voicebox.sh",
   "scripts": {
-    "dev": "bun --bun next dev --turbo",
+    "dev": "next dev --turbo",
     "build": "bun --bun next build",
     "start": "bun --bun next start",
     "lint": "next lint"
   },
   "dependencies": {
+    "@fontsource/space-grotesk": "^5.2.10",
+    "@icons-pack/react-simple-icons": "^13.13.0",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "autoprefixer": "^10.4.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.36.0",
     "lucide-react": "^0.316.0",
     "next": "^16.1.3",
     "postcss": "^8.4.33",
@@ -21,7 +24,8 @@
     "react-dom": "^18.2.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.4.1",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "wavesurfer.js": "^7.12.2"
   },
   "devDependencies": {
     "@types/node": "^20.11.5",

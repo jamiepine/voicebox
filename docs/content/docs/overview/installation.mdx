@@ -1,0 +1,119 @@
+---
+title: "Installation"
+description: "Download and install Voicebox on macOS, Windows, or Linux"
+---
+
+## Download
+
+Voicebox is available for macOS and Windows, with Linux builds coming soon.
+
+<Cards>
+  <Card title="macOS" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c-1.5 0-2.8.4-3.9 1.1A5.5 5.5 0 0 0 4 2.5C2.5 2.5 1 4 1 6c0 3.5 2.5 6 5 7.5C5 16 4 18 4 20c0 1.5.5 2.5 1.5 3C6.5 23.5 8 24 9.5 24c2 0 3.5-.5 5-2 1.5 1.5 3 2 5 2 1.5 0 3-.5 4-1 1-.5 1.5-1.5 1.5-3 0-2-1-4-2-6.5 2.5-1.5 5-4 5-7.5 0-2-1.5-3.5-3-3.5-.9 0-2.1.4-3.1 1.1A6.5 6.5 0 0 0 12 2Z"/></svg>}>
+    Download for Apple Silicon or Intel Macs
+  </Card>
+  <Card title="Windows" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>}>
+    Download MSI installer or Setup executable
+  </Card>
+</Cards>
+
+### macOS
+
+<Tabs items={["Apple Silicon", "Intel"]}>
+  <Tab value="Apple Silicon">
+    Download: [voicebox_aarch64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_aarch64.app.tar.gz)
+
+    ```bash
+    # Extract the archive
+    tar -xzf voicebox_aarch64.app.tar.gz
+
+    # Move to Applications
+    mv Voicebox.app /Applications/
+    ```
+  </Tab>
+  <Tab value="Intel">
+    Download: [voicebox_x64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64.app.tar.gz)
+
+    ```bash
+    # Extract the archive
+    tar -xzf voicebox_x64.app.tar.gz
+
+    # Move to Applications
+    mv Voicebox.app /Applications/
+    ```
+  </Tab>
+</Tabs>
+
+### Windows
+
+<Tabs items={["MSI Installer", "Setup Executable"]}>
+  <Tab value="MSI Installer">
+    Download: [voicebox_x64_en-US.msi](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64_en-US.msi)
+
+    Double-click the MSI file and follow the installation wizard.
+  </Tab>
+  <Tab value="Setup Executable">
+    Download: [voicebox_x64-setup.exe](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64-setup.exe)
+
+    Run the executable and follow the installation wizard.
+  </Tab>
+</Tabs>
+
+### Linux
+
+<Callout type="info">
+  Linux builds are coming soon. Currently blocked by GitHub runner disk space limitations.
+</Callout>
+
+## First Launch
+
+When you launch Voicebox for the first time:
+
+1. **Model Download** — The TTS engine you generate with first will download its model automatically. Sizes range from ~350 MB (Kokoro) to ~8 GB (TADA 3B). Most users start with Qwen 1.7B (~3.5 GB).
+2. **Data Directory** — Voice profiles and generated audio are stored in:
+   - macOS: `~/Library/Application Support/sh.voicebox.app/`
+   - Windows: `%APPDATA%/sh.voicebox.app/`
+   - Linux: `~/.config/sh.voicebox.app/`
+
+3. **Backend Server** — The bundled Python server starts automatically
+
+<Callout type="info">
+  First generation will be slower due to model downloads. Subsequent runs use cached models.
+</Callout>
+
+## System Requirements
+
+### Minimum
+
+- **OS:** macOS 11+, Windows 10+, or Linux
+- **RAM:** 8GB
+- **Storage:** 5GB free space (for models and data)
+- **CPU:** Modern multi-core processor
+
+### Recommended
+
+- **RAM:** 16GB+
+- **GPU:** CUDA-capable NVIDIA GPU (for faster generation)
+- **Storage:** 10GB+ free space
+
+<Callout type="info">
+  CPU inference is supported but significantly slower than GPU. A CUDA-capable GPU is highly recommended for real-time workflows.
+</Callout>
+
+## Verification
+
+After installation, verify everything works:
+
+1. Launch Voicebox
+2. Check the server status indicator in the bottom-left corner (should be green)
+3. Navigate to **Profiles** and create a test profile
+4. Generate a short audio clip to verify the TTS engine works
+
+<Callout type="success">
+  If you see a green status indicator and can generate audio, you're all set!
+</Callout>
+
+## Next Steps
+
+<Card title="Quick Start Guide" href="/overview/quick-start">
+  Create your first voice profile and generate speech
+</Card>

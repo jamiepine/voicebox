@@ -401,9 +401,25 @@ impl AudioOutputState {
             eprintln!("play_to_device: Failed to play stream: {}", e);
             format!("Failed to play stream: {}", e)
         })?;
-        
+
         eprintln!("play_to_device: Stream started successfully");
 
+        // Keep the stream alive until playback finishes.
+        // Previously the stream was dropped immediately on function return,
+        // causing silent playback (cpal stops output when its Stream is dropped).
+        let total_samples = {
+            buffer.lock().unwrap().len()
+        };
+        loop {
+            let pos = position.load(std::sync::atomic::Ordering::Relaxed);
+            if pos >= total_samples || stop_flag.load(std::sync::atomic::Ordering::Relaxed) {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
+        // stream is dropped here, after audio has finished playing
+        drop(stream);
         eprintln!("play_to_device: Function completed successfully");
         Ok(())
     }

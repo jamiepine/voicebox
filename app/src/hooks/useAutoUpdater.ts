@@ -5,7 +5,15 @@ import type { UpdateStatus } from '@/platform/types';
 // Re-export UpdateStatus for backwards compatibility
 export type { UpdateStatus };
 
-export function useAutoUpdater(checkOnMount = false) {
+interface UseAutoUpdaterOptions {
+  checkOnMount?: boolean;
+  showToast?: boolean;
+}
+
+export function useAutoUpdater(options: boolean | UseAutoUpdaterOptions = false) {
+  const { checkOnMount } =
+    typeof options === 'boolean' ? { checkOnMount: options } : { checkOnMount: options.checkOnMount ?? false };
+
   const platform = usePlatform();
   const [status, setStatus] = useState<UpdateStatus>(platform.updater.getStatus());
   const hasCheckedRef = useRef(false);
@@ -38,10 +46,11 @@ export function useAutoUpdater(checkOnMount = false) {
   useEffect(() => {
     if (checkOnMount && platform.metadata.isTauri && !hasCheckedRef.current) {
       hasCheckedRef.current = true;
-      checkForUpdates();
+      checkForUpdates().catch((error) => {
+        console.error('Auto update check failed:', error);
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platform.metadata.isTauricheckOnMountcheckForUpdates]);
+  }, [checkOnMount, checkForUpdates, platform.metadata.isTauri]);
 
   return {
     status,

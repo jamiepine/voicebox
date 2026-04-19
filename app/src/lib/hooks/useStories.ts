@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import type { StoryCreate, StoryItemCreate, StoryItemBatchUpdate, StoryItemReorder, StoryItemMove, StoryItemTrim, StoryItemSplit } from '@/lib/api/types';
+import type {
+  StoryCreate,
+  StoryItemBatchUpdate,
+  StoryItemCreate,
+  StoryItemMove,
+  StoryItemReorder,
+  StoryItemSplit,
+  StoryItemTrim,
+  StoryItemVersionUpdate,
+} from '@/lib/api/types';
 import { usePlatform } from '@/platform/PlatformContext';
 
 export function useStories() {
@@ -109,8 +118,15 @@ export function useMoveStoryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ storyId, itemId, data }: { storyId: string; itemId: string; data: StoryItemMove }) =>
-      apiClient.moveStoryItem(storyId, itemId, data),
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemMove;
+    }) => apiClient.moveStoryItem(storyId, itemId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
@@ -122,8 +138,15 @@ export function useTrimStoryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ storyId, itemId, data }: { storyId: string; itemId: string; data: StoryItemTrim }) =>
-      apiClient.trimStoryItem(storyId, itemId, data),
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemTrim;
+    }) => apiClient.trimStoryItem(storyId, itemId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
@@ -135,8 +158,15 @@ export function useSplitStoryItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ storyId, itemId, data }: { storyId: string; itemId: string; data: StoryItemSplit }) =>
-      apiClient.splitStoryItem(storyId, itemId, data),
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemSplit;
+    }) => apiClient.splitStoryItem(storyId, itemId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
@@ -157,6 +187,26 @@ export function useDuplicateStoryItem() {
   });
 }
 
+export function useSetStoryItemVersion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemVersionUpdate;
+    }) => apiClient.setStoryItemVersion(storyId, itemId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
+    },
+  });
+}
+
 export function useExportStoryAudio() {
   const platform = usePlatform();
 
@@ -165,7 +215,10 @@ export function useExportStoryAudio() {
       const blob = await apiClient.exportStoryAudio(storyId);
 
       // Create safe filename
-      const safeName = storyName.substring(0, 50).replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const safeName = storyName
+        .substring(0, 50)
+        .replace(/[^a-z0-9]/gi, '-')
+        .toLowerCase();
       const filename = `${safeName || 'story'}.wav`;
 
       await platform.filesystem.saveFile(filename, blob, [

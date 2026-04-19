@@ -1,0 +1,299 @@
+---
+title: "Development Setup"
+description: "Set up your local development environment for Voicebox"
+---
+
+## Quick Setup (Recommended)
+
+Get started in two commands:
+
+```bash
+# Clone and enter the repository
+git clone https://github.com/jamiepine/voicebox.git
+cd voicebox
+
+# Setup everything (Python venv, JS deps, dev sidecar)
+just setup
+
+# Start development (backend + desktop app)
+just dev
+```
+
+The `just dev` command automatically starts the Python backend (if not already running) and launches the Tauri desktop app.
+
+## Prerequisites
+
+Ensure you have these installed:
+
+<Cards>
+  <Card title="Bun" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>}>
+    [Download Bun](https://bun.sh)
+    ```bash
+    curl -fsSL https://bun.sh/install | bash
+    ```
+  </Card>
+  <Card title="Python 3.11+" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}>
+    [Download Python](https://python.org)
+    ```bash
+    python --version
+    ```
+  </Card>
+  <Card title="Rust" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>}>
+    [Install Rust](https://rustup.rs)
+    ```bash
+    rustc --version
+    ```
+  </Card>
+  <Card title="Just" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 7V4h3"/><path d="M7 4h14v6h-2V6H7V4Z"/><path d="M4 10v10h16V10H4Z"/></svg>}>
+    [Install Just](https://github.com/casey/just)
+    ```bash
+    brew install just  # macOS
+    cargo install just # Linux/Windows
+    ```
+  </Card>
+</Cards>
+
+<Callout type="info">
+  Just works on macOS, Linux, and Windows.
+</Callout>
+
+## Just Commands
+
+Run `just --list` to see all available commands. Highlights:
+
+### Setup
+
+| Command | Description |
+|---------|-------------|
+| `just setup` | Full setup (Python venv + JS deps + dev sidecar). Detects Apple Silicon for MLX and NVIDIA/Intel Arc on Windows for accelerated PyTorch. |
+| `just setup-python` | Python venv + dependencies only |
+| `just setup-js` | `bun install` only |
+
+### Development
+
+| Command | Description |
+|---------|-------------|
+| `just dev` | Start backend + Tauri desktop app (reuses a running backend if one exists) |
+| `just dev-web` | Start backend + web app (no Tauri/Rust build) |
+| `just dev-backend` | Backend only |
+| `just dev-frontend` | Tauri app only (backend must already be running) |
+| `just kill` | Stop all dev processes |
+
+### Build
+
+| Command | Description |
+|---------|-------------|
+| `just build` | CPU server binary + Tauri installer |
+| `just build-local` | **Windows:** CPU + CUDA server binaries + Tauri installer |
+| `just build-server` | CPU server binary only |
+| `just build-server-cuda` | **Windows:** CUDA server binary only, placed in `%APPDATA%/sh.voicebox.app/backends/cuda` for local testing |
+| `just build-tauri` | Tauri app only |
+| `just build-web` | Web app only |
+
+### Quality
+
+| Command | Description |
+|---------|-------------|
+| `just check` | Lint + format + typecheck (Biome + ruff) |
+| `just fix` | Auto-fix lint + format issues |
+| `just lint` / `just format` | Lint or format only |
+| `just test` | Run Python tests (pytest) |
+| `just test-models` | End-to-end generation against every TTS engine using the frozen binary |
+
+### Database
+
+| Command | Description |
+|---------|-------------|
+| `just db-init` | Initialize SQLite database |
+| `just db-reset` | Delete and reinitialize the database |
+
+### Utilities
+
+| Command | Description |
+|---------|-------------|
+| `just generate-api` | Generate TypeScript API client from the backend's OpenAPI schema |
+| `just docs` | Open `http://localhost:17493/docs` in your browser |
+| `just logs` | Tail backend logs |
+| `just clean` | Remove build artifacts |
+| `just clean-python` | Remove the Python venv + `__pycache__` |
+| `just clean-all` | Nuclear clean (includes all `node_modules`) |
+
+## Project Structure
+
+<Files>
+  <Folder name="voicebox" defaultOpen>
+    <Folder name="app">
+      <Folder name="src">
+        <File name="components/" />
+        <File name="lib/" />
+        <File name="hooks/" />
+      </Folder>
+    </Folder>
+    <Folder name="backend">
+      <File name="app.py" />
+      <File name="main.py" />
+      <File name="config.py" />
+      <File name="models.py" />
+      <File name="server.py" />
+      <Folder name="routes">
+        <File name="..." />
+      </Folder>
+      <Folder name="services">
+        <File name="..." />
+      </Folder>
+      <Folder name="backends">
+        <File name="..." />
+      </Folder>
+      <Folder name="database">
+        <File name="..." />
+      </Folder>
+      <Folder name="utils">
+        <File name="..." />
+      </Folder>
+    </Folder>
+    <Folder name="tauri">
+      <Folder name="src-tauri" />
+    </Folder>
+    <Folder name="web" />
+    <Folder name="scripts" />
+  </Folder>
+</Files>
+
+### Request Flow
+
+HTTP request → **routes/** (validate input) → **services/** (business logic) → **backends/** (TTS/STT inference) → **utils/** (audio processing)
+
+### Key Modules
+
+- **app.py** — FastAPI app factory, CORS, lifecycle events
+- **main.py** — Entry point (imports app, runs uvicorn)
+- **server.py** — Tauri sidecar launcher, parent-pid watchdog
+- **services/generation.py** — Single function handling all generation modes
+- **backends/** — TTS/STT engine implementations (MLX, PyTorch, etc.)
+
+## Model Downloads
+
+Models are automatically downloaded from HuggingFace Hub on first use, with live progress streamed to the UI:
+
+- **Whisper** (transcription) — auto-downloads on first transcription
+- **TTS engines** — auto-download on first generation. Sizes range from 82 M (Kokoro, ~350 MB) to 3 B (TADA, ~8 GB)
+
+See [Model Management](/developer/model-management) for the full list.
+
+<Callout type="warn">
+  First-time usage will be slower due to model downloads, but subsequent runs will use cached models.
+</Callout>
+
+## Generate OpenAPI Client
+
+After starting the backend server, generate the TypeScript API client:
+
+```bash
+just generate-api
+```
+
+This downloads the OpenAPI schema and generates the TypeScript client in `app/src/lib/api/`.
+
+## Manual Setup (Advanced)
+
+If you prefer not to use Just, follow these manual steps:
+
+### 1. Install JavaScript Dependencies
+
+```bash
+bun install
+```
+
+This installs dependencies for:
+- `app/` - Shared React frontend
+- `tauri/` - Tauri desktop wrapper
+- `web/` - Web deployment wrapper
+
+### 2. Set Up Python Backend
+
+```bash
+cd backend
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # macOS/Linux
+# or
+venv\Scripts\activate  # Windows
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Apple Silicon: install MLX dependencies
+pip install -r requirements-mlx.txt
+
+# Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
+pip install --no-deps chatterbox-tts
+
+# HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
+pip install --no-deps hume-tada
+
+# Install Qwen3-TTS from source
+pip install git+https://github.com/QwenLM/Qwen3-TTS.git
+
+# PyInstaller and linting tools
+pip install pyinstaller ruff pytest pytest-asyncio
+```
+
+### 3. Start Development
+
+Start the backend:
+```bash
+cd backend
+source venv/bin/activate
+uvicorn main:app --reload --port 17493
+```
+
+In a new terminal, start the desktop app:
+```bash
+cd tauri
+bun run tauri dev
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="Architecture" href="/developer/architecture">
+    Understand the system architecture
+  </Card>
+  <Card title="Contributing" href="/developer/contributing">
+    Read the contribution guidelines
+  </Card>
+  <Card title="Building" href="/developer/building">
+    Learn how to build production releases
+  </Card>
+  <Card title="TTS Engines" href="/developer/tts-engines">
+    Add a new TTS engine end-to-end
+  </Card>
+</Cards>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Backend won't start">
+    - Check Python version (must be 3.11+)
+    - Ensure virtual environment is activated: `source backend/venv/bin/activate`
+    - Verify all dependencies are installed: `pip install -r requirements.txt`
+    - Check if port 17493 is available
+  </Accordion>
+
+  <Accordion title="Tauri build fails">
+    - Ensure Rust is installed: `rustc --version`
+    - Clean the build: `cd tauri/src-tauri && cargo clean`
+    - Try rebuilding: `just dev`
+  </Accordion>
+
+  <Accordion title="OpenAPI client generation fails">
+    - Ensure backend is running: `curl http://localhost:17493/openapi.json`
+    - Check network connectivity
+    - Verify the backend is accessible at localhost:17493
+  </Accordion>
+</AccordionGroup>
+
+See the full [Troubleshooting Guide](/overview/troubleshooting) for more issues and solutions.

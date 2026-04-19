@@ -12,7 +12,11 @@ interface ModelProgressProps {
   isDownloading?: boolean;
 }
 
-export function ModelProgress({ modelName, displayName, isDownloading = false }: ModelProgressProps) {
+export function ModelProgress({
+  modelName,
+  displayName,
+  isDownloading = false,
+}: ModelProgressProps) {
   const [progress, setProgress] = useState<ModelProgressType | null>(null);
   const serverUrl = useServerStore((state) => state.serverUrl);
 

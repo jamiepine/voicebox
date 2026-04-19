@@ -102,6 +102,7 @@ function MiniSamplePlayer({ audioUrl }: MiniSamplePlayerProps) {
           className="h-7 w-7 shrink-0"
           onClick={handlePlayPause}
           disabled={isLoading}
+          aria-label={isPlaying ? 'Pause sample' : 'Play sample'}
         >
           {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
         </Button>
@@ -113,6 +114,8 @@ function MiniSamplePlayer({ audioUrl }: MiniSamplePlayerProps) {
             max={100}
             step={0.1}
             className="flex-1"
+            aria-label="Sample playback position"
+            aria-valuetext={`${formatAudioDuration(currentTime)} of ${formatAudioDuration(duration)}`}
           />
           <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0 min-w-[70px]">
             <span className="font-mono">{formatAudioDuration(currentTime)}</span>
@@ -128,6 +131,7 @@ function MiniSamplePlayer({ audioUrl }: MiniSamplePlayerProps) {
           className="h-7 w-7 shrink-0"
           onClick={handleStop}
           title="Stop"
+          aria-label="Stop playback"
         >
           <X className="h-3.5 w-3.5" />
         </Button>

@@ -31,6 +31,14 @@ interface UIStore {
   selectedProfileId: string | null;
   setSelectedProfileId: (id: string | null) => void;
 
+  // Currently selected engine (synced from generation form)
+  selectedEngine: string;
+  setSelectedEngine: (engine: string) => void;
+
+  // Selected voice in Voices tab inspector
+  selectedVoiceId: string | null;
+  setSelectedVoiceId: (id: string | null) => void;
+
   // Profile form draft (for persisting create voice modal state)
   profileFormDraft: ProfileFormDraft | null;
   setProfileFormDraft: (draft: ProfileFormDraft | null) => void;
@@ -54,6 +62,12 @@ export const useUIStore = create<UIStore>((set) => ({
 
   selectedProfileId: null,
   setSelectedProfileId: (id) => set({ selectedProfileId: id }),
+
+  selectedEngine: 'qwen',
+  setSelectedEngine: (engine) => set({ selectedEngine: engine }),
+
+  selectedVoiceId: null,
+  setSelectedVoiceId: (id) => set({ selectedVoiceId: id }),
 
   profileFormDraft: null,
   setProfileFormDraft: (draft) => set({ profileFormDraft: draft }),

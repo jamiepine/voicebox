@@ -3,14 +3,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useServerHealth } from '@/lib/hooks/useServer';
 import { useServerStore } from '@/stores/serverStore';
-import { ModelProgress } from './ModelProgress';
 
 export function ServerStatus() {
   const { data: health, isLoading, error } = useServerHealth();
   const serverUrl = useServerStore((state) => state.serverUrl);
 
   return (
-    <Card>
+    <Card role="region" aria-label="Server Status" tabIndex={0}>
       <CardHeader>
         <CardTitle>Server Status</CardTitle>
       </CardHeader>
@@ -18,16 +17,6 @@ export function ServerStatus() {
         <div>
           <div className="text-sm text-muted-foreground mb-1">Server URL</div>
           <div className="font-mono text-sm">{serverUrl}</div>
-        </div>
-
-        {/* Model download progress */}
-        <div className="space-y-2">
-          <ModelProgress modelName="qwen-tts-1.7B" displayName="Qwen TTS 1.7B" />
-          <ModelProgress modelName="qwen-tts-0.6B" displayName="Qwen TTS 0.6B" />
-          <ModelProgress modelName="whisper-base" displayName="Whisper Base" />
-          <ModelProgress modelName="whisper-small" displayName="Whisper Small" />
-          <ModelProgress modelName="whisper-medium" displayName="Whisper Medium" />
-          <ModelProgress modelName="whisper-large" displayName="Whisper Large" />
         </div>
 
         {isLoading ? (

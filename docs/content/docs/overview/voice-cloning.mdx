@@ -1,0 +1,118 @@
+---
+title: "Voice Cloning"
+description: "Clone any voice from a few seconds of reference audio"
+---
+
+## Overview
+
+Voicebox can replicate a specific person's voice from a short audio sample — known as **zero-shot voice cloning**. You provide 10-30 seconds of clear speech, the model extracts a voice embedding, and from then on you can generate any text in that voice.
+
+Five engines in 0.4 support cloning:
+
+| Engine                      | Languages | Strengths                                                                  |
+| --------------------------- | --------- | -------------------------------------------------------------------------- |
+| **Qwen3-TTS** (0.6B / 1.7B) | 10        | High-quality multilingual, supports delivery instructions on the same kwarg |
+| **Chatterbox Multilingual** | 23        | Broadest language coverage — Arabic, Hindi, Swahili, Hebrew, more          |
+| **Chatterbox Turbo**        | English   | Fast 350M model with paralinguistic emotion tags (`[laugh]`, `[sigh]`)     |
+| **LuxTTS**                  | English   | Lightweight (~1 GB VRAM), 48 kHz output, 150x realtime on CPU              |
+| **TADA** (1B / 3B)          | 10        | Speech-language model with 700s+ coherent long-form generation             |
+
+<Callout type="info">
+  Don't want to record audio? Use a curated voice from Kokoro or Qwen CustomVoice instead — see [Preset Voices](/overview/preset-voices).
+</Callout>
+
+## How It Works
+
+<Steps>
+  <Step title="Upload or Record Sample">
+    Provide 10-30 seconds of clear speech from the target voice
+  </Step>
+  <Step title="Engine Analysis">
+    The selected engine analyzes vocal characteristics, tone, and speaking patterns
+  </Step>
+  <Step title="Voice Profile Created">
+    A voice embedding is generated and stored with your profile
+  </Step>
+  <Step title="Generate Speech">
+    Use the profile to generate any text in the cloned voice
+  </Step>
+</Steps>
+
+## Choosing an Engine for Cloning
+
+Different engines suit different use cases. The profile grid greys out unsupported engines so you can switch easily.
+
+| If you want…                                       | Pick                  |
+| -------------------------------------------------- | --------------------- |
+| Best overall quality on a few common languages     | **Qwen3-TTS 1.7B**    |
+| Faster generation, slightly lower quality          | **Qwen3-TTS 0.6B**    |
+| Languages outside Qwen's 10 (Arabic, Hindi, etc.)  | **Chatterbox Multilingual** |
+| Expressive English with `[laugh]` `[sigh]` tags    | **Chatterbox Turbo**  |
+| CPU-only or GPU-light setup, English               | **LuxTTS**            |
+| Long-form generation (audiobooks, full chapters)   | **TADA 3B**           |
+
+## Best Practices
+
+### Sample Quality
+
+<Cards>
+  <Card title="Do">
+    - Use 10-30 seconds of audio
+    - Clear, consistent speaking
+    - Minimal background noise
+    - Natural speaking pace
+  </Card>
+  <Card title="Don't">
+    - Very short clips (< 5 seconds)
+    - Heavy background noise
+    - Music or overlapping voices
+    - Heavily processed audio
+  </Card>
+</Cards>
+
+### Multiple Samples
+
+Adding multiple samples from the same speaker can improve quality:
+
+- Different speaking styles (casual, formal)
+- Different emotions (happy, serious)
+- Different recording conditions
+
+<Callout type="info">
+  The model will learn a more robust representation from diverse samples. Especially helpful for distinctive voices the model might otherwise smooth over.
+</Callout>
+
+## Supported Languages by Engine
+
+- **Qwen3-TTS** — English, Chinese, Japanese, Korean, German, French, Russian, Portuguese, Spanish, Italian (10)
+- **Chatterbox Multilingual** — Arabic, Chinese, Danish, Dutch, English, Finnish, French, German, Greek, Hebrew, Hindi, Italian, Japanese, Korean, Malay, Norwegian, Polish, Portuguese, Russian, Spanish, Swahili, Swedish, Turkish (23)
+- **Chatterbox Turbo** — English
+- **LuxTTS** — English
+- **TADA 3B** — 10 multilingual; **TADA 1B** — English
+
+For complete language tables and engine-specific notes, see the [TTS Engines developer guide](/developer/tts-engines).
+
+## Limitations
+
+<Callout type="warn">
+  Voice cloning should only be used with consent. Ensure you have permission to clone someone's voice. See the project's [SECURITY.md](https://github.com/jamiepine/voicebox/blob/main/SECURITY.md) and your local laws on synthetic voice content.
+</Callout>
+
+- Quality depends on sample clarity — noisy samples produce noisy clones
+- Works best with consistent speaking tone within a sample
+- May struggle with extreme accents or speech impediments
+- Background noise reduces quality and can introduce artifacts
+
+## Next Steps
+
+<Cards>
+  <Card title="Creating Voice Profiles" href="/overview/creating-voice-profiles">
+    Step-by-step guide to creating profiles
+  </Card>
+  <Card title="Preset Voices" href="/overview/preset-voices">
+    Use built-in voices instead of cloning
+  </Card>
+  <Card title="Generating Speech" href="/overview/generating-speech">
+    Use a profile to generate audio
+  </Card>
+</Cards>
