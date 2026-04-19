@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
+import { useModelStatus } from '@/lib/hooks/useModelStatus';
 
 /**
  * Model Management panel — displayed in the Settings page.
@@ -47,16 +48,7 @@ export function ModelManagement() {
   const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
   const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
 
-  const { data: modelStatus, isLoading } = useQuery({
-    queryKey: ['modelStatus'],
-    queryFn: async () => {
-      console.log('[Query] Fetching model status');
-      const result = await apiClient.getModelStatus();
-      console.log('[Query] Model status fetched:', result);
-      return result;
-    },
-    refetchInterval: 5000, // Refresh every 5 seconds
-  });
+  const { modelStatus, isLoading } = useModelStatus();
 
   // Callbacks for download completion
   const handleDownloadComplete = useCallback(() => {
@@ -339,7 +331,7 @@ export function ModelManagement() {
                           });
                           return;
                         }
-                        const customId = model.model_name.replace('custom:', '');
+                        const customId = model.model_name.slice('custom:'.length);
                         removeCustomModelMutation.mutate(customId);
                       }}
                       isDownloading={downloadingModel === model.model_name}

@@ -171,7 +171,13 @@ class ActiveGenerationTask(BaseModel):
 
 class CustomModelCreate(BaseModel):
     """Request model for adding a custom model."""
-    hf_repo_id: str = Field(..., min_length=3, max_length=200)
+    hf_repo_id: str = Field(
+        ...,
+        min_length=3,
+        max_length=200,
+        pattern=r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$",
+        description="HuggingFace repo ID in the form '<owner>/<model>' with alphanumeric, dots, underscores, and hyphens.",
+    )
     display_name: str = Field(..., min_length=1, max_length=100)
 
 
@@ -180,7 +186,7 @@ class CustomModelResponse(BaseModel):
     id: str
     hf_repo_id: str
     display_name: str
-    added_at: str
+    added_at: datetime
 
 
 class CustomModelListResponse(BaseModel):

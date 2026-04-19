@@ -27,11 +27,10 @@ if _custom_models_dir:
 if getattr(sys, '_MEIPASS', None):
     try:
         from platformdirs import user_data_dir
-        _data_dir = Path(user_data_dir("voicebox", ensure_exists=True))
+        _data_dir = Path(user_data_dir("voicebox", ensure_exists=False))
     except ImportError:
         # Fallback if platformdirs is not installed
         _data_dir = Path.home() / ".voicebox"
-        _data_dir.mkdir(parents=True, exist_ok=True)
 else:
     _data_dir = Path("data")
 

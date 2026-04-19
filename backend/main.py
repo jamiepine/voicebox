@@ -1389,93 +1389,83 @@ async def get_model_status():
             pass
     
     statuses = []
+
+    def _inspect_hf_cache(hf_repo_id: str) -> tuple:
+        """Inspect HuggingFace cache for a model. Returns (downloaded, size_mb)."""
+        downloaded = False
+        size_mb = None
+
+        # Method 1: scan_cache_dir metadata
+        if cache_info:
+            for repo in cache_info.repos:
+                if repo.repo_id == hf_repo_id:
+                    has_model_weights = False
+                    for rev in repo.revisions:
+                        for f in rev.files:
+                            fname = f.file_name.lower()
+                            if fname.endswith(('.safetensors', '.bin', '.pt', '.pth', '.npz')):
+                                has_model_weights = True
+                                break
+                        if has_model_weights:
+                            break
+
+                    has_incomplete = False
+                    try:
+                        cache_dir_path = hf_constants.HF_HUB_CACHE
+                        blobs_dir = Path(cache_dir_path) / ("models--" + hf_repo_id.replace("/", "--")) / "blobs"
+                        if blobs_dir.exists():
+                            has_incomplete = any(blobs_dir.glob("*.incomplete"))
+                    except Exception as exc:
+                        processLogger.debug("Incomplete-check failed for %s: %s", hf_repo_id, exc)
+
+                    if has_model_weights and not has_incomplete:
+                        downloaded = True
+                        try:
+                            total_size = sum(revision.size_on_disk for revision in repo.revisions)
+                            size_mb = total_size / (1024 * 1024)
+                        except Exception as exc:
+                            processLogger.debug("Size calc failed for %s: %s", hf_repo_id, exc)
+                    break
+
+        # Method 2: Fallback to direct cache directory inspection
+        if not downloaded:
+            try:
+                cache_dir_path = hf_constants.HF_HUB_CACHE
+                repo_cache = Path(cache_dir_path) / ("models--" + hf_repo_id.replace("/", "--"))
+                if repo_cache.exists():
+                    blobs_dir = repo_cache / "blobs"
+                    has_incomplete = blobs_dir.exists() and any(blobs_dir.glob("*.incomplete"))
+                    if not has_incomplete:
+                        snapshots_dir = repo_cache / "snapshots"
+                        has_model_files = False
+                        if snapshots_dir.exists():
+                            has_model_files = (
+                                any(snapshots_dir.rglob("*.bin")) or
+                                any(snapshots_dir.rglob("*.safetensors")) or
+                                any(snapshots_dir.rglob("*.pt")) or
+                                any(snapshots_dir.rglob("*.pth")) or
+                                any(snapshots_dir.rglob("*.npz"))
+                            )
+                        if has_model_files:
+                            downloaded = True
+                            try:
+                                total_size = sum(
+                                    f.stat().st_size for f in repo_cache.rglob("*")
+                                    if f.is_file() and not f.name.endswith('.incomplete')
+                                )
+                                size_mb = total_size / (1024 * 1024)
+                            except Exception as exc:
+                                processLogger.debug("Size calc (fallback) failed for %s: %s", hf_repo_id, exc)
+            except Exception as exc:
+                processLogger.debug("Fallback cache check failed for %s: %s", hf_repo_id, exc)
+
+        return downloaded, size_mb
     
     for config in model_configs:
         try:
-            downloaded = False
-            size_mb = None
+            downloaded, size_mb = _inspect_hf_cache(config["hf_repo_id"])
+            
             loaded = False
-            
-            # Method 1: Try using scan_cache_dir if available
-            if cache_info:
-                repo_id = config["hf_repo_id"]
-                for repo in cache_info.repos:
-                    if repo.repo_id == repo_id:
-                        # Check if actual model weight files exist (not just config files)
-                        # scan_cache_dir only shows completed files, so check if any are model weights
-                        has_model_weights = False
-                        for rev in repo.revisions:
-                            for f in rev.files:
-                                fname = f.file_name.lower()
-                                if fname.endswith(('.safetensors', '.bin', '.pt', '.pth', '.npz')):
-                                    has_model_weights = True
-                                    break
-                            if has_model_weights:
-                                break
-                        
-                        # Also check for .incomplete files in blobs directory (downloads in progress)
-                        has_incomplete = False
-                        try:
-                            cache_dir = hf_constants.HF_HUB_CACHE
-                            blobs_dir = Path(cache_dir) / ("models--" + repo_id.replace("/", "--")) / "blobs"
-                            if blobs_dir.exists():
-                                has_incomplete = any(blobs_dir.glob("*.incomplete"))
-                        except Exception:
-                            pass
-                        
-                        # Only mark as downloaded if we have model weights AND no incomplete files
-                        if has_model_weights and not has_incomplete:
-                            downloaded = True
-                            # Calculate size from cache info
-                            try:
-                                total_size = sum(revision.size_on_disk for revision in repo.revisions)
-                                size_mb = total_size / (1024 * 1024)
-                            except Exception:
-                                pass
-                        break
-            
-            # Method 2: Fallback to checking cache directory directly (using HuggingFace's OS-specific cache location)
-            if not downloaded:
-                try:
-                    cache_dir = hf_constants.HF_HUB_CACHE
-                    repo_cache = Path(cache_dir) / ("models--" + config["hf_repo_id"].replace("/", "--"))
-                    
-                    if repo_cache.exists():
-                        # Check for .incomplete files - if any exist, download is still in progress
-                        blobs_dir = repo_cache / "blobs"
-                        has_incomplete = blobs_dir.exists() and any(blobs_dir.glob("*.incomplete"))
-                        
-                        if not has_incomplete:
-                            # Check for actual model weight files (not just index files)
-                            # in the snapshots directory (symlinks to completed blobs)
-                            snapshots_dir = repo_cache / "snapshots"
-                            has_model_files = False
-                            if snapshots_dir.exists():
-                                has_model_files = (
-                                    any(snapshots_dir.rglob("*.bin")) or
-                                    any(snapshots_dir.rglob("*.safetensors")) or
-                                    any(snapshots_dir.rglob("*.pt")) or
-                                    any(snapshots_dir.rglob("*.pth")) or
-                                    any(snapshots_dir.rglob("*.npz"))
-                                )
-                            
-                            if has_model_files:
-                                downloaded = True
-                                # Calculate size (exclude .incomplete files)
-                                try:
-                                    total_size = sum(
-                                        f.stat().st_size for f in repo_cache.rglob("*") 
-                                        if f.is_file() and not f.name.endswith('.incomplete')
-                                    )
-                                    size_mb = total_size / (1024 * 1024)
-                                except Exception:
-                                    pass
-                except Exception:
-                    pass
-            
-            # Method 3 removed - checking for config.json is too lenient
-            # Methods 1 and 2 properly verify that model weight files exist
-            
             # Check if loaded in memory
             try:
                 loaded = config["check_loaded"]()
@@ -1525,72 +1515,7 @@ async def get_model_status():
         hf_repo_id = cm["hf_repo_id"]
         
         try:
-            downloaded = False
-            size_mb = None
-            
-            # Check if custom model is cached (same logic as built-in models)
-            if cache_info:
-                for repo in cache_info.repos:
-                    if repo.repo_id == hf_repo_id:
-                        has_model_weights = False
-                        for rev in repo.revisions:
-                            for f in rev.files:
-                                fname = f.file_name.lower()
-                                if fname.endswith(('.safetensors', '.bin', '.pt', '.pth', '.npz')):
-                                    has_model_weights = True
-                                    break
-                            if has_model_weights:
-                                break
-                        
-                        has_incomplete = False
-                        try:
-                            cache_dir_path = hf_constants.HF_HUB_CACHE
-                            blobs_dir = Path(cache_dir_path) / ("models--" + hf_repo_id.replace("/", "--")) / "blobs"
-                            if blobs_dir.exists():
-                                has_incomplete = any(blobs_dir.glob("*.incomplete"))
-                        except Exception:
-                            pass
-                        
-                        if has_model_weights and not has_incomplete:
-                            downloaded = True
-                            try:
-                                total_size = sum(revision.size_on_disk for revision in repo.revisions)
-                                size_mb = total_size / (1024 * 1024)
-                            except Exception:
-                                pass
-                        break
-            
-            # Fallback cache check
-            if not downloaded:
-                try:
-                    cache_dir_path = hf_constants.HF_HUB_CACHE
-                    repo_cache = Path(cache_dir_path) / ("models--" + hf_repo_id.replace("/", "--"))
-                    if repo_cache.exists():
-                        blobs_dir = repo_cache / "blobs"
-                        has_incomplete = blobs_dir.exists() and any(blobs_dir.glob("*.incomplete"))
-                        if not has_incomplete:
-                            snapshots_dir = repo_cache / "snapshots"
-                            has_model_files = False
-                            if snapshots_dir.exists():
-                                has_model_files = (
-                                    any(snapshots_dir.rglob("*.bin")) or
-                                    any(snapshots_dir.rglob("*.safetensors")) or
-                                    any(snapshots_dir.rglob("*.pt")) or
-                                    any(snapshots_dir.rglob("*.pth")) or
-                                    any(snapshots_dir.rglob("*.npz"))
-                                )
-                            if has_model_files:
-                                downloaded = True
-                                try:
-                                    total_size = sum(
-                                        f.stat().st_size for f in repo_cache.rglob("*")
-                                        if f.is_file() and not f.name.endswith('.incomplete')
-                                    )
-                                    size_mb = total_size / (1024 * 1024)
-                                except Exception:
-                                    pass
-                except Exception:
-                    pass
+            downloaded, size_mb = _inspect_hf_cache(hf_repo_id)
             
             # Check if loaded
             loaded = False
@@ -1830,7 +1755,6 @@ async def delete_model(model_name: str):
 
 
 # ============================================
-# ============================================
 # CUSTOM MODEL MANAGEMENT
 # ============================================
 # These endpoints manage user-defined HuggingFace TTS models.
@@ -1870,7 +1794,7 @@ async def add_custom_model_endpoint(data: models.CustomModelCreate):
         )
         return models.CustomModelResponse(**model)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @app.get("/custom-models/{model_id}", response_model=models.CustomModelResponse)
