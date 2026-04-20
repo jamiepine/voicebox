@@ -9,6 +9,7 @@ the tts_robust_normalizer_single_script fallback is used instead.
 
 import asyncio
 import logging
+import threading
 from pathlib import Path
 from typing import List, Optional, Tuple
 
@@ -39,6 +40,7 @@ class MOSSTTSNanoBackend:
         self._service = None
         self._device = None
         self._model_load_lock = asyncio.Lock()
+        self._service_lock = threading.RLock()
 
     def _get_device(self) -> str:
         return get_torch_device(allow_mps=True, allow_xpu=True)
@@ -65,37 +67,41 @@ class MOSSTTSNanoBackend:
             await asyncio.to_thread(self._load_model_sync)
 
     def _load_model_sync(self) -> None:
-        """Synchronous model loading."""
+        """Synchronous model loading, protected by _service_lock."""
         model_name = "moss-tts-nano"
         is_cached = self._is_model_cached()
 
-        with model_load_progress(model_name, is_cached):
-            device = self._get_device()
-            self._device = device
-            logger.info(f"Loading MOSS-TTS-Nano on {device}...")
+        with self._service_lock:
+            if self._service is not None:
+                return
 
-            from moss_tts_nano_runtime import NanoTTSService
+            with model_load_progress(model_name, is_cached):
+                device = self._get_device()
+                self._device = device
+                logger.info(f"Loading MOSS-TTS-Nano on {device}...")
 
-            service = NanoTTSService(
-                checkpoint_path=MOSS_TTS_NANO_HF_REPO,
-                audio_tokenizer_path=MOSS_AUDIO_TOKENIZER_HF_REPO,
-                device=device,
-                dtype="auto",
-            )
-            service.load()
-            self._service = service
+                from moss_tts_nano_runtime import NanoTTSService
+
+                service = NanoTTSService(
+                    checkpoint_path=MOSS_TTS_NANO_HF_REPO,
+                    audio_tokenizer_path=MOSS_AUDIO_TOKENIZER_HF_REPO,
+                    device=device,
+                    dtype="auto",
+                )
+                service.load()
+                self._service = service
 
         logger.info("MOSS-TTS-Nano loaded successfully")
 
     def unload_model(self) -> None:
-        """Unload model and free memory."""
-        if self._service is not None:
-            device = self._device
-            del self._service
-            self._service = None
-            self._device = None
-            empty_device_cache(device)
-            logger.info("MOSS-TTS-Nano unloaded")
+        """Unload model and free memory, guarded by _service_lock."""
+        with self._service_lock:
+            if self._service is not None:
+                device = self._device
+                self._service = None
+                self._device = None
+                empty_device_cache(device)
+                logger.info("MOSS-TTS-Nano unloaded")
 
     async def create_voice_prompt(
         self,
@@ -154,18 +160,24 @@ class MOSSTTSNanoBackend:
             ref_text = None
 
         def _generate_sync() -> Tuple[np.ndarray, int]:
-            if seed is not None:
-                manual_seed(seed, self._device)
+            with self._service_lock:
+                service = self._service
+                device = self._device
+                if service is None:
+                    raise RuntimeError("MOSS-TTS-Nano service is not loaded")
 
-            logger.info(f"[MOSS-TTS-Nano] Generating: lang={language}")
+                if seed is not None:
+                    manual_seed(seed, device)
 
-            result = self._service.synthesize(
-                text=text,
-                prompt_audio_path=ref_audio,
-                prompt_text=ref_text,
-                mode="voice_clone" if ref_audio else "continuation",
-                seed=seed,
-            )
+                logger.info(f"[MOSS-TTS-Nano] Generating: lang={language}")
+
+                result = service.synthesize(
+                    text=text,
+                    prompt_audio_path=ref_audio,
+                    prompt_text=ref_text,
+                    mode="voice_clone" if ref_audio else "continuation",
+                    seed=seed,
+                )
 
             waveform: np.ndarray = result["waveform_numpy"]
             sample_rate: int = int(result["sample_rate"])
