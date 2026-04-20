@@ -271,14 +271,14 @@ async def get_model_status():
 
     statuses = []
 
-    for config in model_configs:
+    for model_cfg in model_configs:
         try:
             downloaded = False
             size_mb = None
             loaded = False
 
             if cache_info:
-                repo_id = config["hf_repo_id"]
+                repo_id = model_cfg["hf_repo_id"]
                 for repo in cache_info.repos:
                     if repo.repo_id == repo_id:
                         has_model_weights = False
@@ -312,7 +312,7 @@ async def get_model_status():
             if not downloaded:
                 try:
                     cache_dir = hf_constants.HF_HUB_CACHE
-                    repo_cache = Path(cache_dir) / ("models--" + config["hf_repo_id"].replace("/", "--"))
+                    repo_cache = Path(cache_dir) / ("models--" + model_cfg["hf_repo_id"].replace("/", "--"))
 
                     if repo_cache.exists():
                         blobs_dir = repo_cache / "blobs"
@@ -345,11 +345,11 @@ async def get_model_status():
                     pass
 
             try:
-                loaded = config["check_loaded"]()
+                loaded = model_cfg["check_loaded"]()
             except Exception:
                 loaded = False
 
-            is_downloading = config["hf_repo_id"] in active_download_repos
+            is_downloading = model_cfg["hf_repo_id"] in active_download_repos
 
             if is_downloading:
                 downloaded = False
@@ -357,9 +357,9 @@ async def get_model_status():
 
             statuses.append(
                 models.ModelStatus(
-                    model_name=config["model_name"],
-                    display_name=config["display_name"],
-                    hf_repo_id=config["hf_repo_id"],
+                    model_name=model_cfg["model_name"],
+                    display_name=model_cfg["display_name"],
+                    hf_repo_id=model_cfg["hf_repo_id"],
                     downloaded=downloaded,
                     downloading=is_downloading,
                     size_mb=size_mb,
@@ -368,17 +368,17 @@ async def get_model_status():
             )
         except Exception:
             try:
-                loaded = config["check_loaded"]()
+                loaded = model_cfg["check_loaded"]()
             except Exception:
                 loaded = False
 
-            is_downloading = config["hf_repo_id"] in active_download_repos
+            is_downloading = model_cfg["hf_repo_id"] in active_download_repos
 
             statuses.append(
                 models.ModelStatus(
-                    model_name=config["model_name"],
-                    display_name=config["display_name"],
-                    hf_repo_id=config["hf_repo_id"],
+                    model_name=model_cfg["model_name"],
+                    display_name=model_cfg["display_name"],
+                    hf_repo_id=model_cfg["hf_repo_id"],
                     downloaded=False,
                     downloading=is_downloading,
                     size_mb=None,
@@ -508,14 +508,14 @@ async def delete_model(model_name: str):
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete custom model cache: {str(e)}") from e
 
-    config = get_model_config(model_name)
-    if not config:
+    model_config = get_model_config(model_name)
+    if not model_config:
         raise HTTPException(status_code=400, detail=f"Unknown model: {model_name}")
 
-    hf_repo_id = config.hf_repo_id
+    hf_repo_id = model_config.hf_repo_id
 
     try:
-        unload_model_by_config(config)
+        unload_model_by_config(model_config)
 
         cache_dir = hf_constants.HF_HUB_CACHE
         repo_cache_dir = Path(cache_dir) / ("models--" + hf_repo_id.replace("/", "--"))
@@ -526,14 +526,14 @@ async def delete_model(model_name: str):
         try:
             shutil.rmtree(repo_cache_dir)
         except OSError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}") from e
 
         return {"message": f"Model {model_name} deleted successfully"}
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}") from e
 
 
 # ── Custom Model CRUD ──────────────────────────────────────────────────
