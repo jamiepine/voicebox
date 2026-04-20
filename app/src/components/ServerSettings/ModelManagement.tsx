@@ -69,7 +69,7 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
   kokoro:
     'Kokoro 82M by hexgrad. Tiny 82M-parameter TTS that runs at CPU realtime. Supports 8 languages with pre-built voice styles. Apache 2.0 licensed.',
   'moss-tts-nano':
-    'MOSS-TTS-Nano by OpenMOSS. 0.1B-parameter TTS with voice cloning, 20 languages, 48 kHz stereo output, and CPU realtime on 4 cores. Apache 2.0.',
+    'MOSS-TTS-Nano by OpenMOSS. 0.1B-parameter TTS with voice cloning, 19 languages, 48 kHz stereo output, and CPU realtime on 4 cores. Apache 2.0.',
   'qwen-custom-voice-1.7B':
     'Qwen3-TTS CustomVoice 1.7B by Alibaba. 9 premium preset voices with instruct-based style control for tone, emotion, and prosody. Supports 10 languages.',
   'qwen-custom-voice-0.6B':

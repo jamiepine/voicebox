@@ -38,7 +38,7 @@ const ENGINE_DESCRIPTIONS: Record<string, string> = {
   chatterbox_turbo: 'English, [laugh] [cough] tags',
   tada: 'HumeAI, 700s+ coherent audio',
   kokoro: '82M params, CPU realtime, 8 langs',
-  moss_tts_nano: '0.1B, CPU realtime, 20 langs, 48 kHz',
+  moss_tts_nano: '0.1B, CPU realtime, 19 langs, 48 kHz',
 };
 
 /** Engines that only support English and should force language to 'en' on select. */

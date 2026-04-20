@@ -53,7 +53,7 @@ class MOSSTTSNanoBackend:
         return is_model_cached(
             MOSS_TTS_NANO_HF_REPO,
             required_files=_REQUIRED_WEIGHT_FILES,
-        )
+        ) and is_model_cached(MOSS_AUDIO_TOKENIZER_HF_REPO)
 
     async def load_model(self, model_size: str = "default") -> None:
         """Load MOSS-TTS-Nano model."""
@@ -147,9 +147,11 @@ class MOSSTTSNanoBackend:
         await self.load_model()
 
         ref_audio = voice_prompt.get("ref_audio")
+        ref_text = voice_prompt.get("ref_text")
         if ref_audio and not Path(ref_audio).exists():
             logger.warning(f"Reference audio not found: {ref_audio}")
             ref_audio = None
+            ref_text = None
 
         def _generate_sync() -> Tuple[np.ndarray, int]:
             if seed is not None:
@@ -160,6 +162,7 @@ class MOSSTTSNanoBackend:
             result = self._service.synthesize(
                 text=text,
                 prompt_audio_path=ref_audio,
+                prompt_text=ref_text,
                 mode="voice_clone" if ref_audio else "continuation",
                 seed=seed,
             )

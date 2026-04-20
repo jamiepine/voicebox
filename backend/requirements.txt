@@ -49,8 +49,9 @@ en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_
 
 # MOSS-TTS-Nano (0.1B multilingual TTS, CPU-friendly, Apache 2.0)
 # Installed --no-deps in setup scripts because it pins torch==2.7.0
-# Sub-dependency sentencepiece is listed here explicitly
+# Sub-dependencies listed explicitly (not pulled transitively via --no-deps):
 sentencepiece>=0.1.99
+WeTextProcessing>=1.0.4.1
 
 # Audio processing
 librosa>=0.10.0
