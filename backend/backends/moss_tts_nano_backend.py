@@ -27,7 +27,7 @@ from .base import (
 
 logger = logging.getLogger(__name__)
 
-MOSS_TTS_NANO_HF_REPO = "OpenMOSS-Team/MOSS-TTS-Nano"
+MOSS_TTS_NANO_HF_REPO = "OpenMOSS-Team/MOSS-TTS-Nano-100M"
 MOSS_AUDIO_TOKENIZER_HF_REPO = "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano"
 
 _REQUIRED_WEIGHT_FILES = ["model.safetensors"]
@@ -37,28 +37,41 @@ class MOSSTTSNanoBackend:
     """MOSS-TTS-Nano backend — 0.1B, 48 kHz stereo, 20 languages, CPU-friendly."""
 
     def __init__(self):
+        """Initialise locks and service state; no model is loaded yet."""
         self._service = None
         self._device = None
         self._model_load_lock = asyncio.Lock()
         self._service_lock = threading.RLock()
 
     def _get_device(self) -> str:
+        """Return the best available torch device (CUDA > MPS > XPU > CPU)."""
         return get_torch_device(allow_mps=True, allow_xpu=True)
 
     def is_loaded(self) -> bool:
+        """Return True if the NanoTTSService has been initialised."""
         return self._service is not None
 
     def _get_model_path(self, model_size: str = "default") -> str:
+        """Return the HuggingFace repo ID used as the checkpoint path."""
         return MOSS_TTS_NANO_HF_REPO
 
     def _is_model_cached(self, model_size: str = "default") -> bool:
+        """
+        Return True only when both the model checkpoint and the audio
+        tokenizer are present in the local HuggingFace cache.
+        """
         return is_model_cached(
             MOSS_TTS_NANO_HF_REPO,
             required_files=_REQUIRED_WEIGHT_FILES,
         ) and is_model_cached(MOSS_AUDIO_TOKENIZER_HF_REPO)
 
     async def load_model(self, model_size: str = "default") -> None:
-        """Load MOSS-TTS-Nano model."""
+        """
+        Async entry-point for model loading.
+
+        Uses an asyncio.Lock to serialise concurrent load requests so that
+        only one worker thread initialises the service.
+        """
         if self._service is not None:
             return
         async with self._model_load_lock:
@@ -126,6 +139,12 @@ class MOSSTTSNanoBackend:
         audio_paths: list[str],
         reference_texts: list[str],
     ) -> tuple[np.ndarray, str]:
+        """
+        Merge multiple reference audio clips into a single voice prompt.
+
+        Delegates to the shared base helper so that all backends handle
+        multi-sample prompts consistently.
+        """
         return await _combine_voice_prompts(audio_paths, reference_texts)
 
     async def generate(
@@ -155,11 +174,17 @@ class MOSSTTSNanoBackend:
         ref_audio = voice_prompt.get("ref_audio")
         ref_text = voice_prompt.get("ref_text")
         if ref_audio and not Path(ref_audio).exists():
-            logger.warning(f"Reference audio not found: {ref_audio}")
-            ref_audio = None
-            ref_text = None
+            raise FileNotFoundError(
+                f"MOSS-TTS-Nano reference audio not found: {ref_audio}"
+            )
 
         def _generate_sync() -> tuple[np.ndarray, int]:
+            """
+            Run synthesis on a thread-pool worker.
+
+            Acquires _service_lock to prevent a concurrent unload from
+            invalidating the service reference mid-inference.
+            """
             with self._service_lock:
                 service = self._service
                 device = self._device
