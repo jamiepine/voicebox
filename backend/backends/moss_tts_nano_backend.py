@@ -5,6 +5,18 @@ Wraps NanoTTSService from moss-tts-nano for zero-shot voice cloning.
 0.1B parameters, 48 kHz stereo output, 20 languages, CPU-friendly.
 WeTextProcessing is optional (Chinese text normalization); if absent,
 the tts_robust_normalizer_single_script fallback is used instead.
+
+Concurrency model
+-----------------
+``_service_lock``       – guards reads/writes of ``_service`` and ``_device``,
+                          and serialises ``_load_model_sync``.
+``_active_generations`` – count of synthesis calls currently in flight.
+``_idle``               – Condition (backed by ``_service_lock``) that
+                          ``unload_model`` waits on until the count reaches zero.
+
+Concurrent generations run without holding ``_service_lock`` for the duration
+of the actual ``synthesize()`` call, so throughput is not artificially capped.
+``unload_model`` waits for all in-flight calls to finish before tearing down.
 """
 
 import asyncio
@@ -37,11 +49,13 @@ class MOSSTTSNanoBackend:
     """MOSS-TTS-Nano backend — 0.1B, 48 kHz stereo, 20 languages, CPU-friendly."""
 
     def __init__(self):
-        """Initialise locks and service state; no model is loaded yet."""
+        """Initialise locks, counters, and service state; no model is loaded yet."""
         self._service = None
         self._device = None
         self._model_load_lock = asyncio.Lock()
         self._service_lock = threading.RLock()
+        self._active_generations: int = 0
+        self._idle = threading.Condition(self._service_lock)
 
     def _get_device(self) -> str:
         """Return the best available torch device (CUDA > MPS > XPU > CPU)."""
@@ -107,14 +121,24 @@ class MOSSTTSNanoBackend:
         logger.info("MOSS-TTS-Nano loaded successfully")
 
     def unload_model(self) -> None:
-        """Unload model and free memory, guarded by _service_lock."""
-        with self._service_lock:
-            if self._service is not None:
-                device = self._device
-                self._service = None
-                self._device = None
-                empty_device_cache(device)
-                logger.info("MOSS-TTS-Nano unloaded")
+        """
+        Unload the model and free device memory.
+
+        Waits for all in-flight ``synthesize`` calls to finish before
+        tearing down ``_service`` so that concurrent generations are never
+        interrupted mid-synthesis.
+        """
+        with self._idle:
+            if self._service is None:
+                return
+            # Wait until every concurrent generation has decremented the counter.
+            self._idle.wait_for(lambda: self._active_generations == 0)
+            device = self._device
+            self._service = None
+            self._device = None
+
+        empty_device_cache(device)
+        logger.info("MOSS-TTS-Nano unloaded")
 
     async def create_voice_prompt(
         self,
@@ -160,7 +184,7 @@ class MOSSTTSNanoBackend:
 
         Args:
             text: Text to synthesize.
-            voice_prompt: Dict with ref_audio path.
+            voice_prompt: Dict with ref_audio path and optional ref_text.
             language: BCP-47 language code (ignored at inference; language
                       is inferred from the model's multilingual tokenizer).
             seed: Optional random seed for reproducibility.
@@ -168,6 +192,10 @@ class MOSSTTSNanoBackend:
 
         Returns:
             Tuple of (mono_audio_float32, sample_rate).
+
+        Raises:
+            FileNotFoundError: If ref_audio is provided but the file is missing.
+            RuntimeError: If the service was unloaded between load and generate.
         """
         await self.load_model()
 
@@ -182,20 +210,28 @@ class MOSSTTSNanoBackend:
             """
             Run synthesis on a thread-pool worker.
 
-            Acquires _service_lock to prevent a concurrent unload from
-            invalidating the service reference mid-inference.
+            Increments ``_active_generations`` under ``_service_lock``,
+            releases the lock, calls ``synthesize`` without holding it
+            (so concurrent generations can proceed in parallel), then
+            re-acquires the lock to decrement the counter and notify
+            any waiting ``unload_model`` call.
             """
-            with self._service_lock:
+            # --- register as active, grab local refs ---
+            with self._idle:
                 service = self._service
                 device = self._device
                 if service is None:
                     raise RuntimeError("MOSS-TTS-Nano service is not loaded")
+                self._active_generations += 1
 
+            try:
                 if seed is not None:
                     manual_seed(seed, device)
 
                 logger.info(f"[MOSS-TTS-Nano] Generating: lang={language}")
 
+                # synthesize() runs WITHOUT holding _service_lock so that
+                # concurrent requests are not serialised.
                 result = service.synthesize(
                     text=text,
                     prompt_audio_path=ref_audio,
@@ -203,6 +239,11 @@ class MOSSTTSNanoBackend:
                     mode="voice_clone" if ref_audio else "continuation",
                     seed=seed,
                 )
+            finally:
+                # --- deregister and wake any pending unload ---
+                with self._idle:
+                    self._active_generations -= 1
+                    self._idle.notify_all()
 
             waveform: np.ndarray = result["waveform_numpy"]
             sample_rate: int = int(result["sample_rate"])
