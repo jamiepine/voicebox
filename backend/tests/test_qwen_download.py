@@ -175,7 +175,7 @@ async def main():
     print("   ✅ Server is running")
 
     # Test model
-    model_name = "qwen-tts-0.6B"  # Note: 0.6B currently maps to 1.7B on MLX
+    model_name = "qwen-tts-0.6B"
     
     # Check current status
     print(f"\n📊 Checking status of {model_name}...")

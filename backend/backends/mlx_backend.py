@@ -46,21 +46,19 @@ class MLXTTSBackend:
             HuggingFace Hub model ID for MLX
         """
         # Handle custom model IDs
-        # @modified AJ - Kamyab (Ankit Jain) — Added custom model path resolution
         if model_size.startswith("custom:"):
             custom_id = model_size[len("custom:"):]
             from ..custom_models import get_hf_repo_id_for_custom_model
             hf_repo_id = get_hf_repo_id_for_custom_model(custom_id)
             if not hf_repo_id:
                 raise ValueError(f"Custom model '{custom_id}' not found")
-            print(f"Will download custom model from HuggingFace Hub: {hf_repo_id}")
+            logger.info("Will download custom model from HuggingFace Hub: %s", hf_repo_id)
             return hf_repo_id
-        
-        # MLX model mapping
+
+
         mlx_model_map = {
             "1.7B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
-            # 0.6B not yet converted to MLX format
-            "0.6B": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",  # Fallback to 1.7B
+            "0.6B": "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16",
         }
 
         if model_size not in mlx_model_map:
@@ -207,6 +205,8 @@ class MLXTTSBackend:
 
         logger.info("Generating audio for text: %s", text)
 
+        model_name = f"qwen-tts-{self._current_model_size}"
+
         def _generate_sync():
             """Run synchronous generation in thread pool."""
             # MLX generate() returns a generator yielding GenerationResult objects
@@ -232,36 +232,40 @@ class MLXTTSBackend:
                 logger.warning("Regenerating without voice prompt.")
                 ref_audio = None
 
-            # Check if model supports voice cloning via generate method
-            # MLX API may support ref_audio parameter directly
-            try:
-                # Try with voice cloning parameters if supported
-                if ref_audio:
-                    # Check if generate accepts ref_audio parameter
-                    import inspect
+            # Model is loaded → weights are on disk. Force offline so
+            # lazy tokenizer/config lookups inside mlx_audio don't hang
+            # when the user is disconnected (issue #462).
+            with force_offline_if_cached(True, model_name):
+                # Check if model supports voice cloning via generate method
+                # MLX API may support ref_audio parameter directly
+                try:
+                    # Try with voice cloning parameters if supported
+                    if ref_audio:
+                        # Check if generate accepts ref_audio parameter
+                        import inspect
 
-                    sig = inspect.signature(self.model.generate)
-                    if "ref_audio" in sig.parameters:
-                        # Generate with voice cloning
-                        for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
-                            audio_chunks.append(np.array(result.audio))
-                            sample_rate = result.sample_rate
+                        sig = inspect.signature(self.model.generate)
+                        if "ref_audio" in sig.parameters:
+                            # Generate with voice cloning
+                            for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
+                                audio_chunks.append(np.array(result.audio))
+                                sample_rate = result.sample_rate
+                        else:
+                            # Fallback: generate without voice cloning
+                            for result in self.model.generate(text, lang_code=lang):
+                                audio_chunks.append(np.array(result.audio))
+                                sample_rate = result.sample_rate
                     else:
-                        # Fallback: generate without voice cloning
+                        # No voice prompt, generate normally
                         for result in self.model.generate(text, lang_code=lang):
                             audio_chunks.append(np.array(result.audio))
                             sample_rate = result.sample_rate
-                else:
-                    # No voice prompt, generate normally
+                except Exception as e:
+                    # If voice cloning fails, try without it
+                    logger.warning("Voice cloning failed, generating without voice prompt: %s", e)
                     for result in self.model.generate(text, lang_code=lang):
                         audio_chunks.append(np.array(result.audio))
                         sample_rate = result.sample_rate
-            except Exception as e:
-                # If voice cloning fails, try without it
-                logger.warning("Voice cloning failed, generating without voice prompt: %s", e)
-                for result in self.model.generate(text, lang_code=lang):
-                    audio_chunks.append(np.array(result.audio))
-                    sample_rate = result.sample_rate
 
             # Concatenate all chunks
             if audio_chunks:
@@ -355,6 +359,8 @@ class MLXSTTBackend:
         """
         await self.load_model_async(model_size)
 
+        progress_model_name = f"whisper-{self.model_size}"
+
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
             # MLX Whisper transcription using generate method
@@ -363,7 +369,11 @@ class MLXSTTBackend:
             if language:
                 decode_options["language"] = language
 
-            result = self.model.generate(str(audio_path), **decode_options)
+            # Model is loaded → weights are on disk. Force offline so
+            # lazy tokenizer/config lookups don't hang when the user is
+            # disconnected (issue #462).
+            with force_offline_if_cached(True, progress_model_name):
+                result = self.model.generate(str(audio_path), **decode_options)
 
             # Extract text from result
             if isinstance(result, str):

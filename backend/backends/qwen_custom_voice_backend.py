@@ -28,6 +28,7 @@ from .base import (
     combine_voice_prompts as _combine_voice_prompts,
     model_load_progress,
 )
+from ..utils.hf_offline_patch import force_offline_if_cached
 
 logger = logging.getLogger(__name__)
 
@@ -104,18 +105,19 @@ class QwenCustomVoiceBackend:
             model_path = self._get_model_path(model_size)
             logger.info("Loading Qwen CustomVoice %s on %s...", model_size, self.device)
 
-            if self.device == "cpu":
-                self.model = Qwen3TTSModel.from_pretrained(
-                    model_path,
-                    torch_dtype=torch.float32,
-                    low_cpu_mem_usage=False,
-                )
-            else:
-                self.model = Qwen3TTSModel.from_pretrained(
-                    model_path,
-                    device_map=self.device,
-                    torch_dtype=torch.bfloat16,
-                )
+            with force_offline_if_cached(is_cached, model_name):
+                if self.device == "cpu":
+                    self.model = Qwen3TTSModel.from_pretrained(
+                        model_path,
+                        torch_dtype=torch.float32,
+                        low_cpu_mem_usage=False,
+                    )
+                else:
+                    self.model = Qwen3TTSModel.from_pretrained(
+                        model_path,
+                        device_map=self.device,
+                        torch_dtype=torch.bfloat16,
+                    )
 
         self._current_model_size = model_size
         self.model_size = model_size
@@ -184,6 +186,7 @@ class QwenCustomVoiceBackend:
         await self.load_model_async(None)
 
         speaker = voice_prompt.get("preset_voice_id") or QWEN_CV_DEFAULT_SPEAKER
+        model_name = f"qwen-custom-voice-{self._current_model_size}"
 
         def _generate_sync():
             if seed is not None:
@@ -203,7 +206,11 @@ class QwenCustomVoiceBackend:
             if instruct:
                 kwargs["instruct"] = instruct
 
-            wavs, sample_rate = self.model.generate_custom_voice(**kwargs)
+            # Model is loaded → weights are on disk. Force offline so
+            # lazy tokenizer/config lookups inside qwen_tts don't hang
+            # when the user is disconnected (issue #462).
+            with force_offline_if_cached(True, model_name):
+                wavs, sample_rate = self.model.generate_custom_voice(**kwargs)
             return wavs[0], sample_rate
 
         audio, sample_rate = await asyncio.to_thread(_generate_sync)

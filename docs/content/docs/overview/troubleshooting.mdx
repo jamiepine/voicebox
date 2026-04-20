@@ -446,20 +446,6 @@ Restart the app to create a fresh database.
   huggingface-cli download Qwen/Qwen3-TTS-12Hz-1.7B-Base
   ```
 
-### Qwen 0.6B Downloads the Same Files as 1.7B on Apple Silicon
-
-**Symptoms:**
-- You select Qwen 0.6B on an Apple Silicon Mac and the download is the same size as 1.7B
-- Generation speed and VRAM usage match 1.7B, not the expected smaller model
-
-**Explanation:**
-This is intentional, not a bug. The MLX community only publishes `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16` — there is no 0.6B MLX build. Voicebox's model registry falls back to the 1.7B weights when 0.6B is selected on MLX (see `backend/backends/__init__.py`).
-
-**Solution:**
-- On Apple Silicon, both size options use the 1.7B model — pick either.
-- If you specifically need a smaller model, switch to **Kokoro 82M** (~350 MB) or **LuxTTS** (~300 MB) — both CPU-realtime.
-- On Windows/Linux with PyTorch, 0.6B and 1.7B are distinct repos and behave differently.
-
 ### Wrong Model Version
 
 **Symptoms:**

@@ -309,11 +309,7 @@ Still reported. Users get stuck downloads, can't resume, offline mode edge cases
 
 **Fix path:** PR #443 addresses infinite offline retry. CustomVoice-specific download failures (#475, #445) need triage — likely related to frozen-binary import fixes in PR #438. TADA cluster (#336, #348) and macOS ARM import regressions (#287, #275, #304) need a dedicated triage pass.
 
-**Qwen 0.6B-downloads-1.7B reports:** **#485** (2026-04-19), **#423** (macOS M1), **#329**. Platform-dependent:
-
-- **On MLX (Apple Silicon) — not a bug.** `mlx-community` only publishes 1.7B-Base-bf16 weights, so the 0.6B Base option intentionally resolves to the same repo (`backend/backends/__init__.py:180` — `# 0.6B not available in MLX, falls back`). UX gap: the selector offers a size that doesn't exist on the active backend. Fix: (a) hide the 0.6B option on MLX, or (b) label it "0.6B (uses 1.7B on Apple Silicon)".
-- **On PyTorch (Windows/Linux/CUDA/ROCm/XPU/CPU) — real bug if reported.** Both 0.6B and 1.7B have distinct repos (`Qwen/Qwen3-TTS-12Hz-0.6B-Base` vs `-1.7B-Base`). Triage each report by platform before merging into the MLX cluster.
-- **Qwen CustomVoice (either platform)** — no fallback, both sizes always have dedicated repos.
+**Qwen 0.6B-downloads-1.7B reports:** **#485** (2026-04-19), **#423** (macOS M1), **#329**. Originally a stale-fallback bug: `mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16` wasn't published when MLX support shipped, so the 0.6B slot was aliased to the 1.7B repo. The 0.6B bf16 conversion is live now and both `backend/backends/mlx_backend.py` and `backend/backends/__init__.py` point at their correct repos. Qwen CustomVoice is unaffected — it runs via PyTorch on all platforms, both sizes always have dedicated repos.
 
 ### Language Requests (ongoing)
 
@@ -393,7 +389,7 @@ Notable:
 | **#306** ("voice model"), **#389** ("New model"), **#473** ("New functionality") | Title-only issues, no content. Request details or close. |
 | **#309** | Uninstall/cleanup question. Answer and close. |
 | **#241** | "How to use in Colab" — support question, not a bug. |
-| **#423** / **#485** / **#329** | Platform-dependent. On MLX: not a bug (0.6B weights don't exist upstream, fallback is intentional — fix UX). On PyTorch: real bug if reproducible. Classify each by reporter's platform before deduping. |
+| **#423** / **#485** / **#329** | Stale MLX fallback to 1.7B repo — fixed; 0.6B bf16 conversion now live on `mlx-community`, registry points at correct repo on both backends. |
 | **#336** / **#348** | TADA download/registration cluster — triage together. |
 | **#287** / **#275** / **#304** | macOS ARM import regressions on new version — likely one root cause. |
 | **#292**, **#349** | Possibly already fixed by merged PRs (#321/#412 and #345). Verify + close. |

@@ -177,7 +177,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
     backend_type = get_backend_type()
     if backend_type == "mlx":
         repo_1_7b = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
-        repo_0_6b = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"  # 0.6B not available in MLX, falls back
+        repo_0_6b = "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16"
     else:
         repo_1_7b = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         repo_0_6b = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"

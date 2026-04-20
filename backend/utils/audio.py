@@ -199,6 +199,66 @@ def trim_tts_output(
     return trimmed
 
 
+def preprocess_reference_audio(
+    audio: np.ndarray,
+    sample_rate: int,
+    peak_target: float = 0.95,
+    trim_top_db: float = 40.0,
+    edge_padding_ms: int = 100,
+) -> np.ndarray:
+    """
+    Clean up a reference-audio sample before validation/storage.
+
+    Removes DC offset, trims leading/trailing silence, and caps the peak so a
+    slightly-hot recording doesn't get rejected downstream as "clipping". The
+    goal is to accept reasonable real-world recordings — not to repair badly
+    distorted ones. True clipping artifacts inside the waveform can't be
+    recovered by peak scaling and will still sound bad.
+
+    Args:
+        audio: Mono audio array.
+        sample_rate: Sample rate of ``audio`` in Hz.
+        peak_target: Peak amplitude cap in [0, 1]. Applied only if the input
+            peak exceeds this value.
+        trim_top_db: Silence threshold for edge trimming, in dB below peak.
+            40 dB sits below normal speech dynamic range (≈30 dB) so soft
+            trailing syllables are preserved, while still catching obvious
+            leading/trailing silence. Lower values are more aggressive;
+            librosa's own default is 60.
+        edge_padding_ms: Milliseconds of padding to add back at each edge
+            *only if* trimming shortened the waveform, so TTS engines have a
+            brief silence to anchor on without ever making the output longer
+            than the input.
+
+    Returns:
+        Preprocessed audio array (float32).
+    """
+    audio = audio.astype(np.float32, copy=False)
+
+    if audio.size == 0:
+        return audio
+
+    audio = audio - float(np.mean(audio))
+
+    trimmed, _ = librosa.effects.trim(audio, top_db=trim_top_db)
+    if 0 < trimmed.size < audio.size:
+        pad_each = int(sample_rate * edge_padding_ms / 1000)
+        # Never pad past the original length — for near-max-duration uploads
+        # an unconditional pad would push them over the 30 s ceiling and
+        # trigger a spurious "too long" rejection.
+        headroom = (audio.size - trimmed.size) // 2
+        pad = min(pad_each, max(headroom, 0))
+        if pad > 0:
+            trimmed = np.pad(trimmed, (pad, pad), mode="constant")
+        audio = trimmed
+
+    peak = float(np.abs(audio).max())
+    if peak > peak_target and peak > 0:
+        audio = audio * (peak_target / peak)
+
+    return audio
+
+
 def validate_reference_audio(
     audio_path: str,
     min_duration: float = 2.0,
@@ -207,13 +267,13 @@ def validate_reference_audio(
 ) -> Tuple[bool, Optional[str]]:
     """
     Validate reference audio for voice cloning.
-    
+
     Args:
         audio_path: Path to audio file
         min_duration: Minimum duration in seconds
         max_duration: Maximum duration in seconds
         min_rms: Minimum RMS level
-        
+
     Returns:
         Tuple of (is_valid, error_message)
     """
@@ -231,26 +291,28 @@ def validate_and_load_reference_audio(
 ) -> Tuple[bool, Optional[str], Optional[np.ndarray], Optional[int]]:
     """
     Validate and load reference audio in a single pass.
-    
+
+    Applies :func:`preprocess_reference_audio` before checks so that
+    slightly-hot recordings aren't rejected as clipping. Duration and RMS
+    checks run on the preprocessed waveform.
+
     Returns:
         Tuple of (is_valid, error_message, audio_array, sample_rate)
     """
     try:
         audio, sr = load_audio(audio_path)
+        audio = preprocess_reference_audio(audio, sr)
         duration = len(audio) / sr
-        
+
         if duration < min_duration:
             return False, f"Audio too short (minimum {min_duration} seconds)", None, None
         if duration > max_duration:
             return False, f"Audio too long (maximum {max_duration} seconds)", None, None
-        
+
         rms = np.sqrt(np.mean(audio**2))
         if rms < min_rms:
             return False, "Audio is too quiet or silent", None, None
-        
-        if np.abs(audio).max() > 0.99:
-            return False, "Audio is clipping (reduce input gain)", None, None
-        
+
         return True, None, audio, sr
     except Exception as e:
         return False, f"Error validating audio: {str(e)}", None, None
