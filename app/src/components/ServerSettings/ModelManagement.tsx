@@ -68,6 +68,8 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
     'HumeAI TADA 3B Multilingual — built on Llama 3.2 3B. Supports 10 languages with high-fidelity voice cloning via text-acoustic dual alignment.',
   kokoro:
     'Kokoro 82M by hexgrad. Tiny 82M-parameter TTS that runs at CPU realtime. Supports 8 languages with pre-built voice styles. Apache 2.0 licensed.',
+  'moss-tts-nano':
+    'MOSS-TTS-Nano by OpenMOSS. 0.1B-parameter TTS with voice cloning, 20 languages, 48 kHz stereo output, and CPU realtime on 4 cores. Apache 2.0.',
   'qwen-custom-voice-1.7B':
     'Qwen3-TTS CustomVoice 1.7B by Alibaba. 9 premium preset voices with instruct-based style control for tone, emotion, and prosody. Supports 10 languages.',
   'qwen-custom-voice-0.6B':
@@ -404,7 +406,8 @@ export function ModelManagement() {
         m.model_name.startsWith('luxtts') ||
         m.model_name.startsWith('chatterbox') ||
         m.model_name.startsWith('tada') ||
-        m.model_name.startsWith('kokoro'),
+        m.model_name.startsWith('kokoro') ||
+        m.model_name.startsWith('moss-tts-nano'),
     ) ?? [];
   const whisperModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper')) ?? [];
 

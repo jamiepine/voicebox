@@ -48,6 +48,8 @@ setup-python:
     {{ pip }} install --no-deps chatterbox-tts
     # HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
     {{ pip }} install --no-deps hume-tada
+    # MOSS-TTS-Nano pins torch==2.7.0 which conflicts with our torch>=2.2
+    {{ pip }} install --no-deps git+https://github.com/OpenMOSS/MOSS-TTS-Nano.git
     # Apple Silicon: install MLX backend
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
@@ -89,6 +91,8 @@ setup-python:
     & "{{ pip }}" install -r {{ backend_dir }}/requirements.txt
     & "{{ pip }}" install --no-deps chatterbox-tts
     & "{{ pip }}" install --no-deps hume-tada
+    # MOSS-TTS-Nano pins torch==2.7.0 which conflicts with our torch>=2.2
+    & "{{ pip }}" install --no-deps git+https://github.com/OpenMOSS/MOSS-TTS-Nano.git
     & "{{ pip }}" install git+https://github.com/QwenLM/Qwen3-TTS.git
     & "{{ pip }}" install pyinstaller ruff pytest pytest-asyncio -q
     Write-Host "Python environment ready."

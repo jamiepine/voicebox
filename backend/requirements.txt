@@ -47,6 +47,11 @@ misaki[en,ja,zh]>=0.9.4
 # tries spacy.cli.download() at runtime which crashes frozen builds
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
 
+# MOSS-TTS-Nano (0.1B multilingual TTS, CPU-friendly, Apache 2.0)
+# Installed --no-deps in setup scripts because it pins torch==2.7.0
+# Sub-dependency sentencepiece is listed here explicitly
+sentencepiece>=0.1.99
+
 # Audio processing
 librosa>=0.10.0
 soundfile>=0.12.0

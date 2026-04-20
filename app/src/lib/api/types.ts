@@ -69,7 +69,8 @@ export interface GenerationRequest {
     | 'chatterbox'
     | 'chatterbox_turbo'
     | 'tada'
-    | 'kokoro';
+    | 'kokoro'
+    | 'moss_tts_nano';
   instruct?: string;
   max_chunk_chars?: number;
   crossfade_ms?: number;

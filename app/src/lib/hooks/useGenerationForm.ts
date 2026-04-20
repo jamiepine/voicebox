@@ -27,6 +27,7 @@ const generationSchema = z.object({
       'chatterbox_turbo',
       'tada',
       'kokoro',
+      'moss_tts_nano',
     ])
     .optional(),
 });
@@ -97,7 +98,9 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'tada-1b'
                 : engine === 'kokoro'
                   ? 'kokoro'
-                  : engine === 'qwen_custom_voice'
+                  : engine === 'moss_tts_nano'
+                    ? 'moss-tts-nano'
+                    : engine === 'qwen_custom_voice'
                     ? `qwen-custom-voice-${data.modelSize}`
                     : `qwen-tts-${data.modelSize}`;
       const displayName =
@@ -113,7 +116,9 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'TADA 1B'
                 : engine === 'kokoro'
                   ? 'Kokoro 82M'
-                  : engine === 'qwen_custom_voice'
+                  : engine === 'moss_tts_nano'
+                    ? 'MOSS-TTS-Nano'
+                    : engine === 'qwen_custom_voice'
                     ? data.modelSize === '1.7B'
                       ? 'Qwen CustomVoice 1.7B'
                       : 'Qwen CustomVoice 0.6B'
