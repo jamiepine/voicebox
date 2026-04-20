@@ -11,7 +11,7 @@ import asyncio
 import logging
 import threading
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Optional
 
 import numpy as np
 
@@ -108,7 +108,7 @@ class MOSSTTSNanoBackend:
         audio_path: str,
         reference_text: str,
         use_cache: bool = True,
-    ) -> Tuple[dict, bool]:
+    ) -> tuple[dict, bool]:
         """
         Create voice prompt from reference audio.
 
@@ -123,9 +123,9 @@ class MOSSTTSNanoBackend:
 
     async def combine_voice_prompts(
         self,
-        audio_paths: List[str],
-        reference_texts: List[str],
-    ) -> Tuple[np.ndarray, str]:
+        audio_paths: list[str],
+        reference_texts: list[str],
+    ) -> tuple[np.ndarray, str]:
         return await _combine_voice_prompts(audio_paths, reference_texts)
 
     async def generate(
@@ -135,7 +135,7 @@ class MOSSTTSNanoBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
-    ) -> Tuple[np.ndarray, int]:
+    ) -> tuple[np.ndarray, int]:
         """
         Generate audio using MOSS-TTS-Nano voice cloning.
 
@@ -159,7 +159,7 @@ class MOSSTTSNanoBackend:
             ref_audio = None
             ref_text = None
 
-        def _generate_sync() -> Tuple[np.ndarray, int]:
+        def _generate_sync() -> tuple[np.ndarray, int]:
             with self._service_lock:
                 service = self._service
                 device = self._device
