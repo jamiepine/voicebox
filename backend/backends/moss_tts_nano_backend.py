@@ -89,17 +89,23 @@ class MOSSTTSNanoBackend:
         Uses an asyncio.Lock to serialise concurrent load requests so that
         only one worker thread initialises the service.
 
+        The outer check is intentionally lockless: Python attribute reads are
+        atomic and the authoritative re-check under ``_idle`` inside
+        ``_model_load_lock`` still guards against races with ``unload_model``.
+        Acquiring ``_idle`` (a threading lock) on the event-loop thread would
+        block the loop while a worker thread holds it during ``_load_model_sync``.
+
         Raises:
             RuntimeError: If ``unload_model`` is currently draining in-flight
                 generations; callers should retry after the unload completes.
         """
-        with self._idle:
-            if self._unloading:
-                raise RuntimeError(
-                    "MOSS-TTS-Nano is currently unloading; retry after unload completes"
-                )
-            if self._service is not None:
-                return
+        # Lockless fast-path — safe because the inner double-check is authoritative.
+        if self._unloading:
+            raise RuntimeError(
+                "MOSS-TTS-Nano is currently unloading; retry after unload completes"
+            )
+        if self._service is not None:
+            return
         async with self._model_load_lock:
             with self._idle:
                 if self._unloading:
@@ -267,9 +273,9 @@ class MOSSTTSNanoBackend:
             waveform: np.ndarray = result["waveform_numpy"]
             sample_rate: int = int(result["sample_rate"])
 
-            # Convert stereo (samples, 2) -> mono (samples,)
+            # Convert channels-first (channels, samples) -> mono (samples,)
             if waveform.ndim == 2:
-                waveform = waveform.mean(axis=1)
+                waveform = waveform.mean(axis=0)
 
             audio = waveform.astype(np.float32)
             return audio, sample_rate
