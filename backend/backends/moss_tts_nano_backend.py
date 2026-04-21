@@ -88,12 +88,26 @@ class MOSSTTSNanoBackend:
 
         Uses an asyncio.Lock to serialise concurrent load requests so that
         only one worker thread initialises the service.
+
+        Raises:
+            RuntimeError: If ``unload_model`` is currently draining in-flight
+                generations; callers should retry after the unload completes.
         """
-        if self._service is not None:
-            return
-        async with self._model_load_lock:
+        with self._idle:
+            if self._unloading:
+                raise RuntimeError(
+                    "MOSS-TTS-Nano is currently unloading; retry after unload completes"
+                )
             if self._service is not None:
                 return
+        async with self._model_load_lock:
+            with self._idle:
+                if self._unloading:
+                    raise RuntimeError(
+                        "MOSS-TTS-Nano is currently unloading; retry after unload completes"
+                    )
+                if self._service is not None:
+                    return
             await asyncio.to_thread(self._load_model_sync)
 
     def _load_model_sync(self) -> None:
