@@ -13,6 +13,11 @@ from typing import Optional, Union
 
 logger = logging.getLogger(__name__)
 
+# Module-level flag: if True, we've already tried with network and failed for
+# this model.  Prevents each individual config file from triggering its own
+# 5-retry cycle.
+_offline_retry_done = {}
+
 
 # huggingface_hub reads ``HF_HUB_OFFLINE`` once at import time into
 # ``huggingface_hub.constants.HF_HUB_OFFLINE``; transformers mirrors that into
