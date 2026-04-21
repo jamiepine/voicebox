@@ -71,6 +71,8 @@ export interface GenerationRequest {
     | 'tada'
     | 'kokoro';
   instruct?: string;
+  exaggeration?: number;
+  cfg_weight?: number;
   max_chunk_chars?: number;
   crossfade_ms?: number;
   normalize?: boolean;

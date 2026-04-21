@@ -171,6 +171,8 @@ class ChatterboxTTSBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        exaggeration: Optional[float] = None,
+        cfg_weight: Optional[float] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio using Chatterbox Multilingual TTS.
@@ -207,8 +209,8 @@ class ChatterboxTTSBackend:
                 text,
                 language_id=language,
                 audio_prompt_path=ref_audio,
-                exaggeration=lang_defaults["exaggeration"],
-                cfg_weight=lang_defaults["cfg_weight"],
+                exaggeration=exaggeration if exaggeration is not None else lang_defaults["exaggeration"],
+                cfg_weight=cfg_weight if cfg_weight is not None else lang_defaults["cfg_weight"],
                 temperature=lang_defaults["temperature"],
                 repetition_penalty=lang_defaults["repetition_penalty"],
             )

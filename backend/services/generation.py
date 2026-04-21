@@ -42,6 +42,8 @@ async def run_generation(
     max_chunk_chars: Optional[int] = None,
     crossfade_ms: Optional[int] = None,
     version_id: Optional[str] = None,
+    exaggeration: Optional[float] = None,
+    cfg_weight: Optional[float] = None,
 ) -> None:
     """Execute TTS inference and persist the result.
 
@@ -83,6 +85,10 @@ async def run_generation(
             gen_kwargs["max_chunk_chars"] = max_chunk_chars
         if crossfade_ms is not None:
             gen_kwargs["crossfade_ms"] = crossfade_ms
+        if engine == "chatterbox" and exaggeration is not None:
+            gen_kwargs["exaggeration"] = exaggeration
+        if engine == "chatterbox" and cfg_weight is not None:
+            gen_kwargs["cfg_weight"] = cfg_weight
 
         audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
 
