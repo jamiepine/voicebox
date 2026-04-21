@@ -16,7 +16,6 @@ import type {
   HistoryQuery,
   HistoryResponse,
   ModelDownloadRequest,
-  ActiveTasksResponse,
   CustomModelCreate,
   CustomModelResponse,
   CustomModelListResponse,

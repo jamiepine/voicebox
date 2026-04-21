@@ -421,6 +421,7 @@ async def get_model_status():
                     downloading=hf_repo in active_download_repos,
                     size_mb=cm_size_mb,
                     loaded=False,
+                    is_custom=True,
                 )
             )
     except Exception:

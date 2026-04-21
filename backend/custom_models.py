@@ -7,7 +7,6 @@ Models are persisted in a JSON config file in the data directory.
 @author AJ - Kamyab (Ankit Jain)
 """
 
-import fcntl
 import json
 import logging
 import os

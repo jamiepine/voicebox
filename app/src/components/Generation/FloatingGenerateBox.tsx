@@ -8,9 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from '@/component
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';

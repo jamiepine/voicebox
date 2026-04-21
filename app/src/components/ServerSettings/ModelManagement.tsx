@@ -1,6 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronRight, ChevronUp, CircleCheck, CircleX, Download, ExternalLink, FolderOpen, HardDrive, Heart, Loader2, Plus, RotateCcw, Scale, Trash2, Unplug, X } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';import {
+import {
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  CircleCheck,
+  CircleX,
+  Download,
+  ExternalLink,
+  FolderOpen,
+  HardDrive,
+  Heart,
+  Loader2,
+  Plus,
+  RotateCcw,
+  Scale,
+  Trash2,
+  Unplug,
+  X,
+} from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -12,10 +31,10 @@ import { useCallback, useMemo, useState } from 'react';import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import { apiClient } from '@/lib/api/client';
-import type { ActiveDownloadTask, HuggingFaceModelInfo, ModelStatus } from '@/lib/api/types';
-import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -23,44 +42,10 @@ import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-/**
- * Model Management panel — displayed in the Settings page.
- *
- * Renders three sections:
- *  1. Built-in Voice Generation models (Qwen TTS 1.7B / 0.6B)
- *  2. Transcription models (Whisper variants)
- *  3. Custom Models — user-added HuggingFace TTS models
- *
- * Custom models use a "custom:<slug>" naming convention throughout the
- * frontend and backend so they can be distinguished from built-in models.
- *
- * @modified AJ - Kamyab (Ankit Jain) — Added Custom Models section, add/remove mutations, and CustomModelItem component
- */
-export function ModelManagement() {
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const platform = usePlatform();
-  const customModelsDir = useServerStore((state) => state.customModelsDir);
-  const setCustomModelsDir = useServerStore((state) => state.setCustomModelsDir);
-  const [migrating, setMigrating] = useState(false);
-  const [migrationProgress, setMigrationProgress] = useState<{
-    current: number;
-    total: number;
-    progress: number;
-    filename?: string;
-    status: string;
-  } | null>(null);
-  const [pendingMigrateDir, setPendingMigrateDir] = useState<string | null>(null);
-  const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
-  const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
-  const [consoleOpen, setConsoleOpen] = useState(false);
-  const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
-  const [localErrors, setLocalErrors] = useState<Map<string, string>>(new Map());
-
-  // Modal state
-  const [selectedModel, setSelectedModel] = useState<ModelStatus | null>(null);
-  const [detailOpen, setDetailOpen] = useState(false);
-
+import { useToast } from '@/components/ui/use-toast';
+import { apiClient } from '@/lib/api/client';
+import type { ActiveDownloadTask, HuggingFaceModelInfo, ModelStatus } from '@/lib/api/types';
+import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
 
@@ -71,21 +56,36 @@ async function fetchHuggingFaceModelInfo(repoId: string): Promise<HuggingFaceMod
 }
 
 const MODEL_DESCRIPTIONS: Record<string, string> = {
-  'qwen-tts-1.7B': "High-quality multilingual TTS by Alibaba. Supports 10 languages with natural prosody and voice cloning from short reference audio.",
-  'qwen-tts-0.6B': "Lightweight version of Qwen TTS. Same language support with faster inference, ideal for lower-end hardware.",
-  luxtts: "Lightweight ZipVoice-based TTS designed for high quality voice cloning and 48kHz speech generation at speeds exceeding 150x realtime.",
-  'chatterbox-tts': "Production-grade open source TTS by Resemble AI. Supports 23 languages with voice cloning and emotion exaggeration control.",
-  'chatterbox-turbo': "Streamlined 350M parameter TTS by Resemble AI. High-quality English speech with less compute and VRAM than larger models.",
-  'tada-1b': "HumeAI TADA 1B — English speech-language model built on Llama 3.2 1B. Generates 700s+ of coherent audio with synchronized text-acoustic alignment.",
-  'tada-3b-ml': "HumeAI TADA 3B Multilingual — built on Llama 3.2 3B. Supports 10 languages with high-fidelity voice cloning via text-acoustic dual alignment.",
-  kokoro: "Kokoro 82M by hexgrad. Tiny 82M-parameter TTS that runs at CPU realtime. Supports 8 languages with pre-built voice styles. Apache 2.0 licensed.",
-  'qwen-custom-voice-1.7B': "Qwen3-TTS CustomVoice 1.7B by Alibaba. 9 premium preset voices with instruct-based style control for tone, emotion, and prosody. Supports 10 languages.",
-  'qwen-custom-voice-0.6B': "Qwen3-TTS CustomVoice 0.6B by Alibaba. Lightweight version with the same 9 preset voices and instruct control. Faster inference for lower-end hardware.",
-  'whisper-base': "Smallest Whisper model (74M parameters). Fast transcription with moderate accuracy.",
-  'whisper-small': "Whisper Small (244M parameters). Good balance of speed and accuracy for transcription.",
-  'whisper-medium': "Whisper Medium (769M parameters). Higher accuracy transcription at moderate speed.",
-  'whisper-large': "Whisper Large (1.5B parameters). Best accuracy for speech-to-text across multiple languages.",
-  'whisper-turbo': "Whisper Large v3 Turbo. Pruned for significantly faster inference while maintaining near-large accuracy."
+  'qwen-tts-1.7B':
+    'High-quality multilingual TTS by Alibaba. Supports 10 languages with natural prosody and voice cloning from short reference audio.',
+  'qwen-tts-0.6B':
+    'Lightweight version of Qwen TTS. Same language support with faster inference, ideal for lower-end hardware.',
+  luxtts:
+    'Lightweight ZipVoice-based TTS designed for high quality voice cloning and 48kHz speech generation at speeds exceeding 150x realtime.',
+  'chatterbox-tts':
+    'Production-grade open source TTS by Resemble AI. Supports 23 languages with voice cloning and emotion exaggeration control.',
+  'chatterbox-turbo':
+    'Streamlined 350M parameter TTS by Resemble AI. High-quality English speech with less compute and VRAM than larger models.',
+  'tada-1b':
+    'HumeAI TADA 1B — English speech-language model built on Llama 3.2 1B. Generates 700s+ of coherent audio with synchronized text-acoustic alignment.',
+  'tada-3b-ml':
+    'HumeAI TADA 3B Multilingual — built on Llama 3.2 3B. Supports 10 languages with high-fidelity voice cloning via text-acoustic dual alignment.',
+  kokoro:
+    'Kokoro 82M by hexgrad. Tiny 82M-parameter TTS that runs at CPU realtime. Supports 8 languages with pre-built voice styles. Apache 2.0 licensed.',
+  'qwen-custom-voice-1.7B':
+    'Qwen3-TTS CustomVoice 1.7B by Alibaba. 9 premium preset voices with instruct-based style control for tone, emotion, and prosody. Supports 10 languages.',
+  'qwen-custom-voice-0.6B':
+    'Qwen3-TTS CustomVoice 0.6B by Alibaba. Lightweight version with the same 9 preset voices and instruct control. Faster inference for lower-end hardware.',
+  'whisper-base':
+    'Smallest Whisper model (74M parameters). Fast transcription with moderate accuracy.',
+  'whisper-small':
+    'Whisper Small (244M parameters). Good balance of speed and accuracy for transcription.',
+  'whisper-medium':
+    'Whisper Medium (769M parameters). Higher accuracy transcription at moderate speed.',
+  'whisper-large':
+    'Whisper Large (1.5B parameters). Best accuracy for speech-to-text across multiple languages.',
+  'whisper-turbo':
+    'Whisper Large v3 Turbo. Pruned for significantly faster inference while maintaining near-large accuracy.',
 };
 
 function formatDownloads(n: number): string {
@@ -121,6 +121,41 @@ function formatBytes(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${(bytes / k ** i).toFixed(1)} ${sizes[i]}`;
 }
+
+export function ModelManagement() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const platform = usePlatform();
+  const customModelsDir = useServerStore((state) => state.customModelsDir);
+  const setCustomModelsDir = useServerStore((state) => state.setCustomModelsDir);
+  const [migrating, setMigrating] = useState(false);
+  const [migrationProgress, setMigrationProgress] = useState<{
+    current: number;
+    total: number;
+    progress: number;
+    filename?: string;
+    status: string;
+  } | null>(null);
+  const [pendingMigrateDir, setPendingMigrateDir] = useState<string | null>(null);
+  const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
+  const [downloadingDisplayName, setDownloadingDisplayName] = useState<string | null>(null);
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
+  const [localErrors, setLocalErrors] = useState<Map<string, string>>(new Map());
+
+  // Modal state
+  const [selectedModel, setSelectedModel] = useState<ModelStatus | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const { data: modelStatus, isLoading } = useQuery({
+    queryKey: ['modelStatus'],
+    queryFn: async () => {
+      const result = await apiClient.getModelStatus();
+      return result;
+    },
+    refetchInterval: 5000,
+  });
+
   const { data: cacheDir } = useQuery({
     queryKey: ['modelsCacheDir'],
     queryFn: () => apiClient.getModelsCacheDir(),
@@ -222,12 +257,47 @@ function formatBytes(bytes: number): string {
   const [newModelRepoId, setNewModelRepoId] = useState('');
   const [newModelDisplayName, setNewModelDisplayName] = useState('');
 
+  const addCustomModelMutation = useMutation({
+    mutationFn: (data: { hf_repo_id: string; display_name: string }) =>
+      apiClient.addCustomModel(data),
+    onSuccess: async () => {
+      toast({ title: 'Custom model added', description: 'The model has been registered.' });
+      setAddDialogOpen(false);
+      setNewModelRepoId('');
+      setNewModelDisplayName('');
+      await queryClient.invalidateQueries({ queryKey: ['modelStatus'], refetchType: 'all' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to add model', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const removeCustomModelMutation = useMutation({
+    mutationFn: (modelId: string) => apiClient.removeCustomModel(modelId),
+    onSuccess: async () => {
+      toast({ title: 'Custom model removed', description: 'The model has been unregistered.' });
+      await queryClient.invalidateQueries({ queryKey: ['modelStatus'], refetchType: 'all' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to remove model', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const handleAddCustomModel = () => {
+    if (!newModelRepoId.trim() || !newModelDisplayName.trim()) return;
+    addCustomModelMutation.mutate({
+      hf_repo_id: newModelRepoId.trim(),
+      display_name: newModelDisplayName.trim(),
+    });
+  };
+
   const handleDownload = async (modelName: string) => {
     setDismissedErrors((prev) => {
       const next = new Set(prev);
       next.delete(modelName);
       return next;
     });
+
     const model = modelStatus?.models.find((m) => m.model_name === modelName);
     const displayName = model?.display_name || modelName;
 
@@ -236,6 +306,7 @@ function formatBytes(bytes: number): string {
 
       setDownloadingModel(modelName);
       setDownloadingDisplayName(displayName);
+
       queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
       queryClient.invalidateQueries({ queryKey: ['activeTasks'] });
     } catch (error) {
@@ -315,7 +386,8 @@ function formatBytes(bytes: number): string {
       setModelToDelete(null);
       setDetailOpen(false);
       setSelectedModel(null);
-      await queryClient.invalidateQueries({ queryKey: ['modelStatus'], refetchType: 'all' });      await queryClient.refetchQueries({ queryKey: ['modelStatus'] });
+      await queryClient.invalidateQueries({ queryKey: ['modelStatus'], refetchType: 'all' });
+      await queryClient.refetchQueries({ queryKey: ['modelStatus'] });
     },
     onError: (error: Error) => {
       toast({
@@ -340,7 +412,8 @@ function formatBytes(bytes: number): string {
     },
     onError: (error: Error) => {
       toast({
-        title: 'Unload failed',        description: error.message,
+        title: 'Unload failed',
+        description: error.message,
         variant: 'destructive',
       });
     },
@@ -352,15 +425,7 @@ function formatBytes(bytes: number): string {
     return `${(sizeMb / 1024).toFixed(2)} GB`;
   };
 
-const handleAddCustomModel = () => {
-    if (!newModelRepoId.trim() || !newModelDisplayName.trim()) return;
-    addCustomModelMutation.mutate({
-      hf_repo_id: newModelRepoId.trim(),
-      display_name: newModelDisplayName.trim(),
-    });
-  };
-
-const getModelState = (model: ModelStatus) => {
+  const getModelState = (model: ModelStatus) => {
     const isDownloading =
       (model.downloading || downloadingModel === model.model_name) &&
       !erroredDownloads.has(model.model_name) &&
@@ -388,7 +453,7 @@ const getModelState = (model: ModelStatus) => {
 
   // Build sections
   const customModels = modelStatus?.models.filter(m => m.model_name.startsWith('custom:')) ?? [];
-  const sections: { label: string; models: ModelStatus[], isCustom?: boolean }[] = [
+  const sections: { label: string; models: ModelStatus[]; isCustom?: boolean }[] = [
     { label: 'Voice Generation', models: voiceModels },
     { label: 'Transcription', models: whisperModels },
     { label: 'Custom Models', models: customModels, isCustom: true },
@@ -407,7 +472,9 @@ const getModelState = (model: ModelStatus) => {
   // Derive license from HF data
   const license =
     hfModelInfo?.cardData?.license ||
-    hfModelInfo?.tags?.find((t) => t.startsWith('license:'))?.replace('license:', '');  return (
+    hfModelInfo?.tags?.find((t) => t.startsWith('license:'))?.replace('license:', '');
+
+  return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 pb-4">
@@ -511,7 +578,6 @@ const getModelState = (model: ModelStatus) => {
                   </Button>
                 )}
               </div>
-
               <div className="border rounded-lg divide-y overflow-hidden">
                 {section.models.map((model) => {
                   const { isDownloading, hasError } = getModelState(model);
@@ -648,69 +714,7 @@ const getModelState = (model: ModelStatus) => {
         </div>
       ) : null}
 
-{/* Custom Models */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-muted-foreground">
-                  Custom Models
-                </h3>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setAddDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Model
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {customModels
-                  .map((model) => (
-                    <CustomModelItem
-                      key={model.model_name}
-                      model={model}
-                      onDownload={() => handleDownload(model.model_name)}
-                      onDeleteCache={() => {
-                        setModelToDelete({
-                          name: model.model_name,
-                          displayName: model.display_name,
-                          sizeMb: model.size_mb,
-                        });
-                        setDeleteDialogOpen(true);
-                      }}
-                      onRemove={() => {
-                        // Guard: ignore if already unregistering
-                        if (removeCustomModelMutation.isPending) return;
-                        // Validate model_name is in "custom:<slug>" format
-                        if (typeof model.model_name !== 'string' || !model.model_name.startsWith('custom:')) {
-                          toast({
-                            title: 'Cannot remove model',
-                            description: `Invalid model identifier: ${model.model_name}`,
-                            variant: 'destructive',
-                          });
-                          return;
-                        }
-                        const customId = model.model_name.slice('custom:'.length);
-                        removeCustomModelMutation.mutate(customId);
-                      }}
-                      isDownloading={downloadingModel === model.model_name}
-                      isUnregistering={removeCustomModelMutation.isPending}
-                      formatSize={formatSize}
-                    />
-                  ))}
-                {customModels.length === 0 && (
-                  <div className="text-sm text-muted-foreground p-3 border border-dashed rounded-lg text-center">
-                    No custom models added yet. Click "Add Model" to add a HuggingFace model.
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-        ) : null}
-      </CardContent>
-
-{/* Model Detail Modal */}
+      {/* Model Detail Modal */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="sm:max-w-md">
           {freshSelectedModel && (
@@ -970,6 +974,7 @@ const getModelState = (model: ModelStatus) => {
           )}
         </DialogContent>
       </Dialog>
+
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -1010,6 +1015,45 @@ const getModelState = (model: ModelStatus) => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Add Custom Model Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Custom Model</DialogTitle>
+            <DialogDescription>
+              Register a HuggingFace TTS model to use in Voicebox.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="repoId">HuggingFace Repository ID</Label>
+              <Input
+                id="repoId"
+                placeholder="e.g. username/my-custom-qwen-tts"
+                value={newModelRepoId}
+                onChange={(e) => setNewModelRepoId(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="displayName">Display Name</Label>
+              <Input
+                id="displayName"
+                placeholder="e.g. My Custom Voice"
+                value={newModelDisplayName}
+                onChange={(e) => setNewModelDisplayName(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddCustomModel} disabled={addCustomModelMutation.isPending || !newModelRepoId.trim() || !newModelDisplayName.trim()}>
+              {addCustomModelMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Add Model
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Migration confirmation dialog */}
       <AlertDialog
         open={!!pendingMigrateDir}
@@ -1027,7 +1071,8 @@ const getModelState = (model: ModelStatus) => {
             className="text-xs font-mono text-muted-foreground bg-muted/50 rounded px-3 py-2 truncate"
             title={pendingMigrateDir ?? ''}
           >
-            {pendingMigrateDir}          </div>
+            {pendingMigrateDir}
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -1144,43 +1189,3 @@ const getModelState = (model: ModelStatus) => {
   );
 }
 
-    <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add Custom Model</DialogTitle>
-          <DialogDescription>
-            Register a HuggingFace TTS model to use in Voicebox. 
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="repoId">HuggingFace Repository ID</Label>
-            <Input
-              id="repoId"
-              placeholder="e.g. username/my-custom-qwen-tts"
-              value={newModelRepoId}
-              onChange={(e) => setNewModelRepoId(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="displayName">Display Name</Label>
-            <Input
-              id="displayName"
-              placeholder="e.g. My Custom Voice"
-              value={newModelDisplayName}
-              onChange={(e) => setNewModelDisplayName(e.target.value)}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleAddCustomModel} disabled={addCustomModelMutation.isPending || !newModelRepoId.trim() || !newModelDisplayName.trim()}>
-            {addCustomModelMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Add Model
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    </div>
-  );
-}
