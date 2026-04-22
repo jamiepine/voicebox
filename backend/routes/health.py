@@ -72,7 +72,7 @@ async def health():
         has_xpu = True
         try:
             import intel_extension_for_pytorch  # noqa: F401 -- enhances XPU perf if available
-        except ImportError:
+        except Exception:
             pass
         try:
             xpu_name = torch.xpu.get_device_name(0)

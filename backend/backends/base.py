@@ -105,7 +105,7 @@ def get_torch_device(
         if hasattr(torch, "xpu") and torch.xpu.is_available():
             try:
                 import intel_extension_for_pytorch  # noqa: F401 -- enhances XPU perf if available
-            except ImportError:
+            except Exception:
                 pass
             return "xpu"
 
