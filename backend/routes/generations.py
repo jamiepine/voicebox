@@ -97,6 +97,8 @@ async def generate_speech(
             mode="generate",
             max_chunk_chars=data.max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
+            exaggeration=data.exaggeration,
+            cfg_weight=data.cfg_weight,
         )
     )
 

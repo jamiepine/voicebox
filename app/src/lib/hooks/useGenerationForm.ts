@@ -18,6 +18,8 @@ const generationSchema = z.object({
   seed: z.number().int().optional(),
   modelSize: z.enum(['1.7B', '0.6B', '1B', '3B']).optional(),
   instruct: z.string().max(500).optional(),
+  exaggeration: z.number().min(0).max(1).optional(),
+  cfg_weight: z.number().min(0).max(1).optional(),
   engine: z
     .enum([
       'qwen',
@@ -64,6 +66,8 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       seed: undefined,
       modelSize: '1.7B',
       instruct: '',
+      exaggeration: 0.5,
+      cfg_weight: 0.5,
       engine: (selectedEngine as GenerationFormValues['engine']) || 'qwen',
       ...options.defaultValues,
     },
@@ -139,6 +143,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       // Only Qwen CustomVoice actually honors the instruct kwarg at model level.
       // Base Qwen3-TTS accepts the kwarg but ignores it.
       const supportsInstruct = engine === 'qwen_custom_voice';
+      const supportsExaggeration = engine === 'chatterbox';
       const effectsChain = options.getEffectsChain?.();
       // This now returns immediately with status="generating"
       const result = await generation.mutateAsync({
@@ -149,6 +154,8 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         model_size: hasModelSizes ? data.modelSize : undefined,
         engine,
         instruct: supportsInstruct ? data.instruct || undefined : undefined,
+        exaggeration: supportsExaggeration ? data.exaggeration : undefined,
+        cfg_weight: supportsExaggeration ? data.cfg_weight : undefined,
         max_chunk_chars: maxChunkChars,
         crossfade_ms: crossfadeMs,
         normalize: normalizeAudio,
@@ -165,6 +172,8 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         seed: undefined,
         modelSize: data.modelSize,
         instruct: '',
+        exaggeration: data.exaggeration ?? 0.5,
+        cfg_weight: data.cfg_weight ?? 0.5,
         engine: data.engine,
       });
       options.onSuccess?.(result.id);

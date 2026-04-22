@@ -211,6 +211,8 @@ async def generate_chunked(
     max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
     crossfade_ms: int = 50,
     trim_fn=None,
+    exaggeration: float | None = None,
+    cfg_weight: float | None = None,
 ) -> Tuple[np.ndarray, int]:
     """Generate audio with automatic chunking for long text.
 
@@ -248,12 +250,18 @@ async def generate_chunked(
 
     if len(chunks) <= 1:
         # Short text — single-shot fast path
+        extra_kwargs: dict = {}
+        if exaggeration is not None:
+            extra_kwargs["exaggeration"] = exaggeration
+        if cfg_weight is not None:
+            extra_kwargs["cfg_weight"] = cfg_weight
         audio, sample_rate = await backend.generate(
             text,
             voice_prompt,
             language,
             seed,
             instruct,
+            **extra_kwargs,
         )
         if trim_fn is not None:
             audio = trim_fn(audio, sample_rate)
@@ -281,12 +289,18 @@ async def generate_chunked(
         # always produces the same output.
         chunk_seed = (seed + i) if seed is not None else None
 
+        chunk_extra_kwargs: dict = {}
+        if exaggeration is not None:
+            chunk_extra_kwargs["exaggeration"] = exaggeration
+        if cfg_weight is not None:
+            chunk_extra_kwargs["cfg_weight"] = cfg_weight
         chunk_audio, chunk_sr = await backend.generate(
             chunk_text,
             voice_prompt,
             language,
             chunk_seed,
             instruct,
+            **chunk_extra_kwargs,
         )
         if trim_fn is not None:
             chunk_audio = trim_fn(chunk_audio, chunk_sr)

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Slider } from '@/components/ui/slider';
 import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile } from '@/lib/hooks/useProfiles';
@@ -140,6 +141,65 @@ export function GenerationForm() {
                   </FormItem>
                 )}
               />
+            )}
+
+            {form.watch('engine') === 'chatterbox' && (
+              <div className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="exaggeration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex justify-between">
+                        <FormLabel>Exaggeration</FormLabel>
+                        <span className="text-sm text-muted-foreground">
+                          {(field.value ?? 0.5).toFixed(2)}
+                        </span>
+                      </div>
+                      <FormControl>
+                        <Slider
+                          value={[field.value ?? 0.5]}
+                          onValueChange={([v]) => field.onChange(v)}
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          aria-label="Emotion exaggeration intensity"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Controls emotional expressiveness (0 = flat, 1 = highly expressive)
+                      </FormDescription>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="cfg_weight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex justify-between">
+                        <FormLabel>CFG Weight</FormLabel>
+                        <span className="text-sm text-muted-foreground">
+                          {(field.value ?? 0.5).toFixed(2)}
+                        </span>
+                      </div>
+                      <FormControl>
+                        <Slider
+                          value={[field.value ?? 0.5]}
+                          onValueChange={([v]) => field.onChange(v)}
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          aria-label="Classifier-free guidance weight"
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Controls speech consistency (0 = loose/varied, 1 = tight/consistent)
+                      </FormDescription>
+                    </FormItem>
+                  )}
+                />
+              </div>
             )}
 
             <div className="grid gap-4 md:grid-cols-3">

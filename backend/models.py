@@ -79,6 +79,12 @@ class GenerationRequest(BaseModel):
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B)$")
     instruct: Optional[str] = Field(None, max_length=500)
     engine: Optional[str] = Field(default="qwen", pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$")
+    exaggeration: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Chatterbox only: emotion exaggeration intensity (0=flat, 1=expressive). Defaults to 0.5."
+    )
+    cfg_weight: Optional[float] = Field(
+        None, ge=0.0, le=1.0, description="Chatterbox only: classifier-free guidance weight controlling speech consistency (0=loose, 1=tight). Defaults to 0.5."
+    )
     max_chunk_chars: int = Field(
         default=800, ge=100, le=5000, description="Max characters per chunk for long text splitting"
     )
