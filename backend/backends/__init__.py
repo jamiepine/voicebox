@@ -20,6 +20,8 @@ import numpy as np
 
 from ..utils.platform_detect import get_backend_type
 
+MOSS_TTS_NANO_HF_REPO = "OpenMOSS-Team/MOSS-TTS-Nano"
+
 LANGUAGE_CODE_TO_NAME = {
     "zh": "chinese",
     "en": "english",
@@ -176,6 +178,7 @@ TTS_ENGINES = {
     "chatterbox_turbo": "Chatterbox Turbo",
     "tada": "TADA",
     "kokoro": "Kokoro",
+    "moss_tts_nano": "MOSS-TTS-Nano",
 }
 
 
@@ -320,6 +323,18 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             hf_repo_id="hexgrad/Kokoro-82M",
             size_mb=350,
             languages=["en", "es", "fr", "hi", "it", "pt", "ja", "zh"],
+        ),
+        ModelConfig(
+            model_name="moss-tts-nano",
+            display_name="MOSS-TTS-Nano (0.1B, CPU)",
+            engine="moss_tts_nano",
+            hf_repo_id=MOSS_TTS_NANO_HF_REPO,
+            size_mb=400,
+            languages=[
+                "zh", "en", "de", "es", "fr", "ja", "it",
+                "hu", "ko", "ru", "fa", "ar", "pl", "pt",
+                "cs", "da", "sv", "el", "tr",
+            ],
         ),
     ]
 
@@ -582,6 +597,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 
             backend = QwenCustomVoiceBackend()
+        elif engine == "moss_tts_nano":
+            from .moss_tts_nano_backend import MOSSTTSNanoBackend
+
+            backend = MOSSTTSNanoBackend()
         else:
             raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
 

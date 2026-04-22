@@ -37,6 +37,8 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
 RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
+RUN pip install --no-cache-dir --prefix=/install --no-deps \
+    git+https://github.com/OpenMOSS/MOSS-TTS-Nano.git
 RUN pip install --no-cache-dir --prefix=/install \
     git+https://github.com/QwenLM/Qwen3-TTS.git
 

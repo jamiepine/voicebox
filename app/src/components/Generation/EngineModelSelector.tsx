@@ -27,6 +27,7 @@ const ENGINE_OPTIONS = [
   { value: 'tada:1B', label: 'TADA 1B', engine: 'tada' },
   { value: 'tada:3B', label: 'TADA 3B Multilingual', engine: 'tada' },
   { value: 'kokoro', label: 'Kokoro 82M', engine: 'kokoro' },
+  { value: 'moss_tts_nano', label: 'MOSS-TTS-Nano', engine: 'moss_tts_nano' },
 ] as const;
 
 const ENGINE_DESCRIPTIONS: Record<string, string> = {
@@ -37,13 +38,14 @@ const ENGINE_DESCRIPTIONS: Record<string, string> = {
   chatterbox_turbo: 'English, [laugh] [cough] tags',
   tada: 'HumeAI, 700s+ coherent audio',
   kokoro: '82M params, CPU realtime, 8 langs',
+  moss_tts_nano: '0.1B, CPU realtime, 19 langs, 48 kHz',
 };
 
 /** Engines that only support English and should force language to 'en' on select. */
 const ENGLISH_ONLY_ENGINES = new Set(['luxtts', 'chatterbox_turbo']);
 
 /** Engines that support cloned (reference audio) profiles. */
-const CLONING_ENGINES = new Set(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada']);
+const CLONING_ENGINES = new Set(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada', 'moss_tts_nano']);
 
 function getAvailableOptions(selectedProfile?: VoiceProfileResponse | null) {
   if (!selectedProfile) return ENGINE_OPTIONS;

@@ -11,15 +11,18 @@
 /** All languages that any engine supports. */
 export const ALL_LANGUAGES = {
   ar: 'Arabic',
+  cs: 'Czech',
   da: 'Danish',
   de: 'German',
   el: 'Greek',
   en: 'English',
   es: 'Spanish',
+  fa: 'Persian',
   fi: 'Finnish',
   fr: 'French',
   he: 'Hebrew',
   hi: 'Hindi',
+  hu: 'Hungarian',
   it: 'Italian',
   ja: 'Japanese',
   ko: 'Korean',
@@ -70,6 +73,11 @@ export const ENGINE_LANGUAGES: Record<string, readonly LanguageCode[]> = {
   tada: ['en', 'ar', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'pl', 'pt'],
   kokoro: ['en', 'es', 'fr', 'hi', 'it', 'pt', 'ja', 'zh'],
   qwen_custom_voice: ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'ru', 'pt', 'es', 'it'],
+  moss_tts_nano: [
+    'zh', 'en', 'de', 'es', 'fr', 'ja', 'it',
+    'hu', 'ko', 'ru', 'fa', 'ar', 'pl', 'pt',
+    'cs', 'da', 'sv', 'el', 'tr',
+  ],
 } as const;
 
 /** Helper: get language options for a given engine. */

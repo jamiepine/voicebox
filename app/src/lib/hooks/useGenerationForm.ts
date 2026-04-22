@@ -27,6 +27,7 @@ const generationSchema = z.object({
       'chatterbox_turbo',
       'tada',
       'kokoro',
+      'moss_tts_nano',
     ])
     .optional(),
 });
@@ -84,42 +85,37 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
 
     try {
       const engine = data.engine || 'qwen';
-      const modelName =
-        engine === 'luxtts'
-          ? 'luxtts'
-          : engine === 'chatterbox'
-            ? 'chatterbox-tts'
-            : engine === 'chatterbox_turbo'
-              ? 'chatterbox-turbo'
-              : engine === 'tada'
-                ? data.modelSize === '3B'
-                  ? 'tada-3b-ml'
-                  : 'tada-1b'
-                : engine === 'kokoro'
-                  ? 'kokoro'
-                  : engine === 'qwen_custom_voice'
-                    ? `qwen-custom-voice-${data.modelSize}`
-                    : `qwen-tts-${data.modelSize}`;
-      const displayName =
-        engine === 'luxtts'
-          ? 'LuxTTS'
-          : engine === 'chatterbox'
-            ? 'Chatterbox TTS'
-            : engine === 'chatterbox_turbo'
-              ? 'Chatterbox Turbo'
-              : engine === 'tada'
-                ? data.modelSize === '3B'
-                  ? 'TADA 3B Multilingual'
-                  : 'TADA 1B'
-                : engine === 'kokoro'
-                  ? 'Kokoro 82M'
-                  : engine === 'qwen_custom_voice'
-                    ? data.modelSize === '1.7B'
-                      ? 'Qwen CustomVoice 1.7B'
-                      : 'Qwen CustomVoice 0.6B'
-                    : data.modelSize === '1.7B'
-                      ? 'Qwen TTS 1.7B'
-                      : 'Qwen TTS 0.6B';
+
+      type EngineNames = { model: string; display: string };
+      const engineNameMap: Partial<Record<string, EngineNames>> = {
+        luxtts:           { model: 'luxtts',          display: 'LuxTTS' },
+        chatterbox:       { model: 'chatterbox-tts',  display: 'Chatterbox TTS' },
+        chatterbox_turbo: { model: 'chatterbox-turbo', display: 'Chatterbox Turbo' },
+        kokoro:           { model: 'kokoro',           display: 'Kokoro 82M' },
+        moss_tts_nano:    { model: 'moss-tts-nano',    display: 'MOSS-TTS-Nano' },
+      };
+
+      const resolveNames = (eng: string): EngineNames => {
+        const fixed = engineNameMap[eng];
+        if (fixed) return fixed;
+        if (eng === 'tada') {
+          return data.modelSize === '3B'
+            ? { model: 'tada-3b-ml',  display: 'TADA 3B Multilingual' }
+            : { model: 'tada-1b',     display: 'TADA 1B' };
+        }
+        if (eng === 'qwen_custom_voice') {
+          return {
+            model: `qwen-custom-voice-${data.modelSize}`,
+            display: data.modelSize === '1.7B' ? 'Qwen CustomVoice 1.7B' : 'Qwen CustomVoice 0.6B',
+          };
+        }
+        return {
+          model: `qwen-tts-${data.modelSize}`,
+          display: data.modelSize === '1.7B' ? 'Qwen TTS 1.7B' : 'Qwen TTS 0.6B',
+        };
+      };
+
+      const { model: modelName, display: displayName } = resolveNames(engine);
 
       // Check if model needs downloading
       try {

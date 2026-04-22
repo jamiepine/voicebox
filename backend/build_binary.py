@@ -295,6 +295,27 @@ def build_server(cuda=False):
             "unidic_lite",
             "--hidden-import",
             "loguru",
+            # MOSS-TTS-Nano — 0.1B multilingual TTS, CPU-friendly, Apache 2.0
+            # collect-all is required to bundle assets/audio/*.wav preset files
+            # and the top-level py-modules (moss_tts_nano_runtime,
+            # text_normalization_pipeline, tts_robust_normalizer_single_script)
+            # that PyInstaller's static analysis does not discover automatically.
+            "--hidden-import",
+            "backend.backends.moss_tts_nano_backend",
+            "--hidden-import",
+            "moss_tts_nano",
+            "--hidden-import",
+            "moss_tts_nano.cli",
+            "--hidden-import",
+            "moss_tts_nano_runtime",
+            "--hidden-import",
+            "tts_robust_normalizer_single_script",
+            "--hidden-import",
+            "text_normalization_pipeline",
+            "--collect-all",
+            "moss_tts_nano",
+            "--copy-metadata",
+            "moss-tts-nano",
         ]
     )
 
