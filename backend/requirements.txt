@@ -21,9 +21,10 @@ qwen-tts>=0.0.5
 linacodec @ git+https://github.com/ysharma3501/LinaCodec.git
 Zipvoice @ git+https://github.com/ysharma3501/LuxTTS.git
 
-# Chatterbox TTS sub-dependencies (chatterbox-tts itself is installed
-# --no-deps in the setup script because it pins numpy<1.26 / torch==2.6
-# which are incompatible with Python 3.12+)
+# Chatterbox TTS sub-dependencies (chatterbox-tts itself must be installed
+# with --no-deps — run scripts/setup-backend.sh or:
+#   pip install --no-deps chatterbox-tts
+# It pins numpy<1.26 / torch==2.6 which conflict with Python 3.12+)
 conformer>=0.3.2
 diffusers>=0.29.0
 omegaconf
@@ -33,8 +34,10 @@ s3tokenizer
 spacy-pkuseg
 pyloudnorm
 
-# HumeAI TADA sub-dependencies (hume-tada itself is installed
-# --no-deps in the setup script because it pins torch>=2.7,<2.8.
+# HumeAI TADA sub-dependencies (hume-tada itself must be installed
+# with --no-deps — run scripts/setup-backend.sh or:
+#   pip install --no-deps hume-tada
+# It pins torch>=2.7,<2.8 which conflicts with voicebox's torch version.
 # descript-audio-codec is NOT installed — it pulls onnx/tensorboard
 # via descript-audiotools.  A lightweight shim in utils/dac_shim.py
 # provides the only class TADA uses: Snake1d.)
