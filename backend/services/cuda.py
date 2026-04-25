@@ -286,8 +286,9 @@ async def _download_cuda_binary_locked(version: Optional[str] = None):
     )
 
     base_url = f"{GITHUB_RELEASES_URL}/{version}"
-    server_archive = "voicebox-server-cuda.tar.gz"
-    libs_archive = f"cuda-libs-{CUDA_LIBS_VERSION}.tar.gz"
+    _plat = "windows-x86_64" if sys.platform == "win32" else "linux-x86_64"
+    server_archive = f"voicebox-server-cuda-{_plat}.tar.gz"
+    libs_archive = f"cuda-libs-{CUDA_LIBS_VERSION}-{_plat}.tar.gz"
 
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
