@@ -168,6 +168,26 @@ export interface CudaStatus {
   download_progress?: CudaDownloadProgress;
 }
 
+export interface RocmDownloadProgress {
+  model_name: string;
+  current: number;
+  total: number;
+  progress: number;
+  filename?: string;
+  status: 'downloading' | 'extracting' | 'complete' | 'error';
+  timestamp: string;
+  error?: string;
+}
+
+export interface RocmStatus {
+  available: boolean; // ROCm binary exists on disk
+  active: boolean; // Currently running the ROCm binary
+  binary_path?: string;
+  rocm_libs_version?: string;
+  downloading: boolean; // Download in progress
+  download_progress?: RocmDownloadProgress;
+}
+
 export interface ModelProgress {
   model_name: string;
   current: number;

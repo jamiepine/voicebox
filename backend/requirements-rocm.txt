@@ -1,0 +1,4 @@
+--extra-index-url https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/
+torch==2.9.1+rocm7.2.1
+torchaudio==2.9.1+rocm7.2.1
+torchvision==0.24.1+rocm7.2.1

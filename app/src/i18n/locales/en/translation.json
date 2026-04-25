@@ -581,8 +581,13 @@
       "description": "Choose the display language for Voicebox."
     },
     "general": {
-      "docs": { "title": "Read the Docs" },
-      "discord": { "title": "Join the Discord", "subtitle": "Get help & share voices" },
+      "docs": {
+        "title": "Read the Docs"
+      },
+      "discord": {
+        "title": "Join the Discord",
+        "subtitle": "Get help & share voices"
+      },
       "serverUrl": {
         "title": "Server URL",
         "description": "The address of your voicebox backend server.",
@@ -685,10 +690,14 @@
       "active": "Active",
       "cuda": {
         "title": "CUDA Backend",
+        "activeTitle": "CUDA Backend Active",
         "description": "NVIDIA GPU acceleration via a downloadable CUDA backend.",
         "downloading": "Downloading CUDA backend…",
         "downloadingShort": "Downloading…",
         "updating": "Updating…"
+      },
+      "activeBackend": {
+        "description": "GPU acceleration is currently enabled."
       },
       "restart": {
         "ready": "Server restarted successfully",
@@ -707,10 +716,9 @@
       },
       "switchToCpu": {
         "title": "Switch to CPU backend",
-        "description": "Disable GPU acceleration. You can re-download CUDA later.",
+        "description": "Disable GPU acceleration. You can re-download the GPU backend later.",
         "button": "Switch"
-      },
-      "remove": {
+      },      "remove": {
         "title": "Remove CUDA backend",
         "description": "Delete the downloaded CUDA binary to free disk space.",
         "button": "Remove"
@@ -720,9 +728,33 @@
         "downloadStart": "Failed to start download",
         "restartFailed": "Restart failed",
         "switchCpu": "Failed to switch to CPU",
-        "deleteCuda": "Failed to delete CUDA backend"
+        "deleteCuda": "Failed to delete CUDA backend",
+        "deleteRocm": "Failed to delete ROCm backend"
       },
-      "footer": "Voicebox automatically detects and uses the best available GPU on your system. On Apple Silicon Macs, the MLX backend runs natively on the Neural Engine and GPU via Metal Performance Shaders (MPS), with no additional setup required. On Windows and Linux with NVIDIA GPUs, you can download an optional CUDA backend for hardware-accelerated inference. AMD ROCm, Intel XPU, and DirectML are also supported where available through PyTorch. When no GPU is detected, Voicebox falls back to CPU — all engines still work, just slower."
+      "footer": "Voicebox automatically detects and uses the best available GPU on your system. On Apple Silicon Macs, the MLX backend runs natively on the Neural Engine and GPU via Metal Performance Shaders (MPS), with no additional setup required. On Windows, you can download optional CUDA (NVIDIA) or ROCm (AMD) backends for hardware-accelerated inference. Intel XPU and DirectML are also supported where available through PyTorch. When no GPU is detected, Voicebox falls back to CPU — all engines still work, just slower.",
+      "rocm": {
+        "title": "AMD ROCm Backend",
+        "activeTitle": "ROCm Backend Active",
+        "description": "AMD GPU acceleration via a downloadable ROCm backend.",
+        "downloading": "Downloading ROCm backend…",
+        "downloadingShort": "Downloading…",
+        "updating": "Updating…"
+      },
+      "downloadRocm": {
+        "title": "Download AMD ROCm backend",
+        "description": "~2-3 GB download. Requires an AMD Radeon GPU with ROCm support.",
+        "button": "Download"
+      },
+      "switchToRocm": {
+        "title": "Switch to ROCm backend",
+        "description": "ROCm backend is downloaded and ready. Restart to enable.",
+        "button": "Restart"
+      },
+      "removeRocm": {
+        "title": "Remove ROCm backend",
+        "description": "Delete the downloaded ROCm binary to free disk space.",
+        "button": "Remove"
+      }
     },
     "logs": {
       "title": "Server Logs",

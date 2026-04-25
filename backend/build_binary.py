@@ -22,24 +22,34 @@ def is_apple_silicon():
     return platform.system() == "Darwin" and platform.machine() == "arm64"
 
 
-def build_server(cuda=False):
+def build_server(cuda=False, rocm=False):
     """Build Python server as standalone binary.
 
     Args:
         cuda: If True, build with CUDA support and name the binary
               voicebox-server-cuda instead of voicebox-server.
+        rocm: If True, build with ROCm support and name the binary
+              voicebox-server-rocm instead of voicebox-server.
     """
+    if cuda and rocm:
+        raise ValueError("Cannot build with both CUDA and ROCm support")
+
     backend_dir = Path(__file__).parent
 
-    binary_name = "voicebox-server-cuda" if cuda else "voicebox-server"
+    if rocm:
+        binary_name = "voicebox-server-rocm"
+    elif cuda:
+        binary_name = "voicebox-server-cuda"
+    else:
+        binary_name = "voicebox-server"
 
     # PyInstaller arguments
-    # CUDA builds use --onedir so we can split the output into two archives:
+    # CUDA and ROCm builds use --onedir so we can split the output into two archives:
     #   1. Server core (~200-400MB) — versioned with the app
-    #   2. CUDA libs (~2GB) — versioned independently (only redownloaded on
-    #      CUDA toolkit / torch major version changes)
+    #   2. GPU libs (~2GB) — versioned independently (only redownloaded on
+    #      GPU toolkit / torch major version changes)
     # CPU builds remain --onefile for simplicity.
-    pack_mode = "--onedir" if cuda else "--onefile"
+    pack_mode = "--onedir" if (cuda or rocm) else "--onefile"
     args = [
         "server.py",  # Use server.py as entry point instead of main.py
         pack_mode,
@@ -298,22 +308,74 @@ def build_server(cuda=False):
         ]
     )
 
-    # Add CUDA-specific hidden imports
-    if cuda:
-        logger.info("Building with CUDA support")
+    # Add CUDA/ROCm-specific hidden imports
+    if cuda or rocm:
+        variant = "ROCm" if rocm else "CUDA"
+        logger.info("Building with %s support", variant)
+        gpu_hidden = [
+            "--hidden-import",
+            "torch.cuda",
+        ]
+        # cudnn is NVIDIA-specific; ROCm uses MIOpen under the abstraction layer
+        if cuda:
+            gpu_hidden.extend(
+                [
+                    "--hidden-import",
+                    "torch.backends.cudnn",
+                ]
+            )
+        args.extend(gpu_hidden)
+
+    if rocm:
+        # rocm_sdk imports its backend packages dynamically via
+        # importlib.import_module(py_package_name), which PyInstaller's
+        # static analyzer cannot see. We must collect them explicitly —
+        # otherwise only the pure-python rocm_sdk wrapper ships and
+        # rocm_sdk.find_libraries crashes with UnboundLocalError at boot.
+        #
+        # The backend packages also contain the HIP/MIOpen/hipBLAS DLLs
+        # under bin/ (plus ~750 MB of tensile kernel files under
+        # bin/rocblas/library and bin/hipblaslt/library) — collect-all
+        # walks the tree recursively so both DLLs and kernel data are
+        # bundled. See rocm_sdk/_dist_info.py for the package mapping.
         args.extend(
             [
+                "--collect-all",
+                "rocm_sdk",
+                "--collect-all",
+                "_rocm_sdk_core",
+                "--collect-all",
+                "_rocm_sdk_libraries_custom",
+                "--collect-all",
+                "rocm_sdk_core",
+                "--collect-all",
+                "rocm_sdk_libraries_custom",
                 "--hidden-import",
-                "torch.cuda",
+                "_rocm_sdk_core",
                 "--hidden-import",
-                "torch.backends.cudnn",
+                "_rocm_sdk_libraries_custom",
+                "--hidden-import",
+                "rocm_sdk_core",
+                "--hidden-import",
+                "rocm_sdk_libraries_custom",
+                "--copy-metadata",
+                "rocm",
+                "--copy-metadata",
+                "rocm-sdk-core",
+                "--copy-metadata",
+                "rocm-sdk-libraries-custom",
+                # Repair rocm_sdk.find_libraries (masks UnboundLocalError
+                # with a readable ModuleNotFoundError on missing backends).
+                "--runtime-hook",
+                "pyi_rth_rocm_sdk.py",
             ]
         )
-    else:
-        # Exclude NVIDIA CUDA packages from CPU-only builds to keep binary small.
-        # When building from a venv with CUDA torch installed, PyInstaller would
-        # bundle ~3GB of NVIDIA shared libraries. We exclude both the Python
-        # modules and the binary DLLs.
+
+    # Exclude NVIDIA CUDA packages from non-CUDA builds to keep binary small.
+    # When building from a venv with CUDA torch installed, PyInstaller would
+    # bundle ~3GB of NVIDIA shared libraries. We exclude both the Python
+    # modules and the binary DLLs. This applies to CPU and ROCm builds.
+    if not cuda:
         nvidia_packages = [
             "nvidia",
             "nvidia.cublas",
@@ -332,8 +394,8 @@ def build_server(cuda=False):
         for pkg in nvidia_packages:
             args.extend(["--exclude-module", pkg])
 
-    # Add MLX-specific imports if building on Apple Silicon (never for CUDA builds)
-    if is_apple_silicon() and not cuda:
+    # Add MLX-specific imports if building on Apple Silicon (never for GPU builds)
+    if is_apple_silicon() and not cuda and not rocm:
         logger.info("Building for Apple Silicon - including MLX dependencies")
         args.extend(
             [
@@ -366,7 +428,7 @@ def build_server(cuda=False):
                 "mlx_audio",
             ]
         )
-    elif not cuda:
+    elif not cuda and not rocm:
         logger.info("Building for non-Apple Silicon platform - PyTorch only")
 
     dist_dir = str(backend_dir / "dist")
@@ -387,43 +449,128 @@ def build_server(cuda=False):
     os.chdir(backend_dir)
 
     # For CPU builds on Windows, ensure we're using CPU-only torch.
-    # If CUDA torch is installed (local dev), swap to CPU torch before building,
-    # then restore CUDA torch after. This prevents PyInstaller from bundling
-    # ~3GB of CUDA DLLs into the CPU binary.
-    restore_cuda = False
-    if not cuda and platform.system() == "Windows":
-        import subprocess
-
-        result = subprocess.run(
-            [sys.executable, "-c", "import torch; print(torch.version.cuda or '')"], capture_output=True, text=True
-        )
-        has_cuda_torch = bool(result.stdout.strip())
-        if has_cuda_torch:
-            logger.info("CUDA torch detected — installing CPU torch for CPU build...")
-            subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    "torch",
-                    "torchvision",
-                    "torchaudio",
-                    "--index-url",
-                    "https://download.pytorch.org/whl/cpu",
-                    "--force-reinstall",
-                    "-q",
-                ],
-                check=True,
-            )
-            restore_cuda = True
-
-    # Run PyInstaller
+    # If CUDA or ROCm torch is installed (local dev), swap to CPU torch before
+    # building, then restore afterwards. This prevents PyInstaller from bundling
+    # GPU libraries into the CPU binary.
+    restore_torch = None
     try:
+        if not cuda and not rocm and platform.system() == "Windows":
+            import subprocess
+
+            cuda_result = subprocess.run(
+                [sys.executable, "-c", "import torch; print(torch.version.cuda or '')"], capture_output=True, text=True
+            )
+            rocm_result = subprocess.run(
+                [sys.executable, "-c", "import torch; print(torch.version.hip or '')"], capture_output=True, text=True
+            )
+
+            if cuda_result.stdout.strip():
+                restore_torch = "cuda"
+                logger.info("CUDA torch detected — installing CPU torch for CPU build...")
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "torch",
+                        "torchvision",
+                        "torchaudio",
+                        "--index-url",
+                        "https://download.pytorch.org/whl/cpu",
+                        "--force-reinstall",
+                        "--no-deps",
+                        "-q",
+                    ],
+                    check=True,
+                )
+            elif rocm_result.stdout.strip():
+                restore_torch = "rocm"
+                logger.info("ROCm torch detected — installing CPU torch for CPU build...")
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "torch",
+                        "torchvision",
+                        "torchaudio",
+                        "--index-url",
+                        "https://download.pytorch.org/whl/cpu",
+                        "--force-reinstall",
+                        "--no-deps",
+                        "-q",
+                    ],
+                    check=True,
+                )
+
+        # For ROCm builds on Windows, ensure ROCm torch is installed.
+        if rocm and platform.system() == "Windows":
+            import subprocess
+
+            if sys.implementation.name != "cpython" or sys.version_info[:2] != (3, 12):
+                raise RuntimeError(
+                    "ROCm wheels are cp312-cp312-specific; "
+                    f"got {sys.implementation.name} {sys.version.split()[0]}. "
+                    "Use CPython 3.12 to build the ROCm binary."
+                )
+
+            result = subprocess.run(
+                [sys.executable, "-c", "import torch; print(torch.version.hip or '')"], capture_output=True, text=True
+            )
+            has_rocm_torch = bool(result.stdout.strip())
+            if not has_rocm_torch:
+                logger.info("ROCm torch not detected — installing ROCm torch for ROCm build...")
+
+                # Determine what to restore BEFORE overwriting the environment
+                cuda_result = subprocess.run(
+                    [sys.executable, "-c", "import torch; print(torch.version.cuda or '')"],
+                    capture_output=True,
+                    text=True,
+                )
+                if cuda_result.stdout.strip():
+                    restore_torch = "cuda"
+                else:
+                    restore_torch = "cpu"
+
+                # Now overwrite the environment safely
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_core-7.2.1-py3-none-win_amd64.whl",
+                        "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_devel-7.2.1-py3-none-win_amd64.whl",
+                        "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm_sdk_libraries_custom-7.2.1-py3-none-win_amd64.whl",
+                        "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/rocm-7.2.1.tar.gz",
+                        "--no-deps",
+                        "-q",
+                    ],
+                    check=True,
+                )
+                subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torch-2.9.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl",
+                        "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchaudio-2.9.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl",
+                        "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchvision-0.24.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl",
+                        "--force-reinstall",
+                        "--no-deps",
+                        "-q",
+                    ],
+                    check=True,
+                )
+
+        # Run PyInstaller
         PyInstaller.__main__.run(args)
     finally:
-        # Restore CUDA torch if we swapped it out (even on build failure)
-        if restore_cuda:
+        # Restore torch if we swapped it out (even on build failure)
+        if restore_torch == "cuda":
             logger.info("Restoring CUDA torch...")
             import subprocess
 
@@ -439,10 +586,52 @@ def build_server(cuda=False):
                     "--index-url",
                     "https://download.pytorch.org/whl/cu128",
                     "--force-reinstall",
+                    "--no-deps",
                     "-q",
                 ],
                 check=True,
             )
+        elif restore_torch == "rocm":
+            logger.info("Restoring ROCm torch...")
+            import subprocess
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torch-2.9.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl",
+                    "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchaudio-2.9.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl",
+                    "https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/torchvision-0.24.1%2Brocm7.2.1-cp312-cp312-win_amd64.whl",
+                    "--force-reinstall",
+                    "--no-deps",
+                    "-q",
+                ],
+                check=True,
+            )
+        elif restore_torch == "cpu":
+            logger.info("Restoring CPU torch...")
+            import subprocess
+
+            subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    "torch",
+                    "torchvision",
+                    "torchaudio",
+                    "--index-url",
+                    "https://download.pytorch.org/whl/cpu",
+                    "--force-reinstall",
+                    "--no-deps",
+                    "-q",
+                ],
+                check=True,
+            )
+
 
     logger.info("Binary built in %s", backend_dir / "dist" / binary_name)
 
@@ -454,5 +643,10 @@ if __name__ == "__main__":
         action="store_true",
         help="Build CUDA-enabled binary (voicebox-server-cuda)",
     )
+    parser.add_argument(
+        "--rocm",
+        action="store_true",
+        help="Build ROCm-enabled binary (voicebox-server-rocm) for AMD GPUs",
+    )
     cli_args = parser.parse_args()
-    build_server(cuda=cli_args.cuda)
+    build_server(cuda=cli_args.cuda, rocm=cli_args.rocm)

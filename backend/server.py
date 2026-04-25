@@ -7,6 +7,7 @@ absolute imports instead of relative imports.
 
 import sys
 import os
+import re
 
 # On Windows with --noconsole (PyInstaller), sys.stdout/stderr are None.
 # They can also be broken file objects in some edge cases.
@@ -46,6 +47,17 @@ if "--version" in sys.argv:
     from backend import __version__
     print(f"voicebox-server {__version__}")
     sys.exit(0)
+
+# Detect backend variant from binary name BEFORE importing backend modules
+# so that env-var guards in app.py (e.g. HSA_OVERRIDE_GFX_VERSION) fire at import time.
+_binary_name = os.path.basename(sys.executable).lower()
+if re.search(r"voicebox-server-rocm(\.exe)?$", _binary_name):
+    os.environ["VOICEBOX_BACKEND_VARIANT"] = "rocm"
+elif re.search(r"voicebox-server-cuda(\.exe)?$", _binary_name):
+    os.environ["VOICEBOX_BACKEND_VARIANT"] = "cuda"
+else:
+    os.environ.setdefault("VOICEBOX_BACKEND_VARIANT", "cpu")
+
 
 import logging
 
@@ -260,16 +272,7 @@ if __name__ == "__main__":
         if args.parent_pid is not None and args.parent_pid <= 0:
             parser.error("--parent-pid must be a positive integer")
 
-        # Detect backend variant from binary name
-        # voicebox-server-cuda → sets VOICEBOX_BACKEND_VARIANT=cuda
-        import os
-        binary_name = os.path.basename(sys.executable).lower()
-        if "cuda" in binary_name:
-            os.environ["VOICEBOX_BACKEND_VARIANT"] = "cuda"
-            logger.info("Backend variant: CUDA")
-        else:
-            os.environ["VOICEBOX_BACKEND_VARIANT"] = "cpu"
-            logger.info("Backend variant: CPU")
+        logger.info(f"Backend variant: {os.environ.get('VOICEBOX_BACKEND_VARIANT', 'cpu').upper()}")
 
         # Register parent watchdog to start after server is fully ready
         if args.parent_pid is not None:

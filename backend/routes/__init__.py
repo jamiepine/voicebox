@@ -17,6 +17,7 @@ def register_routers(app: FastAPI) -> None:
     from .models import router as models_router
     from .tasks import router as tasks_router
     from .cuda import router as cuda_router
+    from .rocm import router as rocm_router
 
     app.include_router(health_router)
     app.include_router(profiles_router)
@@ -30,3 +31,4 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(models_router)
     app.include_router(tasks_router)
     app.include_router(cuda_router)
+    app.include_router(rocm_router)

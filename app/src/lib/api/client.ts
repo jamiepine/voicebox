@@ -19,6 +19,7 @@ import type {
   ModelStatusListResponse,
   PresetVoice,
   ProfileSampleResponse,
+  RocmStatus,
   StoryCreate,
   StoryDetailResponse,
   StoryItemBatchUpdate,
@@ -532,6 +533,23 @@ class ApiClient {
 
   async deleteCudaBackend(): Promise<{ message: string }> {
     return this.request<{ message: string }>('/backend/cuda', {
+      method: 'DELETE',
+    });
+  }
+
+  // ROCm Backend Management
+  async getRocmStatus(): Promise<RocmStatus> {
+    return this.request<RocmStatus>('/backend/rocm-status');
+  }
+
+  async downloadRocmBackend(): Promise<{ message: string; progress_key: string }> {
+    return this.request<{ message: string; progress_key: string }>('/backend/download-rocm', {
+      method: 'POST',
+    });
+  }
+
+  async deleteRocmBackend(): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/backend/rocm', {
       method: 'DELETE',
     });
   }

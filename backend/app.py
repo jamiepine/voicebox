@@ -35,11 +35,24 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# AMD GPU environment variables must be set before torch import
-if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
-    os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
-if not os.environ.get("MIOPEN_LOG_LEVEL"):
-    os.environ["MIOPEN_LOG_LEVEL"] = "4"
+# HSA_OVERRIDE_GFX_VERSION=10.3.0 is an RDNA2 compatibility shim for older
+# PyTorch ROCm builds. Only set it on the ROCm binary variant — applying it
+# globally breaks CUDA and CPU builds, and is unnecessary on RDNA3/4 hardware.
+if os.environ.get("VOICEBOX_BACKEND_VARIANT") == "rocm":
+    import platform
+
+    if (
+        os.environ.get("VOICEBOX_ROCM_FORCE_GFX1030") == "1"
+        and platform.system() == "Linux"
+        and not os.environ.get("HSA_OVERRIDE_GFX_VERSION")
+    ):
+        os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+
+    if (
+        os.environ.get("VOICEBOX_ROCM_ENABLE_MIOPEN_LOG") == "1"
+        and not os.environ.get("MIOPEN_LOG_LEVEL")
+    ):
+        os.environ["MIOPEN_LOG_LEVEL"] = "4"
 
 import torch
 from fastapi import FastAPI
@@ -245,8 +258,10 @@ def _register_lifecycle(application: FastAPI) -> None:
             logger.warning("GPU COMPATIBILITY: %s", _cuda_warning)
 
         from .services.cuda import check_and_update_cuda_binary
+        from .services.rocm import check_and_update_rocm_binary
 
         create_background_task(check_and_update_cuda_binary())
+        create_background_task(check_and_update_rocm_binary())
 
         try:
             progress_manager = get_progress_manager()

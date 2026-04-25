@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { apiClient } from '@/lib/api/client';
-import type { CudaDownloadProgress, HealthResponse } from '@/lib/api/types';
+import type { CudaDownloadProgress, RocmDownloadProgress, HealthResponse } from '@/lib/api/types';
 import { useServerHealth } from '@/lib/hooks/useServer';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
@@ -50,7 +50,10 @@ function GpuInfoCard({ health }: { health: HealthResponse }) {
     : null;
   const gpuBackend = hasGpu ? health.gpu_type!.replace(/\s*\(.+\)$/, '') : null;
   const isApple = gpuBackend === 'MPS' || gpuBackend === 'Metal';
-  const showBackendVariant = health.backend_variant && health.backend_variant !== 'cpu';
+  const showBackendVariant = 
+    health.backend_variant && 
+    health.backend_variant !== 'cpu' &&
+    health.backend_variant.toLowerCase() !== gpuBackend?.toLowerCase();
 
   return (
     <div className="rounded-lg border border-border/60 p-4">
@@ -115,10 +118,14 @@ export function GpuPage() {
 
   const [restartPhase, setRestartPhase] = useState<RestartPhase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [cudaStreaming, setCudaStreaming] = useState(false);
+  const [rocmStreaming, setRocmStreaming] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<CudaDownloadProgress | null>(null);
+  const [rocmDownloadProgress, setRocmDownloadProgress] = useState<RocmDownloadProgress | null>(
+    null,
+  );
   const healthPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Hold the latest `t` in a ref so the CUDA progress SSE effect below doesn't
-  // tear down and reconnect the EventSource every time the language changes.
+
   const tRef = useRef(t);
   useEffect(() => {
     tRef.current = t;
@@ -136,9 +143,24 @@ export function GpuPage() {
     enabled: !!health,
   });
 
+  const {
+    data: rocmStatus,
+    isLoading: _rocmStatusLoading,
+    refetch: refetchRocmStatus,
+  } = useQuery({
+    queryKey: ['rocm-status', serverUrl],
+    queryFn: () => apiClient.getRocmStatus(),
+    refetchInterval: (query) => (query.state.status === 'pending' ? false : 10000),
+    retry: 1,
+    enabled: !!health,
+  });
+
   const isCurrentlyCuda = health?.backend_variant === 'cuda';
+  const isCurrentlyRocm = health?.backend_variant === 'rocm';
   const cudaAvailable = cudaStatus?.available ?? false;
   const cudaDownloading = cudaStatus?.downloading ?? false;
+  const rocmAvailable = rocmStatus?.available ?? false;
+  const rocmDownloading = rocmStatus?.downloading ?? false;
 
   useEffect(() => {
     return () => {
@@ -150,7 +172,7 @@ export function GpuPage() {
   }, []);
 
   useEffect(() => {
-    if (!cudaDownloading || !serverUrl) return;
+    if ((!cudaDownloading && !cudaStreaming) || !serverUrl) return;
 
     const eventSource = new EventSource(`${serverUrl}/backend/cuda-progress`);
 
@@ -162,11 +184,13 @@ export function GpuPage() {
         if (data.status === 'complete') {
           eventSource.close();
           setDownloadProgress(null);
+          setCudaStreaming(false);
           refetchCudaStatus();
         } else if (data.status === 'error') {
           eventSource.close();
           setError(data.error || tRef.current('settings.gpu.errors.downloadFailed'));
           setDownloadProgress(null);
+          setCudaStreaming(false);
           refetchCudaStatus();
         }
       } catch (e) {
@@ -176,12 +200,50 @@ export function GpuPage() {
 
     eventSource.onerror = () => {
       eventSource.close();
+      setCudaStreaming(false);
     };
 
     return () => {
       eventSource.close();
     };
-  }, [cudaDownloading, serverUrl, refetchCudaStatus]);
+  }, [cudaDownloading, cudaStreaming, serverUrl, refetchCudaStatus]);
+
+  useEffect(() => {
+    if ((!rocmDownloading && !rocmStreaming) || !serverUrl) return;
+
+    const eventSource = new EventSource(`${serverUrl}/backend/rocm-progress`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data) as RocmDownloadProgress;
+        setRocmDownloadProgress(data);
+
+        if (data.status === 'complete') {
+          eventSource.close();
+          setRocmDownloadProgress(null);
+          setRocmStreaming(false);
+          refetchRocmStatus();
+        } else if (data.status === 'error') {
+          eventSource.close();
+          setError(data.error || tRef.current('settings.gpu.errors.downloadFailed'));
+          setRocmDownloadProgress(null);
+          setRocmStreaming(false);
+          refetchRocmStatus();
+        }
+      } catch (e) {
+        console.error('Error parsing ROCm progress event:', e);
+      }
+    };
+
+    eventSource.onerror = () => {
+      eventSource.close();
+      setRocmStreaming(false);
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [rocmDownloading, rocmStreaming, serverUrl, refetchRocmStatus]);
 
   const clearHealthPolling = useCallback(() => {
     if (healthPollRef.current) {
@@ -224,15 +286,32 @@ export function GpuPage() {
     [platform, startHealthPolling, clearHealthPolling],
   );
 
-  const handleDownload = async () => {
+  const handleDownloadCuda = async () => {
     setError(null);
     try {
       await apiClient.downloadCudaBackend();
+      setCudaStreaming(true);
       refetchCudaStatus();
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : t('settings.gpu.errors.downloadStart');
       if (msg.includes('already downloaded')) {
         refetchCudaStatus();
+      } else {
+        setError(msg);
+      }
+    }
+  };
+
+  const handleDownloadRocm = async () => {
+    setError(null);
+    try {
+      await apiClient.downloadRocmBackend();
+      setRocmStreaming(true);
+      refetchRocmStatus();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : t('settings.gpu.errors.downloadStart');
+      if (msg.includes('already downloaded')) {
+        refetchRocmStatus();
       } else {
         setError(msg);
       }
@@ -252,21 +331,59 @@ export function GpuPage() {
     setError(null);
     setRestartPhase('stopping');
     try {
-      await apiClient.deleteCudaBackend();
+      await platform.lifecycle.setBackendOverride('cpu');
       await restartServerWithPolling(t('settings.gpu.errors.switchCpu'));
     } catch (e: unknown) {
+      setRestartPhase('idle');
       setError(e instanceof Error ? e.message : t('settings.gpu.errors.switchCpu'));
+      refetchCudaStatus();
+      refetchRocmStatus();
+    }
+  };
+
+  const handleSwitchToCuda = async () => {
+    setError(null);
+    setRestartPhase('stopping');
+    try {
+      await platform.lifecycle.setBackendOverride('cuda');
+      await restartServerWithPolling(t('settings.gpu.errors.restartFailed'));
+    } catch (e: unknown) {
+      setRestartPhase('idle');
+      setError(e instanceof Error ? e.message : t('settings.gpu.errors.restartFailed'));
       refetchCudaStatus();
     }
   };
 
-  const handleDelete = async () => {
+  const handleSwitchToRocm = async () => {
+    setError(null);
+    setRestartPhase('stopping');
+    try {
+      await platform.lifecycle.setBackendOverride('rocm');
+      await restartServerWithPolling(t('settings.gpu.errors.restartFailed'));
+    } catch (e: unknown) {
+      setRestartPhase('idle');
+      setError(e instanceof Error ? e.message : t('settings.gpu.errors.restartFailed'));
+      refetchRocmStatus();
+    }
+  };
+
+  const handleDeleteCuda = async () => {
     setError(null);
     try {
       await apiClient.deleteCudaBackend();
       refetchCudaStatus();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : t('settings.gpu.errors.deleteCuda'));
+    }
+  };
+
+  const handleDeleteRocm = async () => {
+    setError(null);
+    try {
+      await apiClient.deleteRocmBackend();
+      refetchRocmStatus();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : t('settings.gpu.errors.deleteRocm'));
     }
   };
 
@@ -283,6 +400,7 @@ export function GpuPage() {
   const hasNativeGpu =
     health.gpu_available &&
     !isCurrentlyCuda &&
+    !isCurrentlyRocm &&
     health.gpu_type &&
     !health.gpu_type.includes('CUDA');
 
@@ -290,33 +408,186 @@ export function GpuPage() {
     <div className="space-y-8 max-w-2xl">
       <GpuInfoCard health={health} />
 
-      {!hasNativeGpu && !isCurrentlyCuda && (
-        <SettingSection
-          title={t('settings.gpu.cuda.title')}
-          description={t('settings.gpu.cuda.description')}
-        >
-          {cudaDownloading && downloadProgress && (
-            <SettingRow title={t('settings.gpu.cuda.downloading')}>
-              <div className="space-y-1.5">
-                <Progress value={downloadProgress.progress} className="h-2" />
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    {downloadProgress.filename ||
-                      (cudaAvailable
-                        ? t('settings.gpu.cuda.updating')
-                        : t('settings.gpu.cuda.downloadingShort'))}
-                  </span>
-                  <span>
-                    {downloadProgress.total > 0
-                      ? `${formatBytes(downloadProgress.current)} / ${formatBytes(downloadProgress.total)}`
-                      : `${downloadProgress.progress.toFixed(1)}%`}
-                  </span>
+      {!hasNativeGpu && !isCurrentlyCuda && !isCurrentlyRocm && (
+        <>
+          <SettingSection
+            title={t('settings.gpu.cuda.title')}
+            description={t('settings.gpu.cuda.description')}
+          >
+            {cudaDownloading && downloadProgress && (
+              <SettingRow title={t('settings.gpu.cuda.downloading')}>
+                <div className="space-y-1.5">
+                  <Progress value={downloadProgress.progress} className="h-2" />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {downloadProgress.filename ||
+                        (cudaAvailable
+                          ? t('settings.gpu.cuda.updating')
+                          : t('settings.gpu.cuda.downloadingShort'))}
+                    </span>
+                    <span>
+                      {downloadProgress.total > 0
+                        ? `${formatBytes(downloadProgress.current)} / ${formatBytes(downloadProgress.total)}`
+                        : `${downloadProgress.progress.toFixed(1)}%`}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </SettingRow>
-          )}
+              </SettingRow>
+            )}
 
-          {restartPhase !== 'idle' && (
+            {restartPhase !== 'idle' && (
+              <SettingRow
+                title={
+                  restartPhase === 'ready'
+                    ? t('settings.gpu.restart.ready')
+                    : restartPhase === 'waiting'
+                      ? t('settings.gpu.restart.waiting')
+                      : t('settings.gpu.restart.stopping')
+                }
+                action={<Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              />
+            )}
+
+            {error && (
+              <SettingRow title={t('common.error')}>
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              </SettingRow>
+            )}
+
+            {restartPhase === 'idle' && !cudaDownloading && (
+              <>
+                {!cudaAvailable && !isCurrentlyCuda && (
+                  <SettingRow
+                    title={t('settings.gpu.download.title')}
+                    description={t('settings.gpu.download.description')}
+                    action={
+                      <Button onClick={handleDownloadCuda} size="sm">
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                        {t('settings.gpu.download.button')}
+                      </Button>
+                    }
+                  />
+                )}
+
+                {cudaAvailable && !isCurrentlyCuda && platform.metadata.isTauri && (
+                  <SettingRow
+                    title={t('settings.gpu.switchToCuda.title')}
+                    description={t('settings.gpu.switchToCuda.description')}
+                    action={
+                      <Button onClick={handleSwitchToCuda} size="sm">
+                        <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+                        {t('settings.gpu.switchToCuda.button')}
+                      </Button>
+                    }
+                  />
+                )}
+
+                {cudaAvailable && !isCurrentlyCuda && (
+                  <SettingRow
+                    title={t('settings.gpu.remove.title')}
+                    description={t('settings.gpu.remove.description')}
+                    action={
+                      <Button
+                        onClick={handleDeleteCuda}
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        {t('settings.gpu.remove.button')}
+                      </Button>
+                    }
+                  />
+                )}
+              </>
+            )}
+          </SettingSection>
+
+          <SettingSection
+            title={t('settings.gpu.rocm.title')}
+            description={t('settings.gpu.rocm.description')}
+          >
+            {rocmDownloading && rocmDownloadProgress && (
+              <SettingRow title={t('settings.gpu.rocm.downloading')}>
+                <div className="space-y-1.5">
+                  <Progress value={rocmDownloadProgress.progress} className="h-2" />
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {rocmDownloadProgress.filename ||
+                        (rocmAvailable
+                          ? t('settings.gpu.rocm.updating')
+                          : t('settings.gpu.rocm.downloadingShort'))}
+                    </span>
+                    <span>
+                      {rocmDownloadProgress.total > 0
+                        ? `${formatBytes(rocmDownloadProgress.current)} / ${formatBytes(rocmDownloadProgress.total)}`
+                        : `${rocmDownloadProgress.progress.toFixed(1)}%`}
+                    </span>
+                  </div>
+                </div>
+              </SettingRow>
+            )}
+
+            {restartPhase === 'idle' && !rocmDownloading && (
+              <>
+                {!rocmAvailable && !isCurrentlyRocm && (
+                  <SettingRow
+                    title={t('settings.gpu.downloadRocm.title')}
+                    description={t('settings.gpu.downloadRocm.description')}
+                    action={
+                      <Button onClick={handleDownloadRocm} size="sm">
+                        <Download className="h-3.5 w-3.5 mr-1.5" />
+                        {t('settings.gpu.downloadRocm.button')}
+                      </Button>
+                    }
+                  />
+                )}
+
+                {rocmAvailable && !isCurrentlyRocm && platform.metadata.isTauri && (
+                  <SettingRow
+                    title={t('settings.gpu.switchToRocm.title')}
+                    description={t('settings.gpu.switchToRocm.description')}
+                    action={
+                      <Button onClick={handleSwitchToRocm} size="sm">
+                        <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+                        {t('settings.gpu.switchToRocm.button')}
+                      </Button>
+                    }
+                  />
+                )}
+
+                {rocmAvailable && !isCurrentlyRocm && (
+                  <SettingRow
+                    title={t('settings.gpu.removeRocm.title')}
+                    description={t('settings.gpu.removeRocm.description')}
+                    action={
+                      <Button
+                        onClick={handleDeleteRocm}
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                        {t('settings.gpu.removeRocm.button')}
+                      </Button>
+                    }
+                  />
+                )}
+              </>
+            )}
+          </SettingSection>
+        </>
+      )}
+
+      {(isCurrentlyCuda || isCurrentlyRocm) && platform.metadata.isTauri && (
+        <SettingSection
+          title={isCurrentlyCuda ? t('settings.gpu.cuda.activeTitle') : t('settings.gpu.rocm.activeTitle')}
+          description={t('settings.gpu.activeBackend.description')}
+        >
+          {restartPhase !== 'idle' ? (
             <SettingRow
               title={
                 restartPhase === 'ready'
@@ -327,8 +598,18 @@ export function GpuPage() {
               }
               action={<Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             />
+          ) : (
+            <SettingRow
+              title={t('settings.gpu.switchToCpu.title')}
+              description={t('settings.gpu.switchToCpu.description')}
+              action={
+                <Button onClick={handleSwitchToCpu} variant="outline" size="sm">
+                  <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+                  {t('settings.gpu.switchToCpu.button')}
+                </Button>
+              }
+            />
           )}
-
           {error && (
             <SettingRow title={t('common.error')}>
               <div className="flex items-center gap-2 text-sm text-destructive">
@@ -336,67 +617,6 @@ export function GpuPage() {
                 <span>{error}</span>
               </div>
             </SettingRow>
-          )}
-
-          {restartPhase === 'idle' && !cudaDownloading && (
-            <>
-              {!cudaAvailable && !isCurrentlyCuda && (
-                <SettingRow
-                  title={t('settings.gpu.download.title')}
-                  description={t('settings.gpu.download.description')}
-                  action={
-                    <Button onClick={handleDownload} size="sm">
-                      <Download className="h-3.5 w-3.5 mr-1.5" />
-                      {t('settings.gpu.download.button')}
-                    </Button>
-                  }
-                />
-              )}
-
-              {cudaAvailable && !isCurrentlyCuda && platform.metadata.isTauri && (
-                <SettingRow
-                  title={t('settings.gpu.switchToCuda.title')}
-                  description={t('settings.gpu.switchToCuda.description')}
-                  action={
-                    <Button onClick={handleRestart} size="sm">
-                      <RotateCw className="h-3.5 w-3.5 mr-1.5" />
-                      {t('settings.gpu.switchToCuda.button')}
-                    </Button>
-                  }
-                />
-              )}
-
-              {isCurrentlyCuda && platform.metadata.isTauri && (
-                <SettingRow
-                  title={t('settings.gpu.switchToCpu.title')}
-                  description={t('settings.gpu.switchToCpu.description')}
-                  action={
-                    <Button onClick={handleSwitchToCpu} variant="outline" size="sm">
-                      <RotateCw className="h-3.5 w-3.5 mr-1.5" />
-                      {t('settings.gpu.switchToCpu.button')}
-                    </Button>
-                  }
-                />
-              )}
-
-              {cudaAvailable && !isCurrentlyCuda && (
-                <SettingRow
-                  title={t('settings.gpu.remove.title')}
-                  description={t('settings.gpu.remove.description')}
-                  action={
-                    <Button
-                      onClick={handleDelete}
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                      {t('settings.gpu.remove.button')}
-                    </Button>
-                  }
-                />
-              )}
-            </>
           )}
         </SettingSection>
       )}
