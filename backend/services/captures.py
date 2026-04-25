@@ -71,61 +71,78 @@ async def create_capture(
         suffix = ".wav"
 
     raw_path = config.get_captures_dir() / f"{capture_id}{suffix}"
-    raw_path.write_bytes(audio_bytes)
+    written_files: list[Path] = []
 
-    # Decode once with librosa — its audioread fallback handles webm/opus
-    # via ffmpeg, which miniaudio (used inside mlx-audio's whisper) can't.
-    # The decoded array gives us an accurate duration and becomes the
-    # canonical WAV we hand to whisper.
     try:
-        audio, sr = load_audio(str(raw_path))
-        duration_ms = int((len(audio) / sr) * 1000) if sr else None
-    except Exception as decode_err:
-        logger.warning(
-            "Could not decode capture %s (%s): %r", capture_id, suffix, decode_err
-        )
-        audio, sr = None, None
-        duration_ms = None
+        raw_path.write_bytes(audio_bytes)
+        written_files.append(raw_path)
 
-    _WHISPER_NATIVE_FORMATS = (".wav", ".mp3", ".flac", ".ogg")
-
-    if audio is None or sr is None:
-        # Decode failed. Only pass the file straight to whisper if the
-        # source is a format its miniaudio loader can still read — webm,
-        # m4a, etc. would just 500 later. Surface a clean error instead.
-        if suffix not in _WHISPER_NATIVE_FORMATS:
-            raise ValueError(
-                f"Could not decode {suffix} audio — the recording may be empty or corrupt"
-            )
-        audio_path = raw_path
-    elif suffix == ".wav":
-        audio_path = raw_path
-    else:
-        # Transcode to WAV so downstream loaders (miniaudio, soundfile) work
-        # regardless of what format the client shipped.
-        audio_path = config.get_captures_dir() / f"{capture_id}.wav"
-        sf.write(str(audio_path), audio, sr, format="WAV")
+        # Decode once with librosa — its audioread fallback handles webm/opus
+        # via ffmpeg, which miniaudio (used inside mlx-audio's whisper) can't.
+        # The decoded array gives us an accurate duration and becomes the
+        # canonical WAV we hand to whisper.
         try:
-            raw_path.unlink()
-        except OSError:
-            pass
+            audio, sr = load_audio(str(raw_path))
+            duration_ms = int((len(audio) / sr) * 1000) if sr else None
+        except Exception as decode_err:
+            logger.warning(
+                "Could not decode capture %s (%s): %r", capture_id, suffix, decode_err
+            )
+            audio, sr = None, None
+            duration_ms = None
 
-    whisper = get_whisper_model()
-    resolved_stt = stt_model or whisper.model_size
-    transcript = await whisper.transcribe(str(audio_path), language, resolved_stt)
+        _WHISPER_NATIVE_FORMATS = (".wav", ".mp3", ".flac", ".ogg")
 
-    row = DBCapture(
-        id=capture_id,
-        audio_path=config.to_storage_path(audio_path),
-        source=source,
-        language=language,
-        duration_ms=duration_ms,
-        transcript_raw=transcript,
-        stt_model=resolved_stt,
-    )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
+        if audio is None or sr is None:
+            # Decode failed. Only pass the file straight to whisper if the
+            # source is a format its miniaudio loader can still read — webm,
+            # m4a, etc. would just 500 later. Surface a clean error instead.
+            if suffix not in _WHISPER_NATIVE_FORMATS:
+                raise ValueError(
+                    f"Could not decode {suffix} audio — the recording may be empty or corrupt"
+                )
+            audio_path = raw_path
+        elif suffix == ".wav":
+            audio_path = raw_path
+        else:
+            # Transcode to WAV so downstream loaders (miniaudio, soundfile) work
+            # regardless of what format the client shipped.
+            audio_path = config.get_captures_dir() / f"{capture_id}.wav"
+            sf.write(str(audio_path), audio, sr, format="WAV")
+            written_files.append(audio_path)
+            try:
+                raw_path.unlink()
+            except OSError:
+                pass
+            else:
+                written_files.remove(raw_path)
+
+        whisper = get_whisper_model()
+        resolved_stt = stt_model or whisper.model_size
+        transcript = await whisper.transcribe(str(audio_path), language, resolved_stt)
+
+        row = DBCapture(
+            id=capture_id,
+            audio_path=config.to_storage_path(audio_path),
+            source=source,
+            language=language,
+            duration_ms=duration_ms,
+            transcript_raw=transcript,
+            stt_model=resolved_stt,
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    except Exception:
+        # Anything between the first write and the commit means the audio on
+        # disk has no row pointing at it — clean up so data/captures doesn't
+        # accumulate orphan blobs across failed transcribes.
+        for path in written_files:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        raise
 
     return _to_response(row)
 
