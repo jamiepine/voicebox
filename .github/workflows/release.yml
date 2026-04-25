@@ -315,17 +315,18 @@ jobs:
             backend/dist/voicebox-server-cuda/ \
             --output release-assets/ \
             --cuda-libs-version cu128-v1 \
-            --torch-compat ">=2.7.0,<2.11.0"
+            --torch-compat ">=2.7.0,<2.11.0" \
+            --platform windows-x86_64
 
       - name: Upload archives to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-assets/voicebox-server-cuda.tar.gz
-            release-assets/voicebox-server-cuda.tar.gz.sha256
-            release-assets/cuda-libs-cu128-v1.tar.gz
-            release-assets/cuda-libs-cu128-v1.tar.gz.sha256
+            release-assets/voicebox-server-cuda-windows-x86_64.tar.gz
+            release-assets/voicebox-server-cuda-windows-x86_64.tar.gz.sha256
+            release-assets/cuda-libs-cu128-v1-windows-x86_64.tar.gz
+            release-assets/cuda-libs-cu128-v1-windows-x86_64.tar.gz.sha256
             release-assets/cuda-libs.json
           draft: true
         env:
@@ -335,5 +336,75 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: voicebox-server-cuda-windows
+          path: backend/dist/voicebox-server-cuda/
+          retention-days: 7
+
+  build-cuda-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r backend/requirements.txt
+          pip install --no-deps chatterbox-tts
+          pip install --no-deps hume-tada
+
+      - name: Install PyTorch with CUDA 12.8
+        run: |
+          pip install torch==2.7.0+cu128 torchaudio==2.7.0+cu128 \
+            --index-url https://download.pytorch.org/whl/cu128 \
+            --force-reinstall --no-deps
+
+      - name: Verify CUDA libraries are present
+        run: |
+          python -c "import torch; print(f'torch: {torch.__version__}'); print(f'CUDA version: {torch.version.cuda}')"
+
+      - name: Install Qwen3-TTS
+        run: pip install --no-deps git+https://github.com/QwenLM/Qwen3-TTS.git
+
+      - name: Build CUDA server binary (onedir)
+        working-directory: backend
+        env:
+          TORCH_CUDA_ARCH_LIST: "8.0;8.6;8.9;9.0;12.0+PTX"
+        run: python build_binary.py --cuda
+
+      - name: Package into server core + CUDA libs archives
+        run: |
+          python scripts/package_cuda.py \
+            backend/dist/voicebox-server-cuda/ \
+            --output release-assets/ \
+            --cuda-libs-version cu128-v1 \
+            --torch-compat ">=2.7.0,<2.11.0" \
+            --platform linux-x86_64
+
+      - name: Upload archives to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/voicebox-server-cuda-linux-x86_64.tar.gz
+            release-assets/voicebox-server-cuda-linux-x86_64.tar.gz.sha256
+            release-assets/cuda-libs-cu128-v1-linux-x86_64.tar.gz
+            release-assets/cuda-libs-cu128-v1-linux-x86_64.tar.gz.sha256
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload onedir as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicebox-server-cuda-linux
           path: backend/dist/voicebox-server-cuda/
           retention-days: 7
