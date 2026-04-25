@@ -24,7 +24,6 @@ target/
 *.AppImage
 
 # IDE
-.vscode/
 .idea/
 *.swp
 *.swo
@@ -43,8 +42,6 @@ data/
 logs/
 
 # Environment
-.env
-.env.local
 
 # Generated files
 app/openapi.json
@@ -52,6 +49,7 @@ tauri/src-tauri/binaries/*
 tauri/src-tauri/gen/Assets.car
 tauri/src-tauri/gen/voicebox.icns
 tauri/src-tauri/gen/partial.plist
+tauri/src-tauri/gen/schemas/linux-schema.json
 
 # PyInstaller
 *.spec
@@ -68,3 +66,4 @@ temp/
 backend/tests/results/
 backend/tests/fixtures/reference_voice.wav
 backend/tests/fixtures/reference_voice.txt
+config.bat
