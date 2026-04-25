@@ -271,8 +271,8 @@
       "defaultEffects": "Default Effects",
       "defaultEffectsHint": "Effects applied automatically to all new generations with this voice.",
       "personalityLabel": "Personality",
-      "personalityPlaceholder": "Optional. Who this voice is and how they talk. E.g. \"a grumpy pirate who only speaks in nautical metaphors\". Drives the Compose button and the in-character rewrite toggle on the generate page.",
-      "personalityHint": "Leave blank to hide the Compose button and persona toggle on the generate page."
+      "personalityPlaceholder": "e.g. \"a grumpy pirate who only speaks in nautical metaphors\"",
+      "personalityHint": "Who this voice is and how they talk. Drives the Compose button and the in-character rewrite toggle on the generate page. Leave blank to hide both."
     },
     "avatar": {
       "alt": "Avatar preview"
@@ -953,7 +953,7 @@
           "description": "Larger models are slower but handle subtle self-corrections and technical vocabulary better.",
           "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
           "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
-          "size4": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
           "tail": {
             "veryFast": "Very fast",
             "fast": "Fast",

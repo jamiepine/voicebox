@@ -271,8 +271,8 @@
       "defaultEffects": "デフォルトエフェクト",
       "defaultEffectsHint": "このボイスで新しく生成するすべてのものに自動適用されるエフェクトです。",
       "personalityLabel": "パーソナリティ",
-      "personalityPlaceholder": "任意。このボイスがどんな人物で、どのように話すかを記述します。例:「航海の比喩でしか話さない不機嫌な海賊」。生成ページの「Compose」ボタンと、キャラクターになりきって書き換えるトグルに反映されます。",
-      "personalityHint": "空欄にすると、生成ページの「Compose」ボタンとペルソナトグルは表示されません。"
+      "personalityPlaceholder": "例:「航海の比喩でしか話さない不機嫌な海賊」",
+      "personalityHint": "このボイスがどんな人物で、どのように話すか。生成ページの「Compose」ボタンとキャラクター書き換えトグルに反映されます。空欄にすると両方とも表示されません。"
     },
     "avatar": {
       "alt": "アバタープレビュー"
@@ -953,7 +953,7 @@
           "description": "大きなモデルは遅くなりますが、微妙な自己修正や専門用語をより適切に処理します。",
           "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
           "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
-          "size4": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
           "tail": {
             "veryFast": "超高速",
             "fast": "高速",

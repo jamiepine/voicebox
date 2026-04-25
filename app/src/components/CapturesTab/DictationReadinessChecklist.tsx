@@ -9,7 +9,7 @@ import {
   Keyboard,
   Loader2,
 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
@@ -103,10 +103,16 @@ export function DictationReadinessChecklist({
     },
   });
 
-  const downloadByModel = new Map<string, ActiveDownloadTask>();
-  for (const dl of activeTasks?.downloads ?? []) {
-    if (dl.status === 'downloading') downloadByModel.set(dl.model_name, dl);
-  }
+  // Memo so the Map identity is stable across renders that don't change
+  // activeTasks — otherwise the cleanup effect below saw a fresh Map every
+  // render and re-fired on every 1 s poll tick.
+  const downloadByModel = useMemo(() => {
+    const m = new Map<string, ActiveDownloadTask>();
+    for (const dl of activeTasks?.downloads ?? []) {
+      if (dl.status === 'downloading') m.set(dl.model_name, dl);
+    }
+    return m;
+  }, [activeTasks]);
 
   // When a download disappears from activeTasks, it just finished — refetch
   // readiness immediately so the row flips to ✓ instead of waiting up to 5s
@@ -122,7 +128,7 @@ export function DictationReadinessChecklist({
       }
     }
     prevActive.current = current;
-  }, [activeTasks, queryClient, downloadByModel]);
+  }, [downloadByModel, queryClient]);
 
   const downloadMutation = useMutation({
     mutationFn: async ({ modelName }: { gate: ReadinessGate; modelName: string }) =>

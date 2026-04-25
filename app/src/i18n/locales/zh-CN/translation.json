@@ -271,8 +271,8 @@
       "defaultEffects": "默认效果",
       "defaultEffectsHint": "自动应用于使用此声音的所有新生成的效果。",
       "personalityLabel": "人物设定",
-      "personalityPlaceholder": "可选。这个声音是谁、说话方式如何。例如「一位脾气暴躁的海盗,只会用航海比喻说话」。会驱动生成页面上的「撰写」按钮和入戏改写开关。",
-      "personalityHint": "留空将隐藏生成页面上的「撰写」按钮和人物设定开关。"
+      "personalityPlaceholder": "例如:「一位脾气暴躁的海盗,只会用航海比喻说话」",
+      "personalityHint": "这个声音是谁、说话方式如何。会驱动生成页面上的「撰写」按钮和入戏改写开关。留空则两者都隐藏。"
     },
     "avatar": {
       "alt": "头像预览"
@@ -708,9 +708,9 @@
       "failedDescription": "无法根据此人物设定生成文本。"
     },
     "persona": {
-      "tooltipActive": "以人物设定朗读",
+      "tooltipActive": "正以人物设定朗读",
       "tooltipInactive": "以人物设定朗读",
-      "ariaLabelActive": "以人物设定朗读",
+      "ariaLabelActive": "正以人物设定朗读",
       "ariaLabelInactive": "以人物设定朗读"
     }
   },
@@ -953,7 +953,7 @@
           "description": "更大的模型速度较慢,但能更好地处理细微的自我纠正和技术词汇。",
           "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
           "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
-          "size4": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
           "tail": {
             "veryFast": "非常快",
             "fast": "快速",

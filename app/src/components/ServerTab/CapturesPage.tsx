@@ -427,7 +427,7 @@ export function CapturesPage() {
                   {t('settings.captures.refinement.model.size17', { tail: t('settings.captures.refinement.model.tail.fast') })}
                 </SelectItem>
                 <SelectItem value="4B">
-                  {t('settings.captures.refinement.model.size4', { tail: t('settings.captures.refinement.model.tail.fullQuality') })}
+                  {t('settings.captures.refinement.model.size40', { tail: t('settings.captures.refinement.model.tail.fullQuality') })}
                 </SelectItem>
               </SelectContent>
             </Select>

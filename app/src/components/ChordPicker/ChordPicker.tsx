@@ -65,8 +65,8 @@ export function ChordPicker({
       setCaptured(initialKeys);
       setUnsupportedAttempt(null);
       // Defer focus to the next paint so the dialog is mounted.
-      const t = window.setTimeout(() => captureRef.current?.focus(), 50);
-      return () => window.clearTimeout(t);
+      const timeoutId = window.setTimeout(() => captureRef.current?.focus(), 50);
+      return () => window.clearTimeout(timeoutId);
     }
     return;
   }, [open, initialKeys]);

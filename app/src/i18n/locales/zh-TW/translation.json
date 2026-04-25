@@ -271,8 +271,8 @@
       "defaultEffects": "預設效果",
       "defaultEffectsHint": "自動套用於使用此聲音所有新生成的效果。",
       "personalityLabel": "個性",
-      "personalityPlaceholder": "選填。描述這個聲音是誰以及他們如何說話。例如:「一位脾氣暴躁的海盜,只會用航海比喻說話」。會驅動生成頁面上的「撰寫」按鈕和角色化重寫切換。",
-      "personalityHint": "留空則在生成頁面隱藏「撰寫」按鈕和角色切換。"
+      "personalityPlaceholder": "例如:「一位脾氣暴躁的海盜,只會用航海比喻說話」",
+      "personalityHint": "這個聲音是誰以及他們如何說話。會驅動生成頁面上的「撰寫」按鈕和角色化重寫切換。留空則兩者都隱藏。"
     },
     "avatar": {
       "alt": "頭像預覽"
@@ -953,7 +953,7 @@
           "description": "較大的模型較慢,但對於細微的自我更正與專業詞彙處理得更好。",
           "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
           "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
-          "size4": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
           "tail": {
             "veryFast": "非常快",
             "fast": "快速",
