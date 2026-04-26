@@ -1,0 +1,14 @@
+{
+  "name": "Voicebox Development",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "features": {
+    "ghcr.io/devcontainers-extra/features/bun:1": {},
+    "ghcr.io/devcontainers/features/rust:1": {}
+  },
+  "postCreateCommand": "just setup",
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint", "ms-python.python", "rust-lang.rust-analyzer"]
+    }
+  }
+}
