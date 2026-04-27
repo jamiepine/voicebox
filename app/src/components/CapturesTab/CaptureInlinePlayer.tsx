@@ -144,7 +144,7 @@ export function CaptureInlinePlayer({
         ) : isPlaying ? (
           <Pause className="h-4 w-4 fill-current" />
         ) : (
-          <Play className="h-4 w-4 ms-0.5 fill-current" />
+          <Play className="h-4 w-4 ml-0.5 fill-current" />
         )}
       </Button>
       <div ref={waveformRef} className="flex-1 min-w-0 h-10 select-none" />

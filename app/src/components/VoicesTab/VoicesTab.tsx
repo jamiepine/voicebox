@@ -110,7 +110,7 @@ export function VoicesTab() {
         <div className="absolute top-0 start-0 end-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
 
         {/* Fixed Header */}
-        <div className="absolute top-0 start-0 end-0 z-20 ps-8 pe-8">
+        <div className="absolute top-0 start-0 end-0 z-20 px-8">
           <div className="flex items-center gap-3 mb-6">
             <h1 className="text-2xl font-bold">{t('voicesTab.title')}</h1>
             <div className="flex-1" />

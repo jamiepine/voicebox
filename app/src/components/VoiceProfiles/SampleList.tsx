@@ -106,7 +106,7 @@ function MiniSamplePlayer({ audioUrl }: MiniSamplePlayerProps) {
           disabled={isLoading}
           aria-label={isPlaying ? t('sampleList.player.pause') : t('sampleList.player.play')}
         >
-          {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ms-0.5" />}
+          {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 ml-0.5" />}
         </Button>
 
         <div className="flex-1 min-w-0 flex items-center gap-2">

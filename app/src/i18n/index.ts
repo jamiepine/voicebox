@@ -38,6 +38,11 @@ i18n
       lookupLocalStorage: 'voicebox:lang',
       caches: ['localStorage'],
     },
+  }, (err) => {
+    if (!err) {
+      document.documentElement.lang = i18n.language;
+      document.documentElement.dir = i18n.dir(i18n.language);
+    }
   });
 
 // Update document direction and lang attribute on language change

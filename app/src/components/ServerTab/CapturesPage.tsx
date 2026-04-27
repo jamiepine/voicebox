@@ -50,7 +50,7 @@ function ChordPreview({ keys }: { keys: string[] }) {
           >
             {displayLabelForKey(k)}
             {side ? (
-              <span className="absolute -top-1 -end-1 h-3 min-w-[0.75rem] px-0.5 rounded-sm bg-accent text-[7px] font-bold leading-none flex items-center justify-center text-accent-foreground">
+              <span className="absolute -top-1 -right-1 h-3 min-w-[0.75rem] px-0.5 rounded-sm bg-accent text-[7px] font-bold leading-none flex items-center justify-center text-accent-foreground">
                 {side}
               </span>
             ) : null}

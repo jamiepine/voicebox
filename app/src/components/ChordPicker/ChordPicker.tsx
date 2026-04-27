@@ -200,7 +200,7 @@ function ChordKey({ name }: { name: string }) {
     >
       {displayLabelForKey(name)}
       {side ? (
-        <span className="absolute -top-1 -end-1 h-3.5 min-w-[0.875rem] px-0.5 rounded-sm bg-accent text-[8px] font-bold leading-none flex items-center justify-center text-accent-foreground">
+        <span className="absolute -top-1 -right-1 h-3.5 min-w-[0.875rem] px-0.5 rounded-sm bg-accent text-[8px] font-bold leading-none flex items-center justify-center text-accent-foreground">
           {side}
         </span>
       ) : null}

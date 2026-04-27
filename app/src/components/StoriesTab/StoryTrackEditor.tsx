@@ -1499,14 +1499,14 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 aria-valuenow={Math.round(pixelsPerSecond)}
                 aria-valuemin={Math.round(minPps)}
                 aria-valuemax={Math.round(maxPps)}
-                className="absolute top-0 bottom-0 start-0 w-1.5 cursor-ew-resize bg-foreground/25 hover:bg-foreground/40 transition-colors rounded-s-full"
+                className="absolute top-0 bottom-0 left-0 w-1.5 cursor-ew-resize bg-foreground/25 hover:bg-foreground/40 transition-colors rounded-l-full"
                 onMouseDown={handleScrollbarMouseDown('left')}
               />
               {/* Pan area */}
               {/* biome-ignore lint/a11y/noStaticElementInteractions: mouse-driven drag area */}
               <div
                 className={cn(
-                  'absolute top-0 bottom-0 start-1.5 end-1.5',
+                  'absolute top-0 bottom-0 left-1.5 right-1.5',
                   canScrollHorizontally ? 'cursor-grab active:cursor-grabbing' : 'cursor-default',
                 )}
                 onMouseDown={canScrollHorizontally ? handleScrollbarMouseDown('pan') : undefined}
@@ -1519,7 +1519,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 aria-valuenow={Math.round(pixelsPerSecond)}
                 aria-valuemin={Math.round(minPps)}
                 aria-valuemax={Math.round(maxPps)}
-                className="absolute top-0 bottom-0 end-0 w-1.5 cursor-ew-resize bg-foreground/25 hover:bg-foreground/40 transition-colors rounded-e-full"
+                className="absolute top-0 bottom-0 right-0 w-1.5 cursor-ew-resize bg-foreground/25 hover:bg-foreground/40 transition-colors rounded-r-full"
                 onMouseDown={handleScrollbarMouseDown('right')}
               />
             </div>

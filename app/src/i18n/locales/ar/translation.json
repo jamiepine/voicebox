@@ -92,7 +92,11 @@
       "exportFailed": "فشل التصدير",
       "exportEmpty": "لا يوجد شيء لتصديره",
       "shortcutNotArmed": "الاختصار قيد التشغيل، ولكنه غير جاهز بعد",
+      "shortcutNotArmedDescription_zero": "النماذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
       "shortcutNotArmedDescription_one": "لا يزال النموذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
+      "shortcutNotArmedDescription_two": "لا يزال النموذجان {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
+      "shortcutNotArmedDescription_few": "لا تزال النماذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
+      "shortcutNotArmedDescription_many": "لا تزال النماذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
       "shortcutNotArmedDescription_other": "لا تزال النماذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء."
     },
     "pill": {
@@ -1132,8 +1136,12 @@
     },
     "logs": {
       "title": "سجلات الخادم",
-      "lineCount_one": "{{count}} سطر",
-      "lineCount_other": "{{count}} أسطر",
+      "lineCount_zero": "لا توجد أسطر",
+      "lineCount_one": "سطر واحد",
+      "lineCount_two": "سطران",
+      "lineCount_few": "{{count}} أسطر",
+      "lineCount_many": "{{count}} سطراً",
+      "lineCount_other": "{{count}} سطر",
       "scrollToBottom": "التمرير إلى الأسفل",
       "clear": "مسح",
       "empty": "لا توجد مخرجات في السجل بعد.",

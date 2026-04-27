@@ -494,7 +494,7 @@ export function FloatingGenerateBox({
                       <Sparkles className="h-4 w-4" />
                     )}
                   </Button>
-                  <span className="pointer-events-none absolute bottom-full start-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
+                  <span className="pointer-events-none absolute bottom-full start-1/2 -translate-x-1/2 rtl:translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                     {isPending
                       ? t('generation.button.generating')
                       : !selectedProfileId
