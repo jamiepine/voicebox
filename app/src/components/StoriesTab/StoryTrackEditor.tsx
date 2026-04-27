@@ -1081,7 +1081,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   }
 
   return (
-    <div className="fixed bottom-0 start-0 end-0 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
+    <div className="fixed bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 z-50">
       <div
         className="border-t bg-background/30 backdrop-blur-2xl overflow-hidden relative"
         ref={containerRef}
@@ -1089,7 +1089,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
         {/* Resize handle at top */}
         <button
           type="button"
-          className="absolute top-0 start-0 end-0 h-2 cursor-ns-resize flex items-center justify-center hover:bg-muted/50 transition-colors z-20 group"
+          className="absolute top-0 left-0 right-0 h-2 cursor-ns-resize flex items-center justify-center hover:bg-muted/50 transition-colors z-20 group"
           onMouseDown={handleResizeStart}
           aria-label="Resize track editor"
         >
@@ -1120,7 +1120,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
             >
               <Square className="h-3 w-3" />
             </Button>
-            <span className="text-xs text-muted-foreground tabular-nums ms-2">
+            <span className="text-xs text-muted-foreground tabular-nums ml-2">
               {formatTime(currentTimeMs)} / {formatTime(totalDurationMs)}
             </span>
           </div>
@@ -1227,7 +1227,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                             />
                             <span className="truncate">{version.label}</span>
                             {version.effects_chain && version.effects_chain.length > 0 && (
-                              <span className="text-muted-foreground ms-auto text-[10px]">
+                              <span className="text-muted-foreground ml-auto text-[10px]">
                                 {version.effects_chain.length} fx
                               </span>
                             )}
@@ -1280,10 +1280,10 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
             className="flex sticky top-0 z-30"
             style={{ width: `${timelineWidth + LABEL_COL_WIDTH}px` }}
           >
-            <div className="w-16 h-6 shrink-0 border-b border-e bg-muted/30 sticky start-0 z-40" />
+            <div className="w-16 h-6 shrink-0 border-b border-r bg-muted/30 sticky left-0 z-40" />
             <button
               type="button"
-              className="h-6 border-b bg-muted/20 cursor-pointer text-start relative"
+              className="h-6 border-b bg-muted/20 cursor-pointer text-left relative"
               style={{ width: `${timelineWidth}px` }}
               onClick={handleTimelineClick}
               aria-label="Seek timeline"
@@ -1295,7 +1295,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                   style={{ left: `${msToPixels(ms)}px` }}
                 >
                   <div className="h-2 w-px bg-border" />
-                  <span className="text-[10px] text-muted-foreground ms-1 select-none">
+                  <span className="text-[10px] text-muted-foreground ml-1 select-none">
                     {formatTime(ms)}
                   </span>
                 </div>
@@ -1318,13 +1318,13 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
               return (
                 <div
                   key={trackNumber}
-                  className="absolute start-0 end-0 flex"
+                  className="absolute left-0 right-0 flex"
                   style={{
                     top: `${index * TRACK_HEIGHT}px`,
                     height: `${TRACK_HEIGHT}px`,
                   }}
                 >
-                  <div className="w-16 shrink-0 border-b border-e flex items-center justify-center sticky start-0 z-20 h-full bg-background">
+                  <div className="w-16 shrink-0 border-b border-r flex items-center justify-center sticky left-0 z-20 h-full bg-background">
                     <div className="absolute inset-0 bg-muted/20 pointer-events-none" />
                     <span className="relative text-[10px] text-muted-foreground select-none">
                       {trackNumber}
@@ -1335,7 +1335,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                         onClick={handleAddTrackAbove}
                         title="Add track above"
                         aria-label="Add track above"
-                        className="absolute top-0 end-0 start-0 h-3 flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 transition-colors"
+                        className="absolute top-0 right-0 left-0 h-3 flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 transition-colors"
                       >
                         <Plus className="h-2.5 w-2.5" />
                       </button>
@@ -1346,7 +1346,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                         onClick={handleAddTrackBelow}
                         title="Add track below"
                         aria-label="Add track below"
-                        className="absolute bottom-0 end-0 start-0 h-3 flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 transition-colors"
+                        className="absolute bottom-0 right-0 left-0 h-3 flex items-center justify-center text-muted-foreground/50 hover:text-foreground hover:bg-muted/40 transition-colors"
                       >
                         <Plus className="h-2.5 w-2.5" />
                       </button>
@@ -1425,7 +1425,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                       }}
                     >
                       {/* Clip label */}
-                      <div className="absolute top-0 start-1 end-1 z-10">
+                      <div className="absolute top-0 left-1 right-1 z-10">
                         <p className="text-[9px] font-medium text-accent-foreground truncate">
                           {item.engine === 'import' ? item.text : item.profile_name}
                         </p>
@@ -1449,14 +1449,14 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                         {/* Left trim handle */}
                         <button
                           type="button"
-                          className="trim-handle absolute start-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-primary/30 bg-primary/20 z-30 rounded-l"
+                          className="trim-handle absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-primary/30 bg-primary/20 z-30 rounded-l"
                           onMouseDown={(e) => handleTrimStart(e, item, 'start')}
                           aria-label="Trim start"
                         />
                         {/* Right trim handle */}
                         <button
                           type="button"
-                          className="trim-handle absolute end-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-primary/30 bg-primary/20 z-30 rounded-r"
+                          className="trim-handle absolute right-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-primary/30 bg-primary/20 z-30 rounded-r"
                           onMouseDown={(e) => handleTrimStart(e, item, 'end')}
                           aria-label="Trim end"
                         />
@@ -1471,7 +1471,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                 className="absolute top-0 bottom-0 w-1 bg-accent z-30 pointer-events-none rounded-full"
                 style={{ left: `${playheadLeft}px` }}
               >
-                <div className="absolute -top-1 start-1/2 -translate-x-1/2 w-3 h-3 bg-accent rounded-full" />
+                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-3 bg-accent rounded-full" />
               </div>
             </div>
           </div>
@@ -1482,7 +1482,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           className="flex border-t bg-background/40"
           style={{ height: `${SCRUB_BAR_HEIGHT}px` }}
         >
-          <div className="w-16 shrink-0 border-e" />
+          <div className="w-16 shrink-0 border-r" />
           <div
             ref={scrollbarTrackRef}
             className="relative flex-1 overflow-hidden select-none px-1"
