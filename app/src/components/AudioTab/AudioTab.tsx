@@ -144,7 +144,7 @@ export function AudioTab() {
       <div className="flex items-center justify-between mb-6 shrink-0">
         <h2 className="text-2xl font-bold">{t('audioChannels.title')}</h2>
         <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4 me-2" />
           {t('audioChannels.newChannel')}
         </Button>
       </div>
@@ -162,7 +162,7 @@ export function AudioTab() {
               <Speaker className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">{t('audioChannels.empty.message')}</p>
               <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
+                <Plus className="h-4 w-4 me-2" />
                 {t('audioChannels.empty.action')}
               </Button>
             </div>
@@ -175,7 +175,7 @@ export function AudioTab() {
                     key={channel.id}
                     type="button"
                     className={cn(
-                      'group border rounded-lg p-4 transition-colors cursor-pointer text-left w-full',
+                      'group border rounded-lg p-4 transition-colors cursor-pointer text-start w-full',
                       isSelected && 'ring-2 ring-primary bg-primary/5 border-primary',
                     )}
                     onClick={() => setSelectedChannelId(isSelected ? null : channel.id)}
@@ -191,7 +191,7 @@ export function AudioTab() {
                           </div>
                         </div>
 
-                        <div className="space-y-2.5 ml-10">
+                        <div className="space-y-2.5 ms-10">
                           <div>
                             <div className="text-xs font-medium text-muted-foreground mb-1">
                               {t('audioChannels.labels.outputDevices')}
@@ -311,7 +311,7 @@ export function AudioTab() {
                     onClick={handleDeviceClick}
                     disabled={!canToggle}
                     className={cn(
-                      'flex items-center gap-2 text-sm p-3 rounded-lg border transition-colors text-left w-full',
+                      'flex items-center gap-2 text-sm p-3 rounded-lg border transition-colors text-start w-full',
                       isConnected
                         ? 'bg-primary/10 border-primary ring-1 ring-primary/20'
                         : 'hover:bg-muted/50',

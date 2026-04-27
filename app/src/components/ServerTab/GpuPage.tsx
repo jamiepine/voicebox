@@ -346,7 +346,7 @@ export function GpuPage() {
                   description={t('settings.gpu.download.description')}
                   action={
                     <Button onClick={handleDownload} size="sm">
-                      <Download className="h-3.5 w-3.5 mr-1.5" />
+                      <Download className="h-3.5 w-3.5 me-1.5" />
                       {t('settings.gpu.download.button')}
                     </Button>
                   }
@@ -359,7 +359,7 @@ export function GpuPage() {
                   description={t('settings.gpu.switchToCuda.description')}
                   action={
                     <Button onClick={handleRestart} size="sm">
-                      <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+                      <RotateCw className="h-3.5 w-3.5 me-1.5" />
                       {t('settings.gpu.switchToCuda.button')}
                     </Button>
                   }
@@ -372,7 +372,7 @@ export function GpuPage() {
                   description={t('settings.gpu.switchToCpu.description')}
                   action={
                     <Button onClick={handleSwitchToCpu} variant="outline" size="sm">
-                      <RotateCw className="h-3.5 w-3.5 mr-1.5" />
+                      <RotateCw className="h-3.5 w-3.5 me-1.5" />
                       {t('settings.gpu.switchToCpu.button')}
                     </Button>
                   }
@@ -390,7 +390,7 @@ export function GpuPage() {
                       size="sm"
                       className="text-muted-foreground "
                     >
-                      <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                      <Trash2 className="h-3.5 w-3.5 me-1.5" />
                       {t('settings.gpu.remove.button')}
                     </Button>
                   }

@@ -359,10 +359,10 @@ export function StoryContent() {
         </div>
       )}
       {/* Scroll Mask */}
-      <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
+      <div className="absolute top-0 start-0 end-0 h-20 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
 
       {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-1">
+      <div className="absolute top-0 start-0 end-0 z-20 flex items-center justify-between px-1">
         <div>
           <h2 className="text-2xl font-bold">{story.name}</h2>
           {story.description && (
@@ -380,7 +380,7 @@ export function StoryContent() {
               >
                 <Link
                   to="/"
-                  className="flex items-center gap-2 h-8 pl-1.5 pr-3 rounded-full bg-card border border-border hover:bg-muted/50 transition-all duration-200 cursor-pointer"
+                  className="flex items-center gap-2 h-8 ps-1.5 pe-3 rounded-full bg-card border border-border hover:bg-muted/50 transition-all duration-200 cursor-pointer"
                 >
                   <div className="shrink-0 w-10 h-5 overflow-hidden flex items-center justify-center">
                     <div className="scale-[0.45]">
@@ -397,7 +397,7 @@ export function StoryContent() {
           <Popover open={isAddOpen} onOpenChange={setIsAddOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="me-2 h-4 w-4" />
                 {t('storyContent.add')}
               </Button>
             </PopoverTrigger>
@@ -416,7 +416,7 @@ export function StoryContent() {
                   onClick={() => importInputRef.current?.click()}
                   disabled={isImporting}
                 >
-                  <Upload className="mr-2 h-4 w-4" />
+                  <Upload className="me-2 h-4 w-4" />
                   {isImporting ? t('storyContent.importing') : t('storyContent.importAudio')}
                 </Button>
               </div>
@@ -432,7 +432,7 @@ export function StoryContent() {
                     <button
                       key={gen.id}
                       type="button"
-                      className="w-full text-left px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
+                      className="w-full text-start px-3 py-2 hover:bg-muted transition-colors border-b last:border-b-0"
                       onClick={() => handleAddGeneration(gen.id)}
                     >
                       <div className="font-medium text-sm">{gen.profile_name}</div>
@@ -452,7 +452,7 @@ export function StoryContent() {
               onClick={handleExportAudio}
               disabled={exportAudio.isPending}
             >
-              <Download className="mr-2 h-4 w-4" />
+              <Download className="me-2 h-4 w-4" />
               {t('storyContent.exportAudio')}
             </Button>
           )}

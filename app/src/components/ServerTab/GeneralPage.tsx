@@ -306,7 +306,7 @@ function UpdatesSection() {
                 size="sm"
               >
                 <RefreshCw
-                  className={`h-3.5 w-3.5 mr-1.5 ${status.checking ? 'animate-spin' : ''}`}
+                  className={`h-3.5 w-3.5 me-1.5 ${status.checking ? 'animate-spin' : ''}`}
                 />
                 {t('settings.general.updates.check.button')}
               </Button>
@@ -328,7 +328,7 @@ function UpdatesSection() {
               description={t('settings.general.updates.download.description')}
               action={
                 <Button onClick={downloadAndInstall} size="sm">
-                  <Download className="h-3.5 w-3.5 mr-1.5" />
+                  <Download className="h-3.5 w-3.5 me-1.5" />
                   {t('settings.general.updates.download.button')}
                 </Button>
               }
@@ -364,7 +364,7 @@ function UpdatesSection() {
               })}
               action={
                 <Button onClick={restartAndInstall} size="sm">
-                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  <RefreshCw className="h-3.5 w-3.5 me-1.5" />
                   {t('settings.general.updates.ready.button')}
                 </Button>
               }
@@ -410,7 +410,7 @@ function ApiReferenceCard({ serverUrl }: { serverUrl: string }) {
               {ep.method}
             </span>
             <code className="text-xs font-mono text-muted-foreground">{ep.path}</code>
-            <span className="text-xs text-muted-foreground/50 ml-auto">{ep.label}</span>
+            <span className="text-xs text-muted-foreground/50 ms-auto">{ep.label}</span>
           </div>
         ))}
       </div>

@@ -16,7 +16,7 @@ export function StoriesTab() {
         </div>
 
         {/* Right Column - Story Content */}
-        <div className="flex flex-col min-h-0 overflow-hidden flex-1 pr-8">
+        <div className="flex flex-col min-h-0 overflow-hidden flex-1 pe-8">
           <StoryContent />
         </div>
 

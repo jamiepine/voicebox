@@ -112,7 +112,7 @@ export function StoryChatItem({
           {item.engine !== 'import' && (
             <span className="text-xs text-muted-foreground">{item.language}</span>
           )}
-          <span className="text-xs text-muted-foreground tabular-nums ml-auto">
+          <span className="text-xs text-muted-foreground tabular-nums ms-auto">
             {formatTime(itemStartMs)}
           </span>
         </div>
@@ -141,12 +141,12 @@ export function StoryChatItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={handlePlay}>
-              <Play className="mr-2 h-4 w-4" />
+              <Play className="me-2 h-4 w-4" />
               {t('storyContent.itemActions.playFromHere')}
             </DropdownMenuItem>
             {onRegenerate && (
               <DropdownMenuItem onClick={onRegenerate}>
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <RotateCcw className="me-2 h-4 w-4" />
                 {t('storyContent.itemActions.regenerate')}
               </DropdownMenuItem>
             )}
@@ -154,7 +154,7 @@ export function StoryChatItem({
               onClick={onRemove}
               className="text-destructive focus:text-destructive"
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 className="me-2 h-4 w-4" />
               {t('storyContent.itemActions.removeFromStory')}
             </DropdownMenuItem>
           </DropdownMenuContent>

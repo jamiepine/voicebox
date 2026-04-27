@@ -259,7 +259,7 @@ export function FloatingGenerateBox({
         isStoriesRoute
           ? // Aligned with StoryContent: sidebar + list width + gap (tab bleeds with -mx-8)
             'left-[calc(5rem+360px+1.5rem)] right-8'
-          : 'left-[calc(5rem+2rem)] right-8 lg:right-auto lg:w-[calc((100%-5rem-4rem)/2-1rem)]',
+          : 'left-[calc(5rem+2rem)] right-8 lg:end-auto lg:w-[calc((100%-5rem-4rem)/2-1rem)]',
       )}
       style={{
         // On stories route: offset by track editor height when visible
@@ -381,7 +381,7 @@ export function FloatingGenerateBox({
                             <Dices className="h-4 w-4" />
                           )}
                         </Button>
-                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
+                        <span className="pointer-events-none absolute bottom-full start-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                           {t('generation.compose.tooltip')}
                         </span>
                       </div>
@@ -423,7 +423,7 @@ export function FloatingGenerateBox({
                                   >
                                     <Wand2 className="h-4 w-4" />
                                   </Button>
-                                  <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
+                                  <span className="pointer-events-none absolute bottom-full start-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                                     {active ? t('generation.persona.tooltipActive') : t('generation.persona.tooltipInactive')}
                                   </span>
                                 </div>
@@ -466,7 +466,7 @@ export function FloatingGenerateBox({
                         >
                           <SlidersHorizontal className="h-4 w-4" />
                         </Button>
-                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
+                        <span className="pointer-events-none absolute bottom-full start-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                           {t('generation.instruct.tooltip')}
                         </span>
                       </div>
@@ -494,7 +494,7 @@ export function FloatingGenerateBox({
                       <Sparkles className="h-4 w-4" />
                     )}
                   </Button>
-                  <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
+                  <span className="pointer-events-none absolute bottom-full start-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                     {isPending
                       ? t('generation.button.generating')
                       : !selectedProfileId

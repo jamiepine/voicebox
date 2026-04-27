@@ -174,7 +174,7 @@ export function useAutoUpdater(options: boolean | UseAutoUpdaterOptions = false)
       duration: Infinity,
       action: (
         <ToastAction altText="Restart now" onClick={handleRestartNow}>
-          <RefreshCw className="h-3 w-3 mr-1" />
+          <RefreshCw className="h-3 w-3 me-1" />
           Restart Now
         </ToastAction>
       ),

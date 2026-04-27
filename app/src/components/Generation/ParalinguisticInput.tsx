@@ -396,7 +396,7 @@ export const ParalinguisticInput = forwardRef<ParalinguisticInputRef, Paralingui
                     key={t.tag}
                     type="button"
                     className={cn(
-                      'flex items-center gap-2 w-full px-3 py-1.5 text-sm text-left transition-colors',
+                      'flex items-center gap-2 w-full px-3 py-1.5 text-sm text-start transition-colors',
                       i === menuIndex
                         ? 'bg-accent/20 text-accent-foreground'
                         : 'text-popover-foreground hover:bg-muted/50',
@@ -409,7 +409,7 @@ export const ParalinguisticInput = forwardRef<ParalinguisticInputRef, Paralingui
                   >
                     <span className="text-base leading-none">{t.emoji}</span>
                     <span>{t.label}</span>
-                    <span className="ml-auto text-xs text-muted-foreground font-mono">{t.tag}</span>
+                    <span className="ms-auto text-xs text-muted-foreground font-mono">{t.tag}</span>
                   </button>
                 ))}
               </motion.div>

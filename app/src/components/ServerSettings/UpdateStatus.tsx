@@ -41,7 +41,7 @@ export function UpdateStatus() {
               variant="outline"
               size="sm"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${status.checking ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 me-2 ${status.checking ? 'animate-spin' : ''}`} />
               Check for Updates
             </Button>
           )}
@@ -77,7 +77,7 @@ export function UpdateStatus() {
                   <Badge>New</Badge>
                 </div>
                 <Button onClick={downloadAndInstall} className="w-full" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="h-4 w-4 me-2" />
                   Download Update
                 </Button>
               </div>
@@ -121,7 +121,7 @@ export function UpdateStatus() {
                   later at your convenience.
                 </div>
                 <Button onClick={restartAndInstall} className="w-full" size="sm">
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className="h-4 w-4 me-2" />
                   Restart Now
                 </Button>
               </div>

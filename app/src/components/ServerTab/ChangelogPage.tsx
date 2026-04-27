@@ -100,7 +100,7 @@ function renderTable(tableLines: string[], keyBase: number): React.ReactNode {
             {headers.map((h, hIdx) => (
               <th
                 key={hIdx}
-                className="text-left py-1.5 pr-4 text-muted-foreground font-medium text-xs"
+                className="text-start py-1.5 pe-4 text-muted-foreground font-medium text-xs"
               >
                 {inlineMarkdown(h)}
               </th>
@@ -111,7 +111,7 @@ function renderTable(tableLines: string[], keyBase: number): React.ReactNode {
           {rows.map((row, rowIdx) => (
             <tr key={rowIdx} className="border-b border-border/50">
               {row.map((cell, cellIdx) => (
-                <td key={cellIdx} className="py-1.5 pr-4 text-muted-foreground">
+                <td key={cellIdx} className="py-1.5 pe-4 text-muted-foreground">
                   {inlineMarkdown(cell)}
                 </td>
               ))}
@@ -195,7 +195,7 @@ function ChangelogEntryCard({ entry }: { entry: ChangelogEntry }) {
       <div className={isLong && !expanded ? 'max-h-48 overflow-hidden relative' : ''}>
         {content}
         {isLong && !expanded && (
-          <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-background to-transparent" />
+          <div className="absolute bottom-0 start-0 end-0 h-16 bg-gradient-to-t from-background to-transparent" />
         )}
       </div>
 

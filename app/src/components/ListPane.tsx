@@ -11,13 +11,13 @@ export function ListPane({ className, children }: ListPaneProps) {
   return (
     <div className={cn('h-full flex flex-col relative overflow-hidden', className)}>
       <div
-        className="absolute top-0 right-0 bottom-0 w-px bg-border pointer-events-none z-30"
+        className="absolute top-0 end-0 bottom-0 w-px bg-border pointer-events-none z-30"
         style={{
           maskImage: 'linear-gradient(to bottom, transparent 0, black 50px)',
           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 50px)',
         }}
       />
-      <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
+      <div className="absolute top-0 start-0 end-0 h-20 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
       {children}
     </div>
   );
@@ -30,7 +30,7 @@ interface ListPaneHeaderProps {
 
 export function ListPaneHeader({ className, children }: ListPaneHeaderProps) {
   return (
-    <div className={cn('absolute top-0 left-0 right-0 z-20 px-4', className)}>{children}</div>
+    <div className={cn('absolute top-0 start-0 end-0 z-20 px-4', className)}>{children}</div>
   );
 }
 
@@ -58,7 +58,7 @@ interface ListPaneActionsProps {
 }
 
 export function ListPaneActions({ className, children }: ListPaneActionsProps) {
-  return <div className={cn('ml-auto flex items-center gap-2', className)}>{children}</div>;
+  return <div className={cn('ms-auto flex items-center gap-2', className)}>{children}</div>;
 }
 
 interface ListPaneSearchProps {

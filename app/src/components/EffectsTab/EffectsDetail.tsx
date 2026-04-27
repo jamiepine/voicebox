@@ -323,7 +323,7 @@ export function EffectsDetail() {
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-5 pr-1">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-5 pe-1">
         {(isCreatingNew || !isBuiltIn) && (
           <div className="space-y-3">
             <div className="space-y-1.5">
@@ -424,7 +424,7 @@ export function EffectsDetail() {
               {t('common.cancel')}
             </Button>
             <Button onClick={handleSaveAsConfirm} disabled={saving || !saveAsName.trim()}>
-              <Save className="h-3.5 w-3.5 mr-1.5" />
+              <Save className="h-3.5 w-3.5 me-1.5" />
               {saving ? t('effects.detail.saving') : t('common.save')}
             </Button>
           </DialogFooter>

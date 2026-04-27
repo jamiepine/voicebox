@@ -195,7 +195,7 @@ export function EffectsChainEditor({
                   <SelectItem key={p.id} value={p.id}>
                     {name}
                     {description && (
-                      <span className="ml-1 text-muted-foreground">- {description}</span>
+                      <span className="ms-1 text-muted-foreground">- {description}</span>
                     )}
                   </SelectItem>
                 );
@@ -240,7 +240,7 @@ export function EffectsChainEditor({
       {availableEffects && (
         <Select onValueChange={addEffect}>
           <SelectTrigger className="h-8 border-dashed text-xs text-muted-foreground focus:ring-0 focus:ring-offset-0">
-            <Plus className="mr-1 h-3.5 w-3.5" />
+            <Plus className="me-1 h-3.5 w-3.5" />
             <SelectValue placeholder={t('effects.chain.addEffect')} />
           </SelectTrigger>
           <SelectContent>

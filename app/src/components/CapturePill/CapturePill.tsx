@@ -149,7 +149,7 @@ export function CapturePill({
         {labelText}
       </span>
       <PillAudioBars mode={barMode} />
-      <span className="text-xs tabular-nums text-accent/70 font-medium shrink-0 -ml-1">
+      <span className="text-xs tabular-nums text-accent/70 font-medium shrink-0 -ms-1">
         {formatElapsed(elapsedMs)}
       </span>
     </div>
