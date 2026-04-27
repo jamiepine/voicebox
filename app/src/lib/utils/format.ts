@@ -16,8 +16,8 @@ function getDateLocale() {
       return zhCN;
     case 'zh-TW':
       return zhTW;
-	case 'de-DE':
-	
+    case 'de':
+      return de;
     default:
       return undefined;
   }

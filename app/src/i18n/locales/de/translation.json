@@ -414,7 +414,7 @@
   "stories": {
     "title": "Stories",
     "newStory": "Neue Story",
-    "loading": "Lade Stories...",
+    "loading": "Lade Stories…",
     "empty": {
       "title": "Noch keine Stories",
       "hint": "Erstellen Sie Ihre erste Story, um zu beginnen"
