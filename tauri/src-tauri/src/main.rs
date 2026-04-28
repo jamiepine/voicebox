@@ -15,14 +15,75 @@ mod keyboard_layout;
 mod speak_monitor;
 mod synthetic_keys;
 
-use std::sync::Mutex;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use tauri::{command, State, Manager, WindowEvent, Emitter, Listener, RunEvent, WebviewUrl, WebviewWindowBuilder, PhysicalPosition};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::mpsc;
 
+const MAIN_WINDOW_LABEL: &str = "main";
+const WINDOW_CLOSE_REQUESTED_EVENT: &str = "window-close-requested";
+const WINDOW_CLOSE_ALLOWED_EVENT: &str = "window-close-allowed";
 pub const DICTATE_WINDOW_LABEL: &str = "dictate";
 const DICTATE_WINDOW_WIDTH: f64 = 420.0;
 const DICTATE_WINDOW_HEIGHT: f64 = 64.0;
+
+#[cfg(target_os = "macos")]
+fn show_main_window(app: &tauri::AppHandle) {
+    let Some(window) = app.get_webview_window(MAIN_WINDOW_LABEL) else {
+        eprintln!("macOS Reopen: main window missing");
+        return;
+    };
+
+    println!("macOS Reopen: showing/focusing main window");
+    if let Err(e) = window.show() {
+        eprintln!("macOS Reopen: failed to show main window: {e}");
+    }
+    if let Err(e) = window.unminimize() {
+        eprintln!("macOS Reopen: failed to unminimize main window: {e}");
+    }
+    if let Err(e) = window.set_focus() {
+        eprintln!("macOS Reopen: failed to focus main window: {e}");
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn request_frontend_main_window_hide(window: tauri::Window, closing: Arc<AtomicBool>) {
+    let window_for_hide = window.clone();
+    let closing_for_timeout = closing.clone();
+    let (tx, mut rx) = mpsc::unbounded_channel::<()>();
+
+    let listener_id = window.listen(WINDOW_CLOSE_ALLOWED_EVENT, move |_| {
+        let _ = tx.send(());
+    });
+
+    if let Err(e) = window.app_handle().emit(WINDOW_CLOSE_REQUESTED_EVENT, ()) {
+        eprintln!("Failed to emit {WINDOW_CLOSE_REQUESTED_EVENT} event: {}", e);
+        window.unlisten(listener_id);
+        if let Err(hide_error) = window.hide() {
+            eprintln!("Failed to hide main window after emit failure: {}", hide_error);
+        }
+        closing.store(false, Ordering::SeqCst);
+        return;
+    }
+
+    tauri::async_runtime::spawn(async move {
+        tokio::select! {
+            _ = rx.recv() => {}
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
+                eprintln!("Window close timeout, hiding main window anyway");
+            }
+        }
+
+        window_for_hide.unlisten(listener_id);
+        if let Err(e) = window_for_hide.hide() {
+            eprintln!("Failed to hide main window after frontend cleanup: {}", e);
+        }
+        closing_for_timeout.store(false, Ordering::SeqCst);
+    });
+}
 
 /// Create the floating dictate webview hidden. The HotkeyMonitor shows it on
 /// chord-start; the frontend hides it when the capture pipeline finishes.
@@ -1377,51 +1438,74 @@ pub fn run() {
             update_chord_bindings
         ])
         .on_window_event({
-            let closing = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let closing = Arc::new(AtomicBool::new(false));
+            #[cfg(target_os = "macos")]
+            let main_window_closing = Arc::new(AtomicBool::new(false));
+
             move |window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                // If we're already in the close flow, let it proceed
-                if closing.load(std::sync::atomic::Ordering::SeqCst) {
-                    return;
-                }
-                closing.store(true, std::sync::atomic::Ordering::SeqCst);
-
-                // Prevent automatic close so frontend can clean up
-                api.prevent_close();
-
-                // Emit event to frontend to check setting and stop server if needed
-                let app_handle = window.app_handle();
-
-                if let Err(e) = app_handle.emit("window-close-requested", ()) {
-                    eprintln!("Failed to emit window-close-requested event: {}", e);
-                    window.close().ok();
-                    return;
-                }
-
-                // Set up listener for frontend response
-                let window_for_close = window.clone();
-                let closing_for_timeout = closing.clone();
-                let (tx, mut rx) = mpsc::unbounded_channel::<()>();
-
-                let listener_id = window.listen("window-close-allowed", move |_| {
-                    let _ = tx.send(());
-                });
-
-                tauri::async_runtime::spawn(async move {
-                    tokio::select! {
-                        _ = rx.recv() => {
-                            window_for_close.close().ok();
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    #[cfg(target_os = "macos")]
+                    if window.label() == MAIN_WINDOW_LABEL {
+                        if main_window_closing
+                            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+                            .is_err()
+                        {
+                            api.prevent_close();
+                            return;
                         }
-                        _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
-                            eprintln!("Window close timeout, closing anyway");
-                            window_for_close.close().ok();
-                        }
+
+                        println!("macOS close: main window close request intercepted for frontend cleanup");
+                        api.prevent_close();
+                        request_frontend_main_window_hide(window.clone(), main_window_closing.clone());
+                        return;
                     }
-                    window_for_close.unlisten(listener_id);
-                    closing_for_timeout.store(false, std::sync::atomic::Ordering::SeqCst);
-                });
+
+                    // If we're already in the close flow, let it proceed
+                    if closing.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    closing.store(true, Ordering::SeqCst);
+
+                    // Prevent automatic close so frontend can clean up
+                    api.prevent_close();
+
+                    // Emit event to frontend to check setting and stop server if needed
+                    let app_handle = window.app_handle();
+
+                    if let Err(e) = app_handle.emit(WINDOW_CLOSE_REQUESTED_EVENT, ()) {
+                        eprintln!("Failed to emit {WINDOW_CLOSE_REQUESTED_EVENT} event: {}", e);
+                        if let Err(close_err) = window.close() {
+                            eprintln!("Failed to close window after emit failure: {}", close_err);
+                            closing.store(false, Ordering::SeqCst);
+                        }
+                        return;
+                    }
+
+                    // Set up listener for frontend response
+                    let window_for_close = window.clone();
+                    let closing_for_timeout = closing.clone();
+                    let (tx, mut rx) = mpsc::unbounded_channel::<()>();
+
+                    let listener_id = window.listen(WINDOW_CLOSE_ALLOWED_EVENT, move |_| {
+                        let _ = tx.send(());
+                    });
+
+                    tauri::async_runtime::spawn(async move {
+                        tokio::select! {
+                            _ = rx.recv() => {
+                                window_for_close.close().ok();
+                            }
+                            _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
+                                eprintln!("Window close timeout, closing anyway");
+                                window_for_close.close().ok();
+                            }
+                        }
+                        window_for_close.unlisten(listener_id);
+                        closing_for_timeout.store(false, Ordering::SeqCst);
+                    });
+                }
             }
-        }})
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
@@ -1492,6 +1576,13 @@ pub fn run() {
                     println!("RunEvent::ExitRequested received");
                     // Don't prevent exit, just log it
                     let _ = api;
+                }
+                #[cfg(target_os = "macos")]
+                RunEvent::Reopen { has_visible_windows, .. } => {
+                    println!("macOS Reopen received — has_visible_windows={}", has_visible_windows);
+                    if !has_visible_windows {
+                        show_main_window(app);
+                    }
                 }
                 _ => {}
             }
