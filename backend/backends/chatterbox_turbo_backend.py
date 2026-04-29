@@ -50,7 +50,7 @@ class ChatterboxTurboTTSBackend:
         self._model_load_lock = asyncio.Lock()
 
     def _get_device(self) -> str:
-        return get_torch_device(force_cpu_on_mac=True, allow_xpu=True)
+        return "cpu"
 
     def is_loaded(self) -> bool:
         return self.model is not None
@@ -109,6 +109,7 @@ class ChatterboxTurboTTSBackend:
             patch_chatterbox_f32(model)
             self.model = model
 
+        self._device = device
         logger.info("Chatterbox Turbo TTS loaded successfully")
 
     def unload_model(self) -> None:
