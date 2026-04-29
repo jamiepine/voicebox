@@ -1,0 +1,37 @@
+services:
+  voicebox:
+    image: voicebox-cuda:latest
+    container_name: voicebox
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:17493:17493"
+
+    volumes:
+      - voicebox-generations:/app/data/generations
+      - voicebox-data:/app/data
+      - huggingface-cache:/home/voicebox/.cache/huggingface
+
+    environment:
+      - LOG_LEVEL=info
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    runtime: nvidia
+
+networks:
+  voicebox-net:
+    driver: bridge
+
+volumes:
+  voicebox-data:
+  voicebox-generations:
+  huggingface-cache:
