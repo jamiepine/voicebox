@@ -53,7 +53,6 @@ export function formatAbsoluteDate(date: string | Date): string {
 const ENGINE_DISPLAY_NAMES: Record<string, string> = {
   qwen: 'Qwen',
   luxtts: 'LuxTTS',
-  chatterbox: 'Chatterbox',
   chatterbox_turbo: 'Chatterbox Turbo',
 };
 

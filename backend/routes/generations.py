@@ -74,7 +74,7 @@ async def generate_speech(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
+    model_size = (data.model_size or "0.6B") if engine_has_model_sizes(engine) else None
 
     text = data.text
     source = "manual"
@@ -177,7 +177,7 @@ async def retry_generation(generation_id: str, db: Session = Depends(get_db)):
             text=gen.text,
             language=gen.language,
             engine=gen.engine or "qwen",
-            model_size=gen.model_size or "1.7B",
+            model_size=gen.model_size or "0.6B",
             seed=gen.seed,
             instruct=gen.instruct,
             mode="retry",
@@ -221,7 +221,7 @@ async def regenerate_generation(generation_id: str, db: Session = Depends(get_db
             text=gen.text,
             language=gen.language,
             engine=gen.engine or "qwen",
-            model_size=gen.model_size or "1.7B",
+            model_size=gen.model_size or "0.6B",
             seed=gen.seed,
             instruct=gen.instruct,
             mode="regenerate",
@@ -321,7 +321,12 @@ async def stream_speech(
     db: Session = Depends(get_db),
 ):
     """Generate speech and stream the WAV audio directly without saving to disk."""
-    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim
+    from ..backends import (
+        get_tts_backend_for_engine,
+        ensure_model_cached_or_raise,
+        load_engine_model,
+        engine_needs_trim,
+    )
 
     profile = await profiles.get_profile(data.profile_id, db)
     if not profile:
@@ -333,7 +338,7 @@ async def stream_speech(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     tts_model = get_tts_backend_for_engine(engine)
-    model_size = data.model_size or "1.7B"
+    model_size = data.model_size or "0.6B"
 
     await ensure_model_cached_or_raise(engine, model_size)
     await load_engine_model(engine, model_size)

@@ -24,7 +24,7 @@ from ..utils.images import process_avatar, validate_image
 
 logger = logging.getLogger(__name__)
 
-CLONING_ENGINES = {"qwen", "luxtts", "chatterbox", "chatterbox_turbo", "tada"}
+CLONING_ENGINES = {"qwen", "luxtts", "chatterbox_turbo"}
 
 
 def _profile_to_response(
@@ -120,9 +120,7 @@ def validate_profile_engine(profile, engine: str) -> None:
         if not preset_engine or not preset_voice_id:
             raise ValueError(f"Preset profile {profile.id} is missing preset engine metadata")
         if preset_engine != engine:
-            raise ValueError(
-                f"Preset profile {profile.id} only supports engine '{preset_engine}', not '{engine}'"
-            )
+            raise ValueError(f"Preset profile {profile.id} only supports engine '{preset_engine}', not '{engine}'")
         return
 
     if voice_type == "designed":
@@ -222,9 +220,7 @@ async def add_profile_sample(
         raise ValueError(f"Profile {profile_id} not found")
 
     # Validate and load audio in a single pass, off the event loop
-    is_valid, error_msg, audio, sr = await asyncio.to_thread(
-        validate_and_load_reference_audio, audio_path
-    )
+    is_valid, error_msg, audio, sr = await asyncio.to_thread(validate_and_load_reference_audio, audio_path)
     if not is_valid:
         raise ValueError(f"Invalid reference audio: {error_msg}")
 
@@ -385,7 +381,9 @@ async def update_profile(
     preset_engine = getattr(profile, "preset_engine", None)
     preset_voice_id = getattr(profile, "preset_voice_id", None)
     design_prompt = getattr(profile, "design_prompt", None)
-    default_engine = data.default_engine if data.default_engine is not None else getattr(profile, "default_engine", None)
+    default_engine = (
+        data.default_engine if data.default_engine is not None else getattr(profile, "default_engine", None)
+    )
 
     validation_error = _validate_profile_fields(
         voice_type=voice_type,

@@ -129,13 +129,7 @@ def build_server(cuda=False):
             "--hidden-import",
             "pedalboard",
             "--hidden-import",
-            "chatterbox",
-            "--hidden-import",
             "chatterbox.tts_turbo",
-            "--hidden-import",
-            "chatterbox.mtl_tts",
-            "--hidden-import",
-            "backend.backends.chatterbox_backend",
             "--hidden-import",
             "backend.backends.chatterbox_turbo_backend",
             # chatterbox multilingual uses spacy_pkuseg for Chinese word
@@ -222,42 +216,6 @@ def build_server(cuda=False):
             # needed by LuxTTS for text-to-phoneme conversion
             "--collect-all",
             "piper_phonemize",
-            # HumeAI TADA — speech-language model using Llama + flow matching
-            "--hidden-import",
-            "backend.backends.hume_backend",
-            "--hidden-import",
-            "tada",
-            "--hidden-import",
-            "tada.modules",
-            "--hidden-import",
-            "tada.modules.tada",
-            "--hidden-import",
-            "tada.modules.encoder",
-            "--hidden-import",
-            "tada.modules.decoder",
-            "--hidden-import",
-            "tada.modules.aligner",
-            "--hidden-import",
-            "tada.modules.acoustic_spkr_verf",
-            "--hidden-import",
-            "tada.nn",
-            "--hidden-import",
-            "tada.nn.vibevoice",
-            "--hidden-import",
-            "tada.utils",
-            "--hidden-import",
-            "tada.utils.gray_code",
-            "--hidden-import",
-            "tada.utils.text",
-            # DAC shim — provides dac.nn.layers.Snake1d without the real
-            # descript-audio-codec package (which pulls onnx/tensorboard via
-            # descript-audiotools). The shim is in backend/utils/dac_shim.py.
-            "--hidden-import",
-            "backend.utils.dac_shim",
-            "--hidden-import",
-            "torchaudio",
-            "--collect-submodules",
-            "tada",
             # Kokoro 82M — lightweight TTS engine using misaki G2P
             # collect-all is required because transformers introspects .py source
             # files at runtime (e.g. _can_set_attn_implementation opens the class
