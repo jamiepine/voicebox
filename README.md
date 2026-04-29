@@ -29,6 +29,10 @@
 </p>
 
 <p align="center">
+    <a href="https://trendshift.io/repositories/21213" target="_blank"><img src="https://trendshift.io/api/badge/repositories/21213" alt="jamiepine%2Fvoicebox | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+</p>
+
+<p align="center">
   <a href="https://voicebox.sh">voicebox.sh</a> •
   <a href="https://docs.voicebox.sh">Docs</a> •
   <a href="#download">Download</a> •

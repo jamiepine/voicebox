@@ -10,6 +10,7 @@ import logging
 from typing import Optional, Tuple
 
 import numpy as np
+import torch
 
 from . import TTSBackend
 from .base import (
@@ -166,6 +167,13 @@ class LuxTTSBackend:
         def _generate_sync():
             if seed is not None:
                 manual_seed(seed, self.device)
+
+            # Fix tensor device mismatch: ZipVoice's encode_prompt() returns
+            # some tensors on CPU while others are on the model device.
+            # Move ALL tensors in voice_prompt to self.device.
+            for key, value in voice_prompt.items():
+                if isinstance(value, torch.Tensor) and value.device.type != self.device:
+                    voice_prompt[key] = value.to(self.device)
 
             wav = self.model.generate_speech(
                 text=text,
