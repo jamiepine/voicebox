@@ -16,7 +16,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
-import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
+import { LANGUAGE_OPTIONS, getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useStory } from '@/lib/hooks/useStories';
@@ -571,9 +571,6 @@ export function FloatingGenerateBox({
                     control={form.control}
                     name="language"
                     render={({ field }) => {
-                      const engineLangs = getLanguageOptionsForEngine(
-                        form.watch('engine') || 'qwen',
-                      );
                       return (
                         <FormItem className="flex-1 space-y-0">
                           <Select onValueChange={field.onChange} value={field.value}>
@@ -583,7 +580,7 @@ export function FloatingGenerateBox({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {engineLangs.map((lang) => (
+                              {LANGUAGE_OPTIONS.map((lang) => (
                                 <SelectItem key={lang.value} value={lang.value} className="text-xs">
                                   {lang.label}
                                 </SelectItem>
