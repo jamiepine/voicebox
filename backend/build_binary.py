@@ -52,29 +52,6 @@ def build_server(cuda=False):
     if platform.system() == "Windows":
         args.append("--noconsole")
 
-    # numpy 2.x / torch ABI mismatch fix: install memmove fallback for
-    # torch.from_numpy() before the app starts. Runtime hooks run after
-    # FrozenImporter is registered so frozen torch/numpy are importable.
-    # Paths are passed relative to backend_dir because os.chdir(backend_dir)
-    # runs before PyInstaller. Absolute paths would get baked into the
-    # generated .spec, breaking reproducible builds on other machines / CI.
-    args.extend(
-        [
-            "--runtime-hook",
-            "pyi_rth_numpy_compat.py",
-            # Stub torch.compiler.disable before transformers imports
-            # flex_attention, which otherwise triggers torch._dynamo →
-            # torch._numpy._ufuncs and crashes at module load under
-            # PyInstaller. See pyi_rth_torch_compiler_disable.py.
-            "--runtime-hook",
-            "pyi_rth_torch_compiler_disable.py",
-            # Per-module collection overrides (e.g. forcing scipy.stats._distn_infrastructure
-            # to bundle .py source alongside .pyc so the runtime hook can source-patch it).
-            "--additional-hooks-dir",
-            "pyi_hooks",
-        ]
-    )
-
     # Add local qwen_tts path if specified (for editable installs)
     qwen_tts_path = os.getenv("QWEN_TTS_PATH")
     if qwen_tts_path and Path(qwen_tts_path).exists():
@@ -129,20 +106,9 @@ def build_server(cuda=False):
             "--hidden-import",
             "pedalboard",
             "--hidden-import",
-            "chatterbox",
-            "--hidden-import",
             "chatterbox.tts_turbo",
             "--hidden-import",
-            "chatterbox.mtl_tts",
-            "--hidden-import",
-            "backend.backends.chatterbox_backend",
-            "--hidden-import",
             "backend.backends.chatterbox_turbo_backend",
-            # chatterbox multilingual uses spacy_pkuseg for Chinese word
-            # segmentation, which ships pickled dict files (dicts/default.pkl)
-            # and native .so extensions that --hidden-import alone won't bundle.
-            "--collect-all",
-            "spacy_pkuseg",
             "--hidden-import",
             "backend.backends.luxtts_backend",
             "--hidden-import",
@@ -222,50 +188,21 @@ def build_server(cuda=False):
             # needed by LuxTTS for text-to-phoneme conversion
             "--collect-all",
             "piper_phonemize",
-            # HumeAI TADA — speech-language model using Llama + flow matching
-            "--hidden-import",
-            "backend.backends.hume_backend",
-            "--hidden-import",
-            "tada",
-            "--hidden-import",
-            "tada.modules",
-            "--hidden-import",
-            "tada.modules.tada",
-            "--hidden-import",
-            "tada.modules.encoder",
-            "--hidden-import",
-            "tada.modules.decoder",
-            "--hidden-import",
-            "tada.modules.aligner",
-            "--hidden-import",
-            "tada.modules.acoustic_spkr_verf",
-            "--hidden-import",
-            "tada.nn",
-            "--hidden-import",
-            "tada.nn.vibevoice",
-            "--hidden-import",
-            "tada.utils",
-            "--hidden-import",
-            "tada.utils.gray_code",
-            "--hidden-import",
-            "tada.utils.text",
-            # DAC shim — provides dac.nn.layers.Snake1d without the real
-            # descript-audio-codec package (which pulls onnx/tensorboard via
-            # descript-audiotools). The shim is in backend/utils/dac_shim.py.
-            "--hidden-import",
-            "backend.utils.dac_shim",
-            "--hidden-import",
-            "torchaudio",
-            "--collect-submodules",
-            "tada",
             # Kokoro 82M — lightweight TTS engine using misaki G2P
-            # collect-all is required because transformers introspects .py source
-            # files at runtime (e.g. _can_set_attn_implementation opens the class
-            # file); hidden-import alone only bundles bytecode.
             "--hidden-import",
             "backend.backends.kokoro_backend",
-            "--collect-all",
+            "--hidden-import",
             "kokoro",
+            "--hidden-import",
+            "kokoro.pipeline",
+            "--hidden-import",
+            "kokoro.model",
+            "--hidden-import",
+            "kokoro.istftnet",
+            "--hidden-import",
+            "kokoro.modules",
+            "--hidden-import",
+            "kokoro.custom_stft",
             # misaki ships G2P data files (dictionaries, phoneme tables)
             # that must be bundled for espeak/en/ja/zh G2P to work
             "--collect-all",
@@ -287,36 +224,8 @@ def build_server(cuda=False):
             "en_core_web_sm",
             "--hidden-import",
             "en_core_web_sm",
-            # unidic-lite ships the MeCab dictionary used by fugashi (pulled in
-            # by misaki[ja]). The dict lives in unidic_lite/dicdir/ and is
-            # discovered via the package's DICDIR constant, so the data files
-            # must be collected or Japanese Kokoro voices crash at runtime.
-            "--collect-all",
-            "unidic_lite",
             "--hidden-import",
             "loguru",
-            # MCP server — Streamable-HTTP endpoint and the 4 voicebox.* tools.
-            # FastMCP pulls in a chain of deps (mcp, cyclopts, openapi-pydantic,
-            # etc.) that don't auto-discover cleanly under PyInstaller, so we
-            # collect them whole. Small compared to torch.
-            "--hidden-import",
-            "backend.mcp_server",
-            "--hidden-import",
-            "backend.mcp_server.server",
-            "--hidden-import",
-            "backend.mcp_server.tools",
-            "--hidden-import",
-            "backend.mcp_server.context",
-            "--hidden-import",
-            "backend.mcp_server.resolve",
-            "--hidden-import",
-            "backend.mcp_server.events",
-            "--collect-all",
-            "fastmcp",
-            "--collect-all",
-            "mcp",
-            "--hidden-import",
-            "sse_starlette",
         ]
     )
 
@@ -373,16 +282,10 @@ def build_server(cuda=False):
                 "mlx_audio.tts",
                 "--hidden-import",
                 "mlx_audio.stt",
-                "--hidden-import",
-                "mlx_lm",
-                "--hidden-import",
-                "backend.backends.qwen_llm_backend",
                 "--collect-submodules",
                 "mlx",
                 "--collect-submodules",
                 "mlx_audio",
-                "--collect-submodules",
-                "mlx_lm",
                 # Use --collect-all so PyInstaller bundles both data files AND
                 # native shared libraries (.dylib, .metallib) for MLX.
                 # Previously only --collect-data was used, which caused MLX to
@@ -392,11 +295,6 @@ def build_server(cuda=False):
                 "mlx",
                 "--collect-all",
                 "mlx_audio",
-                # mlx_lm ships chat_templates/ JSON files and loads tool_parsers
-                # submodules dynamically via importlib at tokenizer load time,
-                # which --hidden-import alone can't resolve.
-                "--collect-all",
-                "mlx_lm",
             ]
         )
     elif not cuda:
@@ -480,110 +378,12 @@ def build_server(cuda=False):
     logger.info("Binary built in %s", backend_dir / "dist" / binary_name)
 
 
-def build_shim():
-    """Build the voicebox-mcp stdio shim as a tiny standalone binary.
-
-    This is the bridge for MCP clients that only speak stdio — it proxies
-    JSON-RPC to the main voicebox-server's /mcp endpoint. Keep it small: no
-    torch, no ML deps, just httpx + asyncio.
-    """
-    backend_dir = Path(__file__).parent
-
-    args = [
-        "mcp_shim/__main__.py",
-        "--onefile",
-        "--name",
-        "voicebox-mcp",
-        # Stdio-only — no console hiding needed on Windows since the parent
-        # MCP client is spawning this as a child process and wants stdio.
-        "--hidden-import",
-        "backend.mcp_shim",
-        "--hidden-import",
-        "backend.mcp_shim.__main__",
-        "--hidden-import",
-        "httpx",
-        "--hidden-import",
-        "httpx._transports.default",
-        "--hidden-import",
-        "anyio",
-        # Exclude everything heavy that httpx/asyncio don't actually need so
-        # the binary stays tiny (~15 MB instead of ~400 MB).
-        "--exclude-module",
-        "torch",
-        "--exclude-module",
-        "transformers",
-        "--exclude-module",
-        "mlx",
-        "--exclude-module",
-        "mlx_audio",
-        "--exclude-module",
-        "mlx_lm",
-        "--exclude-module",
-        "qwen_tts",
-        "--exclude-module",
-        "chatterbox",
-        "--exclude-module",
-        "zipvoice",
-        "--exclude-module",
-        "tada",
-        "--exclude-module",
-        "kokoro",
-        "--exclude-module",
-        "misaki",
-        "--exclude-module",
-        "spacy",
-        "--exclude-module",
-        "librosa",
-        "--exclude-module",
-        "numba",
-        "--exclude-module",
-        "numpy",
-        "--exclude-module",
-        "pedalboard",
-        "--exclude-module",
-        "fastapi",
-        "--exclude-module",
-        "uvicorn",
-        "--exclude-module",
-        "sqlalchemy",
-        "--exclude-module",
-        "fastmcp",
-        "--exclude-module",
-        "mcp",
-    ]
-
-    dist_dir = str(backend_dir / "dist")
-    build_dir = str(backend_dir / "build")
-    args.extend(
-        [
-            "--distpath",
-            dist_dir,
-            "--workpath",
-            build_dir,
-            "--noconfirm",
-            "--clean",
-        ]
-    )
-
-    os.chdir(backend_dir)
-    PyInstaller.__main__.run(args)
-    logger.info("Shim built: %s", backend_dir / "dist" / "voicebox-mcp")
-
-
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build voicebox binaries")
+    parser = argparse.ArgumentParser(description="Build voicebox-server binary")
     parser.add_argument(
         "--cuda",
         action="store_true",
         help="Build CUDA-enabled binary (voicebox-server-cuda)",
     )
-    parser.add_argument(
-        "--shim",
-        action="store_true",
-        help="Build the voicebox-mcp stdio shim binary instead of the server",
-    )
     cli_args = parser.parse_args()
-    if cli_args.shim:
-        build_shim()
-    else:
-        build_server(cuda=cli_args.cuda)
+    build_server(cuda=cli_args.cuda)

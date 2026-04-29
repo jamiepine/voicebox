@@ -58,7 +58,7 @@ QWEN_CV_HF_REPOS = {
 class QwenCustomVoiceBackend:
     """Qwen3-TTS CustomVoice backend — preset speakers with instruct control."""
 
-    def __init__(self, model_size: str = "1.7B"):
+    def __init__(self, model_size: str = "0.6B"):
         self.model = None
         self.model_size = model_size
         self.device = self._get_device()
@@ -203,10 +203,6 @@ class QwenCustomVoiceBackend:
             if instruct:
                 kwargs["instruct"] = instruct
 
-            # Inference runs with the process's default HF_HUB_OFFLINE
-            # state. Forcing offline here (issue #462) regressed online
-            # users whose libraries issue legitimate metadata lookups
-            # during generation.
             wavs, sample_rate = self.model.generate_custom_voice(**kwargs)
             return wavs[0], sample_rate
 

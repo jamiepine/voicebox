@@ -18,7 +18,6 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { Trans, useTranslation } from 'react-i18next';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,26 +52,16 @@ async function fetchHuggingFaceModelInfo(repoId: string): Promise<HuggingFaceMod
 }
 
 const MODEL_DESCRIPTIONS: Record<string, string> = {
-  'qwen-tts-1.7B':
-    'High-quality multilingual TTS by Alibaba. Supports 10 languages with natural prosody and voice cloning from short reference audio.',
   'qwen-tts-0.6B':
-    'Lightweight version of Qwen TTS. Same language support with faster inference, ideal for lower-end hardware.',
+    'Lightweight version of Qwen TTS. Supports 10 languages with faster inference, ideal for lower-end hardware.',
   luxtts:
     'Lightweight ZipVoice-based TTS designed for high quality voice cloning and 48kHz speech generation at speeds exceeding 150x realtime.',
-  'chatterbox-tts':
-    'Production-grade open source TTS by Resemble AI. Supports 23 languages with voice cloning and emotion exaggeration control.',
   'chatterbox-turbo':
     'Streamlined 350M parameter TTS by Resemble AI. High-quality English speech with less compute and VRAM than larger models.',
-  'tada-1b':
-    'HumeAI TADA 1B — English speech-language model built on Llama 3.2 1B. Generates 700s+ of coherent audio with synchronized text-acoustic alignment.',
-  'tada-3b-ml':
-    'HumeAI TADA 3B Multilingual — built on Llama 3.2 3B. Supports 10 languages with high-fidelity voice cloning via text-acoustic dual alignment.',
   kokoro:
     'Kokoro 82M by hexgrad. Tiny 82M-parameter TTS that runs at CPU realtime. Supports 8 languages with pre-built voice styles. Apache 2.0 licensed.',
-  'qwen-custom-voice-1.7B':
-    'Qwen3-TTS CustomVoice 1.7B by Alibaba. 9 premium preset voices with instruct-based style control for tone, emotion, and prosody. Supports 10 languages.',
   'qwen-custom-voice-0.6B':
-    'Qwen3-TTS CustomVoice 0.6B by Alibaba. Lightweight version with the same 9 preset voices and instruct control. Faster inference for lower-end hardware.',
+    'Qwen3-TTS CustomVoice 0.6B by Alibaba. Lightweight version with 9 preset voices and instruct control. Faster inference for lower-end hardware.',
   'whisper-base':
     'Smallest Whisper model (74M parameters). Fast transcription with moderate accuracy.',
   'whisper-small':
@@ -83,12 +72,6 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
     'Whisper Large (1.5B parameters). Best accuracy for speech-to-text across multiple languages.',
   'whisper-turbo':
     'Whisper Large v3 Turbo. Pruned for significantly faster inference while maintaining near-large accuracy.',
-  'qwen3-0.6b':
-    'Qwen3 0.6B — smallest of the Qwen3 instruct family. Very fast on CPU, runs at ~400 MB quantized on Apple Silicon. Good for dictation refinement and short completions.',
-  'qwen3-1.7b':
-    'Qwen3 1.7B — balanced size and quality. Handles subtle self-corrections and technical vocabulary better than the 0.6B. Runs at ~1.1 GB quantized on Apple Silicon.',
-  'qwen3-4b':
-    'Qwen3 4B — highest quality local refinement and longer-form reasoning. ~2.5 GB quantized on Apple Silicon, ~8 GB at full precision on PyTorch.',
 };
 
 function formatDownloads(n: number): string {
@@ -126,7 +109,6 @@ function formatBytes(bytes: number): string {
 }
 
 export function ModelManagement() {
-  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const platform = usePlatform();
@@ -278,8 +260,8 @@ export function ModelManagement() {
       setDownloadingModel(null);
       setDownloadingDisplayName(null);
       toast({
-        title: t('models.toast.downloadFailed'),
-        description: error instanceof Error ? error.message : t('common.unknownError'),
+        title: 'Download failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
     }
@@ -317,8 +299,8 @@ export function ModelManagement() {
         setDownloadingModel(prevDownloadingModel);
         setDownloadingDisplayName(prevDownloadingDisplayName);
         toast({
-          title: t('models.toast.cancelFailed'),
-          description: t('models.toast.cancelFailedDescription'),
+          title: 'Cancel failed',
+          description: 'Could not cancel the download task.',
           variant: 'destructive',
         });
       },
@@ -344,10 +326,8 @@ export function ModelManagement() {
     },
     onSuccess: async () => {
       toast({
-        title: t('models.toast.deleted'),
-        description: t('models.toast.deletedDescription', {
-          name: modelToDelete?.displayName || t('models.defaultName'),
-        }),
+        title: 'Model deleted',
+        description: `${modelToDelete?.displayName || 'Model'} has been deleted successfully.`,
       });
       setDeleteDialogOpen(false);
       setModelToDelete(null);
@@ -358,7 +338,7 @@ export function ModelManagement() {
     },
     onError: (error: Error) => {
       toast({
-        title: t('models.toast.deleteFailed'),
+        title: 'Delete failed',
         description: error.message,
         variant: 'destructive',
       });
@@ -371,15 +351,15 @@ export function ModelManagement() {
     },
     onSuccess: async (_data, modelName) => {
       toast({
-        title: t('models.toast.unloaded'),
-        description: t('models.toast.unloadedDescription', { name: modelName }),
+        title: 'Model unloaded',
+        description: `${modelName} has been unloaded from memory.`,
       });
       await queryClient.invalidateQueries({ queryKey: ['modelStatus'], refetchType: 'all' });
       await queryClient.refetchQueries({ queryKey: ['modelStatus'] });
     },
     onError: (error: Error) => {
       toast({
-        title: t('models.toast.unloadFailed'),
+        title: 'Unload failed',
         description: error.message,
         variant: 'destructive',
       });
@@ -387,7 +367,7 @@ export function ModelManagement() {
   });
 
   const formatSize = (sizeMb?: number): string => {
-    if (!sizeMb) return t('models.unknownSize');
+    if (!sizeMb) return 'Unknown size';
     if (sizeMb < 1024) return `${sizeMb.toFixed(1)} MB`;
     return `${(sizeMb / 1024).toFixed(2)} GB`;
   };
@@ -413,17 +393,14 @@ export function ModelManagement() {
         m.model_name.startsWith('qwen-custom-voice') ||
         m.model_name.startsWith('luxtts') ||
         m.model_name.startsWith('chatterbox') ||
-        m.model_name.startsWith('tada') ||
         m.model_name.startsWith('kokoro'),
     ) ?? [];
   const whisperModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper')) ?? [];
-  const llmModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen3-')) ?? [];
 
   // Build sections
   const sections: { label: string; models: ModelStatus[] }[] = [
-    { label: t('models.sections.voiceGeneration'), models: voiceModels },
-    { label: t('models.sections.transcription'), models: whisperModels },
-    { label: t('models.sections.languageModels'), models: llmModels },
+    { label: 'Voice Generation', models: voiceModels },
+    { label: 'Transcription', models: whisperModels },
   ];
 
   // Get detail modal state for selected model
@@ -439,14 +416,16 @@ export function ModelManagement() {
   // Derive license from HF data
   const license =
     hfModelInfo?.cardData?.license ||
-    hfModelInfo?.tags?.find((tag) => tag.startsWith('license:'))?.replace('license:', '');
+    hfModelInfo?.tags?.find((t) => t.startsWith('license:'))?.replace('license:', '');
 
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 pb-4">
-        <h1 className="text-lg font-semibold">{t('models.title')}</h1>
-        <p className="text-sm text-muted-foreground">{t('models.subtitle')}</p>
+        <h1 className="text-lg font-semibold">Models</h1>
+        <p className="text-sm text-muted-foreground">
+          Download and manage AI models for voice generation and transcription
+        </p>
       </div>
 
       {/* Model storage location */}
@@ -454,7 +433,7 @@ export function ModelManagement() {
         <div className="shrink-0 pb-4 border-b mb-4">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <span className="text-xs text-muted-foreground">{t('models.storage.location')}</span>
+              <span className="text-xs text-muted-foreground">Storage location</span>
               <p
                 className="text-xs font-mono text-muted-foreground/70 truncate"
                 title={cacheDir.path}
@@ -471,12 +450,12 @@ export function ModelManagement() {
                   try {
                     await platform.filesystem.openPath(cacheDir.path);
                   } catch {
-                    toast({ title: t('models.toast.openFolderFailed'), variant: 'destructive' });
+                    toast({ title: 'Failed to open model folder', variant: 'destructive' });
                   }
                 }}
               >
                 <FolderOpen className="h-3 w-3" />
-                {t('models.storage.open')}
+                Open
               </Button>
               <Button
                 variant="ghost"
@@ -485,12 +464,12 @@ export function ModelManagement() {
                 onClick={async () => {
                   try {
                     const newDir = await platform.filesystem.pickDirectory(
-                      t('models.storage.pickerTitle'),
+                      'Choose model storage folder',
                     );
                     if (!newDir) return;
                     setPendingMigrateDir(newDir);
                   } catch {
-                    toast({ title: t('models.toast.pickerFailed'), variant: 'destructive' });
+                    toast({ title: 'Failed to open folder picker', variant: 'destructive' });
                   }
                 }}
                 disabled={migrating}
@@ -500,7 +479,7 @@ export function ModelManagement() {
                 ) : (
                   <FolderOpen className="h-3 w-3" />
                 )}
-                {migrating ? t('models.storage.migrating') : t('models.storage.change')}
+                {migrating ? 'Migrating...' : 'Change'}
               </Button>
               {customModelsDir && (
                 <Button
@@ -510,13 +489,13 @@ export function ModelManagement() {
                   disabled={migrating}
                   onClick={async () => {
                     setCustomModelsDir(null);
-                    toast({ title: t('models.toast.resetToDefault') });
+                    toast({ title: 'Reset to default location. Restarting server...' });
                     await platform.lifecycle.restartServer('');
                     queryClient.invalidateQueries();
                   }}
                 >
                   <RotateCcw className="h-3 w-3" />
-                  {t('models.storage.reset')}
+                  Reset
                 </Button>
               )}
             </div>
@@ -530,7 +509,7 @@ export function ModelManagement() {
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : modelStatus ? (
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-6 pb-6">
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-6">
           {sections.map((section) => (
             <div key={section.label}>
               <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1 px-1">
@@ -575,7 +554,7 @@ export function ModelManagement() {
                                 <div className="text-[10px] text-muted-foreground truncate">
                                   {hasProgress
                                     ? `${formatBytes(dl.current ?? 0)} / ${formatBytes(dl.total!)} (${pct.toFixed(0)}%)`
-                                    : dl?.filename || t('models.progress.connecting')}
+                                    : dl?.filename || 'Connecting...'}
                                 </div>
                               </div>
                             );
@@ -586,12 +565,12 @@ export function ModelManagement() {
                       <div className="shrink-0 flex items-center gap-2">
                         {hasError && (
                           <Badge variant="destructive" className="text-[10px] h-5">
-                            {t('common.error')}
+                            Error
                           </Badge>
                         )}
                         {model.loaded && (
                           <Badge className="text-[10px] h-5 bg-accent/15 text-accent border-accent/30 hover:bg-accent/15">
-                            {t('models.status.loaded')}
+                            Loaded
                           </Badge>
                         )}
                         {model.downloaded && !isDownloading && !hasError && (
@@ -623,7 +602,7 @@ export function ModelManagement() {
                   ) : (
                     <ChevronDown className="h-3.5 w-3.5" />
                   )}
-                  <span>{t('models.problems.title')}</span>
+                  <span>Problems</span>
                   <Badge variant="destructive" className="text-[10px] h-4 px-1.5 rounded-full">
                     {errorCount}
                   </Badge>
@@ -636,7 +615,7 @@ export function ModelManagement() {
                   disabled={clearAllMutation.isPending}
                 >
                   <RotateCcw className="h-3 w-3 mr-1" />
-                  {t('models.problems.clearAll')}
+                  Clear All
                 </Button>
               </div>
               {consoleOpen && (
@@ -655,13 +634,13 @@ export function ModelManagement() {
                       ) : (
                         <>
                           {': '}
-                          <span className="text-[#808080]">{t('models.problems.noDetails')}</span>
+                          <span className="text-[#808080]">
+                            No error details available. Try downloading again.
+                          </span>
                         </>
                       )}
                       <div className="text-[#6a9955] mt-0.5">
-                        {t('models.problems.startedAt', {
-                          time: new Date(dl.started_at).toLocaleString(),
-                        })}
+                        started at {new Date(dl.started_at).toLocaleString()}
                       </div>
                     </div>
                   ))}
@@ -702,13 +681,13 @@ export function ModelManagement() {
                   {freshSelectedModel.loaded && (
                     <Badge className="text-xs bg-accent/15 text-accent border-accent/30 hover:bg-accent/15">
                       <CircleCheck className="h-3 w-3 mr-1" />
-                      {t('models.status.loaded')}
+                      Loaded
                     </Badge>
                   )}
                   {selectedState?.hasError && (
                     <Badge variant="destructive" className="text-xs">
                       <CircleX className="h-3 w-3 mr-1" />
-                      {t('common.error')}
+                      Error
                     </Badge>
                   )}
                 </div>
@@ -717,7 +696,7 @@ export function ModelManagement() {
                 {hfLoading && freshSelectedModel.hf_repo_id && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    {t('models.detail.loadingInfo')}
+                    Loading model info...
                   </div>
                 )}
 
@@ -744,29 +723,23 @@ export function ModelManagement() {
                       )}
                       {hfModelInfo.author && (
                         <Badge variant="outline" className="text-[10px]">
-                          {t('models.detail.byAuthor', { author: hfModelInfo.author })}
+                          by {hfModelInfo.author}
                         </Badge>
                       )}
                     </div>
 
                     {/* Stats row */}
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span
-                        className="flex items-center gap-1"
-                        title={t('models.detail.downloads')}
-                      >
+                      <span className="flex items-center gap-1" title="Downloads">
                         <Download className="h-3.5 w-3.5" />
                         {formatDownloads(hfModelInfo.downloads)}
                       </span>
-                      <span className="flex items-center gap-1" title={t('models.detail.likes')}>
+                      <span className="flex items-center gap-1" title="Likes">
                         <Heart className="h-3.5 w-3.5" />
                         {formatDownloads(hfModelInfo.likes)}
                       </span>
                       {license && (
-                        <span
-                          className="flex items-center gap-1"
-                          title={t('models.detail.license')}
-                        >
+                        <span className="flex items-center gap-1" title="License">
                           <Scale className="h-3.5 w-3.5" />
                           {formatLicense(license)}
                         </span>
@@ -778,12 +751,8 @@ export function ModelManagement() {
                       <div>
                         <span className="text-xs text-muted-foreground">
                           {hfModelInfo.cardData.language.length > 10
-                            ? t('models.detail.languagesCount', {
-                                count: hfModelInfo.cardData.language.length,
-                              })
-                            : t('models.detail.languagesList', {
-                                list: hfModelInfo.cardData.language.join(', '),
-                              })}
+                            ? `${hfModelInfo.cardData.language.length} languages supported`
+                            : `Languages: ${hfModelInfo.cardData.language.join(', ')}`}
                         </span>
                       </div>
                     )}
@@ -794,9 +763,7 @@ export function ModelManagement() {
                 {freshSelectedModel.downloaded && freshSelectedModel.size_mb && (
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <HardDrive className="h-3.5 w-3.5" />
-                    <span>
-                      {t('models.detail.onDisk', { size: formatSize(freshSelectedModel.size_mb) })}
-                    </span>
+                    <span>{formatSize(freshSelectedModel.size_mb)} on disk</span>
                   </div>
                 )}
 
@@ -818,7 +785,7 @@ export function ModelManagement() {
                         className="flex-1"
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        {t('models.actions.retry')}
+                        Retry Download
                       </Button>
                       <Button
                         size="sm"
@@ -847,7 +814,7 @@ export function ModelManagement() {
                               <div className="text-xs text-muted-foreground">
                                 {hasProgress
                                   ? `${formatBytes(dl.current ?? 0)} / ${formatBytes(dl.total!)} (${pct.toFixed(1)}%)`
-                                  : dl?.filename || t('models.progress.connectingHf')}
+                                  : dl?.filename || 'Connecting to HuggingFace...'}
                               </div>
                             </>
                           );
@@ -880,9 +847,7 @@ export function ModelManagement() {
                           ) : (
                             <Unplug className="h-4 w-4 mr-2" />
                           )}
-                          {unloadMutation.isPending
-                            ? t('models.actions.unloading')
-                            : t('models.actions.unload')}
+                          {unloadMutation.isPending ? 'Unloading...' : 'Unload'}
                         </Button>
                       )}
                       <Button
@@ -899,13 +864,13 @@ export function ModelManagement() {
                         disabled={freshSelectedModel.loaded}
                         title={
                           freshSelectedModel.loaded
-                            ? t('models.actions.unloadFirst')
-                            : t('models.actions.deleteModel')
+                            ? 'Unload model before deleting'
+                            : 'Delete model'
                         }
                         className="flex-1"
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
-                        {t('models.actions.deleteModel')}
+                        Delete Model
                       </Button>
                     </div>
                   ) : (
@@ -915,7 +880,7 @@ export function ModelManagement() {
                       className="flex-1"
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      {t('models.actions.download')}
+                      Download
                     </Button>
                   )}
                 </div>
@@ -929,23 +894,20 @@ export function ModelManagement() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('models.deleteDialog.title')}</AlertDialogTitle>
+            <AlertDialogTitle>Delete Model</AlertDialogTitle>
             <AlertDialogDescription>
-              <Trans
-                i18nKey="models.deleteDialog.body"
-                values={{ name: modelToDelete?.displayName }}
-                components={{ strong: <strong /> }}
-              />
+              Are you sure you want to delete <strong>{modelToDelete?.displayName}</strong>?
               {modelToDelete?.sizeMb && (
                 <>
                   {' '}
-                  {t('models.deleteDialog.sizeNote', { size: formatSize(modelToDelete.sizeMb) })}
+                  This will free up {formatSize(modelToDelete.sizeMb)} of disk space. The model will
+                  need to be re-downloaded if you want to use it again.
                 </>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 if (modelToDelete) {
@@ -958,10 +920,10 @@ export function ModelManagement() {
               {deleteMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {t('models.deleteDialog.deleting')}
+                  Deleting...
                 </>
               ) : (
-                t('common.delete')
+                'Delete'
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -975,8 +937,11 @@ export function ModelManagement() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('models.migrateDialog.title')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('models.migrateDialog.description')}</AlertDialogDescription>
+            <AlertDialogTitle>Move models to new location?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The server will shut down while models are being moved to the new folder. It will
+              restart automatically once the migration is complete.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <div
             className="text-xs font-mono text-muted-foreground bg-muted/50 rounded px-3 py-2 truncate"
@@ -985,7 +950,7 @@ export function ModelManagement() {
             {pendingMigrateDir}
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={async () => {
                 if (!pendingMigrateDir) return;
@@ -997,23 +962,11 @@ export function ModelManagement() {
                   total: 0,
                   progress: 0,
                   status: 'downloading',
-                  filename: t('models.migrateDialog.preparing'),
+                  filename: 'Preparing...',
                 });
                 try {
                   // Start the migration (background task)
-                  const migrationResult = await apiClient.migrateModels(newDir);
-
-                  // If no models to migrate, warn user and skip the change
-                  if (migrationResult.moved === 0) {
-                    setMigrating(false);
-                    setMigrationProgress(null);
-                    toast({
-                      title: t('models.toast.noModelsToMigrate'),
-                      description: t('models.toast.noModelsToMigrateDescription'),
-                    });
-                    setPendingMigrateDir(null);
-                    return;
-                  }
+                  await apiClient.migrateModels(newDir);
 
                   // Connect to SSE for progress
                   await new Promise<void>((resolve, reject) => {
@@ -1027,7 +980,7 @@ export function ModelManagement() {
                           resolve();
                         } else if (data.status === 'error') {
                           es.close();
-                          reject(new Error(data.error || t('models.toast.migrationFailed')));
+                          reject(new Error(data.error || 'Migration failed'));
                         }
                       } catch {
                         /* ignore parse errors */
@@ -1035,7 +988,7 @@ export function ModelManagement() {
                     };
                     es.onerror = () => {
                       es.close();
-                      reject(new Error(t('models.toast.migrationConnectionLost')));
+                      reject(new Error('Lost connection during migration'));
                     };
                   });
 
@@ -1045,16 +998,15 @@ export function ModelManagement() {
                     total: 1,
                     progress: 100,
                     status: 'complete',
-                    filename: t('models.migrateDialog.restartingServer'),
+                    filename: 'Restarting server...',
                   });
                   await platform.lifecycle.restartServer(newDir);
                   queryClient.invalidateQueries();
-                  toast({ title: t('models.toast.migrated') });
+                  toast({ title: 'Models moved successfully' });
                 } catch (e) {
                   toast({
-                    title: t('models.toast.migrationFailed'),
-                    description:
-                      e instanceof Error ? e.message : t('models.toast.migrationFailedGeneric'),
+                    title: 'Migration failed',
+                    description: e instanceof Error ? e.message : 'Failed to migrate models',
                     variant: 'destructive',
                   });
                 } finally {
@@ -1063,7 +1015,7 @@ export function ModelManagement() {
                 }
               }}
             >
-              {t('models.migrateDialog.action')}
+              Move Models
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1075,11 +1027,11 @@ export function ModelManagement() {
           <div className="w-full max-w-md px-8 space-y-6 text-center">
             <div className="space-y-2">
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
-              <h2 className="text-lg font-semibold">{t('models.migrate.title')}</h2>
+              <h2 className="text-lg font-semibold">Moving models</h2>
               <p className="text-sm text-muted-foreground">
                 {migrationProgress.status === 'complete'
-                  ? t('models.migrateDialog.restartingServer')
-                  : t('models.migrate.offline')}
+                  ? 'Restarting server...'
+                  : 'The server is offline while models are being moved.'}
               </p>
             </div>
             {migrationProgress.total > 0 && (
@@ -1097,6 +1049,109 @@ export function ModelManagement() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface ModelItemProps {
+  model: {
+    model_name: string;
+    display_name: string;
+    downloaded: boolean;
+    downloading?: boolean; // From server - true if download in progress
+    size_mb?: number;
+    loaded: boolean;
+  };
+  onDownload: () => void;
+  onDelete: () => void;
+  isDownloading: boolean; // Local state - true if user just clicked download
+  formatSize: (sizeMb?: number) => string;
+}
+
+function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: ModelItemProps) {
+  // Use server's downloading state OR local state (for immediate feedback before server updates)
+  const showDownloading = model.downloading || isDownloading;
+
+  const statusText = model.loaded
+    ? 'Loaded'
+    : showDownloading
+      ? 'Downloading'
+      : model.downloaded
+        ? 'Downloaded'
+        : 'Not downloaded';
+  const sizeText =
+    model.downloaded && model.size_mb && !showDownloading ? `, ${formatSize(model.size_mb)}` : '';
+  const rowLabel = `${model.display_name}, ${statusText}${sizeText}. Use Tab to reach Download or Delete.`;
+
+  return (
+    <div
+      className="flex items-center justify-between p-3 border rounded-lg"
+      role="group"
+      tabIndex={0}
+      aria-label={rowLabel}
+    >
+      <div className="flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-sm">{model.display_name}</span>
+          {model.loaded && (
+            <Badge variant="default" className="text-xs">
+              Loaded
+            </Badge>
+          )}
+          {/* Only show Downloaded if actually downloaded AND not downloading */}
+          {model.downloaded && !model.loaded && !showDownloading && (
+            <Badge variant="secondary" className="text-xs">
+              Downloaded
+            </Badge>
+          )}
+        </div>
+        {model.downloaded && model.size_mb && !showDownloading && (
+          <div className="text-xs text-muted-foreground mt-1">
+            Size: {formatSize(model.size_mb)}
+          </div>
+        )}
+      </div>
+      <div className="flex items-center gap-2">
+        {model.downloaded && !showDownloading ? (
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <span>Ready</span>
+            </div>
+            <Button
+              size="sm"
+              onClick={onDelete}
+              variant="outline"
+              disabled={model.loaded}
+              title={model.loaded ? 'Unload model before deleting' : 'Delete model'}
+              aria-label={
+                model.loaded ? 'Unload model before deleting' : `Delete ${model.display_name}`
+              }
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : showDownloading ? (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled
+            aria-label={`${model.display_name} downloading`}
+          >
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Downloading...
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={onDownload}
+            variant="outline"
+            aria-label={`Download ${model.display_name}`}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
