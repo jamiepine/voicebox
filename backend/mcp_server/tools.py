@@ -36,7 +36,7 @@ def register_tools(mcp: FastMCP) -> None:
     """Attach all Voicebox tools to the given FastMCP instance."""
 
     @mcp.tool(
-        name="voicebox.speak",
+        name="voicebox_speak",
         description=(
             "Speak text in a Voicebox voice profile. Returns a generation id "
             "the caller can poll at /generate/{id}/status. Audio plays on the "
@@ -105,7 +105,7 @@ def register_tools(mcp: FastMCP) -> None:
             db.close()
 
     @mcp.tool(
-        name="voicebox.transcribe",
+        name="voicebox_transcribe",
         description=(
             "Transcribe an audio clip to text using Voicebox's local Whisper. "
             "Pass exactly one of `audio_base64` (bytes as base64) or "
@@ -163,7 +163,7 @@ def register_tools(mcp: FastMCP) -> None:
             tmp_path.unlink(missing_ok=True)
 
     @mcp.tool(
-        name="voicebox.list_captures",
+        name="voicebox_list_captures",
         description=(
             "List recent voice captures (dictations, recordings, uploads) "
             "with their transcripts. Most-recent first."
@@ -191,7 +191,7 @@ def register_tools(mcp: FastMCP) -> None:
             db.close()
 
     @mcp.tool(
-        name="voicebox.list_profiles",
+        name="voicebox_list_profiles",
         description=(
             "List available voice profiles (both cloned voices and presets). "
             "Use the returned `name` with voicebox.speak(profile=...)."
