@@ -18,19 +18,27 @@ import type { GenerationFormValues } from '@/lib/hooks/useGenerationForm';
  */
 const ENGINE_OPTIONS = [
   { value: 'qwen:0.6B', label: 'Qwen3-TTS 0.6B', engine: 'qwen' },
+  { value: 'qwen:1.7B', label: 'Qwen3-TTS 1.7B', engine: 'qwen' },
   { value: 'qwen_custom_voice:0.6B', label: 'Qwen CustomVoice 0.6B', engine: 'qwen_custom_voice' },
+  { value: 'qwen_custom_voice:1.7B', label: 'Qwen CustomVoice 1.7B', engine: 'qwen_custom_voice' },
   { value: 'luxtts', label: 'LuxTTS', engine: 'luxtts' },
+  { value: 'chatterbox', label: 'Chatterbox TTS', engine: 'chatterbox' },
   { value: 'chatterbox_turbo', label: 'Chatterbox Turbo', engine: 'chatterbox_turbo' },
+  { value: 'tada:1B', label: 'TADA 1B', engine: 'tada' },
+  { value: 'tada:3B', label: 'TADA 3B', engine: 'tada' },
   { value: 'kokoro', label: 'Kokoro 82M', engine: 'kokoro' },
 ] as const;
 
 const ENGINE_DESCRIPTIONS: Record<string, string> = {
-  qwen: 'Multi-language, 0.6B',
+  qwen: 'High-quality multilingual cloning',
   qwen_custom_voice: 'Preset voices, instruct control',
   luxtts: 'Fast, English-focused',
+  chatterbox: 'Broad multilingual coverage',
   chatterbox_turbo: 'English, [laugh] [cough] tags',
+  tada: 'High-fidelity expressive speech',
   kokoro: '82M params, CPU realtime, 8 langs',
 };
+
 
 /** Engines that only support English and should force language to 'en' on select. */
 const ENGLISH_ONLY_ENGINES = new Set(['luxtts', 'chatterbox_turbo']);
@@ -53,7 +61,7 @@ export function applyEngineSelection(form: UseFormReturn<GenerationFormValues>, 
   if (value.startsWith('qwen_custom_voice:')) {
     const [, modelSize] = value.split(':');
     form.setValue('engine', 'qwen_custom_voice');
-    form.setValue('modelSize', modelSize as '0.6B');
+    form.setValue('modelSize', modelSize as GenerationFormValues['modelSize']);
     const currentLang = form.getValues('language');
     const available = getLanguageOptionsForEngine('qwen_custom_voice');
     if (!available.some((l) => l.value === currentLang)) {
@@ -62,7 +70,7 @@ export function applyEngineSelection(form: UseFormReturn<GenerationFormValues>, 
   } else if (value.startsWith('qwen:')) {
     const [, modelSize] = value.split(':');
     form.setValue('engine', 'qwen');
-    form.setValue('modelSize', modelSize as '0.6B');
+    form.setValue('modelSize', modelSize as GenerationFormValues['modelSize']);
     const currentLang = form.getValues('language');
     const available = getLanguageOptionsForEngine('qwen');
     if (!available.some((l) => l.value === currentLang)) {
@@ -70,7 +78,7 @@ export function applyEngineSelection(form: UseFormReturn<GenerationFormValues>, 
     }
   } else {
     form.setValue('engine', value as GenerationFormValues['engine']);
-    form.setValue('modelSize', undefined as unknown as '0.6B');
+    form.setValue('modelSize', undefined as unknown as GenerationFormValues['modelSize']);
     if (ENGLISH_ONLY_ENGINES.has(value)) {
       form.setValue('language', 'en');
     } else {
