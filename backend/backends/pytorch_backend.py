@@ -70,6 +70,9 @@ class PyTorchTTSBackend:
         Args:
             model_size: Model size to load (1.7B or 0.6B)
         """
+        if model_size is None and self.model is not None:
+            return
+
         if model_size is None:
             model_size = self.model_size
 
@@ -273,6 +276,9 @@ class PyTorchSTTBackend:
         Args:
             model_size: Model size (tiny, base, small, medium, large)
         """
+        if model_size is None and self.model is not None:
+            return
+
         if model_size is None:
             model_size = self.model_size
 
