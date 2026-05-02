@@ -11,15 +11,43 @@ const PLATFORM_ALIAS: Record<string, string> = {
   windows: 'windows',
 };
 
-function getPublicOrigin(request: NextRequest): string {
-  const forwardedHost = request.headers.get('x-forwarded-host');
-  const forwardedProto = request.headers.get('x-forwarded-proto');
+function readForwardedHeaderValue(headerValue: string | null): string | null {
+  if (!headerValue) return null;
+  const firstValue = headerValue.split(',')[0]?.trim();
+  return firstValue || null;
+}
 
-  if (forwardedHost && forwardedProto) {
+function isValidForwardedHost(host: string): boolean {
+  try {
+    const candidate = new URL(`https://${host}`);
+    return (
+      candidate.host === host &&
+      candidate.username === '' &&
+      candidate.password === '' &&
+      candidate.pathname === '/' &&
+      candidate.search === '' &&
+      candidate.hash === ''
+    );
+  } catch {
+    return false;
+  }
+}
+
+function getPublicOrigin(request: NextRequest): string {
+  const fallbackOrigin = new URL(request.url).origin;
+  const forwardedHost = readForwardedHeaderValue(request.headers.get('x-forwarded-host'));
+  const forwardedProto = readForwardedHeaderValue(request.headers.get('x-forwarded-proto'));
+
+  if (
+    forwardedHost &&
+    forwardedProto &&
+    (forwardedProto === 'http' || forwardedProto === 'https') &&
+    isValidForwardedHost(forwardedHost)
+  ) {
     return `${forwardedProto}://${forwardedHost}`;
   }
 
-  return new URL(request.url).origin;
+  return fallbackOrigin;
 }
 
 export async function GET(

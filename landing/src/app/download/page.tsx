@@ -27,12 +27,23 @@ type PlatformMeta = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-const PLATFORMS: PlatformMeta[] = [
+const PLATFORMS_EN: PlatformMeta[] = [
   { key: 'macArm', label: 'macOS', description: 'Apple Silicon', icon: AppleIcon },
   { key: 'macIntel', label: 'macOS', description: 'Intel (x64)', icon: AppleIcon },
   { key: 'windows', label: 'Windows', description: '64-bit (MSI)', icon: WindowsIcon },
   { key: 'linux', label: 'Linux', description: 'Build from source', icon: LinuxIcon },
 ];
+
+const PLATFORMS_RU: PlatformMeta[] = [
+  { key: 'macArm', label: 'macOS', description: 'Apple Silicon', icon: AppleIcon },
+  { key: 'macIntel', label: 'macOS', description: 'Intel (x64)', icon: AppleIcon },
+  { key: 'windows', label: 'Windows', description: '64-битный MSI', icon: WindowsIcon },
+  { key: 'linux', label: 'Linux', description: 'Сборка из исходников', icon: LinuxIcon },
+];
+
+function getPlatforms(locale: 'en' | 'ru'): PlatformMeta[] {
+  return locale === 'ru' ? PLATFORMS_RU : PLATFORMS_EN;
+}
 
 function detectPlatform(): Platform | null {
   if (typeof navigator === 'undefined') return null;
@@ -68,6 +79,7 @@ export default function DownloadPage() {
   const [triggered, setTriggered] = useState(false);
   const locale = useLocale();
   const isRussian = locale === 'ru';
+  const platforms = useMemo(() => getPlatforms(locale), [locale]);
 
   useEffect(() => {
     const fromQuery = parseQueryPlatform(window.location.search);
@@ -117,8 +129,8 @@ export default function DownloadPage() {
   }, [triggered, links, platform]);
 
   const activeMeta = useMemo(
-    () => PLATFORMS.find((p) => p.key === platform) ?? null,
-    [platform],
+    () => platforms.find((p) => p.key === platform) ?? null,
+    [platform, platforms],
   );
 
   return (
@@ -226,7 +238,7 @@ export default function DownloadPage() {
                   : 'Choose your platform'}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PLATFORMS.map((meta) => {
+              {platforms.map((meta) => {
                 const isLinux = meta.key === 'linux';
                 const url = isLinux ? getLocalizedPath(locale, '/linux-install') : links?.[meta.key];
                 const isActive = meta.key === platform;
@@ -249,13 +261,7 @@ export default function DownloadPage() {
                     <meta.icon className="h-6 w-6 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
                     <div className="ml-4 flex-1">
                       <div className="text-sm font-medium text-foreground">{meta.label}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {isRussian && meta.key === 'windows'
-                          ? '64-битный MSI'
-                          : isRussian && meta.key === 'linux'
-                            ? 'Сборка из исходников'
-                            : meta.description}
-                      </div>
+                      <div className="text-xs text-muted-foreground">{meta.description}</div>
                     </div>
                     <DownloadIcon className="h-4 w-4 text-muted-foreground/60 group-hover:text-accent transition-colors" />
                   </a>

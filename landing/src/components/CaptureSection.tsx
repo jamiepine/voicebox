@@ -265,20 +265,39 @@ function RefinementAnimation() {
 
   useEffect(() => {
     let mounted = true;
+    let revealTimeout: number | null = null;
+    let advanceTimeout: number | null = null;
+
+    const clearPendingTimeouts = () => {
+      if (revealTimeout !== null) {
+        window.clearTimeout(revealTimeout);
+        revealTimeout = null;
+      }
+      if (advanceTimeout !== null) {
+        window.clearTimeout(advanceTimeout);
+        advanceTimeout = null;
+      }
+    };
+
     const step = () => {
       if (!mounted) return;
-        setShowClean(false);
-        window.setTimeout(() => mounted && setShowClean(true), 1400);
-        window.setTimeout(() => {
-          if (!mounted) return;
-          setPairIdx((i) => (i + 1) % pairs.length);
-        }, 4000);
-      };
-      step();
-      const iv = window.setInterval(step, 4000);
+      clearPendingTimeouts();
+      setShowClean(false);
+      revealTimeout = window.setTimeout(() => {
+        if (mounted) setShowClean(true);
+      }, 1400);
+      advanceTimeout = window.setTimeout(() => {
+        if (!mounted) return;
+        setPairIdx((i) => (i + 1) % pairs.length);
+        step();
+      }, 4000);
+    };
+
+    step();
+
     return () => {
       mounted = false;
-      window.clearInterval(iv);
+      clearPendingTimeouts();
     };
   }, [pairs.length]);
 
