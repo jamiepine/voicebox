@@ -538,7 +538,9 @@ export function CapturesMockup() {
               {/* Header — normal flow */}
               <div className="shrink-0 pl-4 pr-4 pt-4 pb-2">
                 <div className="flex items-center gap-2 mb-5">
-                  <h1 className="text-2xl px-4 font-bold">Captures</h1>
+                  <h1 className="text-2xl px-4 font-bold">
+                    {isRussian ? 'Записи' : 'Captures'}
+                  </h1>
                   <BetaBadge />
                 </div>
                 <div className="h-9 flex items-center rounded-full border border-input bg-background px-4 text-sm text-muted-foreground">

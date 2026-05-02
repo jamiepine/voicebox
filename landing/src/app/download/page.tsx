@@ -35,8 +35,8 @@ const PLATFORMS_EN: PlatformMeta[] = [
 ];
 
 const PLATFORMS_RU: PlatformMeta[] = [
-  { key: 'macArm', label: 'macOS', description: 'Apple Silicon', icon: AppleIcon },
-  { key: 'macIntel', label: 'macOS', description: 'Intel (x64)', icon: AppleIcon },
+  { key: 'macArm', label: 'macOS', description: 'Чипы Apple Silicon', icon: AppleIcon },
+  { key: 'macIntel', label: 'macOS', description: 'Процессоры Intel (x64)', icon: AppleIcon },
   { key: 'windows', label: 'Windows', description: '64-битный MSI', icon: WindowsIcon },
   { key: 'linux', label: 'Linux', description: 'Сборка из исходников', icon: LinuxIcon },
 ];

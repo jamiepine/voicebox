@@ -185,11 +185,12 @@ function MultiEngineSTTAnimation() {
   const engines = locale === 'ru' ? STT_ENGINES_RU : STT_ENGINES_EN;
 
   useEffect(() => {
+    setActiveIdx(0);
     const iv = window.setInterval(() => {
       setActiveIdx((i) => (i + 1) % engines.length);
     }, 1600);
     return () => window.clearInterval(iv);
-  }, [engines.length]);
+  }, [engines.length, locale]);
 
   return (
     <div className="h-40 w-full flex items-center justify-center overflow-hidden rounded-md bg-app-darkerBox/50 p-4">
@@ -293,13 +294,15 @@ function RefinementAnimation() {
       }, 4000);
     };
 
+    setPairIdx(0);
+    setShowClean(false);
     step();
 
     return () => {
       mounted = false;
       clearPendingTimeouts();
     };
-  }, [pairs.length]);
+  }, [pairs.length, locale]);
 
   const pair = pairs[pairIdx];
 
