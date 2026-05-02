@@ -1,7 +1,9 @@
 'use client';
 
 import { Github } from 'lucide-react';
+import { useLocale } from '@/components/LocaleProvider';
 import { GITHUB_REPO } from '@/lib/constants';
+import { getLocalizedPath, getLocaleTag } from '@/lib/i18n';
 import { DictationHero } from './CaptureSection';
 
 export function CaptureHero({
@@ -11,6 +13,9 @@ export function CaptureHero({
   version: string | null;
   totalDownloads: number | null;
 }) {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+
   return (
     <section className="relative pt-32 pb-16">
       {/* Background glow */}
@@ -25,13 +30,13 @@ export function CaptureHero({
           className="fade-in mb-6 text-[11px] font-semibold uppercase tracking-[0.22em] text-accent"
           style={{ animationDelay: '50ms' }}
         >
-          Voice dictation · for humans and AI agents
+          {isRussian ? 'Голосовая диктовка · для людей и AI-агентов' : 'Voice dictation · for humans and AI agents'}
         </div>
 
         {/* Headline */}
         <div className="fade-in relative" style={{ animationDelay: '100ms' }}>
           <h1 className="text-5xl font-bold tracking-tighter leading-[0.9] text-foreground md:text-7xl lg:text-[96px]">
-            Just talk to your computer.
+            {isRussian ? 'Просто говорите со своим компьютером.' : 'Just talk to your computer.'}
           </h1>
         </div>
 
@@ -40,10 +45,21 @@ export function CaptureHero({
           className="fade-in mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl"
           style={{ animationDelay: '200ms' }}
         >
-          Hold a key anywhere on your machine, speak, release — your words land in the focused
-          text field. A free, open-source, entirely-local alternative to{' '}
-          <b className="text-white">WisprFlow</b>. And because Voicebox clones voices too, any
-          AI agent can speak back in a voice you own.
+          {isRussian ? (
+            <>
+              Зажмите клавишу в любой момент, скажите фразу и отпустите: текст сразу попадёт в
+              активное поле ввода. Это бесплатная, open-source и полностью локальная альтернатива{' '}
+              <b className="text-white">WisprFlow</b>. А поскольку Voicebox умеет клонировать
+              голоса, любой AI-агент может ответить вам голосом, который принадлежит вам.
+            </>
+          ) : (
+            <>
+              Hold a key anywhere on your machine, speak, release — your words land in the focused
+              text field. A free, open-source, entirely-local alternative to{' '}
+              <b className="text-white">WisprFlow</b>. And because Voicebox clones voices too, any
+              AI agent can speak back in a voice you own.
+            </>
+          )}
         </p>
 
         {/* CTAs */}
@@ -52,10 +68,10 @@ export function CaptureHero({
           style={{ animationDelay: '300ms' }}
         >
           <a
-            href="/download"
+            href={getLocalizedPath(locale, '/download')}
             className="rounded-full bg-accent px-8 py-3.5 text-sm font-semibold uppercase tracking-wider text-white shadow-[0_4px_20px_hsl(43_60%_50%/0.3),inset_0_2px_0_rgba(255,255,255,0.2),inset_0_-2px_0_rgba(0,0,0,0.1)] transition-all hover:bg-accent-faint active:shadow-[0_2px_10px_hsl(43_60%_50%/0.3),inset_0_4px_8px_rgba(0,0,0,0.3)]"
           >
-            Download
+            {isRussian ? 'Скачать' : 'Download'}
           </a>
           <a
             href={GITHUB_REPO}
@@ -64,7 +80,7 @@ export function CaptureHero({
             className="flex items-center gap-2 rounded-full border border-border/60 bg-card/40 backdrop-blur-sm px-6 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-border"
           >
             <Github className="h-4 w-4" />
-            View on GitHub
+            {isRussian ? 'Открыть на GitHub' : 'View on GitHub'}
           </a>
         </div>
 
@@ -75,7 +91,11 @@ export function CaptureHero({
         >
           {version ?? ''}
           {version && totalDownloads != null ? ' · ' : ''}
-          {totalDownloads != null ? `${totalDownloads.toLocaleString()} downloads` : ''}
+          {totalDownloads != null
+            ? isRussian
+              ? `${new Intl.NumberFormat(getLocaleTag(locale)).format(totalDownloads)} загрузок`
+              : `${new Intl.NumberFormat(getLocaleTag(locale)).format(totalDownloads)} downloads`
+            : ''}
           {version || totalDownloads != null ? ' · ' : ''}
           macOS, Windows, Linux
         </p>

@@ -1,14 +1,22 @@
+'use client';
+
 import { ArrowRight, Heart } from 'lucide-react';
+import { useLocale } from '@/components/LocaleProvider';
+import { getLocalizedPath } from '@/lib/i18n';
 import { SPONSORS, type Sponsor } from '@/lib/sponsors';
 
 export function SponsorPromo() {
+  const locale = useLocale();
+
   if (SPONSORS.length === 0) {
-    return <SponsorPromoEmpty />;
+    return <SponsorPromoEmpty locale={locale} />;
   }
-  return <SponsorStrip sponsors={SPONSORS} />;
+  return <SponsorStrip sponsors={SPONSORS} locale={locale} />;
 }
 
-function SponsorPromoEmpty() {
+function SponsorPromoEmpty({ locale }: { locale: 'en' | 'ru' }) {
+  const isRussian = locale === 'ru';
+
   return (
     <section className="border-t border-border py-16">
       <div className="mx-auto max-w-5xl px-6">
@@ -17,28 +25,31 @@ function SponsorPromoEmpty() {
             <div>
               <div className="inline-flex items-center gap-2 mb-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-accent">
                 <Heart className="h-3.5 w-3.5" />
-                Sponsor Voicebox
+                {isRussian ? 'Поддержите Voicebox' : 'Sponsor Voicebox'}
               </div>
               <h3 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground mb-3">
-                Get your logo in front of 170k+ monthly visitors.
+                {isRussian
+                  ? 'Покажите свой логотип 170k+ ежемесячным посетителям.'
+                  : 'Get your logo in front of 170k+ monthly visitors.'}
               </h3>
               <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-2xl">
-                Voicebox is open-source and used by creators, voice artists, podcasters,
-                writers, developers, accessibility users, and curious humans all over the world.
-                Sponsor the project and your logo lands on the homepage, in the app, in the
-                README, and on the sponsors page — in front of every one of them.
+                {isRussian
+                  ? 'Voicebox используют авторы, дикторы, подкастеры, разработчики, люди, которым важна доступность, и просто любопытные пользователи по всему миру. Станьте спонсором проекта, и ваш логотип появится на главной, в приложении, в README и на странице спонсоров.'
+                  : 'Voicebox is open-source and used by creators, voice artists, podcasters, writers, developers, accessibility users, and curious humans all over the world. Sponsor the project and your logo lands on the homepage, in the app, in the README, and on the sponsors page — in front of every one of them.'}
               </p>
             </div>
 
             <div className="flex flex-col items-start md:items-end gap-2">
               <a
-                href="/sponsors"
+                href={getLocalizedPath(locale, '/sponsors')}
                 className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold uppercase tracking-wider text-white shadow-[0_4px_20px_hsl(43_60%_50%/0.3),inset_0_2px_0_rgba(255,255,255,0.2),inset_0_-2px_0_rgba(0,0,0,0.1)] transition-all hover:bg-accent-faint whitespace-nowrap"
               >
-                Become a sponsor
+                {isRussian ? 'Стать спонсором' : 'Become a sponsor'}
                 <ArrowRight className="h-4 w-4" />
               </a>
-              <span className="text-xs text-muted-foreground/70">From $500 / month</span>
+              <span className="text-xs text-muted-foreground/70">
+                {isRussian ? 'От $500 в месяц' : 'From $500 / month'}
+              </span>
             </div>
           </div>
         </div>
@@ -47,13 +58,15 @@ function SponsorPromoEmpty() {
   );
 }
 
-function SponsorStrip({ sponsors }: { sponsors: Sponsor[] }) {
+function SponsorStrip({ sponsors, locale }: { sponsors: Sponsor[]; locale: 'en' | 'ru' }) {
+  const isRussian = locale === 'ru';
+
   return (
     <section className="border-t border-border py-14">
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center mb-8">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/80">
-            Sponsored by
+            {isRussian ? 'При поддержке' : 'Sponsored by'}
           </div>
         </div>
 
@@ -81,10 +94,10 @@ function SponsorStrip({ sponsors }: { sponsors: Sponsor[] }) {
 
         <div className="mt-8 text-center">
           <a
-            href="/sponsors"
+            href={getLocalizedPath(locale, '/sponsors')}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Become a sponsor
+            {isRussian ? 'Стать спонсором' : 'Become a sponsor'}
             <ArrowRight className="h-3.5 w-3.5" />
           </a>
         </div>
