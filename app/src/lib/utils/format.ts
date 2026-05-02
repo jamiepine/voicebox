@@ -1,5 +1,5 @@
 import { formatDistance } from 'date-fns';
-import { ja, zhCN, zhTW } from 'date-fns/locale';
+import { ja, ru, zhCN, zhTW } from 'date-fns/locale';
 import i18n from '@/i18n';
 
 export function formatDuration(seconds: number): string {
@@ -12,6 +12,8 @@ function getDateLocale() {
   switch (i18n.language) {
     case 'ja':
       return ja;
+    case 'ru':
+      return ru;
     case 'zh-CN':
       return zhCN;
     case 'zh-TW':
@@ -66,9 +68,9 @@ export function formatEngineName(engine?: string, modelSize?: string): string {
 }
 
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
+  const units = i18n.language === 'ru' ? ['Б', 'КБ', 'МБ', 'ГБ'] : ['Bytes', 'KB', 'MB', 'GB'];
+  if (bytes === 0) return `0 ${units[0]}`;
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${Math.round((bytes / k ** i) * 100) / 100} ${sizes[i]}`;
+  return `${Math.round((bytes / k ** i) * 100) / 100} ${units[i]}`;
 }
