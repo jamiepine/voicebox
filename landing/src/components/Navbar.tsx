@@ -3,7 +3,9 @@
 import { Coffee, Github } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
+import { useLocale } from '@/components/LocaleProvider';
 import { DONATE_URL, GITHUB_REPO } from '@/lib/constants';
+import { getLocalizedPath } from '@/lib/i18n';
 
 function formatStarCount(count: number): string {
   if (count >= 1000) {
@@ -15,6 +17,8 @@ function formatStarCount(count: number): string {
 
 export function Navbar() {
   const [starCount, setStarCount] = useState<number | null>(null);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
   useEffect(() => {
     fetch('/api/stars')
@@ -34,7 +38,7 @@ export function Navbar() {
     <nav className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3 sm:grid sm:grid-cols-3">
         {/* Logo + wordmark */}
-        <a href="/" className="flex items-center gap-2.5 justify-self-start">
+        <a href={getLocalizedPath(locale, '/')} className="flex items-center gap-2.5 justify-self-start">
           <Image
             src="/voicebox-logo-app.webp"
             alt="Voicebox"
@@ -48,43 +52,43 @@ export function Navbar() {
         {/* Nav links - centered */}
         <div className="hidden sm:flex items-center gap-1 justify-self-center">
           <a
-            href="/#features"
+            href={getLocalizedPath(locale, '/#features')}
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Clone
+            {isRussian ? 'Клоны' : 'Clone'}
           </a>
           <a
-            href="/capture"
+            href={getLocalizedPath(locale, '/capture')}
             className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Capture
+            {isRussian ? 'Захват' : 'Capture'}
             <span className="rounded-full bg-accent/15 px-1.5 text-[9px] font-semibold uppercase tracking-wider text-accent">
-              New
+              {isRussian ? 'Новое' : 'New'}
             </span>
           </a>
           <a
-            href="/#mcp"
+            href={getLocalizedPath(locale, '/#mcp')}
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             MCP
           </a>
           <a
-            href="/#about"
+            href={getLocalizedPath(locale, '/#about')}
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Models
+            {isRussian ? 'Модели' : 'Models'}
           </a>
           <a
-            href="/#api"
+            href={getLocalizedPath(locale, '/#api')}
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             API
           </a>
           <a
-            href="/download"
+            href={getLocalizedPath(locale, '/download')}
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Download
+            {isRussian ? 'Скачать' : 'Download'}
           </a>
           <a
             href="https://docs.voicebox.sh"
@@ -92,7 +96,7 @@ export function Navbar() {
             rel="noopener noreferrer"
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Docs
+            {isRussian ? 'Документация' : 'Docs'}
           </a>
         </div>
 
@@ -103,10 +107,10 @@ export function Navbar() {
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-[#FFDD00]/40"
-            aria-label="Donate via Buy Me a Coffee"
+            aria-label={isRussian ? 'Поддержать через Buy Me a Coffee' : 'Donate via Buy Me a Coffee'}
           >
             <Coffee className="h-4 w-4 text-[#FFDD00]" />
-            <span className="text-[13px] font-medium">Donate</span>
+            <span className="text-[13px] font-medium">{isRussian ? 'Поддержать' : 'Donate'}</span>
           </a>
           <a
             href={GITHUB_REPO}
@@ -115,7 +119,7 @@ export function Navbar() {
             className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-border"
           >
             <Github className="h-4 w-4" />
-            <span className="text-[13px] font-medium">Star</span>
+            <span className="text-[13px] font-medium">{isRussian ? 'Звезда' : 'Star'}</span>
             {starCount !== null && (
               <span className="border-l border-border/60 pl-2 text-[13px] font-semibold text-foreground">
                 {formatStarCount(starCount)}
