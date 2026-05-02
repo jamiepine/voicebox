@@ -93,6 +93,8 @@
       "exportEmpty": "Экспортировать нечего",
       "shortcutNotArmed": "Сочетание включено, но ещё не готово",
       "shortcutNotArmedDescription_one": "Для {{names}} ещё требуется загрузка. Откройте вкладку «Записи», чтобы начать.",
+      "shortcutNotArmedDescription_few": "Для {{names}} ещё требуется загрузка. Откройте вкладку «Записи», чтобы начать.",
+      "shortcutNotArmedDescription_many": "Для {{names}} ещё требуется загрузка. Откройте вкладку «Записи», чтобы начать.",
       "shortcutNotArmedDescription_other": "Для {{names}} ещё требуется загрузка. Откройте вкладку «Записи», чтобы начать."
     },
     "pill": {
@@ -420,7 +422,9 @@
     "noDescription": "Без описания",
     "placeholder": "Выберите пресет или создайте новый",
     "effectCount_one": "{{count}} эффект",
-    "effectCount_other": "{{count}} эффектов",
+    "effectCount_few": "{{count}} эффекта",
+    "effectCount_many": "{{count}} эффектов",
+    "effectCount_other": "{{count}} эффекта",
     "sections": {
       "builtin": "Встроенные",
       "custom": "Пользовательские",
@@ -570,7 +574,9 @@
     },
     "row": {
       "itemCount_one": "{{count}} элемент",
-      "itemCount_other": "{{count}} элементов",
+      "itemCount_few": "{{count}} элемента",
+      "itemCount_many": "{{count}} элементов",
+      "itemCount_other": "{{count}} элемента",
       "ariaLabel": "Сюжет {{name}}, элементов: {{count}}, обновлён {{updated}}",
       "actionsLabel": "Действия для {{name}}"
     },
@@ -616,8 +622,10 @@
       "title": "Сюжет не найден",
       "hint": "Не удалось загрузить выбранный сюжет"
     },
-    "generatingCount_one": "Генерируется {{count}} аудио",
-    "generatingCount_other": "Генерируется {{count}} аудио",
+    "generatingCount_one": "Генерируется {{count}} аудиофайл",
+    "generatingCount_few": "Генерируются {{count}} аудиофайла",
+    "generatingCount_many": "Генерируются {{count}} аудиофайлов",
+    "generatingCount_other": "Генерируются {{count}} аудиофайла",
     "add": "Добавить",
     "searchPlaceholder": "Поиск по названию или расшифровке…",
     "searchNoMatches": "Подходящих генераций не найдено",
@@ -662,7 +670,9 @@
     "clearFailedDialog": {
       "title": "Очистить неудачные генерации",
       "body_one": "Это безвозвратно удалит {{count}} неудачную генерацию из истории. Это действие нельзя отменить.",
-      "body_other": "Это безвозвратно удалит {{count}} неудачных генераций из истории. Это действие нельзя отменить.",
+      "body_few": "Это безвозвратно удалит {{count}} неудачные генерации из истории. Это действие нельзя отменить.",
+      "body_many": "Это безвозвратно удалит {{count}} неудачных генераций из истории. Это действие нельзя отменить.",
+      "body_other": "Это безвозвратно удалит {{count}} неудачной генерации из истории. Это действие нельзя отменить.",
       "clearing": "Очистка…",
       "clearAll": "Очистить всё"
     },
@@ -1138,7 +1148,9 @@
     "logs": {
       "title": "Логи сервера",
       "lineCount_one": "{{count}} строка",
-      "lineCount_other": "{{count}} строк",
+      "lineCount_few": "{{count}} строки",
+      "lineCount_many": "{{count}} строк",
+      "lineCount_other": "{{count}} строки",
       "scrollToBottom": "Прокрутить вниз",
       "clear": "Очистить",
       "empty": "Логов пока нет.",
