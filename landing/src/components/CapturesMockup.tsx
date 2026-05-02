@@ -35,8 +35,8 @@ const SIDEBAR_ITEMS_EN = [
 
 const SIDEBAR_ITEMS_RU = [
   { icon: Volume2, label: 'Генерация' },
-  { icon: AudioLines, label: 'Stories' },
-  { icon: Mic, label: 'Captures', active: true },
+  { icon: AudioLines, label: 'Истории' },
+  { icon: Mic, label: 'Записи', active: true },
   { icon: Users, label: 'Голоса' },
   { icon: Wand2, label: 'Эффекты' },
   { icon: Box, label: 'Модели' },

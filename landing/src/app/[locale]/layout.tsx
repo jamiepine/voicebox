@@ -4,6 +4,7 @@ import { LocaleProvider } from '@/components/LocaleProvider';
 import {
   getLocalizedPath,
   isSecondaryLocale,
+  SECONDARY_LOCALES,
   type SecondaryLocale,
 } from '@/lib/i18n';
 
@@ -35,7 +36,7 @@ const LOCALE_METADATA: Record<SecondaryLocale, Metadata> = {
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return [{ locale: 'ru' }];
+  return SECONDARY_LOCALES.map((locale) => ({ locale }));
 }
 
 export async function generateMetadata({
