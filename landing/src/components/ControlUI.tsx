@@ -17,6 +17,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocale } from '@/components/LocaleProvider';
 import { LandingAudioPlayer, unlockAudioContext } from './LandingAudioPlayer';
 
 // ─── Data ───────────────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ interface VoiceProfile {
 }
 
 /** Voice profiles shown in the grid / scroll strip. Index matters — DemoScript references profiles by index. */
-const PROFILES: VoiceProfile[] = [
+const PROFILES_EN: VoiceProfile[] = [
   {
     name: 'Jarvis',
     description: 'Dry wit, composed British AI assistant',
@@ -105,6 +106,81 @@ const PROFILES: VoiceProfile[] = [
   },
 ];
 
+const PROFILES_RU: VoiceProfile[] = [
+  {
+    name: 'Jarvis',
+    description: 'Сухая ирония, собранный британский AI-ассистент',
+    language: 'ru',
+    hasEffects: true,
+  },
+  {
+    name: 'Samuel L. Jackson',
+    description: 'Командная подача с резкой, пробивной интонацией',
+    language: 'ru',
+    hasEffects: true,
+  },
+  {
+    name: 'Bob Ross',
+    description: 'Мягкий, успокаивающий голос с тихой поддержкой',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'Sam Altman',
+    description: 'Сдержанная, вдумчивая манера с долинным ритмом',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'Morgan Freeman',
+    description: 'Глубокий тёплый баритон с авторитетом и спокойствием',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'Linus Tech Tips',
+    description: 'Энергичная и быстрая подача техно-объяснений',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'Fireship',
+    description: 'Сверхбыстрый техноюмор без лишних слов',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'Scarlett Johansson',
+    description: 'Мягкий низкий альт с деликатным теплом',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'Dario Amodei',
+    description: 'Спокойная точная артикуляция с академической глубиной',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'David Attenborough',
+    description: 'Тёплое почтительное повествование с точностью и восторгом',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'Zendaya',
+    description: 'Расслабленная современная манера с естественной лёгкостью',
+    language: 'ru',
+    hasEffects: false,
+  },
+  {
+    name: 'Barack Obama',
+    description: 'Размеренная ритмика с паузами и весом интонации',
+    language: 'ru',
+    hasEffects: false,
+  },
+];
+
 /** Each entry is one cycle of the demo animation: select a profile → type text → generate → play audio. */
 interface DemoStep {
   profileIndex: number;
@@ -115,7 +191,7 @@ interface DemoStep {
   effect?: string;
 }
 
-const DEMO_SCRIPT: DemoStep[] = [
+const DEMO_SCRIPT_EN: DemoStep[] = [
   {
     profileIndex: 0,
     text: 'Sir, I have completed the analysis. Your code has twelve critical vulnerabilities, your coffee is cold, and frankly your commit messages could use some work.',
@@ -162,6 +238,53 @@ const DEMO_SCRIPT: DemoStep[] = [
   },
 ];
 
+const DEMO_SCRIPT_RU: DemoStep[] = [
+  {
+    profileIndex: 0,
+    text: 'Сэр, анализ завершён. В вашем коде двенадцать критических уязвимостей, кофе остыл, а сообщения коммитов всё ещё нуждаются в серьёзной доработке.',
+    audioUrl: '/audio/jarvis.webm',
+    engine: 'Qwen 1.7B',
+    duration: '0:10',
+    effect: 'Робот',
+  },
+  {
+    profileIndex: 4,
+    text: 'Я озвучивал пингвинов, галактики и всю историю человечества. Но ничто не готовило меня к моменту, когда компьютер научился делать мою работу по пятисекундному фрагменту аудио.',
+    audioUrl: '/audio/morganfreeman.webm',
+    engine: 'Qwen 1.7B',
+    duration: '0:11',
+    effect: 'Радио',
+  },
+  {
+    profileIndex: 3,
+    text: 'Открытый код? [laugh] А это ещё что такое?',
+    audioUrl: '/audio/samaltman.webm',
+    engine: 'Chatterbox',
+    duration: '0:03',
+  },
+  {
+    profileIndex: 1,
+    text: 'То есть вы скачали приложение, нажали кнопку, и теперь меня уже двое? Мир и к одному-то был не вполне готов.',
+    audioUrl: '/audio/samjackson.webm',
+    engine: 'Qwen 1.7B',
+    duration: '0:10',
+  },
+  {
+    profileIndex: 5,
+    text: 'У нас тут софт для клонирования голоса, и если честно, это немного пугает. Моя жена вообще не заметила разницы. Voicebox точка sh, ссылка в описании.',
+    audioUrl: '/audio/linus.webm',
+    engine: 'Qwen 1.7B',
+    duration: '0:11',
+  },
+  {
+    profileIndex: 6,
+    text: 'Это Voicebox за сто секунд. Он клонирует голоса локально, запускается на вашей GPU и нет, OpenAI вас не слышит. Поехали.',
+    audioUrl: '/audio/fireship.webm',
+    engine: 'Qwen 0.6B',
+    duration: '0:09',
+  },
+];
+
 /** History rows pre-populated on first load. Oldest first visually (array index 0 = top row). */
 interface Generation {
   id: number;
@@ -175,7 +298,7 @@ interface Generation {
   versions: number;
 }
 
-const INITIAL_GENERATIONS: Generation[] = [
+const INITIAL_GENERATIONS_EN: Generation[] = [
   {
     id: 1,
     profileName: 'Morgan Freeman',
@@ -233,7 +356,65 @@ const INITIAL_GENERATIONS: Generation[] = [
   },
 ];
 
-const SIDEBAR_ITEMS = [
+const INITIAL_GENERATIONS_RU: Generation[] = [
+  {
+    id: 1,
+    profileName: 'Morgan Freeman',
+    text: 'Нейронные траектории человеческой речи сложнее, чем любой языковой модели пока удаётся полностью уловить, и всё же мы продолжаем расширять границы возможного.',
+    language: 'ru',
+    engine: 'Qwen 1.7B',
+    duration: '0:08',
+    timeAgo: '2 минуты назад',
+    favorited: true,
+    versions: 3,
+  },
+  {
+    id: 2,
+    profileName: 'Samuel L. Jackson',
+    text: 'В мире, который всё сильнее формируется искусственным интеллектом, человеческий голос по-прежнему остаётся нашим самым мощным инструментом связи и повествования.',
+    language: 'ru',
+    engine: 'Qwen 1.7B',
+    duration: '0:07',
+    timeAgo: '15 минут назад',
+    favorited: false,
+    versions: 1,
+  },
+  {
+    id: 3,
+    profileName: 'Jarvis',
+    text: 'Архитектура современных систем синтеза речи раскрывает изящное взаимодействие трансформеров и предсказания акустических признаков.',
+    language: 'ru',
+    engine: 'Qwen 0.6B',
+    duration: '0:09',
+    timeAgo: '1 час назад',
+    favorited: false,
+    versions: 2,
+  },
+  {
+    id: 4,
+    profileName: 'Bob Ross',
+    text: 'Добро пожаловать в следующую главу. Каждая большая история начинается с одного голоса, и сегодня этот голос может стать вашим.',
+    language: 'ru',
+    engine: 'Chatterbox',
+    duration: '0:06',
+    timeAgo: '3 часа назад',
+    favorited: true,
+    versions: 1,
+  },
+  {
+    id: 5,
+    profileName: 'Linus Tech Tips',
+    text: 'Локальный inference даёт вам полный контроль над голосовыми данными. Без облака, без подписок и без компромиссов.',
+    language: 'ru',
+    engine: 'Qwen 1.7B',
+    duration: '0:05',
+    timeAgo: '5 часов назад',
+    favorited: false,
+    versions: 1,
+  },
+];
+
+const SIDEBAR_ITEMS_EN = [
   { icon: Volume2, label: 'Generate' },
   { icon: AudioLines, label: 'Stories' },
   { icon: Mic, label: 'Voices' },
@@ -241,6 +422,16 @@ const SIDEBAR_ITEMS = [
   { icon: Speaker, label: 'Audio' },
   { icon: Box, label: 'Models' },
   { icon: Server, label: 'Server' },
+];
+
+const SIDEBAR_ITEMS_RU = [
+  { icon: Volume2, label: 'Генерация' },
+  { icon: AudioLines, label: 'Истории' },
+  { icon: Mic, label: 'Голоса' },
+  { icon: Wand2, label: 'Эффекты' },
+  { icon: Speaker, label: 'Аудио' },
+  { icon: Box, label: 'Модели' },
+  { icon: Server, label: 'Сервер' },
 ];
 
 // ─── Phase system ───────────────────────────────────────────────────────────
@@ -369,6 +560,8 @@ function HistoryRow({
   mode: 'idle' | 'generating' | 'playing';
   isNew: boolean;
 }) {
+  const locale = useLocale();
+
   return (
     <motion.div
       className={`border rounded-md transition-colors text-left w-full ${
@@ -394,7 +587,7 @@ function HistoryRow({
           </div>
           <div className="text-[10px] text-muted-foreground">
             {mode === 'generating' ? (
-              <span className="text-accent">Generating...</span>
+              <span className="text-accent">{locale === 'ru' ? 'Генерация...' : 'Generating...'}</span>
             ) : (
               gen.timeAgo
             )}
@@ -448,6 +641,8 @@ function FloatingGenerateBox({
 }) {
   const isFocused = phase === 'typing' || phase === 'generating';
   const isGenerating = phase === 'generating';
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
   return (
     <motion.div
@@ -482,8 +677,12 @@ function FloatingGenerateBox({
               ) : (
                 <span>
                   {selectedProfile
-                    ? `Generate speech using ${selectedProfile.name}...`
-                    : 'Select a voice profile above...'}
+                    ? isRussian
+                      ? `Сгенерировать речь голосом ${selectedProfile.name}...`
+                      : `Generate speech using ${selectedProfile.name}...`
+                    : isRussian
+                      ? 'Выберите голосовой профиль выше...'
+                      : 'Select a voice profile above...'}
                 </span>
               )}
             </div>
@@ -499,7 +698,7 @@ function FloatingGenerateBox({
       {/* Bottom selectors */}
       <div className="flex items-center gap-1.5 mt-2">
         <span className="text-[10px] px-2 py-1 rounded-full border border-border bg-card text-muted-foreground">
-          English
+          {isRussian ? 'Русский' : 'English'}
         </span>
         <span className="text-[10px] px-2 py-1 rounded-full border border-border bg-card text-muted-foreground">
           {engine}
@@ -512,7 +711,7 @@ function FloatingGenerateBox({
           }`}
         >
           <Sparkles className={`h-2.5 w-2.5 ${effect ? 'fill-accent' : ''}`} />
-          {effect || 'Effect'}
+          {effect || (isRussian ? 'Эффект' : 'Effect')}
         </span>
       </div>
     </motion.div>
@@ -522,11 +721,17 @@ function FloatingGenerateBox({
 // ─── Main ControlUI ─────────────────────────────────────────────────────────
 
 export function ControlUI() {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const profiles = isRussian ? PROFILES_RU : PROFILES_EN;
+  const demoScript = isRussian ? DEMO_SCRIPT_RU : DEMO_SCRIPT_EN;
+  const initialGenerations = isRussian ? INITIAL_GENERATIONS_RU : INITIAL_GENERATIONS_EN;
+  const sidebarItems = isRussian ? SIDEBAR_ITEMS_RU : SIDEBAR_ITEMS_EN;
   const [phase, setPhase] = useState<Phase>('idle');
-  const [selectedIndex, setSelectedIndex] = useState(DEMO_SCRIPT[0].profileIndex);
+  const [selectedIndex, setSelectedIndex] = useState(demoScript[0].profileIndex);
   const [cycle, setCycle] = useState(0);
   const [newGenId, setNewGenId] = useState<number | null>(null);
-  const [generations, setGenerations] = useState<Generation[]>([...INITIAL_GENERATIONS]);
+  const [generations, setGenerations] = useState<Generation[]>([...initialGenerations]);
   const [isMuted, setIsMuted] = useState(true);
   const [isVisible, setIsVisible] = useState(true);
   const [pageHidden, setPageHidden] = useState(false);
@@ -538,8 +743,16 @@ export function ControlUI() {
   const [scrollLeft, setScrollLeft] = useState(0);
   phaseRef.current = phase;
 
-  const step = DEMO_SCRIPT[cycle % DEMO_SCRIPT.length];
-  const selectedProfile = PROFILES[selectedIndex];
+  useEffect(() => {
+    setGenerations([...initialGenerations]);
+    setSelectedIndex(demoScript[0].profileIndex);
+    setCycle(0);
+    setNewGenId(null);
+    setPhase('idle');
+  }, [demoScript, initialGenerations]);
+
+  const step = demoScript[cycle % demoScript.length];
+  const selectedProfile = profiles[selectedIndex];
 
   // Scroll to selected profile card — accounts for generate box overlay on desktop
   useEffect(() => {
@@ -604,7 +817,7 @@ export function ControlUI() {
         '→ next, cycle:',
         cycle,
         'step profile:',
-        PROFILES[step.profileIndex].name,
+        profiles[step.profileIndex].name,
       );
       switch (phase) {
         case 'idle': {
@@ -616,7 +829,7 @@ export function ControlUI() {
           setPhase('typing');
           break;
         case 'typing': {
-          const profile = PROFILES[step.profileIndex];
+          const profile = profiles[step.profileIndex];
           const newGen: Generation = {
             id: Date.now(),
             profileName: profile.name,
@@ -624,7 +837,7 @@ export function ControlUI() {
             language: profile.language,
             engine: step.engine,
             duration: step.duration,
-            timeAgo: 'just now',
+            timeAgo: isRussian ? 'только что' : 'just now',
             favorited: false,
             versions: 1,
           };
@@ -640,7 +853,7 @@ export function ControlUI() {
     }, duration);
 
     return () => clearTimeout(timer);
-  }, [phase, paused, step, cycle]);
+  }, [cycle, isRussian, paused, phase, profiles, step]);
 
   const handleAudioFinish = useCallback(() => {
     if (phaseRef.current !== 'playing') return;
@@ -667,12 +880,12 @@ export function ControlUI() {
             >
               <span
                 className="text-xl text-accent/80 whitespace-nowrap"
-                style={{
+              style={{
                   fontFamily: "'Caveat', 'Segoe Script', 'Comic Sans MS', cursive",
                   letterSpacing: '0.02em',
                 }}
               >
-                try me!
+                {isRussian ? 'включите звук!' : 'try me!'}
               </span>
               {/* Curved arrow from text down-right toward the button */}
               <svg
@@ -714,12 +927,12 @@ export function ControlUI() {
             {isMuted ? (
               <>
                 <Volume2 className="h-3.5 w-3.5" />
-                <span>Unmute</span>
+                <span>{isRussian ? 'Включить звук' : 'Unmute'}</span>
               </>
             ) : (
               <>
                 <Volume2 className="h-3.5 w-3.5 text-accent" />
-                <span>Mute</span>
+                <span>{isRussian ? 'Выключить звук' : 'Mute'}</span>
               </>
             )}
           </button>
@@ -749,7 +962,7 @@ export function ControlUI() {
 
             {/* Nav items */}
             <div className="flex flex-col gap-2">
-              {SIDEBAR_ITEMS.map((item, i) => {
+              {sidebarItems.map((item, i) => {
                 const Icon = item.icon;
                 const active = i === 0;
                 return (
@@ -783,10 +996,10 @@ export function ControlUI() {
                 <h2 className="text-base font-bold">Voicebox</h2>
                 <div className="flex items-center gap-1.5">
                   <button className="h-6 text-[10px] px-2.5 rounded-full border border-border bg-card text-muted-foreground flex items-center gap-1">
-                    Import Voice
+                    {isRussian ? 'Импорт голоса' : 'Import Voice'}
                   </button>
                   <button className="h-6 text-[10px] px-2.5 rounded-full bg-accent text-accent-foreground flex items-center">
-                    Create Voice
+                    {isRussian ? 'Создать голос' : 'Create Voice'}
                   </button>
                 </div>
               </div>
@@ -807,7 +1020,7 @@ export function ControlUI() {
                       className="flex gap-2 overflow-x-auto pb-2"
                       onScroll={(e) => setScrollLeft(e.currentTarget.scrollLeft)}
                     >
-                      {PROFILES.map((profile, i) => (
+                      {profiles.map((profile, i) => (
                         <div
                           key={profile.name}
                           className="shrink-0 w-[140px]"
@@ -827,7 +1040,7 @@ export function ControlUI() {
 
                   {/* Desktop: 3-col grid */}
                   <div className="hidden md:grid grid-cols-3 gap-2 mt-1 pb-44">
-                    {PROFILES.map((profile, i) => (
+                    {profiles.map((profile, i) => (
                       <ProfileCard
                         key={profile.name}
                         profile={profile}

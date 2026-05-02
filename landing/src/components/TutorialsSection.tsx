@@ -1,6 +1,7 @@
 "use client";
 
 import {Play, Youtube} from "lucide-react";
+import {useLocale} from "@/components/LocaleProvider";
 
 type Tutorial = {
 	id: string;
@@ -111,6 +112,9 @@ function TutorialPlaceholder() {
 }
 
 export function TutorialsSection() {
+	const locale = useLocale();
+	const isRussian = locale === "ru";
+
 	return (
 		<section id="tutorials" className="border-t border-border py-24">
 			<div className="mx-auto max-w-6xl px-6">
@@ -118,15 +122,16 @@ export function TutorialsSection() {
 					<div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 backdrop-blur-sm px-3 py-1 mb-4">
 						<Youtube className="h-3 w-3 text-accent" />
 						<span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-							Video tutorials
+							{isRussian ? "Видеоразборы" : "Video tutorials"}
 						</span>
 					</div>
 					<h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl mb-4">
-						Learn by watching
+						{isRussian ? "Смотрите и разбирайтесь" : "Learn by watching"}
 					</h2>
 					<p className="text-muted-foreground max-w-2xl mx-auto">
-						Walkthroughs from the community covering setup, voice cloning, and
-						production workflows.
+						{isRussian
+							? "Руководства от сообщества по установке, клонированию голоса и рабочим продакшн-сценариям."
+							: "Walkthroughs from the community covering setup, voice cloning, and production workflows."}
 					</p>
 				</div>
 

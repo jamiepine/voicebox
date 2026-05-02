@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { AudioLines, Cloud, MessageSquareText, Mic, Sparkles, TextCursorInput } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocale } from '@/components/LocaleProvider';
 
 // ─── Lazy load wrapper ──────────────────────────────────────────────────────
 
@@ -45,6 +46,8 @@ function LazyLoad({
 
 function VoiceCloningAnimation() {
   const [phase, setPhase] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -53,7 +56,7 @@ function VoiceCloningAnimation() {
     return () => clearInterval(interval);
   }, []);
 
-  const samples = ['Sample 1', 'Sample 2', 'Sample 3'];
+  const samples = isRussian ? ['Сэмпл 1', 'Сэмпл 2', 'Сэмпл 3'] : ['Sample 1', 'Sample 2', 'Sample 3'];
   const bars = [0.4, 0.7, 0.5, 0.9, 0.3, 0.6, 0.8, 0.4, 0.7, 0.5, 0.3, 0.6];
 
   return (
@@ -104,7 +107,7 @@ function VoiceCloningAnimation() {
           }}
           transition={{ duration: 0.3 }}
         >
-          voice profile ready
+          {isRussian ? 'голосовой профиль готов' : 'voice profile ready'}
         </motion.div>
       </div>
     </div>
@@ -241,6 +244,11 @@ function StoriesAnimation() {
   const [playheadX, setPlayheadX] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const playheadRef = useRef<ReturnType<typeof requestAnimationFrame>>(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const actionLabels = isRussian
+    ? ['Сдвиг клипа', 'Разрезать клип', 'Подрезать клип', 'Дублировать', '']
+    : ['Move clip', 'Split clip', 'Trim clip', 'Duplicate', ''];
 
   // Animate the playhead continuously
   useEffect(() => {
@@ -307,11 +315,11 @@ function StoriesAnimation() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
           >
-            {ACTIONS[actionIndex].label}
+            {actionLabels[actionIndex]}
           </motion.span>
         )}
         <div className="flex items-center gap-0.5">
-          <span className="text-[7px] text-ink-faint">Zoom</span>
+          <span className="text-[7px] text-ink-faint">{isRussian ? 'Масштаб' : 'Zoom'}</span>
           <div className="w-3 h-3 rounded flex items-center justify-center bg-app-button text-[8px] text-ink-faint">
             -
           </div>
@@ -454,12 +462,21 @@ function StoriesAnimation() {
 
 function EffectsAnimation() {
   const [activeEffect, setActiveEffect] = useState(0);
-  const effects = [
-    { name: 'Pitch Shift', param: '-3 semitones', color: '#3b82f6' },
-    { name: 'Reverb', param: 'Room 0.7', color: '#8b5cf6' },
-    { name: 'Compressor', param: '-15 dB', color: '#ec4899' },
-    { name: 'Low-Pass', param: '6000 Hz', color: '#14b8a6' },
-  ];
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const effects = isRussian
+    ? [
+        { name: 'Питч', param: '-3 полутона', color: '#3b82f6' },
+        { name: 'Реверб', param: 'Комната 0.7', color: '#8b5cf6' },
+        { name: 'Компрессор', param: '-15 dB', color: '#ec4899' },
+        { name: 'Low-Pass', param: '6000 Hz', color: '#14b8a6' },
+      ]
+    : [
+        { name: 'Pitch Shift', param: '-3 semitones', color: '#3b82f6' },
+        { name: 'Reverb', param: 'Room 0.7', color: '#8b5cf6' },
+        { name: 'Compressor', param: '-15 dB', color: '#ec4899' },
+        { name: 'Low-Pass', param: '6000 Hz', color: '#14b8a6' },
+      ];
 
   // Waveform bars — original shape
   const rawBars = [0.3, 0.6, 0.8, 0.5, 0.9, 0.4, 0.7, 0.3, 0.6, 0.5, 0.8, 0.4, 0.7, 0.9, 0.3];
@@ -548,7 +565,9 @@ function EffectsAnimation() {
 
 function LocalRemoteAnimation() {
   const [mode, setMode] = useState(0);
-  const modes = ['Local GPU', 'Remote Server'];
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const modes = isRussian ? ['Локально', 'Удалённо'] : ['Local GPU', 'Remote Server'];
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -588,10 +607,20 @@ function LocalRemoteAnimation() {
             transition={{ duration: 0.3 }}
           />
           <span className="text-[9px] text-ink-faint font-mono">
-            {mode === 0 ? 'Metal acceleration active' : 'Connected to 192.168.1.50'}
+            {mode === 0
+              ? isRussian
+                ? 'Ускорение Metal активно'
+                : 'Metal acceleration active'
+              : isRussian
+                ? 'Подключено к 192.168.1.50'
+                : 'Connected to 192.168.1.50'}
           </span>
           <span className="text-[8px] text-ink-faint/60 font-mono">
-            {mode === 0 ? 'VRAM: 8.2 / 16.0 GB' : 'Latency: 12ms | CUDA'}
+            {mode === 0
+              ? 'VRAM: 8.2 / 16.0 GB'
+              : isRussian
+                ? 'Задержка: 12мс | CUDA'
+                : 'Latency: 12ms | CUDA'}
           </span>
         </div>
       </div>
@@ -603,7 +632,11 @@ function LocalRemoteAnimation() {
 
 function TranscriptionAnimation() {
   const [charIndex, setCharIndex] = useState(0);
-  const text = 'The quick brown fox jumps over the lazy dog near the riverbank.';
+  const locale = useLocale();
+  const text =
+    locale === 'ru'
+      ? 'Быстрая расшифровка появляется прямо на экране, пока вы ещё говорите.'
+      : 'The quick brown fox jumps over the lazy dog near the riverbank.';
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -649,12 +682,20 @@ function TranscriptionAnimation() {
 
 function UnlimitedLengthAnimation() {
   const [phase, setPhase] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
-  const chunks = [
-    'The morning sun crept over the mountains, casting long shadows across the valley below.',
-    'Birds stirred in the canopy, their songs weaving through the cool air like threads of gold.',
-    'Far below, a river wound its way through ancient stones, carrying whispers of the night.',
-  ];
+  const chunks = isRussian
+    ? [
+        'Утреннее солнце медленно поднялось над горами, растягивая тени по долине внизу.',
+        'В кронах зашевелились птицы, и их голоса прошили прохладный воздух золотыми нитями.',
+        'Далеко внизу река огибала древние камни, унося с собой шёпот ночи.',
+      ]
+    : [
+        'The morning sun crept over the mountains, casting long shadows across the valley below.',
+        'Birds stirred in the canopy, their songs weaving through the cool air like threads of gold.',
+        'Far below, a river wound its way through ancient stones, carrying whispers of the night.',
+      ];
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -750,8 +791,12 @@ function UnlimitedLengthAnimation() {
       >
         <span className={phase === 3 ? 'text-accent' : 'text-ink-faint'}>
           {phase < 3
-            ? `generating chunk ${phase + 1} of ${chunks.length}...`
-            : 'crossfaded & ready'}
+            ? isRussian
+              ? `генерация фрагмента ${phase + 1} из ${chunks.length}...`
+              : `generating chunk ${phase + 1} of ${chunks.length}...`
+            : isRussian
+              ? 'склейка готова'
+              : 'crossfaded & ready'}
         </span>
       </motion.div>
     </div>
@@ -760,7 +805,7 @@ function UnlimitedLengthAnimation() {
 
 // ─── Feature data ───────────────────────────────────────────────────────────
 
-const FEATURES = [
+const FEATURES_EN = [
   {
     title: 'Near-Perfect Voice Cloning',
     description:
@@ -805,9 +850,54 @@ const FEATURES = [
   },
 ];
 
+const FEATURES_RU = [
+  {
+    title: 'Почти безупречное клонирование голоса',
+    description:
+      'Несколько TTS-движков для по-настоящему высокого качества. Клонируйте почти любой голос по нескольким секундам аудио с естественной интонацией и эмоцией.',
+    icon: Mic,
+    animation: VoiceCloningAnimation,
+  },
+  {
+    title: 'Редактор Stories',
+    description:
+      'Собирайте многоголосые сцены в таймлайн-редакторе. Раскладывайте дорожки, подрезайте клипы и монтируйте разговоры между персонажами.',
+    icon: AudioLines,
+    animation: StoriesAnimation,
+  },
+  {
+    title: 'Цепочка аудиоэффектов',
+    description:
+      'Применяйте pitch shift, reverb, delay, compression и другие эффекты, а затем сохраняйте их как пресеты. Слушайте изменения вживую и задавайте дефолты для каждого голосового профиля.',
+    icon: Sparkles,
+    animation: EffectsAnimation,
+  },
+  {
+    title: 'Локально или удалённо',
+    description:
+      'Запускайте GPU inference локально через Metal, CUDA, ROCm, Intel Arc или DirectML либо подключайтесь к удалённой машине. Настройка сервера в один клик с автоматическим обнаружением.',
+    icon: Cloud,
+    animation: LocalRemoteAnimation,
+  },
+  {
+    title: 'Транскрибация аудио',
+    description:
+      'На базе Whisper для точного speech-to-text. Voicebox автоматически извлекает опорный текст из голосовых сэмплов и помогает быстрее готовить профили.',
+    icon: MessageSquareText,
+    animation: TranscriptionAnimation,
+  },
+  {
+    title: 'Генерация без лимита по длине',
+    description:
+      'Генерируйте до 50 000 символов за один проход. Текст автоматически режется по предложениям, озвучивается по фрагментам и затем бесшовно склеивается.',
+    icon: TextCursorInput,
+    animation: UnlimitedLengthAnimation,
+  },
+];
+
 // ─── Feature Card ───────────────────────────────────────────────────────────
 
-function FeatureCard({ feature }: { feature: (typeof FEATURES)[number] }) {
+function FeatureCard({ feature }: { feature: (typeof FEATURES_EN)[number] }) {
   const Icon = feature.icon;
   const Animation = feature.animation;
 
@@ -832,20 +922,25 @@ function FeatureCard({ feature }: { feature: (typeof FEATURES)[number] }) {
 // ─── Features Section ───────────────────────────────────────────────────────
 
 export function Features() {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const features = isRussian ? FEATURES_RU : FEATURES_EN;
+
   return (
     <section id="features" className="border-t border-border py-24">
       <div className="mx-auto max-w-7xl px-6">
         <div className="mb-16 text-center">
           <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl mb-4">
-            Professional voice tools, zero compromise
+            {isRussian ? 'Профессиональные голосовые инструменты без компромиссов' : 'Professional voice tools, zero compromise'}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Everything you need to clone voices, generate speech, and produce multi-voice content —
-            running entirely on your machine.
+            {isRussian
+              ? 'Всё, что нужно для клонирования голосов, генерации речи и производства многоголосого контента, работает целиком на вашей машине.'
+              : 'Everything you need to clone voices, generate speech, and produce multi-voice content — running entirely on your machine.'}
           </p>
         </div>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((feature) => (
+          {features.map((feature) => (
             <FeatureCard key={feature.title} feature={feature} />
           ))}
         </div>

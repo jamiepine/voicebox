@@ -16,11 +16,15 @@ import {Testimonials} from "@/components/Testimonials";
 import {TokenTeaser} from "@/components/TokenTeaser";
 import {TutorialsSection} from "@/components/TutorialsSection";
 import {VoiceCreator} from "@/components/VoiceCreator";
+import {useLocale} from "@/components/LocaleProvider";
 import {GITHUB_REPO} from "@/lib/constants";
+import {getLocalizedPath, getLocaleTag} from "@/lib/i18n";
 
 export default function Home() {
 	const [version, setVersion] = useState<string | null>(null);
 	const [totalDownloads, setTotalDownloads] = useState<number | null>(null);
+	const locale = useLocale();
+	const isRussian = locale === "ru";
 
 	useEffect(() => {
 		fetch("/api/releases")
@@ -68,13 +72,13 @@ export default function Home() {
 						className="fade-in mb-6 text-[11px] font-semibold uppercase tracking-[0.22em] text-accent"
 						style={{animationDelay: "50ms"}}
 					>
-						The open-source AI voice studio
+						{isRussian ? "Open-source студия AI-голоса" : "The open-source AI voice studio"}
 					</div>
 
 					{/* Headline */}
 					<div className="fade-in relative" style={{animationDelay: "100ms"}}>
 						<h1 className="text-5xl font-bold tracking-tighter leading-[0.9] text-foreground md:text-7xl lg:text-8xl">
-						Clone, dictate and create.
+							{isRussian ? "Клонируйте, диктуйте и создавайте." : "Clone, dictate and create."}
 						</h1>
 					</div>
 
@@ -83,10 +87,21 @@ export default function Home() {
 						className="fade-in mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl"
 						style={{animationDelay: "200ms"}}
 					>
-						Clone voices, generate speech across seven TTS engines, dictate into
-						any app, and talk to agents in voices you own. A free and local alternative
-						to ElevenLabs and WisprFlow, running{" "}
-						<b className="text-white">entirely on your machine.</b>
+						{isRussian ? (
+							<>
+								Клонируйте голоса, генерируйте речь в семи TTS-движках, диктуйте
+								в любое приложение и общайтесь с агентами голосами, которыми вы владеете.
+								Это бесплатная и локальная альтернатива ElevenLabs и WisprFlow, работающая{" "}
+								<b className="text-white">целиком на вашем компьютере.</b>
+							</>
+						) : (
+							<>
+								Clone voices, generate speech across seven TTS engines, dictate into
+								any app, and talk to agents in voices you own. A free and local alternative
+								to ElevenLabs and WisprFlow, running{" "}
+								<b className="text-white">entirely on your machine.</b>
+							</>
+						)}
 					</p>
 
 					{/* CTAs */}
@@ -95,10 +110,10 @@ export default function Home() {
 						style={{animationDelay: "300ms"}}
 					>
 						<a
-							href="/download"
+							href={getLocalizedPath(locale, "/download")}
 							className="rounded-full bg-accent px-8 py-3.5 text-sm font-semibold uppercase tracking-wider text-white shadow-[0_4px_20px_hsl(43_60%_50%/0.3),inset_0_2px_0_rgba(255,255,255,0.2),inset_0_-2px_0_rgba(0,0,0,0.1)] transition-all hover:bg-accent-faint active:shadow-[0_2px_10px_hsl(43_60%_50%/0.3),inset_0_4px_8px_rgba(0,0,0,0.3)]"
 						>
-							Download
+							{isRussian ? "Скачать" : "Download"}
 						</a>
 						<a
 							href={GITHUB_REPO}
@@ -107,7 +122,7 @@ export default function Home() {
 							className="flex items-center gap-2 rounded-full border border-border/60 bg-card/40 backdrop-blur-sm px-6 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground hover:border-border"
 						>
 							<Github className="h-4 w-4" />
-							View on GitHub
+							{isRussian ? "Открыть на GitHub" : "View on GitHub"}
 						</a>
 					</div>
 
@@ -119,7 +134,9 @@ export default function Home() {
 						{version ?? ""}
 						{version && totalDownloads != null ? " \u00b7 " : ""}
 						{totalDownloads != null
-							? `${totalDownloads.toLocaleString()} downloads`
+							? isRussian
+								? `${new Intl.NumberFormat(getLocaleTag(locale)).format(totalDownloads)} загрузок`
+								: `${new Intl.NumberFormat(getLocaleTag(locale)).format(totalDownloads)} downloads`
 							: ""}
 						{version || totalDownloads != null ? " \u00b7 " : ""}
 						macOS, Windows, Linux
@@ -164,31 +181,33 @@ export default function Home() {
 				<div className="mx-auto max-w-4xl px-6">
 					<div className="text-center mb-12">
 						<h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl mb-4">
-							Download Voicebox
+							{isRussian ? "Скачать Voicebox" : "Download Voicebox"}
 						</h2>
 						<p className="text-muted-foreground">
-							Available for macOS, Windows, and Linux. No dependencies required.
+							{isRussian
+								? "Доступно для macOS, Windows и Linux. Никаких внешних зависимостей."
+								: "Available for macOS, Windows, and Linux. No dependencies required."}
 						</p>
 					</div>
 
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl mx-auto">
 						{/* macOS ARM */}
 						<a
-							href="/download?platform=macArm"
+							href={getLocalizedPath(locale, "/download?platform=macArm")}
 							className="flex items-center rounded-xl border border-border bg-card/60 backdrop-blur-sm px-5 py-4 transition-all hover:border-accent/30 hover:bg-card group"
 						>
 							<AppleIcon className="h-6 w-6 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
 							<div className="ml-4">
 								<div className="text-sm font-medium">macOS</div>
 								<div className="text-xs text-muted-foreground">
-									Apple Silicon (ARM)
+									{isRussian ? "Apple Silicon (ARM)" : "Apple Silicon (ARM)"}
 								</div>
 							</div>
 						</a>
 
 						{/* macOS Intel */}
 						<a
-							href="/download?platform=macIntel"
+							href={getLocalizedPath(locale, "/download?platform=macIntel")}
 							className="flex items-center rounded-xl border border-border bg-card/60 backdrop-blur-sm px-5 py-4 transition-all hover:border-accent/30 hover:bg-card group"
 						>
 							<AppleIcon className="h-6 w-6 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
@@ -200,28 +219,28 @@ export default function Home() {
 
 						{/* Windows */}
 						<a
-							href="/download?platform=windows"
+							href={getLocalizedPath(locale, "/download?platform=windows")}
 							className="flex items-center rounded-xl border border-border bg-card/60 backdrop-blur-sm px-5 py-4 transition-all hover:border-accent/30 hover:bg-card group"
 						>
 							<WindowsIcon className="h-6 w-6 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
 							<div className="ml-4">
 								<div className="text-sm font-medium">Windows</div>
 								<div className="text-xs text-muted-foreground">
-									64-bit (MSI)
+									{isRussian ? "64-битный MSI" : "64-bit (MSI)"}
 								</div>
 							</div>
 						</a>
 
 						{/* Linux */}
 						<a
-							href="/linux-install"
+							href={getLocalizedPath(locale, "/linux-install")}
 							className="flex items-center rounded-xl border border-border bg-card/60 backdrop-blur-sm px-5 py-4 transition-all hover:border-accent/30 hover:bg-card group"
 						>
 							<LinuxIcon className="h-6 w-6 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" />
 							<div className="ml-4">
 								<div className="text-sm font-medium">Linux</div>
 								<div className="text-xs text-muted-foreground">
-									Build from source
+									{isRussian ? "Сборка из исходников" : "Build from source"}
 								</div>
 							</div>
 						</a>
@@ -236,7 +255,7 @@ export default function Home() {
 							className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
 						>
 							<Github className="h-4 w-4" />
-							View all releases on GitHub
+							{isRussian ? "Все релизы на GitHub" : "View all releases on GitHub"}
 						</a>
 					</div>
 				</div>
