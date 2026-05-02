@@ -28,12 +28,21 @@ async def transcribe_audio(
             tmp.write(chunk)
         tmp_path = tmp.name
 
+    wav_path = None
     try:
-        from ..utils.audio import load_audio
+        from ..utils.audio import load_audio, save_audio
         from ..backends import WHISPER_HF_REPOS
 
         audio, sr = await asyncio.to_thread(load_audio, tmp_path)
         duration = len(audio) / sr
+
+        # The uploaded file may be webm, m4a, or another format that
+        # mlx-audio Whisper cannot decode. Re-encode as a proper PCM WAV
+        # using the already-decoded audio so the backend always gets a
+        # file it can open regardless of what the frontend sent.
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as wav_tmp:
+            wav_path = wav_tmp.name
+        await asyncio.to_thread(save_audio, audio, wav_path, sr)
 
         whisper_model = transcribe.get_whisper_model()
         model_size = model if model else whisper_model.model_size
@@ -69,7 +78,7 @@ async def transcribe_audio(
                 },
             )
 
-        text = await whisper_model.transcribe(tmp_path, language, model_size)
+        text = await whisper_model.transcribe(wav_path, language, model_size)
 
         return models.TranscriptionResponse(
             text=text,
@@ -82,3 +91,5 @@ async def transcribe_audio(
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         Path(tmp_path).unlink(missing_ok=True)
+        if wav_path:
+            Path(wav_path).unlink(missing_ok=True)
