@@ -12,6 +12,20 @@ You are helping a user set up a fixed version of the Voicebox AI voice studio on
 
 ---
 
+## Step 0 — Install Official Voicebox App
+
+The fixed backend plugs into the official Voicebox desktop app — the app itself is not built from source here. The user must have it installed first.
+
+Ask the user: **"Do you have Voicebox.app installed in your Applications folder?"**
+
+If not, have them:
+1. Download the DMG from **https://voicebox.sh/download/mac-arm** (Apple Silicon) or **https://voicebox.sh/download/mac-intel** (Intel Mac)
+2. Open the DMG and drag Voicebox to Applications
+3. Launch it once and let it finish its first-run setup
+4. Close it again before continuing — we need to start our backend before the app opens
+
+---
+
 ## Step 1 — Check Prerequisites
 
 Run the following checks and install anything missing:
