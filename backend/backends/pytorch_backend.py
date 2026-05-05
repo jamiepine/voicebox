@@ -357,15 +357,17 @@ class PyTorchSTTBackend:
             )
             inputs = inputs.to(self.device)
 
-            # Generate transcription
-            # If language is provided, force it; otherwise let Whisper auto-detect
+            # Generate transcription.
+            # If language is provided, force it; otherwise let Whisper
+            # auto-detect. Pass language/task directly to generate() instead
+            # of building forced_decoder_ids — get_decoder_prompt_ids defaults
+            # to no_timestamps=True, which injects <|notimestamps|> and
+            # disables the timestamp tokens that return_timestamps=True (and
+            # therefore long-form decoding) depend on.
             generate_kwargs = {}
             if language:
-                forced_decoder_ids = self.processor.get_decoder_prompt_ids(
-                    language=language,
-                    task="transcribe",
-                )
-                generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
+                generate_kwargs["language"] = language
+                generate_kwargs["task"] = "transcribe"
 
             with torch.no_grad():
                 predicted_ids = self.model.generate(
