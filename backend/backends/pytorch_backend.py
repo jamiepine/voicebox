@@ -342,11 +342,18 @@ class PyTorchSTTBackend:
             # state — forcing offline here (issue #462) broke online users
             # whose `get_decoder_prompt_ids` / tokenizer calls issue
             # legitimate metadata lookups.
-            # Process audio
+            # Process audio.
+            # truncation=False + padding="longest" + return_attention_mask=True
+            # are required for long-form transcription. Without them the
+            # feature extractor silently truncates to 30s (Whisper's native
+            # window) and audio past that point is dropped.
             inputs = self.processor(
                 audio,
                 sampling_rate=16000,
                 return_tensors="pt",
+                truncation=False,
+                padding="longest",
+                return_attention_mask=True,
             )
             inputs = inputs.to(self.device)
 
@@ -363,6 +370,8 @@ class PyTorchSTTBackend:
             with torch.no_grad():
                 predicted_ids = self.model.generate(
                     inputs["input_features"],
+                    attention_mask=inputs["attention_mask"],
+                    return_timestamps=True,
                     **generate_kwargs,
                 )
 
