@@ -273,9 +273,19 @@ export function DictateWindow() {
   // the window away. Rust owns the hide + park-off-screen + click-through
   // combo because calling hide() directly from JS has been unreliable for
   // transparent always-on-top windows on macOS.
+  const isInitialMount = useRef(true);
   useEffect(() => {
     if (effectiveState === 'hidden') {
+      // Don't emit hide on the very first mount — the window starts hidden
+      // in Rust, and calling hide/ignore-cursor-events too early on Linux
+      // can cause a panic in the tao library.
+      if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+      }
       emit('dictate:hide').catch(() => {});
+    } else {
+      isInitialMount.current = false;
     }
   }, [effectiveState]);
 
