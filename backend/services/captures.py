@@ -195,6 +195,7 @@ async def refine_capture(
         row.transcript_raw or "",
         flags,
         model_size=model_size,
+        language=row.language,
     )
 
     row.transcript_refined = refined
