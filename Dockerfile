@@ -27,6 +27,7 @@ RUN pip install --no-cache-dir --upgrade pip
 COPY backend/requirements.txt /build/requirements.txt
 
 RUN pip install --no-cache-dir fastapi "uvicorn[standard]" pydantic sqlalchemy alembic huggingface_hub python-multipart Pillow httpx
+RUN pip install --no-cache-dir "fastmcp>=0.4.0"
 RUN pip install --no-cache-dir librosa soundfile "numba>=0.60.0,<0.61.0" "numpy>=1.24.0,<2.1" pedalboard
 
 RUN pip install --no-cache-dir conformer "diffusers>=0.29.0" omegaconf pykakasi resemble-perth s3tokenizer spacy-pkuseg pyloudnorm
@@ -65,12 +66,20 @@ RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache \
     && chown -R voicebox:voicebox /app/data
 RUN mkdir -p /home/voicebox/.cache/numba /home/voicebox/.cache/joblib /home/voicebox/.cache/huggingface \
     && chown -R voicebox:voicebox /home/voicebox/.cache
+RUN mkdir -p /scripts && chown -R voicebox:voicebox /scripts
+COPY --chown=voicebox:voicebox docker-entrypoint.sh /scripts/docker-entrypoint.sh
+RUN chmod +x /scripts/docker-entrypoint.sh
 
 ENV NUMBA_CACHE_DIR=/home/voicebox/.cache/numba
 ENV JOBLIB_CACHE_DIR=/home/voicebox/.cache/joblib
 ENV HF_HOME=/home/voicebox/.cache/huggingface
 
 USER voicebox
+
+ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
+
+# Pre-download TTS models so they exist at runtime with correct ownership
+RUN python3.11 -c "from qwen_tts import Qwen3TTS; m = Qwen3TTS.from_pretrained('Qwen/Qwen3-TTS-12Hz-1.7B-Base')" 2>/dev/null || true
 
 EXPOSE 17493
 

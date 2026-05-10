@@ -52,6 +52,9 @@ pedalboard>=0.9.0
 # HTTP client (for CUDA backend download)
 httpx>=0.27.0
 
+# MCP server
+fastmcp>=0.4.0
+
 # Utilities
 python-multipart>=0.0.6
 Pillow>=10.0.0

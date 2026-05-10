@@ -11,10 +11,15 @@ services:
       - voicebox-generations:/app/data/generations
       - voicebox-data:/app/data
       - huggingface-cache:/home/voicebox/.cache/huggingface
+      - numba-cache:/home/voicebox/.cache/numba
 
     environment:
       - LOG_LEVEL=info
       - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
+      - NUMBA_CACHE_DIR=/home/voicebox/.cache/numba
+      - JOBLIB_CACHE_DIR=/home/voicebox/.cache/joblib
+      - HF_HOME=/home/voicebox/.cache/huggingface
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
     deploy:
@@ -35,3 +40,4 @@ volumes:
   voicebox-data:
   voicebox-generations:
   huggingface-cache:
+  numba-cache:
