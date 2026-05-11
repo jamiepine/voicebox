@@ -77,7 +77,7 @@ async def generate_speech(
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
     text = data.text
-    source = "manual"
+    source = data.source or "manual"
     if data.personality and getattr(profile, "personality", None):
         # Speak-in-character shares the single refinement LLM configured in
         # Settings → Model Management (capture_settings.llm_model) — without
@@ -94,7 +94,8 @@ async def generate_speech(
         text = llm_result.text.strip()
         if not text:
             raise HTTPException(status_code=500, detail="LLM produced empty output; nothing to speak.")
-        source = "personality_speak"
+        if not data.source:
+            source = "personality_speak"
 
     generation = await history.create_generation(
         profile_id=data.profile_id,
