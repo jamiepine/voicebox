@@ -3,7 +3,7 @@ Pydantic models for request/response validation.
 """
 
 from pydantic import BaseModel, Field
-from typing import Literal, Optional, List
+from typing import Literal, Optional
 from datetime import datetime
 
 from .utils.capture_chords import (
@@ -38,7 +38,7 @@ class VoiceProfileResponse(BaseModel):
     description: Optional[str]
     language: str
     avatar_path: Optional[str] = None
-    effects_chain: Optional[List["EffectConfig"]] = None
+    effects_chain: Optional[list["EffectConfig"]] = None
     voice_type: str = "cloned"
     preset_engine: Optional[str] = None
     preset_voice_id: Optional[str] = None
@@ -99,7 +99,7 @@ class GenerationRequest(BaseModel):
         default=50, ge=0, le=500, description="Crossfade duration in ms between chunks (0 for hard cut)"
     )
     normalize: bool = Field(default=True, description="Normalize output audio volume")
-    effects_chain: Optional[List["EffectConfig"]] = Field(
+    effects_chain: Optional[list["EffectConfig"]] = Field(
         None, description="Effects chain to apply after generation (overrides profile default)"
     )
     source: Optional[GenerationSource] = Field(
@@ -125,7 +125,7 @@ class GenerationResponse(BaseModel):
     is_favorited: bool = False
     source: str = "manual"
     created_at: datetime
-    versions: Optional[List["GenerationVersionResponse"]] = None
+    versions: Optional[list["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
 
     class Config:
@@ -159,7 +159,7 @@ class HistoryResponse(BaseModel):
     error: Optional[str] = None
     is_favorited: bool = False
     created_at: datetime
-    versions: Optional[List["GenerationVersionResponse"]] = None
+    versions: Optional[list["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
 
     class Config:
@@ -169,7 +169,7 @@ class HistoryResponse(BaseModel):
 class HistoryListResponse(BaseModel):
     """Response model for history list."""
 
-    items: List[HistoryResponse]
+    items: list[HistoryResponse]
     total: int
 
 
@@ -217,7 +217,7 @@ class CaptureResponse(BaseModel):
 class CaptureListResponse(BaseModel):
     """Response model for paginated capture list."""
 
-    items: List[CaptureResponse]
+    items: list[CaptureResponse]
     total: int
 
 
@@ -263,10 +263,10 @@ class CaptureSettingsResponse(BaseModel):
     allow_auto_paste: bool = True
     default_playback_voice_id: Optional[str] = None
     hotkey_enabled: bool = False
-    chord_push_to_talk_keys: List[str] = Field(
+    chord_push_to_talk_keys: list[str] = Field(
         default_factory=default_push_to_talk_chord
     )
-    chord_toggle_to_talk_keys: List[str] = Field(
+    chord_toggle_to_talk_keys: list[str] = Field(
         default_factory=default_toggle_to_talk_chord
     )
 
@@ -287,8 +287,8 @@ class CaptureSettingsUpdate(BaseModel):
     allow_auto_paste: Optional[bool] = None
     default_playback_voice_id: Optional[str] = None
     hotkey_enabled: Optional[bool] = None
-    chord_push_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
-    chord_toggle_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
+    chord_push_to_talk_keys: Optional[list[str]] = Field(default=None, min_length=1, max_length=6)
+    chord_toggle_to_talk_keys: Optional[list[str]] = Field(default=None, min_length=1, max_length=6)
 
 
 class GenerationSettingsResponse(BaseModel):
@@ -347,7 +347,7 @@ class MCPClientBindingUpsert(BaseModel):
 
 
 class MCPClientBindingListResponse(BaseModel):
-    items: List[MCPClientBindingResponse]
+    items: list[MCPClientBindingResponse]
 
 
 class SpeakRequest(BaseModel):
@@ -384,7 +384,7 @@ class LLMGenerateRequest(BaseModel):
     # Used by the refinement service to pin tricky rules (imperatives
     # staying imperatives, technical-term punctuation) that small models
     # lose when the examples live inline in the system prompt.
-    examples: Optional[List[List[str]]] = Field(default=None, max_length=8)
+    examples: Optional[list[list[str]]] = Field(default=None, max_length=8)
 
 
 class LLMGenerateResponse(BaseModel):
@@ -466,7 +466,7 @@ class FilesystemHealthResponse(BaseModel):
     healthy: bool
     disk_free_mb: Optional[float] = None
     disk_total_mb: Optional[float] = None
-    directories: List[DirectoryCheck]
+    directories: list[DirectoryCheck]
 
 
 class ModelStatus(BaseModel):
@@ -484,7 +484,7 @@ class ModelStatus(BaseModel):
 class ModelStatusListResponse(BaseModel):
     """Response model for model status list."""
 
-    models: List[ModelStatus]
+    models: list[ModelStatus]
 
 
 class ModelDownloadRequest(BaseModel):
@@ -524,22 +524,22 @@ class ActiveGenerationTask(BaseModel):
 class ActiveTasksResponse(BaseModel):
     """Response model for active tasks."""
 
-    downloads: List[ActiveDownloadTask]
-    generations: List[ActiveGenerationTask]
+    downloads: list[ActiveDownloadTask]
+    generations: list[ActiveGenerationTask]
 
 
 class AudioChannelCreate(BaseModel):
     """Request model for creating an audio channel."""
 
     name: str = Field(..., min_length=1, max_length=100)
-    device_ids: List[str] = Field(default_factory=list)
+    device_ids: list[str] = Field(default_factory=list)
 
 
 class AudioChannelUpdate(BaseModel):
     """Request model for updating an audio channel."""
 
     name: Optional[str] = Field(None, min_length=1, max_length=100)
-    device_ids: Optional[List[str]] = None
+    device_ids: Optional[list[str]] = None
 
 
 class AudioChannelResponse(BaseModel):
@@ -548,7 +548,7 @@ class AudioChannelResponse(BaseModel):
     id: str
     name: str
     is_default: bool
-    device_ids: List[str]
+    device_ids: list[str]
     created_at: datetime
 
     class Config:
@@ -558,13 +558,13 @@ class AudioChannelResponse(BaseModel):
 class ChannelVoiceAssignment(BaseModel):
     """Request model for assigning voices to a channel."""
 
-    profile_ids: List[str]
+    profile_ids: list[str]
 
 
 class ProfileChannelAssignment(BaseModel):
     """Request model for assigning channels to a profile."""
 
-    channel_ids: List[str]
+    channel_ids: list[str]
 
 
 class StoryCreate(BaseModel):
@@ -613,7 +613,7 @@ class StoryItemDetail(BaseModel):
     volume: float = 1.0
     generation_created_at: datetime
     # Versions available for this generation
-    versions: Optional[List["GenerationVersionResponse"]] = None
+    versions: Optional[list["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
 
     class Config:
@@ -628,7 +628,7 @@ class StoryDetailResponse(BaseModel):
     description: Optional[str]
     created_at: datetime
     updated_at: datetime
-    items: List[StoryItemDetail] = []
+    items: list[StoryItemDetail] = []
 
     class Config:
         from_attributes = True
@@ -652,13 +652,13 @@ class StoryItemUpdateTime(BaseModel):
 class StoryItemBatchUpdate(BaseModel):
     """Request model for batch updating story item timecodes."""
 
-    updates: List[StoryItemUpdateTime]
+    updates: list[StoryItemUpdateTime]
 
 
 class StoryItemReorder(BaseModel):
     """Request model for reordering story items."""
 
-    generation_ids: List[str] = Field(..., min_length=1)
+    generation_ids: list[str] = Field(..., min_length=1)
 
 
 class StoryItemMove(BaseModel):
@@ -709,7 +709,7 @@ class EffectConfig(BaseModel):
 class EffectsChain(BaseModel):
     """An ordered list of effects to apply."""
 
-    effects: List[EffectConfig] = Field(default_factory=list)
+    effects: list[EffectConfig] = Field(default_factory=list)
 
 
 class EffectPresetCreate(BaseModel):
@@ -717,7 +717,7 @@ class EffectPresetCreate(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    effects_chain: List[EffectConfig]
+    effects_chain: list[EffectConfig]
 
 
 class EffectPresetUpdate(BaseModel):
@@ -725,7 +725,7 @@ class EffectPresetUpdate(BaseModel):
 
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
-    effects_chain: Optional[List[EffectConfig]] = None
+    effects_chain: Optional[list[EffectConfig]] = None
 
 
 class EffectPresetResponse(BaseModel):
@@ -734,7 +734,7 @@ class EffectPresetResponse(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
-    effects_chain: List[EffectConfig]
+    effects_chain: list[EffectConfig]
     is_builtin: bool = False
     created_at: datetime
 
@@ -749,7 +749,7 @@ class GenerationVersionResponse(BaseModel):
     generation_id: str
     label: str
     audio_path: str
-    effects_chain: Optional[List[EffectConfig]] = None
+    effects_chain: Optional[list[EffectConfig]] = None
     source_version_id: Optional[str] = None
     is_default: bool
     created_at: datetime
@@ -761,7 +761,7 @@ class GenerationVersionResponse(BaseModel):
 class ApplyEffectsRequest(BaseModel):
     """Request to apply effects to an existing generation."""
 
-    effects_chain: List[EffectConfig]
+    effects_chain: list[EffectConfig]
     source_version_id: Optional[str] = Field(
         None, description="Version to use as source audio (defaults to clean/original)"
     )
@@ -772,7 +772,7 @@ class ApplyEffectsRequest(BaseModel):
 class ProfileEffectsUpdate(BaseModel):
     """Request to update the default effects chain on a profile."""
 
-    effects_chain: Optional[List[EffectConfig]] = Field(None, description="Effects chain (null to remove)")
+    effects_chain: Optional[list[EffectConfig]] = Field(None, description="Effects chain (null to remove)")
 
 
 class AvailableEffectParam(BaseModel):
@@ -797,4 +797,4 @@ class AvailableEffect(BaseModel):
 class AvailableEffectsResponse(BaseModel):
     """Response listing all available effect types."""
 
-    effects: List[AvailableEffect]
+    effects: list[AvailableEffect]
