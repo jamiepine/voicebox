@@ -78,6 +78,7 @@ async def speak(
             language=data.language or "en",
             engine=engine,
             personality=bool(personality_flag),
+            source="rest",
         ),
         db,
     )
