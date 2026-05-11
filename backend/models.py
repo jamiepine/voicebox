@@ -3,13 +3,15 @@ Pydantic models for request/response validation.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import datetime
 
 from .utils.capture_chords import (
     default_push_to_talk_chord,
     default_toggle_to_talk_chord,
 )
+
+GenerationSource = Literal["mcp", "rest", "manual", "import", "personality_speak"]
 
 
 class VoiceProfileCreate(BaseModel):
@@ -100,8 +102,8 @@ class GenerationRequest(BaseModel):
     effects_chain: Optional[List["EffectConfig"]] = Field(
         None, description="Effects chain to apply after generation (overrides profile default)"
     )
-    source: Optional[str] = Field(
-        None, description="Origin of the request (e.g. 'mcp', 'rest'). Internal use — not exposed to public API docs."
+    source: Optional[GenerationSource] = Field(
+        None, description="Origin of the request. Internal use — not exposed to public API docs."
     )
 
 
