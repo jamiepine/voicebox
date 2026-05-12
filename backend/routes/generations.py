@@ -109,7 +109,7 @@ async def generate_speech(
     try:
         profiles.validate_profile_engine(profile, engine)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
@@ -119,7 +119,7 @@ async def generate_speech(
         try:
             llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         text = llm_result.text.strip()
         if not text:
             raise HTTPException(status_code=500, detail="LLM produced empty output; nothing to speak.")
@@ -374,7 +374,7 @@ async def stream_speech(
     try:
         profiles.validate_profile_engine(profile, engine)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     tts_model = get_tts_backend_for_engine(engine)
     model_size = data.model_size or "1.7B"
 
@@ -386,7 +386,7 @@ async def stream_speech(
                 data.text,
             )
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         text = llm_result.text.strip()
         if not text:
             raise HTTPException(
