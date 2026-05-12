@@ -102,9 +102,6 @@ class GenerationRequest(BaseModel):
     effects_chain: Optional[list["EffectConfig"]] = Field(
         None, description="Effects chain to apply after generation (overrides profile default)"
     )
-    source: Optional[GenerationSource] = Field(
-        None, description="Origin of the request. Internal use — not exposed to public API docs."
-    )
 
 
 class GenerationResponse(BaseModel):
