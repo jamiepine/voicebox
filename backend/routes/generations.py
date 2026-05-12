@@ -2,15 +2,18 @@
 
 import asyncio
 import logging
+import struct
 import uuid
 from pathlib import Path
+
+import numpy as np
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, tts
+from ..services import history, personality, profiles
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
@@ -51,6 +54,40 @@ def _get_or_create_import_profile(db: Session) -> DBVoiceProfile:
 
 def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
     return data.engine or getattr(profile, "default_engine", None) or getattr(profile, "preset_engine", None) or "qwen"
+
+
+def _wav_stream_header(
+    sample_rate: int,
+    *,
+    channels: int = 1,
+    bits_per_sample: int = 16,
+) -> bytes:
+    """Build a stream-friendly WAV header with unknown data length."""
+    block_align = channels * (bits_per_sample // 8)
+    byte_rate = sample_rate * block_align
+    return struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF",
+        0xFFFFFFFF,
+        b"WAVE",
+        b"fmt ",
+        16,
+        1,
+        channels,
+        sample_rate,
+        byte_rate,
+        block_align,
+        bits_per_sample,
+        b"data",
+        0xFFFFFFFF,
+    )
+
+
+def _audio_to_pcm16le(audio: np.ndarray) -> bytes:
+    """Convert float audio to little-endian 16-bit PCM bytes."""
+    mono = np.asarray(audio, dtype=np.float32).reshape(-1)
+    mono = np.clip(mono, -1.0, 1.0)
+    return (mono * 32767.0).astype("<i2").tobytes()
 
 
 @router.post("/generate", response_model=models.GenerationResponse)
@@ -320,8 +357,14 @@ async def stream_speech(
     data: models.GenerationRequest,
     db: Session = Depends(get_db),
 ):
-    """Generate speech and stream the WAV audio directly without saving to disk."""
-    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim
+    """Generate speech and stream WAV audio as chunks without saving to disk."""
+    from ..backends import (
+        engine_needs_trim,
+        ensure_model_cached_or_raise,
+        get_tts_backend_for_engine,
+        load_engine_model,
+    )
+    from ..utils.chunked_tts import split_text_into_chunks
 
     profile = await profiles.get_profile(data.profile_id, db)
     if not profile:
@@ -335,6 +378,22 @@ async def stream_speech(
     tts_model = get_tts_backend_for_engine(engine)
     model_size = data.model_size or "1.7B"
 
+    text = data.text
+    if data.personality and getattr(profile, "personality", None):
+        try:
+            llm_result = await personality.rewrite_as_profile(
+                profile.personality,
+                data.text,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        text = llm_result.text.strip()
+        if not text:
+            raise HTTPException(
+                status_code=500,
+                detail="LLM produced empty output; nothing to speak.",
+            )
+
     await ensure_model_cached_or_raise(engine, model_size)
     await load_engine_model(engine, model_size)
 
@@ -344,25 +403,11 @@ async def stream_speech(
         engine=engine,
     )
 
-    from ..utils.chunked_tts import generate_chunked
-
     trim_fn = None
     if engine_needs_trim(engine):
         from ..utils.audio import trim_tts_output
 
         trim_fn = trim_tts_output
-
-    audio, sample_rate = await generate_chunked(
-        tts_model,
-        data.text,
-        voice_prompt,
-        language=data.language,
-        seed=data.seed,
-        instruct=data.instruct,
-        max_chunk_chars=data.max_chunk_chars,
-        crossfade_ms=data.crossfade_ms,
-        trim_fn=trim_fn,
-    )
 
     effects_chain_config = None
     if data.effects_chain is not None:
@@ -375,30 +420,112 @@ async def stream_speech(
         except Exception:
             effects_chain_config = None
 
-    if effects_chain_config:
-        from ..utils.effects import apply_effects
-
-        audio = apply_effects(audio, sample_rate, effects_chain_config)
-
-    if data.normalize:
-        from ..utils.audio import normalize_audio
-
-        audio = normalize_audio(audio)
-
-    wav_bytes = tts.audio_to_wav_bytes(audio, sample_rate)
-
     async def _wav_stream():
         try:
-            chunk_size = 64 * 1024
-            for i in range(0, len(wav_bytes), chunk_size):
-                yield wav_bytes[i : i + chunk_size]
+            chunks = split_text_into_chunks(text, data.max_chunk_chars)
+
+            apply_effects_fn = None
+            if effects_chain_config:
+                from ..utils.effects import apply_effects as _apply_effects
+
+                apply_effects_fn = _apply_effects
+
+            normalize_fn = None
+            if data.normalize:
+                from ..utils.audio import normalize_audio as _normalize_audio
+
+                normalize_fn = _normalize_audio
+
+            sample_rate: int | None = None
+            crossfade_samples = 0
+            fade_out: np.ndarray | None = None
+            fade_in: np.ndarray | None = None
+            tail: np.ndarray | None = None
+
+            for i, chunk_text in enumerate(chunks):
+                chunk_seed = (data.seed + i) if data.seed is not None else None
+                chunk_audio, chunk_sr = await tts_model.generate(
+                    chunk_text,
+                    voice_prompt,
+                    data.language,
+                    chunk_seed,
+                    data.instruct,
+                )
+
+                chunk_audio = np.asarray(chunk_audio, dtype=np.float32)
+                if trim_fn is not None:
+                    chunk_audio = trim_fn(chunk_audio, chunk_sr)
+                if apply_effects_fn is not None:
+                    chunk_audio = apply_effects_fn(
+                        chunk_audio, chunk_sr, effects_chain_config
+                    )
+                if normalize_fn is not None:
+                    chunk_audio = normalize_fn(chunk_audio)
+
+                if sample_rate is None:
+                    sample_rate = chunk_sr
+                    crossfade_samples = int(
+                        max(0, data.crossfade_ms) * sample_rate / 1000
+                    )
+                    if crossfade_samples > 0:
+                        fade_out = np.linspace(
+                            1.0, 0.0, crossfade_samples, dtype=np.float32
+                        )
+                        fade_in = np.linspace(
+                            0.0, 1.0, crossfade_samples, dtype=np.float32
+                        )
+                    yield _wav_stream_header(sample_rate)
+                elif chunk_sr != sample_rate:
+                    logger.warning(
+                        "Stream chunk sample-rate mismatch (%s vs %s); using first value",
+                        chunk_sr,
+                        sample_rate,
+                    )
+
+                if tail is None:
+                    tail = chunk_audio
+                else:
+                    overlap = min(
+                        len(tail),
+                        len(chunk_audio),
+                        crossfade_samples,
+                    )
+                    if overlap > 0 and fade_out is not None and fade_in is not None:
+                        if len(tail) > overlap:
+                            yield _audio_to_pcm16le(tail[:-overlap])
+                        blended = (
+                            tail[-overlap:] * fade_out[:overlap]
+                            + chunk_audio[:overlap] * fade_in[:overlap]
+                        )
+                        tail = np.concatenate([blended, chunk_audio[overlap:]])
+                    else:
+                        tail = np.concatenate([tail, chunk_audio])
+
+                if crossfade_samples == 0 and tail is not None and tail.size > 0:
+                    yield _audio_to_pcm16le(tail)
+                    tail = np.array([], dtype=np.float32)
+                elif (
+                    crossfade_samples > 0
+                    and tail is not None
+                    and len(tail) > crossfade_samples
+                ):
+                    emit = tail[:-crossfade_samples]
+                    tail = tail[-crossfade_samples:]
+                    if emit.size > 0:
+                        yield _audio_to_pcm16le(emit)
+
+            if tail is not None and tail.size > 0:
+                yield _audio_to_pcm16le(tail)
         except (BrokenPipeError, ConnectionResetError, asyncio.CancelledError):
             logger.debug("Client disconnected during audio stream")
 
     return StreamingResponse(
         _wav_stream(),
         media_type="audio/wav",
-        headers={"Content-Disposition": 'attachment; filename="speech.wav"'},
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
