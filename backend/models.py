@@ -123,7 +123,7 @@ class GenerationResponse(BaseModel):
     status: str = "completed"
     error: Optional[str] = None
     is_favorited: bool = False
-    source: str = "manual"
+    source: GenerationSource = "manual"
     created_at: datetime
     versions: Optional[list["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
