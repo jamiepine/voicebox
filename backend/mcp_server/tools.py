@@ -254,9 +254,8 @@ async def _speak(
         engine=engine,
         personality=personality,
         model_size=model_size,
-        source="mcp",
     )
-    generation = await generate_speech(req, db)
+    generation = await generate_speech(req, db, source="mcp")
     return _speak_response(generation, profile_name, source="mcp")
 
 
