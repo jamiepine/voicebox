@@ -1,7 +1,5 @@
 # Voicebox Remote Proxy Helper
-
-This script is an **optional developer/helper tool** and is not part of the required Voicebox runtime.
-
+Optional developer helper. Not required for normal Voicebox desktop use.
 It provides a lightweight local proxy that sits between the Voicebox desktop application and an external remote backend (such as a Cloudflare Tunnel or Google Colab instance).
 
 ### Why use this?
