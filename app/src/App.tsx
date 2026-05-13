@@ -164,13 +164,68 @@ function MainApp() {
       return;
     }
 
+    const serverStore = useServerStore.getState();
+    const isRemote = serverStore.mode === 'remote';
+    const customModelsDir = serverStore.customModelsDir;
+
+    if (isRemote) {
+      console.log(
+        'Remote/proxy mode: skipping bundled sidecar; checking configured serverUrl:',
+        serverStore.serverUrl,
+      );
+
+      window.__voiceboxServerStartedByApp = false;
+      serverStartingRef.current = true;
+
+      let cancelled = false;
+      const startedAt = Date.now();
+      const timeoutMs = 120_000;
+
+      const pollRemoteProxy = async () => {
+        try {
+          const health = await apiClient.getHealth();
+
+          if (isVoiceboxHealthResponse(health)) {
+            console.log('Remote/proxy Voicebox server detected');
+            if (!cancelled) {
+              setStartupError(null);
+              setServerReady(true);
+              serverStartingRef.current = false;
+            }
+            return;
+          }
+
+          console.log('Remote/proxy /health response was not Voicebox-shaped:', health);
+        } catch (error) {
+          console.log('Remote/proxy health check failed:', error);
+        }
+
+        if (cancelled) return;
+
+        if (Date.now() - startedAt >= timeoutMs) {
+          serverStartingRef.current = false;
+          setStartupError(
+            'Could not connect to the configured remote/proxy Voicebox server within 2 minutes.',
+          );
+          return;
+        }
+
+        setTimeout(pollRemoteProxy, 2000);
+      };
+
+      void pollRemoteProxy();
+
+      return () => {
+        cancelled = true;
+        serverStartingRef.current = false;
+      };
+    }
+
     serverStartingRef.current = true;
-    const isRemote = useServerStore.getState().mode === 'remote';
-    const customModelsDir = useServerStore.getState().customModelsDir;
-    console.log(`Production mode: Starting bundled server... (remote: ${isRemote})`);
+    console.log('Production mode: Starting bundled local server...');
 
     platform.lifecycle
-      .startServer(isRemote, customModelsDir)
+      .startServer(false, customModelsDir)
       .then((serverUrl) => {
         console.log('Server is ready at:', serverUrl);
         // Update the server URL in the store with the dynamically assigned port
