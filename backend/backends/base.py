@@ -151,13 +151,24 @@ def check_cuda_compatibility() -> tuple[bool, str | None]:
             # Check for both sm_XX and compute_XX (JIT-compiled) entries
             compute_tag = f"compute_{major}{minor}"
             if sm_tag not in arch_list and compute_tag not in arch_list:
-                return False, (
-                    f"{device_name} (compute capability {capability} / {sm_tag}) "
-                    f"is not supported by this PyTorch build. "
-                    f"Supported architectures: {', '.join(arch_list)}. "
-                    f"Install PyTorch nightly (cu128) for newer GPU support: "
-                    f"pip install torch --index-url https://download.pytorch.org/whl/nightly/cu128"
-                )
+                # Blackwell (sm_120+) requires the cu128 binary; give a
+                # clear, actionable message that names the re-download path.
+                if major >= 12:
+                    msg = (
+                        f"Your GPU ({device_name}, {sm_tag}) requires the "
+                        f"Blackwell CUDA binary. "
+                        f"Go to Settings → Server → GPU Acceleration "
+                        f"to re-download the correct binary."
+                    )
+                else:
+                    msg = (
+                        f"{device_name} (compute capability {capability} / {sm_tag}) "
+                        f"is not supported by this PyTorch build. "
+                        f"Supported architectures: {', '.join(arch_list)}. "
+                        f"Go to Settings → Server → GPU Acceleration "
+                        f"to download a compatible CUDA binary."
+                    )
+                return False, msg
     except AttributeError:
         pass
 

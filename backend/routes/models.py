@@ -242,6 +242,18 @@ async def get_model_status():
 
     from ..backends import get_all_model_configs, check_model_loaded
 
+    # Check once — a CUDA arch mismatch affects every model on this machine.
+    cuda_arch_warning: str | None = None
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            from ..backends.base import check_cuda_compatibility
+
+            _ok, cuda_arch_warning = check_cuda_compatibility()
+    except Exception:
+        pass
+
     registry_configs = get_all_model_configs()
     model_configs = [
         {
@@ -359,6 +371,7 @@ async def get_model_status():
                     downloading=is_downloading,
                     size_mb=size_mb,
                     loaded=loaded,
+                    cuda_arch_warning=cuda_arch_warning,
                 )
             )
         except Exception:
@@ -378,6 +391,7 @@ async def get_model_status():
                     downloading=is_downloading,
                     size_mb=None,
                     loaded=loaded,
+                    cuda_arch_warning=cuda_arch_warning,
                 )
             )
 
