@@ -225,6 +225,10 @@ async def update_profile_sample(
     return sample
 
 
+AVATAR_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+AVATAR_UPLOAD_CHUNK_SIZE = 1024 * 1024   # 1 MB
+
+
 @router.post("/profiles/{profile_id}/avatar", response_model=models.VoiceProfileResponse)
 async def upload_profile_avatar(
     profile_id: str,
@@ -232,9 +236,18 @@ async def upload_profile_avatar(
     db: Session = Depends(get_db),
 ):
     """Upload or update avatar image for a profile."""
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
-        content = await file.read()
-        tmp.write(content)
+    suffix = Path(file.filename or "").suffix or ".png"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        total_size = 0
+        while chunk := await file.read(AVATAR_UPLOAD_CHUNK_SIZE):
+            total_size += len(chunk)
+            if total_size > AVATAR_MAX_FILE_SIZE:
+                Path(tmp.name).unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Avatar file too large (max {AVATAR_MAX_FILE_SIZE // (1024 * 1024)} MB)",
+                )
+            tmp.write(chunk)
         tmp_path = tmp.name
 
     try:
