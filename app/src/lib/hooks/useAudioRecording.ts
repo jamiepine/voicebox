@@ -21,12 +21,18 @@ export function useAudioRecording({
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const cancelledRef = useRef<boolean>(false);
+  // Monotonically-increasing session counter.  Each call to startRecording
+  // increments it; the onstop closure captures it and bails out if it no
+  // longer matches — prevents a slow convertToWav from a previous session
+  // from calling onRecordingComplete after a new recording has already begun.
+  const sessionRef = useRef<number>(0);
 
   const startRecording = useCallback(async () => {
     try {
       setError(null);
       chunksRef.current = [];
       cancelledRef.current = false;
+      sessionRef.current += 1;
       setDuration(0);
 
       // Check if getUserMedia is available
@@ -88,6 +94,12 @@ export function useAudioRecording({
         }
       };
 
+      // Capture the session ID for this recording at the time the recorder
+      // is set up.  If the user starts a new recording before the async
+      // onstop work finishes (e.g. convertToWav is slow), the new session
+      // will have a different ID and we skip the stale completion callback.
+      const thisSession = sessionRef.current;
+
       mediaRecorder.onstop = async () => {
         // Snapshot the cancellation flag and recorded duration immediately —
         // cancelRecording() clears chunks and sets cancelledRef synchronously
@@ -105,17 +117,32 @@ export function useAudioRecording({
         });
         streamRef.current = null;
 
+        // Clear the recorder ref now that it's done — prevents stopRecording
+        // from accidentally operating on an already-stopped MediaRecorder if
+        // the user clicks stop again before state catches up.
+        if (mediaRecorderRef.current === mediaRecorder) {
+          mediaRecorderRef.current = null;
+        }
+
         // Don't fire completion callback if the recording was cancelled
         if (wasCancelled) return;
+
+        // Don't fire completion callback if a newer session has started
+        if (sessionRef.current !== thisSession) return;
 
         // Convert to WAV format to avoid needing ffmpeg on backend
         try {
           const wavBlob = await convertToWav(webmBlob);
-          onRecordingComplete?.(wavBlob, recordedDuration);
+          // Final guard: still belongs to this session?
+          if (sessionRef.current === thisSession) {
+            onRecordingComplete?.(wavBlob, recordedDuration);
+          }
         } catch (err) {
           console.error('Error converting audio to WAV:', err);
           // Fallback to original blob if conversion fails
-          onRecordingComplete?.(webmBlob, recordedDuration);
+          if (sessionRef.current === thisSession) {
+            onRecordingComplete?.(webmBlob, recordedDuration);
+          }
         }
       };
 
@@ -162,10 +189,12 @@ export function useAudioRecording({
       setError(errorMessage);
       setIsRecording(false);
     }
-  }, [maxDurationSeconds, onRecordingComplete]);
+  }, [maxDurationSeconds, onRecordingComplete, platform.metadata.isTauri]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
+    // Check the ref rather than the `isRecording` state so this works even
+    // if React hasn't flushed the state update yet (e.g. rapid UI clicks).
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
 
@@ -174,13 +203,18 @@ export function useAudioRecording({
         timerRef.current = null;
       }
     }
-  }, [isRecording]);
+  }, []);
 
   const cancelRecording = useCallback(() => {
     if (mediaRecorderRef.current) {
       cancelledRef.current = true; // Must be set before stop() triggers onstop
       chunksRef.current = [];
-      mediaRecorderRef.current.stop();
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      // Clear immediately so onstop (if it fires synchronously on some
+      // browsers) doesn't see a stale ref.
+      mediaRecorderRef.current = null;
       setIsRecording(false);
       setDuration(0);
     }
