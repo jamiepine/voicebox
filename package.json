@@ -30,13 +30,18 @@
     "format:check": "biome format .",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "ci": "bun run typecheck && bun run build:web"
+    "test": "vitest run --reporter=verbose",
+    "test:ci": "vitest run --reporter=verbose",
+    "test:watch": "vitest --reporter=verbose",
+    "ci": "bun run typecheck && bun run test:ci && bun run build:web"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.12",
     "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
   },
   "engines": {
     "bun": ">=1.0.0"
