@@ -2,24 +2,24 @@
 MLX backend implementation for TTS and STT using mlx-audio.
 """
 
-from typing import Optional, List, Tuple
 import asyncio
 import logging
-import numpy as np
 from pathlib import Path
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 # PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
 # This prevents mlx_audio from making network requests when models are cached
-from ..utils.hf_offline_patch import patch_huggingface_hub_offline, ensure_original_qwen_config_cached
+from ..utils.hf_offline_patch import ensure_original_qwen_config_cached, patch_huggingface_hub_offline
 
 patch_huggingface_hub_offline()
 ensure_original_qwen_config_cached()
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
-from .base import is_model_cached, combine_voice_prompts as _combine_voice_prompts, model_load_progress
-from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
+from ..utils.cache import cache_voice_prompt, get_cache_key, get_cached_voice_prompt
+from . import LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
+from .base import combine_voice_prompts as _combine_voice_prompts, is_model_cached, model_load_progress
 
 
 class MLXTTSBackend:
@@ -63,7 +63,7 @@ class MLXTTSBackend:
             weight_extensions=(".safetensors", ".bin", ".npz"),
         )
 
-    async def load_model_async(self, model_size: Optional[str] = None):
+    async def load_model_async(self, model_size: str | None = None):
         """
         Lazy load the MLX TTS model.
 
@@ -100,6 +100,19 @@ class MLXTTSBackend:
 
             self.model = load(model_path)
 
+        import inspect
+
+        self._supports_ref_audio = "ref_audio" in inspect.signature(self.model.generate).parameters
+
+        # Warm up Metal JIT kernels — first inference compiles shaders, shift cost to load time
+        try:
+            logger.info("Warming up Metal kernels...")
+            for _ in self.model.generate("Hello.", lang_code="english"):
+                break  # one token is enough to trigger compilation
+            logger.info("Metal warmup complete")
+        except Exception as e:
+            logger.warning("Warmup failed (non-fatal): %s", e)
+
         self._current_model_size = model_size
         self.model_size = model_size
         logger.info("MLX TTS model %s loaded successfully", model_size)
@@ -117,7 +130,7 @@ class MLXTTSBackend:
         audio_path: str,
         reference_text: str,
         use_cache: bool = True,
-    ) -> Tuple[dict, bool]:
+    ) -> tuple[dict, bool]:
         """
         Create voice prompt from reference audio.
 
@@ -145,9 +158,8 @@ class MLXTTSBackend:
                     cached_audio_path = cached_prompt.get("ref_audio") or cached_prompt.get("ref_audio_path")
                     if cached_audio_path and Path(cached_audio_path).exists():
                         return cached_prompt, True
-                    else:
-                        # Cached file no longer exists, invalidate cache
-                        logger.warning("Cached audio file not found: %s, regenerating prompt", cached_audio_path)
+                    # Cached file no longer exists, invalidate cache
+                    logger.warning("Cached audio file not found: %s, regenerating prompt", cached_audio_path)
 
         # MLX voice prompt format - store audio path and text
         # The model will process this during generation
@@ -171,9 +183,9 @@ class MLXTTSBackend:
         text: str,
         voice_prompt: dict,
         language: str = "en",
-        seed: Optional[int] = None,
-        instruct: Optional[str] = None,
-    ) -> Tuple[np.ndarray, int]:
+        seed: int | None = None,
+        instruct: str | None = None,
+    ) -> tuple[np.ndarray, int]:
         """
         Generate audio from text using voice prompt.
 
@@ -223,11 +235,8 @@ class MLXTTSBackend:
             # legitimate metadata calls during generation.
             try:
                 if ref_audio:
-                    # Check if generate accepts ref_audio parameter
-                    import inspect
-
-                    sig = inspect.signature(self.model.generate)
-                    if "ref_audio" in sig.parameters:
+                    # Use cached capability flag set at model load time
+                    if self._supports_ref_audio:
                         # Generate with voice cloning
                         for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
                             audio_chunks.append(np.array(result.audio))
@@ -279,7 +288,7 @@ class MLXSTTBackend:
         hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
         return is_model_cached(hf_repo, weight_extensions=(".safetensors", ".bin", ".npz"))
 
-    async def load_model_async(self, model_size: Optional[str] = None):
+    async def load_model_async(self, model_size: str | None = None):
         """
         Lazy load the MLX Whisper model.
 
@@ -324,8 +333,8 @@ class MLXSTTBackend:
     async def transcribe(
         self,
         audio_path: str,
-        language: Optional[str] = None,
-        model_size: Optional[str] = None,
+        language: str | None = None,
+        model_size: str | None = None,
     ) -> str:
         """
         Transcribe audio to text.
@@ -356,12 +365,11 @@ class MLXSTTBackend:
             # Extract text from result
             if isinstance(result, str):
                 return result.strip()
-            elif isinstance(result, dict):
+            if isinstance(result, dict):
                 return result.get("text", "").strip()
-            elif hasattr(result, "text"):
+            if hasattr(result, "text"):
                 return result.text.strip()
-            else:
-                return str(result).strip()
+            return str(result).strip()
 
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)

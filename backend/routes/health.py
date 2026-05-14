@@ -1,18 +1,17 @@
 """Health and infrastructure endpoints."""
 
 import asyncio
+import contextlib
 import os
 import signal
 from pathlib import Path
 
 import torch
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
 
 from .. import config, models
 from ..services import tts
-from ..database import get_db
 from ..utils.platform_detect import get_backend_type
 
 router = APIRouter()
@@ -40,7 +39,7 @@ async def shutdown():
         await asyncio.sleep(0.1)
         os.kill(os.getpid(), signal.SIGTERM)
 
-    asyncio.create_task(shutdown_async())
+    asyncio.create_task(shutdown_async())  # noqa: RUF006 — fire-and-forget shutdown
     return {"message": "Shutting down..."}
 
 
@@ -56,8 +55,9 @@ async def watchdog_disable():
 @router.get("/health", response_model=models.HealthResponse)
 async def health():
     """Health check endpoint."""
-    from huggingface_hub import constants as hf_constants
     from pathlib import Path
+
+    from huggingface_hub import constants as hf_constants
 
     tts_model = tts.get_tts_model()
     backend_type = get_backend_type()
@@ -117,10 +117,8 @@ async def health():
     if has_cuda:
         vram_used = torch.cuda.memory_allocated() / 1024 / 1024
     elif has_xpu:
-        try:
+        with contextlib.suppress(Exception):  # memory_allocated() may not be available on all IPEX versions
             vram_used = torch.xpu.memory_allocated() / 1024 / 1024
-        except Exception:
-            pass  # memory_allocated() may not be available on all IPEX versions
 
     model_loaded = False
     model_size = None
@@ -175,7 +173,9 @@ async def health():
         backend_type=backend_type,
         backend_variant=os.environ.get(
             "VOICEBOX_BACKEND_VARIANT",
-            "cuda" if torch.cuda.is_available() else ("xpu" if has_xpu else "cpu"),
+            "cuda"
+            if torch.cuda.is_available()
+            else ("xpu" if has_xpu else ("metal" if backend_type == "mlx" else "cpu")),
         ),
         gpu_compatibility_warning=gpu_compat_warning,
     )
@@ -211,10 +211,8 @@ async def filesystem_health():
             except OSError as e:
                 error = str(e)
             finally:
-                try:
+                with contextlib.suppress(Exception):
                     probe.unlink(missing_ok=True)
-                except Exception:
-                    pass
         else:
             error = "Directory does not exist"
 
