@@ -1,6 +1,7 @@
 """Engine creation, initialization, and session management."""
 
 import logging
+import sqlite3 as _sqlite3
 import uuid
 
 from sqlalchemy import create_engine
@@ -21,6 +22,22 @@ from .seed import backfill_generation_versions, seed_builtin_presets
 
 logger = logging.getLogger(__name__)
 
+
+def _make_connection(db_path: str) -> _sqlite3.Connection:
+    """Open a SQLite connection with WAL journal mode and a 5-second busy timeout.
+
+    WAL allows concurrent readers while a write is in progress (the default
+    DELETE journal blocks all readers).  This matters for voicebox because SSE
+    status polls and history queries run concurrently with the generation worker
+    writing to the same database.  The busy timeout prevents "database is
+    locked" errors when two writers briefly contend on the same write slot.
+    """
+    conn = _sqlite3.connect(db_path, check_same_thread=False)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    return conn
+
+
 # Initialized by init_db()
 engine = None
 SessionLocal = None
@@ -37,6 +54,14 @@ def init_db() -> None:
     engine = create_engine(
         f"sqlite:///{_db_path}",
         connect_args={"check_same_thread": False},
+        # Each connection enables WAL journal mode and sets a 5-second busy
+        # timeout.  WAL allows concurrent readers during a write (the default
+        # DELETE/ROLLBACK journal blocks all readers), which matters for
+        # voicebox because SSE status polls and history queries run
+        # concurrently with the generation worker writing to the same db.
+        # busy_timeout prevents "database is locked" errors when two
+        # connections briefly contend on the same write slot.
+        creator=lambda: _make_connection(str(_db_path)),
     )
 
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
