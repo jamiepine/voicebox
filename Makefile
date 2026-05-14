@@ -61,8 +61,11 @@ install-system-linux:  ## Install system dependencies on Linux
 	@command -v bun >/dev/null 2>&1 || curl -fsSL https://bun.sh/install | bash
 	@# Install rustup if not present
 	@command -v rustup >/dev/null 2>&1 || curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+	@# Ensure cargo is on PATH (needed right after a fresh rustup install)
+	@export PATH="$$HOME/.cargo/bin:$$PATH"; \
+	command -v cargo >/dev/null 2>&1 || { echo "cargo not found after rustup install"; exit 1; }
 	@# Install just
-	@command -v just >/dev/null 2>&1 || cargo install just
+	@command -v just >/dev/null 2>&1 || PATH="$$HOME/.cargo/bin:$$PATH" cargo install just
 	@# Install pre-commit
 	@command -v pre-commit >/dev/null 2>&1 || pip3 install pre-commit
 

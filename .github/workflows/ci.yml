@@ -78,6 +78,7 @@ jobs:
           pip install \
             fastapi \
             httpx \
+            pyright \
             pydantic \
             pytest \
             pytest-asyncio \
@@ -93,6 +94,10 @@ jobs:
       - name: Format check (ruff)
         working-directory: backend
         run: ruff format --check .
+
+      - name: Typecheck (pyright)
+        working-directory: backend
+        run: pyright
 
       - name: Run tests (pytest)
         working-directory: backend

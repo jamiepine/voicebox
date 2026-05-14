@@ -16,7 +16,7 @@ describe('createAudioUrl', () => {
     );
   });
 
-  it('does not double-slash when serverUrl has a trailing slash', () => {
+  it('double-slashes when serverUrl has a trailing slash (documents current behavior)', () => {
     // The function does a simple template literal — callers must not add a
     // trailing slash to serverUrl.  This test documents that contract.
     const url = createAudioUrl('xyz', 'http://localhost:17493/');
