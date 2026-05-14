@@ -64,8 +64,7 @@ export function useInputMonitoringPermission() {
  */
 export function InputMonitoringNotice({ enabled }: { enabled: boolean }) {
   const { t } = useTranslation();
-  const { needsPermission, checking, recheck, openSettings } =
-    useInputMonitoringPermission();
+  const { needsPermission, checking, recheck, openSettings } = useInputMonitoringPermission();
   const [stillMissing, setStillMissing] = useState(false);
 
   const handleRecheck = useCallback(async () => {
@@ -85,7 +84,10 @@ export function InputMonitoringNotice({ enabled }: { enabled: boolean }) {
             {t('captures.permissions.inputMonitoring.title')}
           </p>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            <Trans i18nKey="captures.permissions.inputMonitoring.body" components={{ path: <span /> }} />
+            <Trans
+              i18nKey="captures.permissions.inputMonitoring.body"
+              components={{ path: <span /> }}
+            />
           </p>
           <div className="flex items-center gap-2 pt-1.5">
             <Button size="sm" onClick={openSettings} className="gap-1.5">
@@ -93,7 +95,9 @@ export function InputMonitoringNotice({ enabled }: { enabled: boolean }) {
               {t('captures.permissions.inputMonitoring.openSettings')}
             </Button>
             <Button variant="outline" size="sm" onClick={handleRecheck} disabled={checking}>
-              {checking ? t('captures.permissions.inputMonitoring.rechecking') : t('captures.permissions.inputMonitoring.recheck')}
+              {checking
+                ? t('captures.permissions.inputMonitoring.rechecking')
+                : t('captures.permissions.inputMonitoring.recheck')}
             </Button>
           </div>
           {stillMissing && !checking && (

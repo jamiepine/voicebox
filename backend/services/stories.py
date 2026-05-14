@@ -2,37 +2,37 @@
 Story management module.
 """
 
-from typing import List, Optional
-from datetime import datetime
-import uuid
 import tempfile
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
-from sqlalchemy.orm import Session
+
+import numpy as np
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from .. import config
-from ..models import (
-    StoryCreate,
-    StoryResponse,
-    StoryDetailResponse,
-    StoryItemDetail,
-    StoryItemCreate,
-    StoryItemBatchUpdate,
-    StoryItemMove,
-    StoryItemTrim,
-    StoryItemVolumeUpdate,
-    StoryItemSplit,
-    StoryItemVersionUpdate,
-)
 from ..database import (
+    Generation as DBGeneration,
     Story as DBStory,
     StoryItem as DBStoryItem,
-    Generation as DBGeneration,
     VoiceProfile as DBVoiceProfile,
 )
-from .history import _get_versions_for_generation
+from ..models import (
+    StoryCreate,
+    StoryDetailResponse,
+    StoryItemBatchUpdate,
+    StoryItemCreate,
+    StoryItemDetail,
+    StoryItemMove,
+    StoryItemSplit,
+    StoryItemTrim,
+    StoryItemVersionUpdate,
+    StoryItemVolumeUpdate,
+    StoryResponse,
+)
 from ..utils.audio import load_audio, save_audio
-import numpy as np
+from .history import _get_versions_for_generation
 
 
 def _build_item_detail(
@@ -96,8 +96,8 @@ async def create_story(
         id=str(uuid.uuid4()),
         name=data.name,
         description=data.description,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
     db.add(db_story)
@@ -113,7 +113,7 @@ async def create_story(
 
 async def list_stories(
     db: Session,
-) -> List[StoryResponse]:
+) -> list[StoryResponse]:
     """
     List all stories.
 
@@ -139,7 +139,7 @@ async def list_stories(
 async def get_story(
     story_id: str,
     db: Session,
-) -> Optional[StoryDetailResponse]:
+) -> StoryDetailResponse | None:
     """
     Get a story with all its items.
 
@@ -176,7 +176,7 @@ async def update_story(
     story_id: str,
     data: StoryCreate,
     db: Session,
-) -> Optional[StoryResponse]:
+) -> StoryResponse | None:
     """
     Update a story.
 
@@ -194,7 +194,7 @@ async def update_story(
 
     story.name = data.name
     story.description = data.description
-    story.updated_at = datetime.utcnow()
+    story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(story)
@@ -238,7 +238,7 @@ async def add_item_to_story(
     story_id: str,
     data: StoryItemCreate,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Add a generation to a story.
 
@@ -302,13 +302,13 @@ async def add_item_to_story(
         generation_id=data.generation_id,
         start_time_ms=start_time_ms,
         track=track,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
     db.add(item)
 
     # Update story updated_at
-    story.updated_at = datetime.utcnow()
+    story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -324,7 +324,7 @@ async def move_story_item(
     item_id: str,
     data: StoryItemMove,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Move a story item (update position and/or track).
 
@@ -361,7 +361,7 @@ async def move_story_item(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -405,7 +405,7 @@ async def remove_item_from_story(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     return True
@@ -416,7 +416,7 @@ async def trim_story_item(
     item_id: str,
     data: StoryItemTrim,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Trim a story item (update trim_start_ms and trim_end_ms).
 
@@ -458,7 +458,7 @@ async def trim_story_item(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -474,13 +474,9 @@ async def update_story_item_volume(
     item_id: str,
     data: StoryItemVolumeUpdate,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """Update a story item's playback volume (per-clip linear gain)."""
-    item = (
-        db.query(DBStoryItem)
-        .filter_by(id=item_id, story_id=story_id)
-        .first()
-    )
+    item = db.query(DBStoryItem).filter_by(id=item_id, story_id=story_id).first()
     if not item:
         return None
     generation = db.query(DBGeneration).filter_by(id=item.generation_id).first()
@@ -491,7 +487,7 @@ async def update_story_item_volume(
 
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -505,7 +501,7 @@ async def split_story_item(
     item_id: str,
     data: StoryItemSplit,
     db: Session,
-) -> Optional[List[StoryItemDetail]]:
+) -> list[StoryItemDetail] | None:
     """
     Split a story item at a given time, creating two clips.
 
@@ -564,7 +560,7 @@ async def split_story_item(
         trim_start_ms=absolute_split_ms,
         trim_end_ms=current_trim_end,
         volume=getattr(item, "volume", 1.0),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
     db.add(new_item)
@@ -572,7 +568,7 @@ async def split_story_item(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -592,7 +588,7 @@ async def duplicate_story_item(
     story_id: str,
     item_id: str,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Duplicate a story item, creating a copy with all properties.
 
@@ -638,7 +634,7 @@ async def duplicate_story_item(
         trim_start_ms=current_trim_start,
         trim_end_ms=current_trim_end,
         volume=getattr(original_item, "volume", 1.0),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
     db.add(new_item)
@@ -646,7 +642,7 @@ async def duplicate_story_item(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(new_item)
@@ -688,7 +684,7 @@ async def update_story_item_times(
         item_map[update.generation_id].start_time_ms = update.start_time_ms
 
     # Update story updated_at
-    story.updated_at = datetime.utcnow()
+    story.updated_at = datetime.now(UTC)
 
     db.commit()
     return True
@@ -696,10 +692,10 @@ async def update_story_item_times(
 
 async def reorder_story_items(
     story_id: str,
-    generation_ids: List[str],
+    generation_ids: list[str],
     db: Session,
     gap_ms: int = 200,
-) -> Optional[List[StoryItemDetail]]:
+) -> list[StoryItemDetail] | None:
     """
     Reorder story items and recalculate timecodes.
 
@@ -752,7 +748,7 @@ async def reorder_story_items(
         updated_items.append(_build_item_detail(item, generation, profile_name, db))
 
     # Update story updated_at
-    story.updated_at = datetime.utcnow()
+    story.updated_at = datetime.now(UTC)
 
     db.commit()
     return updated_items
@@ -763,7 +759,7 @@ async def set_story_item_version(
     item_id: str,
     data: StoryItemVersionUpdate,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Pin a story item to a specific generation version.
 
@@ -811,7 +807,7 @@ async def set_story_item_version(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -824,7 +820,7 @@ async def set_story_item_version(
 async def export_story_audio(
     story_id: str,
     db: Session,
-) -> Optional[bytes]:
+) -> bytes | None:
     """
     Export story as single mixed audio file with timecode-based mixing.
 

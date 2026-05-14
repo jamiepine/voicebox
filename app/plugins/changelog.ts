@@ -5,7 +5,7 @@ import type { Plugin } from 'vite';
 /** Vite plugin that exposes CHANGELOG.md as `virtual:changelog`. */
 export function changelogPlugin(repoRoot: string): Plugin {
   const virtualId = 'virtual:changelog';
-  const resolvedId = '\0' + virtualId;
+  const resolvedId = `\0${virtualId}`;
   const changelogPath = path.resolve(repoRoot, 'CHANGELOG.md');
 
   return {

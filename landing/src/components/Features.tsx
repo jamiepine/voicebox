@@ -469,7 +469,7 @@ function EffectsAnimation() {
       setActiveEffect((p) => (p + 1) % effects.length);
     }, 2200);
     return () => clearInterval(interval);
-  }, [effects.length]);
+  }, []);
 
   return (
     <div className="h-40 w-full flex flex-col items-center justify-center overflow-hidden rounded-md bg-app-darkerBox/50 p-4 gap-3">
@@ -613,7 +613,7 @@ function TranscriptionAnimation() {
       });
     }, 80);
     return () => clearInterval(interval);
-  }, [text.length]);
+  }, []);
 
   return (
     <div className="h-40 w-full flex flex-col items-center justify-center overflow-hidden rounded-md bg-app-darkerBox/50 p-4 gap-3">

@@ -180,7 +180,7 @@ export function LandingAudioPlayer({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioUrl]);
+  }, [audioUrl, volume]);
 
   // Respond to external play/stop signals
   useEffect(() => {

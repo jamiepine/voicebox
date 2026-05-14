@@ -88,11 +88,7 @@ function AgentConsole({ scenario, cycleKey }: { scenario: Scenario; cycleKey: nu
               transition={{ duration: 0.25, delay: i * 0.15 }}
             >
               <span className={`shrink-0 ${TONE_CLASSES[line.tone]}`}>{line.prefix}</span>
-              <span
-                className={
-                  line.tone === 'dim' ? 'text-ink-faint/70' : 'text-ink-dull'
-                }
-              >
+              <span className={line.tone === 'dim' ? 'text-ink-faint/70' : 'text-ink-dull'}>
                 {line.text}
               </span>
             </motion.div>
@@ -213,9 +209,7 @@ function CodePanel() {
       {/* MCP config */}
       <div className="p-5 border-b border-app-line">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[9px] font-mono text-accent font-semibold tabular-nums">
-            01
-          </span>
+          <span className="text-[9px] font-mono text-accent font-semibold tabular-nums">01</span>
           <span className="text-[10px] font-mono text-ink-faint/70 uppercase tracking-wider">
             Add Voicebox to your MCP config
           </span>
@@ -228,9 +222,7 @@ function CodePanel() {
       {/* Tool call */}
       <div className="p-5 flex-1">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-[9px] font-mono text-accent font-semibold tabular-nums">
-            02
-          </span>
+          <span className="text-[9px] font-mono text-accent font-semibold tabular-nums">02</span>
           <span className="text-[10px] font-mono text-ink-faint/70 uppercase tracking-wider">
             The tool is now available
           </span>
@@ -241,8 +233,7 @@ function CodePanel() {
 
         {/* Hint line */}
         <div className="mt-4 text-[10px] text-ink-faint/60 leading-relaxed">
-          Also exposed as{' '}
-          <code className="text-accent/80">POST /speak</code> for anything that
+          Also exposed as <code className="text-accent/80">POST /speak</code> for anything that
           doesn&rsquo;t speak MCP — ACP, A2A, shell scripts, or custom harnesses.
         </div>
       </div>
@@ -300,9 +291,9 @@ export function AgentIntegration() {
           </h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
             One tool call —{' '}
-            <code className="text-accent font-mono text-[0.9em]">voicebox.speak</code> —
-            and any MCP-aware agent can talk to you in a voice you&rsquo;ve cloned. Claude Code,
-            Cursor, Cline, or anything that speaks MCP.
+            <code className="text-accent font-mono text-[0.9em]">voicebox.speak</code> — and any
+            MCP-aware agent can talk to you in a voice you&rsquo;ve cloned. Claude Code, Cursor,
+            Cline, or anything that speaks MCP.
           </p>
         </div>
 
@@ -326,9 +317,7 @@ export function AgentIntegration() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <Icon className="h-4 w-4 text-accent" />
-                  <h3 className="text-[14px] font-semibold text-foreground">
-                    {bullet.title}
-                  </h3>
+                  <h3 className="text-[14px] font-semibold text-foreground">{bullet.title}</h3>
                 </div>
                 <p className="text-[13px] leading-relaxed text-muted-foreground">
                   {bullet.description}

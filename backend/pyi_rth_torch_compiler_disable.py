@@ -56,7 +56,6 @@ import sys
 import tempfile
 import types
 
-
 # Diagnostics — log hook activity to a file alongside the bundle so we can
 # see what's happening when the server is run as a sidecar (no stdout for
 # runtime hook prints). Safe no-op if the file can't be written.

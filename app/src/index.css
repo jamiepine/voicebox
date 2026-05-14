@@ -165,7 +165,7 @@
 /* react-loaders */
 .line-scale-pulse-out-rapid > div,
 .line-scale > div {
-  background-color: hsl(var(--accent)) !important;
+  background-color: hsl(var(--accent));
 }
 
 .loader-hidden {
@@ -173,6 +173,6 @@
 }
 
 .loader-hidden > div > div {
-  animation-play-state: paused !important;
-  background-color: hsl(var(--muted-foreground)) !important;
+  animation-play-state: paused;
+  background-color: hsl(var(--muted-foreground));
 }

@@ -76,12 +76,29 @@ export function useRestoreActiveTasks() {
 
 /**
  * Map model names to display names for download toasts.
+ * Keep in sync with resolveDisplayName() in useGenerationForm.ts.
  */
 export const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  // Qwen TTS
   'qwen-tts-1.7B': 'Qwen TTS 1.7B',
   'qwen-tts-0.6B': 'Qwen TTS 0.6B',
+  // Qwen CustomVoice
+  'qwen-custom-voice-1.7B': 'Qwen CustomVoice 1.7B',
+  'qwen-custom-voice-0.6B': 'Qwen CustomVoice 0.6B',
+  // LuxTTS
+  luxtts: 'LuxTTS',
+  // Chatterbox
+  'chatterbox-tts': 'Chatterbox TTS',
+  'chatterbox-turbo': 'Chatterbox Turbo',
+  // TADA (HumeAI)
+  'tada-1b': 'TADA 1B',
+  'tada-3b-ml': 'TADA 3B Multilingual',
+  // Kokoro
+  kokoro: 'Kokoro 82M',
+  // Whisper STT
   'whisper-base': 'Whisper Base',
   'whisper-small': 'Whisper Small',
   'whisper-medium': 'Whisper Medium',
   'whisper-large': 'Whisper Large',
+  'whisper-turbo': 'Whisper Turbo',
 };

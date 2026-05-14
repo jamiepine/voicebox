@@ -3,7 +3,6 @@ import { DocsBody, DocsDescription, DocsPage, DocsTitle } from 'fumadocs-ui/page
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MarkdownCopyButton, ViewOptionsPopover } from '@/components/ai/page-actions';
-import { APIPage } from '@/components/api-page';
 import { getPageImage, source } from '@/lib/source';
 import { getMDXComponents } from '@/mdx-components';
 

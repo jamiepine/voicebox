@@ -324,7 +324,7 @@ pub async fn start_capture(
 pub async fn stop_capture(state: &AudioCaptureState) -> Result<String, String> {
     // Signal stop
     if let Some(tx) = state.stop_tx.lock().unwrap().take() {
-        let _ = tx.send(());
+        let _ = tx.try_send(());
     }
 
     // Wait a bit for capture to stop

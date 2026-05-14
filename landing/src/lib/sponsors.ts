@@ -8,5 +8,4 @@ export type Sponsor = {
   invert?: boolean;
 };
 
-export const SPONSORS: Sponsor[] = [
-];
+export const SPONSORS: Sponsor[] = [];

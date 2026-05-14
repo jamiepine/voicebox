@@ -6,7 +6,6 @@ import {
   Languages,
   type LucideIcon,
   MessageSquare,
-  Mic2,
   SlidersHorizontal,
   Sparkles,
   Volume2,

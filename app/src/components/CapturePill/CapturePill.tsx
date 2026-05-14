@@ -24,9 +24,7 @@ const PILL_LABEL_KEYS: Record<Exclude<PillState, 'rest' | 'error'>, string> = {
   completed: 'captures.pill.completed',
 };
 
-function barModeFor(
-  state: Exclude<PillState, 'error'>,
-): 'generating' | 'playing' | 'idle' {
+function barModeFor(state: Exclude<PillState, 'error'>): 'generating' | 'playing' | 'idle' {
   if (state === 'recording' || state === 'speaking') return 'playing';
   if (state === 'completed' || state === 'rest') return 'idle';
   return 'generating';
@@ -113,24 +111,25 @@ export function CapturePill({
     </span>
   );
 
-  const stopButton = onStop && state === 'recording' ? (
-    <button
-      type="button"
-      onClick={onStop}
-      aria-label={t('captures.pill.stopAria')}
-      className="relative flex h-2 w-2 shrink-0 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-accent/50"
-    >
-      {dot}
-    </button>
-  ) : dot;
+  const stopButton =
+    onStop && state === 'recording' ? (
+      <button
+        type="button"
+        onClick={onStop}
+        aria-label={t('captures.pill.stopAria')}
+        className="relative flex h-2 w-2 shrink-0 items-center justify-center rounded-full focus:outline-none focus:ring-2 focus:ring-accent/50"
+      >
+        {dot}
+      </button>
+    ) : (
+      dot
+    );
 
   // Completed gets an inset accent stroke (via box-shadow, not Tailwind's
   // ring — ring utility doesn't compose with arbitrary shadow-[…]) to mark
   // the success moment without changing the pill's dimensions.
   const completedStroke =
-    state === 'completed'
-      ? 'shadow-[inset_0_0_0_2px_hsl(var(--accent)/0.6)]'
-      : null;
+    state === 'completed' ? 'shadow-[inset_0_0_0_2px_hsl(var(--accent)/0.6)]' : null;
 
   return (
     <div
@@ -195,4 +194,3 @@ function ErrorPill({
     </button>
   );
 }
-

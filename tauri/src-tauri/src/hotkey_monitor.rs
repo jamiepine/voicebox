@@ -53,6 +53,7 @@ pub enum ChordAction {
 /// Effect produced after the chord matcher resolves an event. Hosts
 /// translate these into UI / recorder calls.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)]
 pub enum Effect {
     StartRecording(ChordAction),
     StopRecording(ChordAction),

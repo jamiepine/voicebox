@@ -67,11 +67,11 @@ export function useDictationReadiness(): DictationReadiness {
     // useSettings. refetchOnWindowFocus stays gated to the same condition.
     refetchInterval: (query) => {
       const d = query.state.data;
-      return d && d.stt.ready && d.llm.ready ? false : READINESS_POLL_INTERVAL_MS;
+      return d?.stt.ready && d.llm.ready ? false : READINESS_POLL_INTERVAL_MS;
     },
     refetchOnWindowFocus: (query) => {
       const d = query.state.data;
-      return !(d && d.stt.ready && d.llm.ready);
+      return !(d?.stt.ready && d.llm.ready);
     },
   });
 

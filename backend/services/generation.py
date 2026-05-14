@@ -17,13 +17,15 @@ Mode differences:
 from __future__ import annotations
 
 import asyncio
-import traceback
-from typing import Literal, Optional
+import logging
+from typing import Literal
 
 from .. import config
-from . import history, profiles
 from ..database import get_db
 from ..utils.tasks import get_task_manager
+from . import history, profiles
+
+logger = logging.getLogger(__name__)
 
 
 async def run_generation(
@@ -34,23 +36,23 @@ async def run_generation(
     language: str,
     engine: str,
     model_size: str,
-    seed: Optional[int],
+    seed: int | None,
     normalize: bool = False,
-    effects_chain: Optional[list] = None,
-    instruct: Optional[str] = None,
+    effects_chain: list | None = None,
+    instruct: str | None = None,
     mode: Literal["generate", "retry", "regenerate"],
-    max_chunk_chars: Optional[int] = None,
-    crossfade_ms: Optional[int] = None,
-    version_id: Optional[str] = None,
+    max_chunk_chars: int | None = None,
+    crossfade_ms: int | None = None,
+    version_id: str | None = None,
 ) -> None:
     """Execute TTS inference and persist the result.
 
     This is the single entry point for all background generation work.
     It is designed to be enqueued via ``services.task_queue.enqueue_generation``.
     """
-    from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
-    from ..utils.chunked_tts import generate_chunked
+    from ..backends import engine_needs_trim, get_tts_backend_for_engine, load_engine_model
     from ..utils.audio import normalize_audio, save_audio, trim_tts_output
+    from ..utils.chunked_tts import generate_chunked
 
     task_manager = get_task_manager()
     bg_db = next(get_db())
@@ -136,7 +138,7 @@ async def run_generation(
         )
         _notify_speak_end(generation_id, status="cancelled")
     except Exception as e:
-        traceback.print_exc()
+        logger.exception("Generation %s failed", generation_id)
         await history.update_generation_status(
             generation_id=generation_id,
             status="failed",
@@ -170,7 +172,7 @@ def _save_generate(
     generation_id: str,
     audio,
     sample_rate: int,
-    effects_chain: Optional[list],
+    effects_chain: list | None,
     save_audio,
     db,
 ) -> str:
@@ -204,11 +206,8 @@ def _save_generate(
 
         error_msg = validate_effects_chain(effects_chain)
         if error_msg:
-            import logging
-            logging.getLogger(__name__).warning("invalid effects chain, skipping: %s", error_msg)
-            versions_mod.set_default_version(
-                versions_mod.list_versions(generation_id, db)[0].id, db
-            )
+            logger.warning("invalid effects chain, skipping: %s", error_msg)
+            versions_mod.set_default_version(versions_mod.list_versions(generation_id, db)[0].id, db)
         else:
             processed_audio = apply_effects(audio, sample_rate, effects_chain)
             processed_path = config.get_generations_dir() / f"{generation_id}_processed.wav"
@@ -249,11 +248,11 @@ async def generate_audio_sync(
     language: str,
     engine: str,
     model_size: str,
-    seed: Optional[int] = None,
-    instruct: Optional[str] = None,
+    seed: int | None = None,
+    instruct: str | None = None,
     normalize: bool = True,
-    max_chunk_chars: Optional[int] = None,
-    crossfade_ms: Optional[int] = None,
+    max_chunk_chars: int | None = None,
+    crossfade_ms: int | None = None,
 ) -> bytes:
     """Run a TTS generation synchronously and return the resulting wav bytes.
 
@@ -267,9 +266,9 @@ async def generate_audio_sync(
     normalize, then encodes in-memory via :func:`tts.audio_to_wav_bytes`
     (same helper ``/generate/stream`` uses).
     """
-    from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
-    from ..utils.chunked_tts import generate_chunked
+    from ..backends import engine_needs_trim, get_tts_backend_for_engine, load_engine_model
     from ..utils.audio import normalize_audio, trim_tts_output
+    from ..utils.chunked_tts import generate_chunked
     from . import tts
 
     bg_db = next(get_db())
@@ -299,9 +298,7 @@ async def generate_audio_sync(
     if crossfade_ms is not None:
         gen_kwargs["crossfade_ms"] = crossfade_ms
 
-    audio, sample_rate = await generate_chunked(
-        tts_model, text, voice_prompt, **gen_kwargs
-    )
+    audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
 
     if normalize:
         audio = normalize_audio(audio)
@@ -312,7 +309,7 @@ async def generate_audio_sync(
 def _save_regenerate(
     *,
     generation_id: str,
-    version_id: Optional[str],
+    version_id: str | None,
     audio,
     sample_rate: int,
     save_audio,
@@ -322,9 +319,9 @@ def _save_regenerate(
 
     Returns the audio path.
     """
-    from . import versions as versions_mod
-
     import uuid as _uuid
+
+    from . import versions as versions_mod
 
     suffix = _uuid.uuid4().hex[:8]
     audio_path = config.get_generations_dir() / f"{generation_id}_{suffix}.wav"

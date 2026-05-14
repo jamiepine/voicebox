@@ -11,7 +11,8 @@
     "lint": "biome lint src",
     "lint:fix": "biome lint --write src",
     "format": "biome format --write src",
-    "check": "biome check --write src"
+    "check": "biome check --write src",
+    "test:run": "vitest run"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

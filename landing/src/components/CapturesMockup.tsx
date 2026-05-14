@@ -45,11 +45,7 @@ function Sidebar() {
           }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/voicebox-logo-app.webp"
-            alt=""
-            className="w-full h-full object-contain"
-          />
+          <img src="/voicebox-logo-app.webp" alt="" className="w-full h-full object-contain" />
         </div>
       </div>
 
@@ -164,9 +160,9 @@ const CAPTURES: Capture[] = [
     id: 'c3',
     seed: 37,
     transcriptRaw:
-      "tech overview for the readme seven TTS engines qwen3 kokoro chatterbox luxtts customvoice tada and chatterbox turbo whisper for STT in five sizes from base up to large and a turbo variant one local LLM qwen 3.5 shared runtime across all of them one model directory one GPU story no fragmented caches pick the right model per job speed on CPU laptops quality on an M series mac all switchable per generation",
+      'tech overview for the readme seven TTS engines qwen3 kokoro chatterbox luxtts customvoice tada and chatterbox turbo whisper for STT in five sizes from base up to large and a turbo variant one local LLM qwen 3.5 shared runtime across all of them one model directory one GPU story no fragmented caches pick the right model per job speed on CPU laptops quality on an M series mac all switchable per generation',
     transcriptRefined:
-      "Tech overview for the README: seven TTS engines — Qwen3, Kokoro, Chatterbox, LuxTTS, CustomVoice, TADA, and Chatterbox Turbo. Whisper for STT, in five sizes from Base up to Large, plus a Turbo variant. One local LLM, Qwen 3.5, with a shared runtime across all of them. One model directory, one GPU story, no fragmented caches. Pick the right model per job — speed on CPU laptops, quality on an M-series Mac, switchable per-generation.",
+      'Tech overview for the README: seven TTS engines — Qwen3, Kokoro, Chatterbox, LuxTTS, CustomVoice, TADA, and Chatterbox Turbo. Whisper for STT, in five sizes from Base up to Large, plus a Turbo variant. One local LLM, Qwen 3.5, with a shared runtime across all of them. One model directory, one GPU story, no fragmented caches. Pick the right model per job — speed on CPU laptops, quality on an M-series Mac, switchable per-generation.',
     durationMs: 34000,
     ago: '1 hr ago',
     createdAtLabel: 'Apr 22, 2:51 PM',
@@ -191,9 +187,24 @@ const CAPTURES: Capture[] = [
 ];
 
 const PROFILES = [
-  { id: 'p1', name: 'Morgan', description: 'Warm, measured', gradient: 'from-blue-400 to-indigo-500' },
-  { id: 'p2', name: 'Scarlett', description: 'Bright, conversational', gradient: 'from-emerald-400 to-teal-500' },
-  { id: 'p3', name: 'Jarvis', description: 'Dry, composed', gradient: 'from-purple-500 to-fuchsia-500' },
+  {
+    id: 'p1',
+    name: 'Morgan',
+    description: 'Warm, measured',
+    gradient: 'from-blue-400 to-indigo-500',
+  },
+  {
+    id: 'p2',
+    name: 'Scarlett',
+    description: 'Bright, conversational',
+    gradient: 'from-emerald-400 to-teal-500',
+  },
+  {
+    id: 'p3',
+    name: 'Jarvis',
+    description: 'Dry, composed',
+    gradient: 'from-purple-500 to-fuchsia-500',
+  },
 ];
 
 function formatDuration(ms: number): string {
@@ -279,7 +290,7 @@ function DetailView({ capture }: { capture: Capture }) {
 
   useEffect(() => {
     setShowRefined(true);
-  }, [capture.id]);
+  }, []);
 
   useEffect(() => {
     const iv = window.setInterval(() => {
@@ -326,9 +337,7 @@ function DetailView({ capture }: { capture: Capture }) {
             type="button"
             onClick={() => setShowRefined(true)}
             className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-              showRefined
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground'
+              showRefined ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'
             }`}
           >
             <Sparkles className="h-3 w-3 inline-block mr-1 -translate-y-px" />
@@ -338,9 +347,7 @@ function DetailView({ capture }: { capture: Capture }) {
             type="button"
             onClick={() => setShowRefined(false)}
             className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
-              !showRefined
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground'
+              !showRefined ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground'
             }`}
           >
             <Subtitles className="h-3 w-3 inline-block mr-1 -translate-y-px" />
@@ -349,9 +356,7 @@ function DetailView({ capture }: { capture: Capture }) {
         </div>
         <div className="flex-1" />
         <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {showRefined
-            ? 'Refined with Qwen3 · 1.7B'
-            : `Whisper ${capture.sttModel}`}
+          {showRefined ? 'Refined with Qwen3 · 1.7B' : `Whisper ${capture.sttModel}`}
         </span>
       </div>
 

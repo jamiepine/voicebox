@@ -12,10 +12,7 @@ type Mode = {
   icon: typeof Dices;
   outputLabel: string;
   output: string;
-} & (
-  | { inputLabel: string; input: string }
-  | { inputLabel?: undefined; input?: undefined }
-);
+} & ({ inputLabel: string; input: string } | { inputLabel?: undefined; input?: undefined });
 
 const MODES: Mode[] = [
   {
@@ -23,7 +20,7 @@ const MODES: Mode[] = [
     label: 'Rewrite',
     icon: Wand2,
     inputLabel: 'Your text',
-    outputLabel: "Marlowe, in character",
+    outputLabel: 'Marlowe, in character',
     input: 'the build is done and we shipped to production',
     output:
       "Build's wrapped, ship's left the dock. Another stack of code makes its way into prod, another row of green checks lining the wall.",
@@ -32,7 +29,7 @@ const MODES: Mode[] = [
     id: 'compose',
     label: 'Compose',
     icon: Dices,
-    outputLabel: "Marlowe, in character",
+    outputLabel: 'Marlowe, in character',
     output:
       "She came through clean. Not a single test casting a shadow. In this town, that's usually when you start worrying.",
   },
@@ -62,7 +59,9 @@ function PersonaCard() {
       <div className="mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-ink-faint/70">
         Personality
       </div>
-      <p className="text-[13px] leading-relaxed text-ink-dull italic">&ldquo;{PERSONA_DESCRIPTION}&rdquo;</p>
+      <p className="text-[13px] leading-relaxed text-ink-dull italic">
+        &ldquo;{PERSONA_DESCRIPTION}&rdquo;
+      </p>
     </div>
   );
 }
@@ -193,7 +192,8 @@ export function Personalities() {
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
             Give any voice profile a free-form personality. Then{' '}
             <b className="text-foreground/90">Rewrite</b> your text in their voice, or let them{' '}
-            <b className="text-foreground/90">Compose</b> a fresh line of their own — your cloned voice, in full character.
+            <b className="text-foreground/90">Compose</b> a fresh line of their own — your cloned
+            voice, in full character.
           </p>
         </div>
 

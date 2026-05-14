@@ -1,9 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import type {
-  MCPClientBindingListResponse,
-  MCPClientBindingUpsert,
-} from '@/lib/api/types';
+import type { MCPClientBindingListResponse, MCPClientBindingUpsert } from '@/lib/api/types';
 
 const MCP_BINDINGS_KEY = ['settings', 'mcp', 'bindings'] as const;
 
@@ -21,8 +18,7 @@ export function useMCPBindings() {
   });
 
   const upsertMutation = useMutation({
-    mutationFn: (data: MCPClientBindingUpsert) =>
-      apiClient.upsertMCPBinding(data),
+    mutationFn: (data: MCPClientBindingUpsert) => apiClient.upsertMCPBinding(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MCP_BINDINGS_KEY });
     },
@@ -32,13 +28,11 @@ export function useMCPBindings() {
     mutationFn: (clientId: string) => apiClient.deleteMCPBinding(clientId),
     onMutate: async (clientId) => {
       await queryClient.cancelQueries({ queryKey: MCP_BINDINGS_KEY });
-      const prev =
-        queryClient.getQueryData<MCPClientBindingListResponse>(MCP_BINDINGS_KEY);
+      const prev = queryClient.getQueryData<MCPClientBindingListResponse>(MCP_BINDINGS_KEY);
       if (prev) {
-        queryClient.setQueryData<MCPClientBindingListResponse>(
-          MCP_BINDINGS_KEY,
-          { items: prev.items.filter((b) => b.client_id !== clientId) },
-        );
+        queryClient.setQueryData<MCPClientBindingListResponse>(MCP_BINDINGS_KEY, {
+          items: prev.items.filter((b) => b.client_id !== clientId),
+        });
       }
       return { prev };
     },

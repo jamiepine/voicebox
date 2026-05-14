@@ -39,10 +39,6 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
   const getAudioContext = useCallback(() => {
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioContext();
-      console.log(
-        '[StoryPlayback] Created AudioContext, sample rate:',
-        audioContextRef.current.sampleRate,
-      );
 
       // Create master gain node for volume control
       masterGainRef.current = audioContextRef.current.createGain();
@@ -123,32 +119,23 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
       const key = getAudioKey(item);
       if (!audioBuffersRef.current.has(key)) {
         const audioUrl = getAudioUrlForItem(item);
-        console.log('[StoryPlayback] Preloading audio buffer:', key);
 
         const preloadPromise = fetch(audioUrl)
           .then((response) => response.arrayBuffer())
           .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer))
           .then((audioBuffer) => {
             audioBuffersRef.current.set(key, audioBuffer);
-            console.log(
-              '[StoryPlayback] Preloaded buffer:',
-              key,
-              'duration:',
-              audioBuffer.duration,
-            );
           })
-          .catch((err) => {
-            console.error('[StoryPlayback] Failed to preload audio:', key, err);
+          .catch(() => {
+            // Buffer load failed — schedulePlayback will skip this item
           });
 
         preloadPromises.push(preloadPromise);
       }
     }
 
-    Promise.all(preloadPromises).then(() => {
-      console.log('[StoryPlayback] Preloaded', audioBuffersRef.current.size, 'audio buffers');
-    });
-  }, [items, getAudioContext]);
+    Promise.all(preloadPromises);
+  }, [items, getAudioContext, getAudioKey, getAudioUrlForItem]);
 
   // Cleanup AudioContext on unmount
   useEffect(() => {
@@ -219,7 +206,6 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
 
   // Stop all sources
   const stopAllSources = useCallback(() => {
-    console.log('[StoryPlayback] Stopping all sources');
     for (const [itemId] of activeSourcesRef.current) {
       stopSource(itemId);
     }
@@ -249,7 +235,6 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
           const bufferKey = getAudioKey(item);
           const buffer = audioBuffersRef.current.get(bufferKey);
           if (!buffer) {
-            console.warn('[StoryPlayback] Buffer not loaded for:', bufferKey);
             continue;
           }
 
@@ -270,16 +255,6 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
 
           // If the item should have already started, schedule it to start immediately
           const startAtContextTime = Math.max(currentContextTime, itemStartContextTime);
-
-          console.log('[StoryPlayback] Scheduling source:', {
-            itemId: item.id,
-            generationId: item.generation_id,
-            storyTimeMs,
-            itemStart: item.start_time_ms,
-            offsetIntoBuffer,
-            startAtContextTime,
-            duration,
-          });
 
           const source = audioContext.createBufferSource();
           source.buffer = buffer;
@@ -307,13 +282,12 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
 
           // Clean up when source ends
           source.onended = () => {
-            console.log('[StoryPlayback] Source ended:', item.id);
             activeSourcesRef.current.delete(item.id);
           };
         }
       }
     },
-    [getAudioContext, findActiveItems, storyTimeToContextTime, stopSource],
+    [getAudioContext, findActiveItems, storyTimeToContextTime, stopSource, getAudioKey],
   );
 
   // Sync visual playhead from AudioContext time
@@ -348,7 +322,6 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
       if (currentStoryTime >= totalDuration) {
         // Check if all sources have ended
         if (activeSourcesRef.current.size === 0) {
-          console.log('[StoryPlayback] Reached end');
           useStoryStore.getState().stop();
           return;
         }
@@ -385,7 +358,6 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
   // Handle play/pause changes - stop sources when paused
   useEffect(() => {
     if (!isPlaying) {
-      console.log('[StoryPlayback] Stopping playback');
       stopAllSources();
     }
   }, [isPlaying, stopAllSources]);
@@ -405,10 +377,6 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
     const currentContextTime = audioContext.currentTime;
     const currentStoryTime = useStoryStore.getState().currentTimeMs;
 
-    console.log('[StoryPlayback] Setting timing anchors after seek:', {
-      contextTime: currentContextTime,
-      storyTime: currentStoryTime,
-    });
     setPlaybackTiming(currentContextTime, currentStoryTime);
 
     // Stop all existing sources and reschedule from new position

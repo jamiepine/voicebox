@@ -17,15 +17,12 @@ Languages supported (via misaki G2P):
 
 import asyncio
 import logging
-import os
-from typing import Optional
 
 import numpy as np
 
-from . import TTSBackend
 from .base import (
-    get_torch_device,
     combine_voice_prompts as _combine_voice_prompts,
+    get_torch_device,
     model_load_progress,
 )
 
@@ -122,7 +119,7 @@ class KokoroTTSBackend:
     def __init__(self):
         self._model = None
         self._pipelines: dict = {}  # lang_code -> KPipeline
-        self._device: Optional[str] = None
+        self._device: str | None = None
         self.model_size = "default"
 
     def _get_device(self) -> str:
@@ -230,17 +227,15 @@ class KokoroTTSBackend:
         reference_texts: list[str],
     ) -> tuple[np.ndarray, str]:
         """Combine voice prompts — uses base implementation for audio concatenation."""
-        return await _combine_voice_prompts(
-            audio_paths, reference_texts, sample_rate=KOKORO_SAMPLE_RATE
-        )
+        return await _combine_voice_prompts(audio_paths, reference_texts, sample_rate=KOKORO_SAMPLE_RATE)
 
     async def generate(
         self,
         text: str,
         voice_prompt: dict,
         language: str = "en",
-        seed: Optional[int] = None,
-        instruct: Optional[str] = None,
+        seed: int | None = None,
+        instruct: str | None = None,
     ) -> tuple[np.ndarray, int]:
         """
         Generate audio from text using Kokoro.

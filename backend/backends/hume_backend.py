@@ -16,20 +16,19 @@ causal LM generates speech via flow-matching diffusion.
 import asyncio
 import logging
 import threading
-from typing import ClassVar, List, Optional, Tuple
+from typing import ClassVar
 
 import numpy as np
 
-from . import TTSBackend
+from ..utils.cache import cache_voice_prompt, get_cache_key, get_cached_voice_prompt
 from .base import (
-    is_model_cached,
-    get_torch_device,
-    empty_device_cache,
-    manual_seed,
     combine_voice_prompts as _combine_voice_prompts,
+    empty_device_cache,
+    get_torch_device,
+    is_model_cached,
+    manual_seed,
     model_load_progress,
 )
-from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +173,7 @@ class HumeTadaBackend:
             #   getattr(config, "tokenizer_name", "meta-llama/Llama-3.2-1B")
             # which hits the gated repo. Pre-load the config from HF,
             # inject the local tokenizer path, then pass it in.
-            from tada.modules.tada import TadaForCausalLM, TadaConfig
+            from tada.modules.tada import TadaConfig, TadaForCausalLM
 
             logger.info(f"Loading TADA {model_size} model...")
             config = TadaConfig.from_pretrained(repo)
@@ -206,7 +205,7 @@ class HumeTadaBackend:
         audio_path: str,
         reference_text: str,
         use_cache: bool = True,
-    ) -> Tuple[dict, bool]:
+    ) -> tuple[dict, bool]:
         """
         Create voice prompt from reference audio using TADA's encoder.
 
@@ -226,8 +225,8 @@ class HumeTadaBackend:
                 return cached, True
 
         def _encode_sync():
-            import torch
             import soundfile as sf
+            import torch
 
             device = self._device
 
@@ -250,9 +249,7 @@ class HumeTadaBackend:
                 val = getattr(prompt, field_name)
                 if isinstance(val, torch.Tensor):
                     prompt_dict[field_name] = val.detach().cpu()
-                elif isinstance(val, list):
-                    prompt_dict[field_name] = val
-                elif isinstance(val, (int, float)):
+                elif isinstance(val, (list, int, float)):
                     prompt_dict[field_name] = val
                 else:
                     prompt_dict[field_name] = val
@@ -267,9 +264,9 @@ class HumeTadaBackend:
 
     async def combine_voice_prompts(
         self,
-        audio_paths: List[str],
-        reference_texts: List[str],
-    ) -> Tuple[np.ndarray, str]:
+        audio_paths: list[str],
+        reference_texts: list[str],
+    ) -> tuple[np.ndarray, str]:
         return await _combine_voice_prompts(audio_paths, reference_texts, sample_rate=24000)
 
     async def generate(
@@ -277,9 +274,9 @@ class HumeTadaBackend:
         text: str,
         voice_prompt: dict,
         language: str = "en",
-        seed: Optional[int] = None,
-        instruct: Optional[str] = None,
-    ) -> Tuple[np.ndarray, int]:
+        seed: int | None = None,
+        instruct: str | None = None,
+    ) -> tuple[np.ndarray, int]:
         """
         Generate audio from text using HumeAI TADA.
 
