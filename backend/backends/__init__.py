@@ -11,6 +11,7 @@ and a model config registry that eliminates per-engine dispatch maps.
 # unconditional HuggingFace metadata call that otherwise raises on
 # HF_HUB_OFFLINE=1 and on network failures.
 from ..utils import hf_offline_patch  # noqa: F401
+from ..utils.platform_detect import get_backend_type, get_supported_platforms
 
 import threading
 from dataclasses import dataclass, field
@@ -20,8 +21,6 @@ import numpy as np
 
 DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
-
-from ..utils.platform_detect import get_backend_type, get_supported_platforms
 
 LANGUAGE_CODE_TO_NAME = {
     "zh": "chinese",
@@ -519,19 +518,20 @@ def engine_has_model_sizes(engine: str) -> bool:
 
 
 def is_engine_platform_compatible(engine: str) -> bool:
-    """Return True if the current machine can run the given engine.
+    """Return True if the current machine can run at least one variant of the engine.
 
     An engine with an empty ``requires`` list is always compatible.
-    Otherwise the machine must support at least one of the required platforms.
+    Otherwise the machine must support at least one of the required platforms
+    for at least one model variant.
     """
     configs = [c for c in get_tts_model_configs() if c.engine == engine]
     if not configs:
         return True  # unknown engine — don't gate
-    requires = configs[0].requires
-    if not requires:
-        return True
     supported = get_supported_platforms()
-    return any(p in supported for p in requires)
+    return any(
+        (not cfg.requires) or any(p in supported for p in cfg.requires)
+        for cfg in configs
+    )
 
 
 async def load_engine_model(engine: str, model_size: str = "default") -> None:
@@ -541,7 +541,9 @@ async def load_engine_model(engine: str, model_size: str = "default") -> None:
     # Hard guard — refuse to load an engine on an incompatible platform.
     configs = [c for c in get_tts_model_configs() if c.engine == engine]
     if configs:
-        requires = configs[0].requires
+        # Use per-variant requirements when model_size is known; fall back to first.
+        selected = next((c for c in configs if c.model_size == model_size), configs[0])
+        requires = selected.requires
         if requires:
             supported = get_supported_platforms()
             if not any(p in supported for p in requires):

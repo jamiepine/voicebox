@@ -43,6 +43,22 @@ const ENGINE_DESCRIPTIONS: Record<string, string> = {
   kokoro: '82M params, CPU realtime, 8 langs',
 };
 
+/** Map from engine name to the model_name used by the backend status API. */
+const ENGINE_TO_MODEL_NAME: Partial<Record<string, string>> = {
+  kokoro: 'kokoro',
+  luxtts: 'luxtts',
+  chatterbox: 'chatterbox-tts',
+  chatterbox_turbo: 'chatterbox-turbo',
+};
+
+/** Derive the backend model_name string for an ENGINE_OPTIONS entry. */
+function deriveModelName(opt: (typeof ENGINE_OPTIONS)[number]): string {
+  if (opt.value.includes(':')) {
+    return opt.engine + '-tts-' + opt.value.split(':')[1];
+  }
+  return ENGINE_TO_MODEL_NAME[opt.engine] ?? '';
+}
+
 /** Engines that only support English and should force language to 'en' on select. */
 const ENGLISH_ONLY_ENGINES = new Set(['luxtts', 'chatterbox_turbo']);
 
@@ -158,17 +174,7 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
     for (const m of modelStatus.models) {
       // Derive the engine name from model_name by checking ENGINE_OPTIONS
       for (const opt of ENGINE_OPTIONS) {
-        const optModelName = opt.value.includes(':')
-          ? opt.engine + '-tts-' + opt.value.split(':')[1]
-          : opt.engine === 'kokoro'
-            ? 'kokoro'
-            : opt.engine === 'luxtts'
-              ? 'luxtts'
-              : opt.engine === 'chatterbox'
-                ? 'chatterbox-tts'
-                : opt.engine === 'chatterbox_turbo'
-                  ? 'chatterbox-turbo'
-                  : '';
+        const optModelName = deriveModelName(opt);
         if (m.model_name === optModelName || m.model_name.startsWith(opt.engine.replace('_', '-'))) {
           if (!engineCompatibility[opt.engine] || !m.platform_compatible) {
             engineCompatibility[opt.engine] = {

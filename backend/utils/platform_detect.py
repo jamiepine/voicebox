@@ -68,13 +68,8 @@ def get_supported_platforms() -> list[str]:
         if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             supported.append("mps")
 
-        try:
-            import intel_extension_for_pytorch  # noqa: F401
-
-            if hasattr(torch, "xpu") and torch.xpu.is_available():
-                supported.append("xpu")
-        except ImportError:
-            pass
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
+            supported.append("xpu")
 
     except ImportError:
         pass  # torch not available at all — only CPU
