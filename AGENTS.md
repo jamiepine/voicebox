@@ -12,7 +12,7 @@ Voicebox is an open-source AI voice studio — a desktop app (Tauri/React) backe
 
 ## Repository structure
 
-```
+```text
 voicebox/
 ├── backend/           FastAPI Python server (port 17493)
 │   ├── backends/      One class per TTS/STT engine, all extend BaseTTSBackend
