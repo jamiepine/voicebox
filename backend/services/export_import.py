@@ -432,7 +432,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                     duration=generation_data["duration"],
                     seed=generation_data.get("seed"),
                     instruct=generation_data.get("instruct"),
-                    created_at=datetime.utcnow(),
+                    created_at=datetime.now(UTC),
                 )
                 
                 db.add(db_generation)
