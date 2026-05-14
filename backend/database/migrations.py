@@ -44,6 +44,7 @@ def run_migrations(engine) -> None:
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
+    _migrate_add_indexes(engine, tables)
 
 
 # -- helpers ---------------------------------------------------------------
@@ -290,6 +291,46 @@ def _supports_drop_column(engine) -> bool:
     if engine.dialect.name != "sqlite":
         return True
     return tuple(int(p) for p in sqlite3.sqlite_version.split(".")[:3]) >= (3, 35, 0)
+
+
+def _migrate_add_indexes(engine, tables: set[str]) -> None:
+    """Create missing indexes on high-traffic foreign keys and sort columns.
+
+    SQLite silently ignores ``CREATE INDEX IF NOT EXISTS``, so this is
+    safe to run on every startup regardless of whether the index already
+    exists.  New installs get the indexes from ``Base.metadata.create_all``
+    (via the ``index=True`` column flags); this migration brings existing
+    databases into parity without dropping or recreating any data.
+    """
+    indexes = [
+        # generations — filtered by profile, ordered/filtered by date, filtered by status
+        ("ix_generations_profile_id", "generations", "profile_id"),
+        ("ix_generations_created_at", "generations", "created_at"),
+        ("ix_generations_status", "generations", "status"),
+        # story_items — every story lookup filters by story_id; join on generation_id
+        ("ix_story_items_story_id", "story_items", "story_id"),
+        ("ix_story_items_generation_id", "story_items", "generation_id"),
+        # generation_versions — always filtered/joined on generation_id
+        ("ix_generation_versions_generation_id", "generation_versions", "generation_id"),
+        # profile_samples — loaded per-profile on every voice prompt build
+        ("ix_profile_samples_profile_id", "profile_samples", "profile_id"),
+        # captures — ordered by date in list view
+        ("ix_captures_created_at", "captures", "created_at"),
+        # channel_device_mappings — looked up per channel
+        ("ix_channel_device_mappings_channel_id", "channel_device_mappings", "channel_id"),
+    ]
+
+    with engine.connect() as conn:
+        for index_name, table, column in indexes:
+            if table not in tables:
+                continue
+            conn.execute(
+                text(
+                    f"CREATE INDEX IF NOT EXISTS {index_name}"
+                    f" ON {table} ({column})"
+                )
+            )
+        conn.commit()
 
 
 def _normalize_storage_paths(engine, tables: set[str]) -> None:
