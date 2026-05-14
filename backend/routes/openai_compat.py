@@ -16,9 +16,9 @@ GET /v1/models
 
 Model mapping
 -------------
-tts-1         → Kokoro (fast, CPU-friendly)
-tts-1-hd      → Qwen3-TTS 1.7B
-gts-4o-mini-tts → Qwen3-TTS 0.6B
+tts-1           → Kokoro (fast, CPU-friendly)
+tts-1-hd        → Qwen3-TTS 1.7B
+gpt-4o-mini-tts → Qwen3-TTS 0.6B
 
 Voice mapping (when no matching profile is found by name)
 ---------------------------------------------------------
@@ -28,10 +28,20 @@ fable   → bm_fable
 onyx    → am_onyx
 nova    → af_nova
 shimmer → af_sky
+
+Limitations
+-----------
+- ``response_format`` is always treated as WAV; other formats (mp3, opus,
+  aac, flac, pcm) are not yet supported.  Pass ``response_format="wav"``
+  or omit it to avoid surprises.
+- ``speed`` is accepted in the schema for API compatibility but is not yet
+  forwarded to the TTS backends.  Non-default speed values are silently
+  ignored.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -41,6 +51,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from ..database import get_db
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -52,7 +64,7 @@ _MODEL_MAP: dict[str, tuple[str, str]] = {
     # openai_model_id -> (engine, model_size)
     "tts-1": ("kokoro", "default"),
     "tts-1-hd": ("qwen", "1.7B"),
-    "gts-4o-mini-tts": ("qwen", "0.6B"),
+    "gpt-4o-mini-tts": ("qwen", "0.6B"),
 }
 
 _OPENAI_VOICE_TO_KOKORO: dict[str, str] = {
@@ -182,10 +194,19 @@ async def _resolve_voice_prompt(voice: str, engine: str, db: Session) -> dict:
                 use_cache=True,
                 engine=engine,
             )
-        except Exception:
-            # Profile found but voice-prompt creation failed; fall through
-            pass
+        except Exception as e:
+            # Profile found but voice-prompt creation failed; fall through to
+            # built-in voice.  Log so the failure is not silently swallowed.
+            logger.warning(
+                "Failed to create voice prompt for profile '%s': %s. "
+                "Falling back to built-in Kokoro voice.",
+                voice,
+                e,
+            )
 
-    # Fall back to built-in Kokoro voice id
+    # Fall back to built-in Kokoro voice id using engine-specific key names.
     kokoro_voice = _OPENAI_VOICE_TO_KOKORO.get(voice.lower(), "af_alloy")
-    return {"voice_id": kokoro_voice}
+    if engine == "kokoro":
+        return {"kokoro_voice": kokoro_voice}
+    # qwen_custom_voice and all other engines expect preset_voice_id
+    return {"preset_voice_id": kokoro_voice}
