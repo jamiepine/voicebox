@@ -310,6 +310,10 @@ export interface ModelStatus {
   downloading: boolean; // True if download is in progress
   size_mb?: number;
   loaded: boolean;
+  /** False when the engine has hardware requirements that this machine does not meet. */
+  platform_compatible: boolean;
+  /** Hardware platforms required — mirrors ModelConfig.requires on the backend. */
+  requires: string[];
 }
 
 export interface HuggingFaceModelInfo {
