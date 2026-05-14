@@ -103,7 +103,10 @@ export function AccessibilityNotice() {
             {t('captures.permissions.accessibility.title')}
           </p>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            <Trans i18nKey="captures.permissions.accessibility.body" components={{ path: <span /> }} />
+            <Trans
+              i18nKey="captures.permissions.accessibility.body"
+              components={{ path: <span /> }}
+            />
           </p>
           <div className="flex items-center gap-2 pt-1.5">
             <Button size="sm" onClick={openSettings} className="gap-1.5">
@@ -111,7 +114,9 @@ export function AccessibilityNotice() {
               {t('captures.permissions.accessibility.openSettings')}
             </Button>
             <Button variant="outline" size="sm" onClick={handleRecheck} disabled={checking}>
-              {checking ? t('captures.permissions.accessibility.rechecking') : t('captures.permissions.accessibility.recheck')}
+              {checking
+                ? t('captures.permissions.accessibility.rechecking')
+                : t('captures.permissions.accessibility.recheck')}
             </Button>
           </div>
           {stillMissing && !checking && (

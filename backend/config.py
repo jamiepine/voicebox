@@ -93,9 +93,7 @@ def resolve_storage_path(path: str | Path | None) -> Path | None:
     # baked in (e.g. "data/profiles/..."). Joining those directly with
     # _data_dir produces a spurious "<data_dir>/data/profiles/..." nest.
     if stored_path.parts and stored_path.parts[0] == "data":
-        stored_path = (
-            Path(*stored_path.parts[1:]) if len(stored_path.parts) > 1 else Path()
-        )
+        stored_path = Path(*stored_path.parts[1:]) if len(stored_path.parts) > 1 else Path()
 
     return (_data_dir / stored_path).resolve()
 

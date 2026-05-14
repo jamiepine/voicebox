@@ -1,13 +1,6 @@
 'use client';
 
-import {
-  ArrowLeft,
-  Bot,
-  Coffee,
-  Download as DownloadIcon,
-  FileText,
-  Github,
-} from 'lucide-react';
+import { ArrowLeft, Bot, Coffee, Download as DownloadIcon, FileText, Github } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -112,10 +105,7 @@ export default function DownloadPage() {
     setTriggered(true);
   }, [triggered, links, platform]);
 
-  const activeMeta = useMemo(
-    () => PLATFORMS.find((p) => p.key === platform) ?? null,
-    [platform],
-  );
+  const activeMeta = useMemo(() => PLATFORMS.find((p) => p.key === platform) ?? null, [platform]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -192,8 +182,8 @@ export default function DownloadPage() {
                 className="text-accent underline underline-offset-2 hover:text-accent/80"
               >
                 browse releases on GitHub
-              </a>
-              {' '}and grab the build for your platform manually.
+              </a>{' '}
+              and grab the build for your platform manually.
             </p>
           </div>
         ) : (
@@ -248,14 +238,17 @@ export default function DownloadPage() {
               Jamie here — Voicebox is a side project.
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-6 max-w-2xl">
-              I build and maintain Voicebox in my spare time. It's completely
-              free, open source, runs entirely on your machine — no accounts, no
-              cloud, no subscriptions, no upsells. If it saves you an ElevenLabs
-              bill or just made your day, a coffee genuinely helps me keep
-              shipping updates, adding new models, and fixing bugs. Every little
-              bit keeps the lights on.
+              I build and maintain Voicebox in my spare time. It's completely free, open source,
+              runs entirely on your machine — no accounts, no cloud, no subscriptions, no upsells.
+              If it saves you an ElevenLabs bill or just made your day, a coffee genuinely helps me
+              keep shipping updates, adding new models, and fixing bugs. Every little bit keeps the
+              lights on.
             </p>
-            <Button asChild size="lg" className="bg-[#FFDD00]/10 border-[#FFDD00]/30 text-[#FFDD00] hover:bg-[#FFDD00]/20 hover:border-[#FFDD00]/50">
+            <Button
+              asChild
+              size="lg"
+              className="bg-[#FFDD00]/10 border-[#FFDD00]/30 text-[#FFDD00] hover:bg-[#FFDD00]/20 hover:border-[#FFDD00]/50"
+            >
               <a href={DONATE_URL} target="_blank" rel="noopener noreferrer">
                 <Coffee className="h-4 w-4 mr-2" />
                 Buy me a coffee

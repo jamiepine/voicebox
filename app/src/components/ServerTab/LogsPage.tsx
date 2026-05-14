@@ -44,7 +44,7 @@ export function LogsPage() {
     if (autoScroll && containerRef.current) {
       containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [entries.length, autoScroll]);
+  }, [autoScroll]);
 
   // Detect manual scroll to disable auto-scroll
   const handleScroll = () => {

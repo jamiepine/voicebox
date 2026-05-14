@@ -2,11 +2,11 @@
 HuggingFace Hub download progress tracking.
 """
 
-from typing import Optional, Callable
-from contextlib import contextmanager
 import logging
-import threading
 import sys
+import threading
+from collections.abc import Callable
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class HFProgressTracker:
     """Tracks HuggingFace Hub download progress by intercepting tqdm."""
 
-    def __init__(self, progress_callback: Optional[Callable] = None, filter_non_downloads: bool = False):
+    def __init__(self, progress_callback: Callable | None = None, filter_non_downloads: bool = False):
         self.progress_callback = progress_callback
         self.filter_non_downloads = filter_non_downloads  # Only filter if True
         self._original_tqdm_class = None

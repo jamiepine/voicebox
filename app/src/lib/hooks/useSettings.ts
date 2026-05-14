@@ -75,8 +75,7 @@ export function useGenerationSettings() {
   });
 
   const mutation = useMutation({
-    mutationFn: (patch: GenerationSettingsUpdate) =>
-      apiClient.updateGenerationSettings(patch),
+    mutationFn: (patch: GenerationSettingsUpdate) => apiClient.updateGenerationSettings(patch),
     onMutate: async (patch) => {
       await queryClient.cancelQueries({ queryKey: GENERATION_SETTINGS_KEY });
       const previous = queryClient.getQueryData<GenerationSettings>(GENERATION_SETTINGS_KEY);

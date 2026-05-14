@@ -35,11 +35,7 @@ export function getDefaultServerUrl(): string {
   }
 
   const { protocol, origin, hostname } = window.location;
-  if (
-    (protocol === 'http:' || protocol === 'https:') &&
-    origin &&
-    hostname !== 'tauri.localhost'
-  ) {
+  if ((protocol === 'http:' || protocol === 'https:') && origin && hostname !== 'tauri.localhost') {
     return origin;
   }
 

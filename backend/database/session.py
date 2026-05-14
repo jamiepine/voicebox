@@ -7,16 +7,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from .. import config
+from .migrations import run_migrations
 from .models import (
-    Base,
     AudioChannel,
+    Base,
     EffectPreset,
     Generation,
     GenerationVersion,
     ProfileChannelMapping,
     VoiceProfile,
 )
-from .migrations import run_migrations
 from .seed import backfill_generation_versions, seed_builtin_presets
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def init_db() -> None:
     # Create default audio channel if it doesn't exist
     db = SessionLocal()
     try:
-        default_channel = db.query(AudioChannel).filter(AudioChannel.is_default == True).first()
+        default_channel = db.query(AudioChannel).filter(AudioChannel.is_default).first()
         if not default_channel:
             default_channel = AudioChannel(
                 id=str(uuid.uuid4()),
@@ -57,10 +57,12 @@ def init_db() -> None:
             db.add(default_channel)
 
             for profile in db.query(VoiceProfile).all():
-                db.add(ProfileChannelMapping(
-                    profile_id=profile.id,
-                    channel_id=default_channel.id,
-                ))
+                db.add(
+                    ProfileChannelMapping(
+                        profile_id=profile.id,
+                        channel_id=default_channel.id,
+                    )
+                )
             db.commit()
     finally:
         db.close()

@@ -56,7 +56,7 @@ export function GeneralPage() {
     if (form.formState.errors.serverUrl) {
       form.trigger('serverUrl');
     }
-  }, [t, form]);
+  }, [form]);
 
   const { isDirty } = form.formState;
 

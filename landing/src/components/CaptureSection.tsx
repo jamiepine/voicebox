@@ -128,10 +128,7 @@ export function DictationHero() {
               <span className="relative rounded-full h-2.5 w-2.5 bg-accent" />
             </span>
 
-            <span
-              className="text-[15px] font-medium shrink-0"
-              style={{ minWidth: '120px' }}
-            >
+            <span className="text-[15px] font-medium shrink-0" style={{ minWidth: '120px' }}>
               {labelText}
             </span>
 
@@ -457,9 +454,9 @@ export function CaptureSection() {
             Dictate anywhere. Paste into any app.
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Hold a shortcut anywhere on your machine, speak, release.
-            The transcript lands in a focused text field in any app, or your clipboard. Agents speak
-            back through the same pill in any cloned voice.
+            Hold a shortcut anywhere on your machine, speak, release. The transcript lands in a
+            focused text field in any app, or your clipboard. Agents speak back through the same
+            pill in any cloned voice.
           </p>
         </div>
 

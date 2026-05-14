@@ -27,6 +27,12 @@ pub struct AudioCaptureState {
     pub stream: Arc<Mutex<Option<SCStream>>>,
 }
 
+impl Default for AudioCaptureState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AudioCaptureState {
     pub fn new() -> Self {
         Self {

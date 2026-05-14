@@ -23,10 +23,10 @@ function SponsorPromoEmpty() {
                 Get your logo in front of 170k+ monthly visitors.
               </h3>
               <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-2xl">
-                Voicebox is open-source and used by creators, voice artists, podcasters,
-                writers, developers, accessibility users, and curious humans all over the world.
-                Sponsor the project and your logo lands on the homepage, in the app, in the
-                README, and on the sponsors page — in front of every one of them.
+                Voicebox is open-source and used by creators, voice artists, podcasters, writers,
+                developers, accessibility users, and curious humans all over the world. Sponsor the
+                project and your logo lands on the homepage, in the app, in the README, and on the
+                sponsors page — in front of every one of them.
               </p>
             </div>
 

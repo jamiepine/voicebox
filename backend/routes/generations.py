@@ -1,6 +1,7 @@
 """TTS generation endpoints."""
 
 import asyncio
+import contextlib
 import logging
 import uuid
 from pathlib import Path
@@ -10,8 +11,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
+from ..services import history, personality, profiles, tts
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
 from ..utils.audio import load_audio
@@ -29,11 +30,7 @@ IMPORT_AUDIO_MAX_BYTES = 200 * 1024 * 1024  # 200 MB
 def _get_or_create_import_profile(db: Session) -> DBVoiceProfile:
     """Singleton profile every imported audio clip points at — keeps the
     Generation FK happy without making profile_id nullable across the schema."""
-    row = (
-        db.query(DBVoiceProfile)
-        .filter(DBVoiceProfile.name == IMPORTED_AUDIO_PROFILE_NAME)
-        .first()
-    )
+    row = db.query(DBVoiceProfile).filter(DBVoiceProfile.name == IMPORTED_AUDIO_PROFILE_NAME).first()
     if row is not None:
         return row
     row = DBVoiceProfile(
@@ -72,7 +69,7 @@ async def generate_speech(
     try:
         profiles.validate_profile_engine(profile, engine)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
@@ -82,7 +79,7 @@ async def generate_speech(
         try:
             llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         text = llm_result.text.strip()
         if not text:
             raise HTTPException(status_code=500, detail="LLM produced empty output; nothing to speak.")
@@ -118,10 +115,8 @@ async def generate_speech(
 
         profile_obj = db.query(DBVoiceProfile).filter_by(id=data.profile_id).first()
         if profile_obj and profile_obj.effects_chain:
-            try:
+            with contextlib.suppress(Exception):
                 effects_chain_config = _json.loads(profile_obj.effects_chain)
-            except Exception:
-                pass
 
     enqueue_generation(
         generation_id,
@@ -139,7 +134,7 @@ async def generate_speech(
             mode="generate",
             max_chunk_chars=data.max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
-        )
+        ),
     )
 
     return generation
@@ -181,7 +176,7 @@ async def retry_generation(generation_id: str, db: Session = Depends(get_db)):
             seed=gen.seed,
             instruct=gen.instruct,
             mode="retry",
-        )
+        ),
     )
 
     return models.GenerationResponse.model_validate(gen)
@@ -226,7 +221,7 @@ async def regenerate_generation(generation_id: str, db: Session = Depends(get_db
             instruct=gen.instruct,
             mode="regenerate",
             version_id=version_id,
-        )
+        ),
     )
 
     return models.GenerationResponse.model_validate(gen)
@@ -274,11 +269,22 @@ async def cancel_generation(generation_id: str, db: Session = Depends(get_db)):
 
 @router.get("/generate/{generation_id}/status")
 async def get_generation_status(generation_id: str, db: Session = Depends(get_db)):
-    """SSE endpoint that streams generation status updates."""
+    """SSE endpoint that streams generation status updates.
+
+    Emits a status frame every second while the generation is in flight, then
+    one final frame when it completes or fails.  A ": heartbeat" comment is
+    sent every 15 s of inactivity (e.g. while waiting for model load) so
+    intervening proxies and nginx reverse-proxies don't close the connection
+    on their default idle timeout.
+    """
     import json
+
+    # How many poll cycles between heartbeat SSE comments (1 cycle ≈ 1 s).
+    HEARTBEAT_CYCLES = 15
 
     async def event_stream():
         try:
+            cycles_since_data = 0
             while True:
                 db.expire_all()
                 gen = db.query(DBGeneration).filter_by(id=generation_id).first()
@@ -296,11 +302,17 @@ async def get_generation_status(generation_id: str, db: Session = Depends(get_db
                     "source": gen.source,
                 }
                 yield f"data: {json.dumps(payload)}\n\n"
+                cycles_since_data = 0
 
                 if (gen.status or "completed") in ("completed", "failed"):
                     return
 
                 await asyncio.sleep(1)
+                cycles_since_data += 1
+                if cycles_since_data >= HEARTBEAT_CYCLES:
+                    # SSE comment — ignored by EventSource but keeps TCP alive.
+                    yield ": heartbeat\n\n"
+                    cycles_since_data = 0
         except (BrokenPipeError, ConnectionResetError, asyncio.CancelledError):
             logger.debug("SSE client disconnected for generation %s", generation_id)
 
@@ -321,7 +333,12 @@ async def stream_speech(
     db: Session = Depends(get_db),
 ):
     """Generate speech and stream the WAV audio directly without saving to disk."""
-    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim
+    from ..backends import (
+        engine_needs_trim,
+        ensure_model_cached_or_raise,
+        get_tts_backend_for_engine,
+        load_engine_model,
+    )
 
     profile = await profiles.get_profile(data.profile_id, db)
     if not profile:
@@ -331,7 +348,7 @@ async def stream_speech(
     try:
         profiles.validate_profile_engine(profile, engine)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     tts_model = get_tts_backend_for_engine(engine)
     model_size = data.model_size or "1.7B"
 
@@ -444,10 +461,8 @@ async def import_audio(
         audio, sr = load_audio(str(target))
         duration = float(len(audio) / sr) if sr else 0.0
     except Exception as decode_err:
-        try:
+        with contextlib.suppress(OSError):
             target.unlink()
-        except OSError:
-            pass
         raise HTTPException(
             status_code=400,
             detail=f"Could not decode audio: {decode_err}",

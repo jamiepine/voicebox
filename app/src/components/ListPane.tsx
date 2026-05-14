@@ -29,9 +29,7 @@ interface ListPaneHeaderProps {
 }
 
 export function ListPaneHeader({ className, children }: ListPaneHeaderProps) {
-  return (
-    <div className={cn('absolute top-0 left-0 right-0 z-20 px-4', className)}>{children}</div>
-  );
+  return <div className={cn('absolute top-0 left-0 right-0 z-20 px-4', className)}>{children}</div>;
 }
 
 interface ListPaneTitleRowProps {
@@ -89,10 +87,7 @@ interface ListPaneScrollProps {
 
 export function ListPaneScroll({ className, style, children }: ListPaneScrollProps) {
   return (
-    <div
-      className={cn('flex-1 overflow-y-auto overflow-x-hidden pt-24', className)}
-      style={style}
-    >
+    <div className={cn('flex-1 overflow-y-auto overflow-x-hidden pt-24', className)} style={style}>
       {children}
     </div>
   );

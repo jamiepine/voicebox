@@ -10,17 +10,16 @@ import asyncio
 import logging
 import threading
 from pathlib import Path
-from typing import ClassVar, List, Optional, Tuple
+from typing import ClassVar
 
 import numpy as np
 
-from . import TTSBackend
 from .base import (
-    is_model_cached,
-    get_torch_device,
-    empty_device_cache,
-    manual_seed,
     combine_voice_prompts as _combine_voice_prompts,
+    empty_device_cache,
+    get_torch_device,
+    is_model_cached,
+    manual_seed,
     model_load_progress,
     patch_chatterbox_f32,
 )
@@ -81,8 +80,8 @@ class ChatterboxTurboTTSBackend:
             logger.info(f"Loading Chatterbox Turbo TTS on {device}...")
 
             import torch
-            from huggingface_hub import snapshot_download
             from chatterbox.tts_turbo import ChatterboxTurboTTS
+            from huggingface_hub import snapshot_download
 
             local_path = snapshot_download(
                 repo_id=CHATTERBOX_TURBO_HF_REPO,
@@ -126,7 +125,7 @@ class ChatterboxTurboTTSBackend:
         audio_path: str,
         reference_text: str,
         use_cache: bool = True,
-    ) -> Tuple[dict, bool]:
+    ) -> tuple[dict, bool]:
         """
         Create voice prompt from reference audio.
 
@@ -141,9 +140,9 @@ class ChatterboxTurboTTSBackend:
 
     async def combine_voice_prompts(
         self,
-        audio_paths: List[str],
-        reference_texts: List[str],
-    ) -> Tuple[np.ndarray, str]:
+        audio_paths: list[str],
+        reference_texts: list[str],
+    ) -> tuple[np.ndarray, str]:
         return await _combine_voice_prompts(audio_paths, reference_texts)
 
     async def generate(
@@ -151,9 +150,9 @@ class ChatterboxTurboTTSBackend:
         text: str,
         voice_prompt: dict,
         language: str = "en",
-        seed: Optional[int] = None,
-        instruct: Optional[str] = None,
-    ) -> Tuple[np.ndarray, int]:
+        seed: int | None = None,
+        instruct: str | None = None,
+    ) -> tuple[np.ndarray, int]:
         """
         Generate audio using Chatterbox Turbo TTS.
 

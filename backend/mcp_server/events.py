@@ -6,8 +6,8 @@ floating pill surfaces whenever an agent is speaking.
 """
 
 import asyncio
+import contextlib
 from typing import Any
-
 
 # Each subscriber gets its own queue. Bounded to drop oldest if a client lags.
 _subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
@@ -34,8 +34,6 @@ def publish(kind: str, payload: dict[str, Any]) -> None:
     """
     for queue in list(_subscribers):
         event = {"kind": kind, **payload}
-        try:
-            queue.put_nowait(event)
-        except asyncio.QueueFull:
+        with contextlib.suppress(asyncio.QueueFull):
             # Slow subscriber — skip rather than block publishers.
-            pass
+            queue.put_nowait(event)

@@ -4,9 +4,12 @@ to avoid GPU contention.
 """
 
 import asyncio
-import traceback
+import logging
+from collections.abc import Coroutine
 from dataclasses import dataclass
-from typing import Coroutine, Literal
+from typing import Literal
+
+logger = logging.getLogger(__name__)
 
 # Keep references to fire-and-forget background tasks to prevent GC
 _background_tasks: set = set()
@@ -55,7 +58,7 @@ async def _generation_worker():
                 if not task.cancelled():
                     raise
         except Exception:
-            traceback.print_exc()
+            logger.exception("Generation worker caught unhandled exception for %s", job.generation_id)
             await _force_fail_if_active(
                 job.generation_id,
                 "Worker exited without writing terminal status",
@@ -90,7 +93,7 @@ async def _force_fail_if_active(generation_id: str, error: str) -> None:
         finally:
             db.close()
     except Exception:
-        traceback.print_exc()
+        logger.exception("Failed to force-fail orphaned generation %s", generation_id)
 
 
 def enqueue_generation(generation_id: str, coro):

@@ -18,6 +18,11 @@ interface GenerationStatusEvent {
 // main-window AudioPlayer. Skip autoplay here to avoid double-playback.
 const AGENT_SOURCES = new Set(['mcp', 'rest']);
 
+// SSE reconnect — cap at 30 s, give up after this many consecutive errors.
+const MAX_RECONNECT_ATTEMPTS = 8;
+const RECONNECT_BASE_MS = 1_000;
+const RECONNECT_MAX_MS = 30_000;
+
 /**
  * Subscribes to SSE for all pending generations. When a generation completes,
  * invalidates the history query, removes it from pending, and auto-plays
@@ -40,46 +45,74 @@ export function useGenerationProgress() {
   isPlayingRef.current = isPlaying;
   autoplayRef.current = autoplayOnGenerate;
 
-  // Track active EventSource instances
+  // Track active EventSource instances and reconnect state
   const eventSourcesRef = useRef<Map<string, EventSource>>(new Map());
+  // errorCount tracks consecutive SSE errors per generation id so we can
+  // give up after MAX_RECONNECT_ATTEMPTS without hanging the UI forever.
+  const errorCountRef = useRef<Map<string, number>>(new Map());
+  // Pending reconnect timers keyed by generation id.
+  const reconnectTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Unmount-only cleanup — close all SSE connections when the hook is torn down
   useEffect(() => {
     const sources = eventSourcesRef.current;
+    const timers = reconnectTimersRef.current;
     return () => {
-      for (const source of sources.values()) {
-        source.close();
-      }
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
+      for (const source of sources.values()) source.close();
       sources.clear();
+      errorCountRef.current.clear();
     };
   }, []);
 
   useEffect(() => {
     const currentSources = eventSourcesRef.current;
 
-    // Close SSE connections for IDs no longer pending
+    // Close SSE connections and cancel pending reconnect timers for IDs
+    // that are no longer in the pending set.
     for (const [id, source] of currentSources.entries()) {
       if (!pendingIds.has(id)) {
         source.close();
         currentSources.delete(id);
       }
     }
+    for (const [id, timer] of reconnectTimersRef.current.entries()) {
+      if (!pendingIds.has(id)) {
+        clearTimeout(timer);
+        reconnectTimersRef.current.delete(id);
+        errorCountRef.current.delete(id);
+      }
+    }
 
-    // Open SSE connections for new pending IDs
-    for (const id of pendingIds) {
-      if (currentSources.has(id)) continue;
+    // Helpers captured once per effect run — stable refs used inside handlers.
+    const openSource = (id: string) => {
+      // Don't open if the generation is no longer pending (e.g. was removed
+      // by a concurrent effect run or the component was unmounted).
+      if (!currentSources.has(id) && !pendingIds.has(id)) return;
 
       const url = apiClient.getGenerationStatusUrl(id);
       const source = new EventSource(url);
+      currentSources.set(id, source);
+
+      const cleanup = (keepPending = false) => {
+        source.close();
+        currentSources.delete(id);
+        if (!keepPending) {
+          removePendingGeneration(id);
+          errorCountRef.current.delete(id);
+        }
+      };
 
       source.onmessage = (event) => {
+        // A successful message resets the consecutive-error counter.
+        errorCountRef.current.set(id, 0);
+
         try {
           const data: GenerationStatusEvent = JSON.parse(event.data);
 
           if (data.status === 'completed') {
-            source.close();
-            currentSources.delete(id);
-            removePendingGeneration(id);
+            cleanup();
 
             // Refetch history to pick up the completed generation
             queryClient.refetchQueries({ queryKey: ['history'] });
@@ -106,13 +139,6 @@ export function useGenerationProgress() {
                     variant: 'destructive',
                   });
                 });
-            } else {
-              // toast({
-              //   title: 'Generation complete!',
-              //   description: data.duration
-              //     ? `Audio generated (${data.duration.toFixed(2)}s)`
-              //     : 'Audio generated',
-              // });
             }
 
             // Auto-play if enabled and nothing is currently playing.
@@ -124,13 +150,9 @@ export function useGenerationProgress() {
               setAudioWithAutoPlay(genAudioUrl, id, '', '');
             }
           } else if (data.status === 'failed' || data.status === 'not_found') {
-            source.close();
-            currentSources.delete(id);
-            removePendingGeneration(id);
+            cleanup();
             removePendingStoryAdd(id);
-
             queryClient.refetchQueries({ queryKey: ['history'] });
-
             toast({
               title: data.status === 'not_found' ? 'Generation not found' : 'Generation failed',
               description: data.error || 'An error occurred during generation',
@@ -138,20 +160,43 @@ export function useGenerationProgress() {
             });
           }
         } catch {
-          // Ignore parse errors from heartbeats etc
+          // Ignore parse errors from SSE heartbeats or malformed frames.
         }
       };
 
       source.onerror = () => {
-        // SSE connection dropped — clean up and refresh history so any
-        // completed/failed generation still appears in the list
         source.close();
         currentSources.delete(id);
-        removePendingGeneration(id);
-        queryClient.refetchQueries({ queryKey: ['history'] });
-      };
 
-      currentSources.set(id, source);
+        const attempts = (errorCountRef.current.get(id) ?? 0) + 1;
+        errorCountRef.current.set(id, attempts);
+
+        if (attempts >= MAX_RECONNECT_ATTEMPTS) {
+          // Too many consecutive errors — give up and let the user see the
+          // current state in the history list.
+          removePendingGeneration(id);
+          errorCountRef.current.delete(id);
+          queryClient.refetchQueries({ queryKey: ['history'] });
+          return;
+        }
+
+        // Exponential back-off reconnect (1 s, 2 s, 4 s … capped at 30 s).
+        const delay = Math.min(RECONNECT_BASE_MS * 2 ** (attempts - 1), RECONNECT_MAX_MS);
+        const timer = setTimeout(() => {
+          reconnectTimersRef.current.delete(id);
+          // Only reconnect if the generation is still in the pending set.
+          if (pendingIds.has(id)) openSource(id);
+        }, delay);
+        reconnectTimersRef.current.set(id, timer);
+      };
+    };
+
+    // Open SSE connections for new pending IDs
+    for (const id of pendingIds) {
+      if (currentSources.has(id)) continue;
+      // Reset error counter when we first open a connection for this id.
+      errorCountRef.current.set(id, 0);
+      openSource(id);
     }
   }, [
     pendingIds,

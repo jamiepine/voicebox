@@ -40,10 +40,10 @@ export function CaptureHero({
           className="fade-in mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl"
           style={{ animationDelay: '200ms' }}
         >
-          Hold a key anywhere on your machine, speak, release — your words land in the focused
-          text field. A free, open-source, entirely-local alternative to{' '}
-          <b className="text-white">WisprFlow</b>. And because Voicebox clones voices too, any
-          AI agent can speak back in a voice you own.
+          Hold a key anywhere on your machine, speak, release — your words land in the focused text
+          field. A free, open-source, entirely-local alternative to{' '}
+          <b className="text-white">WisprFlow</b>. And because Voicebox clones voices too, any AI
+          agent can speak back in a voice you own.
         </p>
 
         {/* CTAs */}

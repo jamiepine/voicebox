@@ -18,12 +18,10 @@ from fastmcp import FastMCP
 
 from .. import models
 from ..database import get_db
-from ..services import captures as captures_service
-from ..services import profiles as profiles_service
+from ..services import captures as captures_service, profiles as profiles_service
 from . import events as mcp_events
 from .context import current_client_id, request_is_loopback
 from .resolve import resolve_profile
-
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +75,7 @@ def register_tools(mcp: FastMCP) -> None:
 
             binding = None
             if client_id:
-                binding = (
-                    db.query(MCPClientBinding)
-                    .filter(MCPClientBinding.client_id == client_id)
-                    .first()
-                )
+                binding = db.query(MCPClientBinding).filter(MCPClientBinding.client_id == client_id).first()
 
             resolved_personality = personality
             if resolved_personality is None and binding is not None:
@@ -119,9 +113,7 @@ def register_tools(mcp: FastMCP) -> None:
         model: str | None = None,
     ) -> dict[str, Any]:
         if bool(audio_base64) == bool(audio_path):
-            raise ValueError(
-                "Pass exactly one of `audio_base64` or `audio_path`."
-            )
+            raise ValueError("Pass exactly one of `audio_base64` or `audio_path`.")
 
         # Absolute-path mode: validate and transcribe in place. Restricted
         # to loopback callers so a Voicebox bound on 0.0.0.0 doesn't double
@@ -129,8 +121,7 @@ def register_tools(mcp: FastMCP) -> None:
         if audio_path is not None:
             if not request_is_loopback():
                 raise ValueError(
-                    "`audio_path` is only available to loopback callers — "
-                    "remote callers must use `audio_base64`."
+                    "`audio_path` is only available to loopback callers — remote callers must use `audio_base64`."
                 )
             path = Path(audio_path)
             if not path.is_absolute():
@@ -138,9 +129,7 @@ def register_tools(mcp: FastMCP) -> None:
             if not path.is_file():
                 raise ValueError(f"File not found: {audio_path}")
             if path.stat().st_size > MAX_TRANSCRIBE_BYTES:
-                raise ValueError(
-                    f"File exceeds {MAX_TRANSCRIBE_BYTES // (1024 * 1024)} MB limit."
-                )
+                raise ValueError(f"File exceeds {MAX_TRANSCRIBE_BYTES // (1024 * 1024)} MB limit.")
             return await _transcribe_file(path, language, model)
 
         # Base64 mode: decode into a temp file, transcribe, clean up.
@@ -149,12 +138,8 @@ def register_tools(mcp: FastMCP) -> None:
         except Exception as exc:
             raise ValueError(f"Invalid audio_base64: {exc}") from exc
         if len(raw) > MAX_TRANSCRIBE_BYTES:
-            raise ValueError(
-                f"Audio exceeds {MAX_TRANSCRIBE_BYTES // (1024 * 1024)} MB limit."
-            )
-        with tempfile.NamedTemporaryFile(
-            suffix=".wav", delete=False
-        ) as tmp:
+            raise ValueError(f"Audio exceeds {MAX_TRANSCRIBE_BYTES // (1024 * 1024)} MB limit.")
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp.write(raw)
             tmp_path = Path(tmp.name)
         try:
@@ -165,26 +150,19 @@ def register_tools(mcp: FastMCP) -> None:
     @mcp.tool(
         name="voicebox.list_captures",
         description=(
-            "List recent voice captures (dictations, recordings, uploads) "
-            "with their transcripts. Most-recent first."
+            "List recent voice captures (dictations, recordings, uploads) with their transcripts. Most-recent first."
         ),
     )
-    async def voicebox_list_captures(
-        limit: int = 20, offset: int = 0
-    ) -> dict[str, Any]:
+    async def voicebox_list_captures(limit: int = 20, offset: int = 0) -> dict[str, Any]:
         if not (1 <= limit <= 200):
             raise ValueError("`limit` must be between 1 and 200.")
         if offset < 0:
             raise ValueError("`offset` must be >= 0.")
         db = next(get_db())
         try:
-            items, total = captures_service.list_captures(
-                db, limit=limit, offset=offset
-            )
+            items, total = captures_service.list_captures(db, limit=limit, offset=offset)
             return {
-                "captures": [
-                    item.model_dump(mode="json") for item in items
-                ],
+                "captures": [item.model_dump(mode="json") for item in items],
                 "total": total,
             }
         finally:
@@ -245,18 +223,14 @@ async def _speak(
     return _speak_response(generation, profile_name, source="mcp")
 
 
-def _speak_response(
-    generation, profile_name: str, *, source: str
-) -> dict[str, Any]:
+def _speak_response(generation, profile_name: str, *, source: str) -> dict[str, Any]:
     """Normalize a GenerationResponse into the MCP tool's return shape.
 
     Also fires a speak-start event so the DictateWindow pill surfaces
     the agent's speech. Speak-end is fired from run_generation's
     completion hook.
     """
-    payload = generation.model_dump(mode="json") if hasattr(
-        generation, "model_dump"
-    ) else dict(generation)
+    payload = generation.model_dump(mode="json") if hasattr(generation, "model_dump") else dict(generation)
     generation_id = payload.get("id")
     mcp_events.publish(
         "speak-start",
@@ -272,18 +246,14 @@ def _speak_response(
         "status": payload.get("status"),
         "profile": profile_name,
         "source": source,
-        "poll_url": f"/generate/{generation_id}/status"
-        if generation_id
-        else None,
+        "poll_url": f"/generate/{generation_id}/status" if generation_id else None,
     }
 
 
 # ─── Transcribe helper ─────────────────────────────────────────────────────
 
 
-async def _transcribe_file(
-    path: Path, language: str | None, model: str | None
-) -> dict[str, Any]:
+async def _transcribe_file(path: Path, language: str | None, model: str | None) -> dict[str, Any]:
     from ..backends import WHISPER_HF_REPOS
     from ..services import transcribe as transcribe_service
     from ..utils.audio import load_audio
@@ -292,17 +262,13 @@ async def _transcribe_file(
     model_size = model or whisper.model_size
     valid = list(WHISPER_HF_REPOS.keys())
     if model_size not in valid:
-        raise ValueError(
-            f"Invalid STT model '{model_size}'. Must be one of: {', '.join(valid)}"
-        )
+        raise ValueError(f"Invalid STT model '{model_size}'. Must be one of: {', '.join(valid)}")
 
     # load_audio is sync; keep the event loop responsive.
     audio, sr = await asyncio.to_thread(load_audio, str(path))
     duration = len(audio) / sr
 
-    if (
-        not whisper.is_loaded() or whisper.model_size != model_size
-    ) and not whisper._is_model_cached(model_size):
+    if (not whisper.is_loaded() or whisper.model_size != model_size) and not whisper._is_model_cached(model_size):
         raise ValueError(
             f"Whisper model '{model_size}' is not yet downloaded. Open "
             "Voicebox → Settings → Models to download it first."

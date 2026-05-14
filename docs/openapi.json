@@ -27,9 +27,7 @@
             }
           }
         },
-        "tags": [
-          "General"
-        ]
+        "tags": ["General"]
       }
     },
     "/health": {
@@ -49,9 +47,7 @@
             }
           }
         },
-        "tags": [
-          "General"
-        ]
+        "tags": ["General"]
       }
     },
     "/profiles": {
@@ -75,9 +71,7 @@
             }
           }
         },
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       },
       "post": {
         "summary": "Create Profile",
@@ -115,9 +109,7 @@
             }
           }
         },
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       }
     },
     "/profiles/{profile_id}": {
@@ -158,9 +150,7 @@
             }
           }
         },
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       },
       "put": {
         "summary": "Update Profile",
@@ -209,9 +199,7 @@
             }
           }
         },
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       },
       "delete": {
         "summary": "Delete Profile",
@@ -248,9 +236,7 @@
             }
           }
         },
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       }
     },
     "/profiles/{profile_id}/samples": {
@@ -301,9 +287,7 @@
             }
           }
         },
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       },
       "get": {
         "summary": "Get Profile Samples",
@@ -346,9 +330,7 @@
             }
           }
         },
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       }
     },
     "/profiles/samples/{sample_id}": {
@@ -387,9 +369,7 @@
             }
           }
         },
-        "tags": [
-          "Profiles"
-        ]
+        "tags": ["Profiles"]
       }
     },
     "/generate": {
@@ -429,9 +409,7 @@
             }
           }
         },
-        "tags": [
-          "Generation"
-        ]
+        "tags": ["Generation"]
       }
     },
     "/history": {
@@ -515,9 +493,7 @@
             }
           }
         },
-        "tags": [
-          "History"
-        ]
+        "tags": ["History"]
       }
     },
     "/history/{generation_id}": {
@@ -558,9 +534,7 @@
             }
           }
         },
-        "tags": [
-          "History"
-        ]
+        "tags": ["History"]
       },
       "delete": {
         "summary": "Delete Generation",
@@ -597,9 +571,7 @@
             }
           }
         },
-        "tags": [
-          "History"
-        ]
+        "tags": ["History"]
       }
     },
     "/history/stats": {
@@ -617,9 +589,7 @@
             }
           }
         },
-        "tags": [
-          "History"
-        ]
+        "tags": ["History"]
       }
     },
     "/transcribe": {
@@ -659,9 +629,7 @@
             }
           }
         },
-        "tags": [
-          "Generation"
-        ]
+        "tags": ["Generation"]
       }
     },
     "/audio/{generation_id}": {
@@ -700,9 +668,7 @@
             }
           }
         },
-        "tags": [
-          "Generation"
-        ]
+        "tags": ["Generation"]
       }
     },
     "/models/load": {
@@ -742,9 +708,7 @@
             }
           }
         },
-        "tags": [
-          "Models"
-        ]
+        "tags": ["Models"]
       }
     },
     "/models/unload": {
@@ -762,9 +726,7 @@
             }
           }
         },
-        "tags": [
-          "Models"
-        ]
+        "tags": ["Models"]
       }
     },
     "/models/progress/{model_name}": {
@@ -803,9 +765,7 @@
             }
           }
         },
-        "tags": [
-          "Models"
-        ]
+        "tags": ["Models"]
       }
     },
     "/models/status": {
@@ -825,9 +785,7 @@
             }
           }
         },
-        "tags": [
-          "Models"
-        ]
+        "tags": ["Models"]
       }
     },
     "/models/download": {
@@ -865,9 +823,7 @@
             }
           }
         },
-        "tags": [
-          "Models"
-        ]
+        "tags": ["Models"]
       }
     }
   },
@@ -886,10 +842,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "file",
-          "reference_text"
-        ],
+        "required": ["file", "reference_text"],
         "title": "Body_add_profile_sample_profiles__profile_id__samples_post"
       },
       "Body_transcribe_audio_transcribe_post": {
@@ -912,9 +865,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "file"
-        ],
+        "required": ["file"],
         "title": "Body_transcribe_audio_transcribe_post"
       },
       "GenerationRequest": {
@@ -962,10 +913,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "profile_id",
-          "text"
-        ],
+        "required": ["profile_id", "text"],
         "title": "GenerationRequest",
         "description": "Request model for voice generation."
       },
@@ -1088,11 +1036,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "status",
-          "model_loaded",
-          "gpu_available"
-        ],
+        "required": ["status", "model_loaded", "gpu_available"],
         "title": "HealthResponse",
         "description": "Response model for health check."
       },
@@ -1111,10 +1055,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "items",
-          "total"
-        ],
+        "required": ["items", "total"],
         "title": "HistoryListResponse",
         "description": "Response model for history list."
       },
@@ -1188,9 +1129,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "model_name"
-        ],
+        "required": ["model_name"],
         "title": "ModelDownloadRequest",
         "description": "Request model for triggering model download."
       },
@@ -1226,11 +1165,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "model_name",
-          "display_name",
-          "downloaded"
-        ],
+        "required": ["model_name", "display_name", "downloaded"],
         "title": "ModelStatus",
         "description": "Response model for model status."
       },
@@ -1245,9 +1180,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "models"
-        ],
+        "required": ["models"],
         "title": "ModelStatusListResponse",
         "description": "Response model for model status list."
       },
@@ -1271,12 +1204,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "id",
-          "profile_id",
-          "audio_path",
-          "reference_text"
-        ],
+        "required": ["id", "profile_id", "audio_path", "reference_text"],
         "title": "ProfileSampleResponse",
         "description": "Response model for profile sample."
       },
@@ -1292,10 +1220,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "text",
-          "duration"
-        ],
+        "required": ["text", "duration"],
         "title": "TranscriptionResponse",
         "description": "Response model for transcription."
       },
@@ -1325,11 +1250,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "loc",
-          "msg",
-          "type"
-        ],
+        "required": ["loc", "msg", "type"],
         "title": "ValidationError"
       },
       "VoiceProfileCreate": {
@@ -1360,9 +1281,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": ["name"],
         "title": "VoiceProfileCreate",
         "description": "Request model for creating a voice profile."
       },
@@ -1403,14 +1322,7 @@
           }
         },
         "type": "object",
-        "required": [
-          "id",
-          "name",
-          "description",
-          "language",
-          "created_at",
-          "updated_at"
-        ],
+        "required": ["id", "name", "description", "language", "created_at", "updated_at"],
         "title": "VoiceProfileResponse",
         "description": "Response model for voice profile."
       }

@@ -4,11 +4,7 @@ import { ArrowRight, Check, Coffee, Mail } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Footer } from '@/components/Footer';
 import { Navbar } from '@/components/Navbar';
-import {
-  DONATE_URL,
-  SPONSOR_CHECKOUT_URL,
-  SPONSOR_CONTACT_EMAIL,
-} from '@/lib/constants';
+import { DONATE_URL, SPONSOR_CHECKOUT_URL, SPONSOR_CONTACT_EMAIL } from '@/lib/constants';
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
@@ -65,9 +61,9 @@ export default function SponsorsPage() {
             className="fade-in mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl"
             style={{ animationDelay: '200ms' }}
           >
-            Voicebox is the open-source AI voice studio used by creators, podcasters, voice
-            artists, writers, developers, accessibility users, and curious humans all over the
-            world. Sponsor the project, get your logo in front of all of them.
+            Voicebox is the open-source AI voice studio used by creators, podcasters, voice artists,
+            writers, developers, accessibility users, and curious humans all over the world. Sponsor
+            the project, get your logo in front of all of them.
           </p>
 
           <div
@@ -119,18 +115,13 @@ export default function SponsorsPage() {
               label="Monthly site visitors"
               note="voicebox.sh, last 30 days · growing 5×"
             />
-            <Stat
-              value="Millions"
-              label="Social reach"
-              note="Tutorials, reels, TikToks"
-            />
+            <Stat value="Millions" label="Social reach" note="Tutorials, reels, TikToks" />
           </div>
 
           <p className="text-center text-sm text-muted-foreground mt-10 max-w-2xl mx-auto">
             Voicebox users are content creators, podcasters, voice artists, writers, developers,
-            accessibility users, hobbyists, and AI enthusiasts. They picked a local-first tool
-            over a cloud subscription — they care about owning their software and the brands
-            behind it.
+            accessibility users, hobbyists, and AI enthusiasts. They picked a local-first tool over
+            a cloud subscription — they care about owning their software and the brands behind it.
           </p>
         </div>
       </section>
@@ -155,9 +146,9 @@ export default function SponsorsPage() {
               voicebox.sh — directly below the hero.
             </h3>
             <p className="text-sm md:text-base text-muted-foreground leading-relaxed max-w-2xl mb-8">
-              Your logo lives in the prime slot on the homepage — the first thing every visitor
-              sees after the hero. Same row as every other VIP Sponsor, linked to your URL
-              of choice. This is the placement that actually moves the needle.
+              Your logo lives in the prime slot on the homepage — the first thing every visitor sees
+              after the hero. Same row as every other VIP Sponsor, linked to your URL of choice.
+              This is the placement that actually moves the needle.
             </p>
 
             {/* Preview of what the placement looks like on the homepage */}
@@ -276,13 +267,11 @@ export default function SponsorsPage() {
           </div>
 
           <div className="rounded-xl border border-border bg-card/40 backdrop-blur-sm p-6">
-            <h3 className="text-[15px] font-semibold text-foreground mb-3">
-              Who we accept
-            </h3>
+            <h3 className="text-[15px] font-semibold text-foreground mb-3">Who we accept</h3>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Voicebox is local-first and privacy-first. We don't accept sponsorships from
-              companies whose business model conflicts with that — voice-data brokers, ad-tech
-              built on speech, or surveillance vendors. Everyone else is welcome.
+              Voicebox is local-first and privacy-first. We don't accept sponsorships from companies
+              whose business model conflicts with that — voice-data brokers, ad-tech built on
+              speech, or surveillance vendors. Everyone else is welcome.
             </p>
           </div>
         </div>

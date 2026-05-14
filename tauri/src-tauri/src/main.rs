@@ -383,7 +383,7 @@ async fn start_server(
                 Ok(output) => {
                     // Output format: "voicebox-server X.Y.Z\n"
                     let version_str = String::from_utf8_lossy(&output.stdout);
-                    let binary_version = version_str.trim().split_whitespace().last().unwrap_or("");
+                    let binary_version = version_str.split_whitespace().last().unwrap_or("");
                     if binary_version == app_version {
                         println!("CUDA binary version {} matches app version", binary_version);
                         true
@@ -434,17 +434,17 @@ async fn start_server(
                     return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
                 }
 
-                eprintln!("");
+                eprintln!();
                 eprintln!("=================================================================");
                 eprintln!("DEV MODE: No server found on port {}", SERVER_PORT);
-                eprintln!("");
+                eprintln!();
                 eprintln!("Start the Python server in a separate terminal:");
                 eprintln!("  bun run dev:server");
                 eprintln!("=================================================================");
-                eprintln!("");
+                eprintln!();
             }
 
-            return Err(format!("Failed to start server. In dev mode, run 'bun run dev:server' in a separate terminal."));
+            return Err("Failed to start server. In dev mode, run 'bun run dev:server' in a separate terminal.".to_string());
         }
     };
 
@@ -511,14 +511,14 @@ async fn start_server(
                     return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
                 }
 
-                eprintln!("");
+                eprintln!();
                 eprintln!("=================================================================");
                 eprintln!("DEV MODE: Server binary failed to start");
-                eprintln!("");
+                eprintln!();
                 eprintln!("Start the Python server in a separate terminal:");
                 eprintln!("  bun run dev:server");
                 eprintln!("=================================================================");
-                eprintln!("");
+                eprintln!();
                 return Err("Dev mode: Start server manually with 'bun run dev:server'".to_string());
             }
 
@@ -633,14 +633,14 @@ async fn start_server(
                         return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
                     }
 
-                    eprintln!("");
+                    eprintln!();
                     eprintln!("=================================================================");
                     eprintln!("DEV MODE: No bundled server binary available");
-                    eprintln!("");
+                    eprintln!();
                     eprintln!("Start the Python server in a separate terminal:");
                     eprintln!("  bun run dev:server");
                     eprintln!("=================================================================");
-                    eprintln!("");
+                    eprintln!();
                     return Err("Dev mode: Start server manually with 'bun run dev:server'".to_string());
                 }
 
@@ -1458,7 +1458,7 @@ pub fn run() {
                             .build()
                             .unwrap();
                         match client
-                            .post(&format!("http://127.0.0.1:{}/watchdog/disable", SERVER_PORT))
+                            .post(format!("http://127.0.0.1:{}/watchdog/disable", SERVER_PORT))
                             .send()
                         {
                             Ok(resp) => println!("Watchdog disable response: {}", resp.status()),
