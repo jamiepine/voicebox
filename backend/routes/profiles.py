@@ -236,7 +236,14 @@ async def upload_profile_avatar(
     db: Session = Depends(get_db),
 ):
     """Upload or update avatar image for a profile."""
-    suffix = Path(file.filename or "").suffix or ".png"
+    _ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
+    _raw_ext = Path(file.filename or "").suffix.lower()
+    if _raw_ext and _raw_ext not in _ALLOWED_IMAGE_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported image format '{_raw_ext}'. Allowed: {sorted(_ALLOWED_IMAGE_EXTS)}",
+        )
+    suffix = _raw_ext if _raw_ext in _ALLOWED_IMAGE_EXTS else ".png"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         total_size = 0
         while chunk := await file.read(AVATAR_UPLOAD_CHUNK_SIZE):
