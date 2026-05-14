@@ -6,6 +6,8 @@ const search = createFromSource(source, {
   language: 'english',
 });
 
-export const GET = process.env.NEXT_STATIC_EXPORT
+const isStaticExport = process.env.NEXT_STATIC_EXPORT === 'true';
+
+export const GET = isStaticExport
   ? search.staticGET
   : search.GET;
