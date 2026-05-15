@@ -69,10 +69,10 @@ setup-python:
     }
     Write-Host "Installing Python dependencies..."
     & "{{ python }}" -m pip install --upgrade pip -q
-    $gpus = Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name
-    Write-Host "Detected GPUs: $($gpus -join ', ')"
-    $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0
-    $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0
+    $gpus = Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name; \
+    Write-Host "Detected GPUs: $($gpus -join ', ')"; \
+    $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0; \
+    $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0; \
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
         & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
