@@ -77,6 +77,36 @@ def is_model_cached(
         return False
 
 
+def _detect_iris_igpu() -> bool:
+    """
+    Detect if system has Intel Iris integrated GPU (Windows).
+
+    Iris iGPU is typically found on:
+    - Intel i5/i7 12th-14th gen (Alder Lake, Raptor Lake) with Iris Xe Graphics
+    - Intel Arc A-series mobile discrete GPUs also work with this path
+
+    Returns True if Iris/Intel iGPU detected, False otherwise.
+    """
+    if platform.system() != "Windows":
+        return False
+
+    try:
+        import wmi
+        wmi_obj = wmi.WMI()
+        for item in wmi_obj.Win32_VideoController():
+            name = item.Name or ""
+            # Match Intel Iris, UHD, Arc Graphics names
+            if any(intel_gfx in name for intel_gfx in ["Iris", "UHD Graphics", "Arc", "Intel Arc"]):
+                logger.info(f"Detected Intel iGPU: {name}")
+                return True
+    except (ImportError, Exception) as e:
+        logger.debug(f"Could not detect Iris iGPU via WMI: {e}")
+        # Fallback: just try DirectML and log what's available
+        pass
+
+    return False
+
+
 def get_torch_device(
     *,
     allow_xpu: bool = False,
@@ -92,6 +122,9 @@ def get_torch_device(
         allow_directml: Check for DirectML (Windows) support.
         allow_mps: Allow MPS (Apple Silicon). If False, MPS falls back to CPU.
         force_cpu_on_mac: Force CPU on macOS regardless of GPU availability.
+
+    Priority: CUDA > XPU > DirectML > MPS > CPU
+    DirectML on Windows covers Intel iGPU (Iris/UHD), AMD iGPU, Arc discrete.
     """
     if force_cpu_on_mac and platform.system() == "Darwin":
         return "cpu"
@@ -106,6 +139,7 @@ def get_torch_device(
             import intel_extension_for_pytorch  # noqa: F401
 
             if hasattr(torch, "xpu") and torch.xpu.is_available():
+                logger.info("Using Intel XPU device")
                 return "xpu"
         except ImportError:
             pass
@@ -114,15 +148,26 @@ def get_torch_device(
         try:
             import torch_directml
 
-            if torch_directml.device_count() > 0:
-                return torch_directml.device(0)
+            device_count = torch_directml.device_count()
+            if device_count > 0:
+                device = torch_directml.device(0)
+                iris_detected = _detect_iris_igpu()
+                if iris_detected:
+                    logger.info(f"Using DirectML device (Intel Iris iGPU detected)")
+                else:
+                    logger.info(f"Using DirectML device (Windows GPU acceleration via DirectML)")
+                return device
         except ImportError:
-            pass
+            logger.debug("torch_directml not installed, falling back to CPU or MPS")
+        except Exception as e:
+            logger.warning(f"DirectML initialization failed: {e}, falling back to CPU or MPS")
 
     if allow_mps:
         if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            logger.info("Using MPS (Apple Metal Performance Shaders)")
             return "mps"
 
+    logger.info("No GPU detected, using CPU")
     return "cpu"
 
 

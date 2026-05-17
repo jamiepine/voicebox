@@ -33,7 +33,7 @@ class PyTorchTTSBackend:
         self._current_model_size = None
 
     def _get_device(self) -> str:
-        """Get the best available device."""
+        """Get the best available device (CUDA > XPU > DirectML > CPU)."""
         return get_torch_device(allow_xpu=True, allow_directml=True)
 
     def is_loaded(self) -> bool:
@@ -255,7 +255,7 @@ class PyTorchSTTBackend:
         self.device = self._get_device()
 
     def _get_device(self) -> str:
-        """Get the best available device."""
+        """Get the best available device (CUDA > XPU > DirectML > CPU)."""
         return get_torch_device(allow_xpu=True, allow_directml=True)
 
     def is_loaded(self) -> bool:
