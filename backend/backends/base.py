@@ -153,9 +153,9 @@ def get_torch_device(
                 device = torch_directml.device(0)
                 iris_detected = _detect_iris_igpu()
                 if iris_detected:
-                    logger.info(f"Using DirectML device (Intel Iris iGPU detected)")
+                    logger.info("Using DirectML device (Intel Iris iGPU detected)")
                 else:
-                    logger.info(f"Using DirectML device (Windows GPU acceleration via DirectML)")
+                    logger.info("Using DirectML device (Windows GPU acceleration via DirectML)")
                 return device
         except ImportError:
             logger.debug("torch_directml not installed, falling back to CPU or MPS")
