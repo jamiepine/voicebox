@@ -2,7 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useMatchRoute } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Dices, Loader2, SlidersHorizontal, Sparkles, Wand2 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils/cn';
 import { useGenerationStore } from '@/stores/generationStore';
 import { useStoryStore } from '@/stores/storyStore';
 import { useUIStore } from '@/stores/uiStore';
-import { EngineModelSelector } from './EngineModelSelector';
+import { EngineModelSelector, isProfileCompatibleWithEngine } from './EngineModelSelector';
 import { ParalinguisticInput } from './ParalinguisticInput';
 
 interface FloatingGenerateBoxProps {
@@ -128,15 +128,27 @@ export function FloatingGenerateBox({
     };
   }, [isExpanded]);
 
-  // Set first voice as default if none selected
-  useEffect(() => {
-    if (!selectedProfileId && profiles && profiles.length > 0) {
-      setSelectedProfileId(profiles[0].id);
-    }
-  }, [selectedProfileId, profiles, setSelectedProfileId]);
-
   // Sync engine selection to global store so ProfileList can filter
   const watchedEngine = form.watch('engine');
+  const activeEngine = watchedEngine || 'qwen';
+  const compatibleProfiles = useMemo(
+    () => (profiles ?? []).filter((profile) => isProfileCompatibleWithEngine(profile, activeEngine)),
+    [profiles, activeEngine],
+  );
+
+  // Set/select a voice that is compatible with the active engine.
+  useEffect(() => {
+    if (!profiles || profiles.length === 0) return;
+    if (!selectedProfileId) {
+      setSelectedProfileId(compatibleProfiles[0]?.id ?? null);
+      return;
+    }
+    const selected = profiles.find((profile) => profile.id === selectedProfileId);
+    if (selected && !isProfileCompatibleWithEngine(selected, activeEngine)) {
+      setSelectedProfileId(compatibleProfiles[0]?.id ?? null);
+    }
+  }, [activeEngine, compatibleProfiles, profiles, selectedProfileId, setSelectedProfileId]);
+
   useEffect(() => {
     if (watchedEngine) {
       setSelectedEngine(watchedEngine);
@@ -151,10 +163,19 @@ export function FloatingGenerateBox({
     | 'chatterbox_turbo'
     | 'tada'
     | 'kokoro'
-    | 'qwen_custom_voice';
+    | 'qwen_custom_voice'
+    | 'qwen_voice_design';
   useEffect(() => {
+    if (selectedProfile && !isProfileCompatibleWithEngine(selectedProfile, activeEngine)) {
+      return;
+    }
     if (selectedProfile?.language) {
       form.setValue('language', selectedProfile.language as LanguageCode);
+    }
+    if (selectedProfile?.voice_type === 'designed') {
+      form.setValue('engine', 'qwen_voice_design');
+      form.setValue('modelSize', '1.7B');
+      return;
     }
     // Auto-switch engine to match the profile
     const engine = selectedProfile?.default_engine ?? selectedProfile?.preset_engine;
@@ -195,7 +216,7 @@ export function FloatingGenerateBox({
     if (selectedProfile && !selectedProfile.personality?.trim()) {
       form.setValue('personality', false);
     }
-  }, [selectedProfile, effectPresets, form]);
+  }, [activeEngine, selectedProfile, effectPresets, form]);
 
   // Auto-resize textarea based on content (only when expanded)
   useEffect(() => {
@@ -438,7 +459,9 @@ export function FloatingGenerateBox({
 
                 {/* Instruct toggle — only for Qwen CustomVoice, which actually honors the kwarg */}
                 <AnimatePresence>
-                  {isExpanded && form.watch('engine') === 'qwen_custom_voice' && (
+                  {isExpanded &&
+                    (form.watch('engine') === 'qwen_custom_voice' ||
+                      form.watch('engine') === 'qwen_voice_design') && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -507,7 +530,9 @@ export function FloatingGenerateBox({
 
             {/* Additive instruct textarea — shown below main text when toggle is on and engine supports it */}
             <AnimatePresence>
-              {isInstructExpanded && form.watch('engine') === 'qwen_custom_voice' && (
+              {isInstructExpanded &&
+                (form.watch('engine') === 'qwen_custom_voice' ||
+                  form.watch('engine') === 'qwen_voice_design') && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -556,11 +581,20 @@ export function FloatingGenerateBox({
                           <SelectValue placeholder={t('generation.voiceSelector.placeholder')} />
                         </SelectTrigger>
                         <SelectContent>
-                          {profiles?.map((profile) => (
-                            <SelectItem key={profile.id} value={profile.id} className="text-xs">
-                              {profile.name}
-                            </SelectItem>
-                          ))}
+                          {profiles?.map((profile) => {
+                            const isCompatible = isProfileCompatibleWithEngine(profile, activeEngine);
+                            return (
+                              <SelectItem
+                                key={profile.id}
+                                value={profile.id}
+                                disabled={!isCompatible}
+                                className={cn('text-xs', !isCompatible && 'opacity-40')}
+                              >
+                                {profile.name}
+                                {profile.voice_type === 'designed' ? ' · designed' : ''}
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>

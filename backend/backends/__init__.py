@@ -154,6 +154,17 @@ class STTBackend(Protocol):
         """
         ...
 
+    async def transcribe_word_timestamps(
+        self,
+        audio_path: str,
+        language: Optional[str] = None,
+        model_size: Optional[str] = None,
+    ) -> list[dict]:
+        """
+        Transcribe audio and return word-level timestamp dictionaries.
+        """
+        ...
+
     def unload_model(self) -> None:
         """Unload model to free memory."""
         ...
@@ -210,6 +221,7 @@ _llm_backends_lock = threading.Lock()
 TTS_ENGINES = {
     "qwen": "Qwen TTS",
     "qwen_custom_voice": "Qwen CustomVoice",
+    "qwen_voice_design": "Qwen VoiceDesign",
     "luxtts": "LuxTTS",
     "chatterbox": "Chatterbox TTS",
     "chatterbox_turbo": "Chatterbox Turbo",
@@ -276,6 +288,22 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             hf_repo_id="Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
             model_size="0.6B",
             size_mb=1200,
+            supports_instruct=True,
+            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+        ),
+    ]
+
+
+def _get_qwen_voice_design_configs() -> list[ModelConfig]:
+    """Return Qwen VoiceDesign model configs."""
+    return [
+        ModelConfig(
+            model_name="qwen-voice-design-1.7B",
+            display_name="Qwen VoiceDesign 1.7B",
+            engine="qwen_voice_design",
+            hf_repo_id="Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+            model_size="1.7B",
+            size_mb=4520,
             supports_instruct=True,
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
@@ -464,6 +492,7 @@ def get_all_model_configs() -> list[ModelConfig]:
     return (
         _get_qwen_model_configs()
         + _get_qwen_custom_voice_configs()
+        + _get_qwen_voice_design_configs()
         + _get_non_qwen_tts_configs()
         + _get_whisper_configs()
         + _get_qwen_llm_configs()
@@ -472,7 +501,12 @@ def get_all_model_configs() -> list[ModelConfig]:
 
 def get_tts_model_configs() -> list[ModelConfig]:
     """Return only TTS model configs."""
-    return _get_qwen_model_configs() + _get_qwen_custom_voice_configs() + _get_non_qwen_tts_configs()
+    return (
+        _get_qwen_model_configs()
+        + _get_qwen_custom_voice_configs()
+        + _get_qwen_voice_design_configs()
+        + _get_non_qwen_tts_configs()
+    )
 
 
 def get_llm_model_configs() -> list[ModelConfig]:
@@ -506,6 +540,8 @@ def engine_needs_trim(engine: str) -> bool:
 
 def engine_has_model_sizes(engine: str) -> bool:
     """Whether this engine supports multiple model sizes (only Qwen currently)."""
+    if engine == "qwen_voice_design":
+        return True
     configs = [c for c in get_tts_model_configs() if c.engine == engine]
     return len(configs) > 1
 
@@ -513,9 +549,12 @@ def engine_has_model_sizes(engine: str) -> bool:
 async def load_engine_model(engine: str, model_size: str = "default") -> None:
     """Load a model for the given engine, handling engines with multiple model sizes."""
     backend = get_tts_backend_for_engine(engine)
-    if engine in ("qwen", "qwen_custom_voice"):
+    if engine in ("qwen", "qwen_custom_voice", "qwen_voice_design"):
         await backend.load_model_async(model_size)
     elif engine == "tada":
+        from .hume_backend import normalize_tada_model_size
+
+        model_size = normalize_tada_model_size(model_size)
         await backend.load_model(model_size)
     else:
         await backend.load_model()
@@ -532,18 +571,28 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
             cfg = c
             break
 
-    if engine in ("qwen", "qwen_custom_voice", "tada"):
+    if engine == "tada":
+        from .hume_backend import normalize_tada_model_size
+
+        model_size = normalize_tada_model_size(model_size)
+        cfg = next((c for c in get_tts_model_configs() if c.engine == engine and c.model_size == model_size), cfg)
         if not backend._is_model_cached(model_size):
             raise HTTPException(
                 status_code=400,
-                detail=f"Model {model_size} is not downloaded yet. Use /generate to trigger a download.",
+                detail=f"Model {model_size} is not downloaded locally. Download it manually before generating.",
+            )
+    elif engine in ("qwen", "qwen_custom_voice", "qwen_voice_design"):
+        if not backend._is_model_cached(model_size):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model {model_size} is not downloaded locally. Download it manually before generating.",
             )
     else:
         if not backend._is_model_cached():
             display = cfg.display_name if cfg else engine
             raise HTTPException(
                 status_code=400,
-                detail=f"{display} model is not downloaded yet. Use /generate to trigger a download.",
+                detail=f"{display} model is not downloaded locally. Download it manually before generating.",
             )
 
 
@@ -575,7 +624,7 @@ def unload_model_by_config(config: ModelConfig) -> bool:
             return True
         return False
 
-    if config.engine == "qwen_custom_voice":
+    if config.engine in ("qwen_custom_voice", "qwen_voice_design"):
         backend = get_tts_backend_for_engine(config.engine)
         loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
         if backend.is_loaded() and loaded_size == config.model_size:
@@ -611,7 +660,7 @@ def check_model_loaded(config: ModelConfig) -> bool:
             loaded_size = getattr(tts_model, "_current_model_size", None) or getattr(tts_model, "model_size", None)
             return tts_model.is_loaded() and loaded_size == config.model_size
 
-        if config.engine == "qwen_custom_voice":
+        if config.engine in ("qwen_custom_voice", "qwen_voice_design"):
             backend = get_tts_backend_for_engine(config.engine)
             loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
             return backend.is_loaded() and loaded_size == config.model_size
@@ -633,11 +682,16 @@ def get_model_load_func(config: ModelConfig):
     if config.engine == "qwen":
         return lambda: tts.get_tts_model().load_model(config.model_size)
 
-    if config.engine == "qwen_custom_voice":
+    if config.engine in ("qwen_custom_voice", "qwen_voice_design"):
         return lambda: get_tts_backend_for_engine(config.engine).load_model(config.model_size)
 
     if config.engine == "qwen_llm":
         return lambda: llm_service.get_llm_model().load_model(config.model_size)
+
+    if config.engine == "tada":
+        from .hume_backend import normalize_tada_model_size
+
+        return lambda: get_tts_backend_for_engine(config.engine).load_model(normalize_tada_model_size(config.model_size))
 
     return lambda: get_tts_backend_for_engine(config.engine).load_model()
 
@@ -708,11 +762,51 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 
             backend = QwenCustomVoiceBackend()
+        elif engine == "qwen_voice_design":
+            from .qwen_voice_design_backend import QwenVoiceDesignBackend
+
+            backend = QwenVoiceDesignBackend()
         else:
             raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
 
         _tts_backends[engine] = backend
         return backend
+
+
+def drop_tts_backend_for_engine(engine: str) -> bool:
+    """Unload and forget one TTS backend instance so Python can release VRAM refs."""
+    global _tts_backends
+    with _tts_backends_lock:
+        backend = _tts_backends.pop(engine, None)
+    if backend is None:
+        return False
+    try:
+        backend.unload_model()
+    finally:
+        return True
+
+
+def unload_all_tts_backends() -> int:
+    """Unload and forget all TTS backend instances currently held in memory."""
+    global _tts_backend, _tts_backends
+    with _tts_backends_lock:
+        backends = list(_tts_backends.values())
+        _tts_backends.clear()
+        legacy_backend = _tts_backend
+        _tts_backend = None
+    if legacy_backend is not None and legacy_backend not in backends:
+        backends.append(legacy_backend)
+
+    unloaded = 0
+    for backend in backends:
+        try:
+            backend.unload_model()
+            unloaded += 1
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).debug("Failed to unload TTS backend", exc_info=True)
+    return unloaded
 
 
 def get_stt_backend() -> STTBackend:

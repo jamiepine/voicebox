@@ -234,11 +234,25 @@ async def _run_startup(application: FastAPI) -> None:
 
     init_queue()
 
-    # Mark stale "generating" records as failed -- leftovers from a killed process
+    # Mark stale "generating" records as failed -- leftovers from a killed process.
+    # Dubbing segments must also be detached, otherwise an interrupted session can
+    # leave a project unable to regenerate after the next app start.
     from sqlalchemy import text as sa_text
 
     db = next(get_db())
     try:
+        reset_result = db.execute(
+            sa_text(
+                "UPDATE dubbing_segments "
+                "SET generation_id = NULL, status = 'pending', fit_status = 'unknown', "
+                "actual_duration_ms = NULL, delta_ms = NULL "
+                "WHERE generation_id IN ("
+                "  SELECT id FROM generations "
+                "  WHERE status IN ('generating', 'loading_model') "
+                "  AND source = 'dubbing_segment'"
+                ")"
+            )
+        )
         result = db.execute(
             sa_text(
                 "UPDATE generations SET status = 'failed', "
@@ -246,6 +260,8 @@ async def _run_startup(application: FastAPI) -> None:
                 "WHERE status IN ('generating', 'loading_model')"
             )
         )
+        if reset_result.rowcount > 0:
+            logger.info("Reset %d stale dubbing segment(s)", reset_result.rowcount)
         if result.rowcount > 0:
             logger.info("Marked %d stale generation(s) as failed", result.rowcount)
 

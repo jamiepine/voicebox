@@ -21,6 +21,7 @@ const ENGINE_OPTIONS = [
   { value: 'qwen:0.6B', label: 'Qwen3-TTS 0.6B', engine: 'qwen' },
   { value: 'qwen_custom_voice:1.7B', label: 'Qwen CustomVoice 1.7B', engine: 'qwen_custom_voice' },
   { value: 'qwen_custom_voice:0.6B', label: 'Qwen CustomVoice 0.6B', engine: 'qwen_custom_voice' },
+  { value: 'qwen_voice_design:1.7B', label: 'Qwen VoiceDesign 1.7B', engine: 'qwen_voice_design' },
   { value: 'luxtts', label: 'LuxTTS', engine: 'luxtts' },
   { value: 'chatterbox', label: 'Chatterbox', engine: 'chatterbox' },
   { value: 'chatterbox_turbo', label: 'Chatterbox Turbo', engine: 'chatterbox_turbo' },
@@ -32,6 +33,7 @@ const ENGINE_OPTIONS = [
 const ENGINE_DESCRIPTIONS: Record<string, string> = {
   qwen: 'Multi-language, two sizes',
   qwen_custom_voice: '9 preset voices, instruct control',
+  qwen_voice_design: 'Text-designed voices, instruct control',
   luxtts: 'Fast, English-focused',
   chatterbox: '23 languages, incl. Hebrew',
   chatterbox_turbo: 'English, [laugh] [cough] tags',
@@ -45,25 +47,28 @@ const ENGLISH_ONLY_ENGINES = new Set(['luxtts', 'chatterbox_turbo']);
 /** Engines that support cloned (reference audio) profiles. */
 const CLONING_ENGINES = new Set(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada']);
 
-function getAvailableOptions(selectedProfile?: VoiceProfileResponse | null) {
-  if (!selectedProfile) return ENGINE_OPTIONS;
-  return ENGINE_OPTIONS.filter((opt) => isProfileCompatibleWithEngine(selectedProfile, opt.engine));
+function getAvailableOptions(_selectedProfile?: VoiceProfileResponse | null) {
+  return ENGINE_OPTIONS;
 }
 
 function getSelectValue(engine: string, modelSize?: string): string {
   if (engine === 'qwen') return `qwen:${modelSize || '1.7B'}`;
   if (engine === 'qwen_custom_voice') return `qwen_custom_voice:${modelSize || '1.7B'}`;
+  if (engine === 'qwen_voice_design') return `qwen_voice_design:${modelSize || '1.7B'}`;
   if (engine === 'tada') return `tada:${modelSize || '1B'}`;
   return engine;
 }
 
 export function applyEngineSelection(form: UseFormReturn<GenerationFormValues>, value: string) {
-  if (value.startsWith('qwen_custom_voice:')) {
+  if (value.startsWith('qwen_custom_voice:') || value.startsWith('qwen_voice_design:')) {
     const [, modelSize] = value.split(':');
-    form.setValue('engine', 'qwen_custom_voice');
+    const engine = value.startsWith('qwen_voice_design:')
+      ? 'qwen_voice_design'
+      : 'qwen_custom_voice';
+    form.setValue('engine', engine);
     form.setValue('modelSize', modelSize as '1.7B' | '0.6B');
     const currentLang = form.getValues('language');
-    const available = getLanguageOptionsForEngine('qwen_custom_voice');
+    const available = getLanguageOptionsForEngine(engine);
     if (!available.some((l) => l.value === currentLang)) {
       form.setValue('language', available[0]?.value ?? 'en');
     }
@@ -165,6 +170,7 @@ export function isProfileCompatibleWithEngine(
 ): boolean {
   const voiceType = profile.voice_type || 'cloned';
   if (voiceType === 'preset') return profile.preset_engine === engine;
+  if (voiceType === 'designed') return engine === 'qwen_voice_design';
   if (voiceType === 'cloned') return CLONING_ENGINES.has(engine);
   return true; // designed — future
 }

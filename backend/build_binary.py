@@ -8,6 +8,7 @@ Usage:
 
 import PyInstaller.__main__
 import argparse
+import json
 import logging
 import os
 import platform
@@ -20,6 +21,38 @@ logger = logging.getLogger(__name__)
 def is_apple_silicon():
     """Check if running on Apple Silicon."""
     return platform.system() == "Darwin" and platform.machine() == "arm64"
+
+
+def assert_cuda_torch_for_cuda_build():
+    """Fail fast if a CUDA binary would be built with CPU-only torch.
+
+    A PyInstaller CUDA package can still start with CPU torch, but the UI then
+    reports "CPU Only" even though voicebox-server-cuda.exe is selected. That is
+    worse than a failed build because it silently breaks the installed CUDA
+    backend. Keep this guard near the build entrypoint so future CUDA rebuilds
+    cannot regress into a fake CUDA runtime.
+    """
+    try:
+        import torch
+    except Exception as exc:
+        raise RuntimeError("CUDA build requires torch to be importable.") from exc
+
+    cuda_version = torch.version.cuda
+    if not cuda_version:
+        raise RuntimeError(
+            "Refusing CUDA build because the active torch is CPU-only "
+            f"({getattr(torch, '__version__', 'unknown')}). Install the CUDA "
+            "torch wheels first, for example torch/torchaudio 2.11.0+cu128."
+        )
+
+    logger.info("CUDA torch detected for CUDA build: torch %s, CUDA %s", torch.__version__, cuda_version)
+
+
+def pin_numpy_for_numba():
+    """Keep qwen_tts/numba compatible after torch wheel swaps."""
+    import subprocess
+
+    subprocess.run([sys.executable, "-m", "pip", "install", "numpy==2.0.0", "-q"], check=True)
 
 
 def build_server(cuda=False):
@@ -47,9 +80,14 @@ def build_server(cuda=False):
         binary_name,
     ]
 
+    runtime_tmpdir = os.getenv("VOICEBOX_RUNTIME_TMPDIR", "").strip()
+    if runtime_tmpdir:
+        args.extend(["--runtime-tmpdir", runtime_tmpdir])
+
     # Hide console window on Windows only. On macOS/Linux the sidecar needs
     # stdout/stderr for Tauri to capture logs.
-    if platform.system() == "Windows":
+    debug_console = os.getenv("VOICEBOX_DEBUG_CONSOLE", "").strip().lower() in {"1", "true", "yes"}
+    if platform.system() == "Windows" and not debug_console:
         args.append("--noconsole")
 
     # numpy 2.x / torch ABI mismatch fix: install memmove fallback for
@@ -110,6 +148,8 @@ def build_server(cuda=False):
             "backend.backends.pytorch_backend",
             "--hidden-import",
             "backend.backends.qwen_custom_voice_backend",
+            "--hidden-import",
+            "backend.backends.qwen_voice_design_backend",
             "--hidden-import",
             "backend.utils.audio",
             "--hidden-import",
@@ -199,6 +239,10 @@ def build_server(cuda=False):
             "safetensors",
             "--copy-metadata",
             "tqdm",
+            "--copy-metadata",
+            "fastmcp",
+            "--copy-metadata",
+            "mcp",
             "--hidden-import",
             "requests",
             # qwen_tts uses inspect.getsource() at runtime to locate
@@ -419,12 +463,20 @@ def build_server(cuda=False):
     # Change to backend directory
     os.chdir(backend_dir)
 
+    if cuda:
+        assert_cuda_torch_for_cuda_build()
+
     # For CPU builds on Windows, ensure we're using CPU-only torch.
     # If CUDA torch is installed (local dev), swap to CPU torch before building,
     # then restore CUDA torch after. This prevents PyInstaller from bundling
     # ~3GB of CUDA DLLs into the CPU binary.
     restore_cuda = False
-    if not cuda and platform.system() == "Windows":
+    skip_cpu_torch_swap = os.getenv("VOICEBOX_SKIP_CPU_TORCH_SWAP", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+    if not cuda and platform.system() == "Windows" and not skip_cpu_torch_swap:
         import subprocess
 
         result = subprocess.run(
@@ -449,6 +501,7 @@ def build_server(cuda=False):
                 ],
                 check=True,
             )
+            pin_numpy_for_numba()
             restore_cuda = True
 
     # Run PyInstaller
@@ -476,6 +529,12 @@ def build_server(cuda=False):
                 ],
                 check=True,
             )
+            pin_numpy_for_numba()
+
+    if cuda:
+        cuda_manifest = backend_dir / "dist" / binary_name / "cuda-libs.json"
+        cuda_manifest.write_text(json.dumps({"version": "cu128-v1"}, indent=2) + "\n")
+        logger.info("Wrote CUDA libs manifest: %s", cuda_manifest)
 
     logger.info("Binary built in %s", backend_dir / "dist" / binary_name)
 

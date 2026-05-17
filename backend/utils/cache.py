@@ -22,6 +22,24 @@ def _get_cache_dir() -> Path:
 _memory_cache: dict[str, Union[torch.Tensor, Dict[str, Any]]] = {}
 
 
+def _move_prompt_to_cpu(value: Any) -> Any:
+    """Return a CPU-only copy of a cached voice prompt structure.
+
+    SRT2Voice deliberately unloads CUDA models between heavy steps. Keeping a
+    cached voice prompt tensor on CUDA can pin VRAM and can also make the next
+    generation reuse tensors tied to a previous model/device lifetime.
+    """
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu()
+    if isinstance(value, dict):
+        return {key: _move_prompt_to_cpu(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_move_prompt_to_cpu(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_move_prompt_to_cpu(item) for item in value)
+    return value
+
+
 def get_cache_key(audio_path: str, reference_text: str) -> str:
     """
     Generate cache key from audio file and reference text.
@@ -64,7 +82,8 @@ def get_cached_voice_prompt(
     cache_file = _get_cache_dir() / f"{cache_key}.prompt"
     if cache_file.exists():
         try:
-            prompt = torch.load(cache_file, weights_only=True)
+            prompt = torch.load(cache_file, weights_only=True, map_location="cpu")
+            prompt = _move_prompt_to_cpu(prompt)
             _memory_cache[cache_key] = prompt
             return prompt
         except Exception:
@@ -85,12 +104,26 @@ def cache_voice_prompt(
         cache_key: Cache key
         voice_prompt: Voice prompt (dict or tensor)
     """
+    voice_prompt_cpu = _move_prompt_to_cpu(voice_prompt)
+
     # Store in memory
-    _memory_cache[cache_key] = voice_prompt
+    _memory_cache[cache_key] = voice_prompt_cpu
 
     # Store on disk (torch.save can handle both dicts and tensors)
     cache_file = _get_cache_dir() / f"{cache_key}.prompt"
-    torch.save(voice_prompt, cache_file)
+    torch.save(voice_prompt_cpu, cache_file)
+
+
+def clear_voice_prompt_memory_cache() -> int:
+    """Clear only in-process voice prompt cache.
+
+    Disk prompt files stay available, so the next generation can reload the
+    prompt without recomputing it while still allowing CUDA memory to be
+    released after unload-heavy workflows such as SRT2Voice.
+    """
+    count = len(_memory_cache)
+    _memory_cache.clear()
+    return count
 
 
 def clear_voice_prompt_cache() -> int:

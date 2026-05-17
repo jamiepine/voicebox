@@ -18,6 +18,7 @@ Languages supported (via misaki G2P):
 import asyncio
 import logging
 import os
+import re
 from typing import Optional
 
 import numpy as np
@@ -37,6 +38,7 @@ KOKORO_SAMPLE_RATE = 24000
 
 # Default voice if none specified
 KOKORO_DEFAULT_VOICE = "af_heart"
+KOKORO_MIN_TEXT_TOKENS = 3
 
 # All available Kokoro voices: (voice_id, display_name, gender, lang_code)
 KOKORO_VOICES = [
@@ -153,6 +155,22 @@ class KokoroTTSBackend:
             required_files=["config.json", "kokoro-v1_0.pth"],
         )
 
+    @staticmethod
+    def _pad_text_for_g2p(text: str) -> str:
+        """Normalize text before Kokoro G2P and avoid empty/ultra-short flows."""
+        normalized = re.sub(r"\s+", " ", (text or "").strip())
+        if not normalized:
+            normalized = "."
+        token_count = len(re.findall(r"[\wÀ-ÖØ-öø-ÿ]+|[^\w\s]", normalized, re.UNICODE))
+        if token_count >= KOKORO_MIN_TEXT_TOKENS:
+            return normalized
+        return f"{normalized}{' .' * (KOKORO_MIN_TEXT_TOKENS - token_count)}"
+
+    @staticmethod
+    def _is_short_sequence_error(exc: Exception) -> bool:
+        message = str(exc).lower()
+        return "kernel size" in message and "input size" in message
+
     async def load_model(self, model_size: str = "default") -> None:
         """Load the Kokoro model."""
         if self._model is not None:
@@ -268,15 +286,29 @@ class KokoroTTSBackend:
                     torch.cuda.manual_seed(seed)
 
             pipeline = self._get_pipeline(language)
+            safe_text = self._pad_text_for_g2p(text)
 
             # Generate all chunks and concatenate
             audio_chunks = []
-            for result in pipeline(text, voice=voice_name, speed=1.0):
-                if result.audio is not None:
-                    chunk = result.audio
-                    if isinstance(chunk, torch.Tensor):
-                        chunk = chunk.detach().cpu().numpy()
-                    audio_chunks.append(chunk.squeeze())
+            try:
+                for result in pipeline(safe_text, voice=voice_name, speed=1.0):
+                    if result.audio is not None:
+                        chunk = result.audio
+                        if isinstance(chunk, torch.Tensor):
+                            chunk = chunk.detach().cpu().numpy()
+                        audio_chunks.append(chunk.squeeze())
+            except RuntimeError as exc:
+                if not self._is_short_sequence_error(exc):
+                    raise
+                retry_text = self._pad_text_for_g2p(f"{safe_text} ...")
+                logger.warning("Kokoro short-sequence retry with padded text")
+                audio_chunks = []
+                for result in pipeline(retry_text, voice=voice_name, speed=1.0):
+                    if result.audio is not None:
+                        chunk = result.audio
+                        if isinstance(chunk, torch.Tensor):
+                            chunk = chunk.detach().cpu().numpy()
+                        audio_chunks.append(chunk.squeeze())
 
             if not audio_chunks:
                 # Return 1 second of silence as fallback

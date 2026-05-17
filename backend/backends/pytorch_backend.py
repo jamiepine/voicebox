@@ -23,6 +23,19 @@ from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_pr
 from ..utils.audio import load_audio
 
 
+def _move_prompt_to_device(value, device: str):
+    """Move a cached voice prompt structure to the active inference device."""
+    if isinstance(value, torch.Tensor):
+        return value.to(device)
+    if isinstance(value, dict):
+        return {key: _move_prompt_to_device(item, device) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_move_prompt_to_device(item, device) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_move_prompt_to_device(item, device) for item in value)
+    return value
+
+
 class PyTorchTTSBackend:
     """PyTorch-based TTS backend using Qwen3-TTS."""
 
@@ -206,6 +219,7 @@ class PyTorchTTSBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        temperature: Optional[float] = None,
     ) -> Tuple[np.ndarray, int]:
         """
         Generate audio from text using voice prompt.
@@ -222,6 +236,7 @@ class PyTorchTTSBackend:
         """
         # Load model
         await self.load_model_async(None)
+        voice_prompt = _move_prompt_to_device(voice_prompt, self.device)
 
         def _generate_sync():
             """Run synchronous generation in thread pool."""
@@ -236,6 +251,7 @@ class PyTorchTTSBackend:
                 voice_clone_prompt=voice_prompt,
                 language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
                 instruct=instruct,
+                temperature=temperature,
             )
             return wavs[0], sample_rate
 
@@ -375,4 +391,55 @@ class PyTorchSTTBackend:
             return transcription.strip()
 
         # Run blocking transcription in thread pool
+        return await asyncio.to_thread(_transcribe_sync)
+
+    async def transcribe_word_timestamps(
+        self,
+        audio_path: str,
+        language: Optional[str] = None,
+        model_size: Optional[str] = None,
+    ) -> list[dict]:
+        """Transcribe audio with Whisper word-level timestamps."""
+        await self.load_model_async(model_size)
+
+        def _transcribe_sync() -> list[dict]:
+            from transformers import pipeline
+
+            generate_kwargs = {}
+            if language:
+                forced_decoder_ids = self.processor.get_decoder_prompt_ids(
+                    language=language,
+                    task="transcribe",
+                )
+                generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
+
+            pipe = pipeline(
+                "automatic-speech-recognition",
+                model=self.model,
+                tokenizer=self.processor.tokenizer,
+                feature_extractor=self.processor.feature_extractor,
+                device=self.device,
+            )
+            result = pipe(
+                str(audio_path),
+                return_timestamps="word",
+                chunk_length_s=30,
+                generate_kwargs=generate_kwargs,
+            )
+            chunks = result.get("chunks", []) if isinstance(result, dict) else []
+            words: list[dict] = []
+            for chunk in chunks:
+                timestamp = chunk.get("timestamp") if isinstance(chunk, dict) else None
+                text = chunk.get("text", "") if isinstance(chunk, dict) else ""
+                if not timestamp or timestamp[0] is None or timestamp[1] is None:
+                    continue
+                words.append(
+                    {
+                        "word": str(text).strip(),
+                        "start": float(timestamp[0]),
+                        "end": float(timestamp[1]),
+                    }
+                )
+            return words
+
         return await asyncio.to_thread(_transcribe_sync)

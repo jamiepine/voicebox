@@ -66,7 +66,7 @@ async def generate_speech(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    from ..backends import engine_has_model_sizes
+    from ..backends import engine_has_model_sizes, ensure_model_cached_or_raise
 
     engine = _resolve_generation_engine(data, profile)
     try:
@@ -74,7 +74,13 @@ async def generate_speech(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
+    if engine == "tada":
+        model_size = data.model_size or "1B"
+    elif engine_has_model_sizes(engine):
+        model_size = data.model_size or "1.7B"
+    else:
+        model_size = None
+    await ensure_model_cached_or_raise(engine, model_size or "default")
 
     text = data.text
     source = "manual"
@@ -155,6 +161,10 @@ async def retry_generation(generation_id: str, db: Session = Depends(get_db)):
     if (gen.status or "completed") != "failed":
         raise HTTPException(status_code=400, detail="Only failed generations can be retried")
 
+    from ..backends import ensure_model_cached_or_raise
+
+    await ensure_model_cached_or_raise(gen.engine or "qwen", gen.model_size or "1.7B")
+
     gen.status = "generating"
     gen.error = None
     gen.audio_path = ""
@@ -198,6 +208,10 @@ async def regenerate_generation(generation_id: str, db: Session = Depends(get_db
         raise HTTPException(status_code=404, detail="Generation not found")
     if (gen.status or "completed") != "completed":
         raise HTTPException(status_code=400, detail="Generation must be completed to regenerate")
+
+    from ..backends import ensure_model_cached_or_raise
+
+    await ensure_model_cached_or_raise(gen.engine or "qwen", gen.model_size or "1.7B")
 
     gen.status = "generating"
     gen.error = None
@@ -321,7 +335,13 @@ async def stream_speech(
     db: Session = Depends(get_db),
 ):
     """Generate speech and stream the WAV audio directly without saving to disk."""
-    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim
+    from ..backends import (
+        get_tts_backend_for_engine,
+        ensure_model_cached_or_raise,
+        load_engine_model,
+        engine_has_model_sizes,
+        engine_needs_trim,
+    )
 
     profile = await profiles.get_profile(data.profile_id, db)
     if not profile:
@@ -333,7 +353,12 @@ async def stream_speech(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     tts_model = get_tts_backend_for_engine(engine)
-    model_size = data.model_size or "1.7B"
+    if engine == "tada":
+        model_size = data.model_size or "1B"
+    elif engine_has_model_sizes(engine):
+        model_size = data.model_size or "1.7B"
+    else:
+        model_size = "default"
 
     await ensure_model_cached_or_raise(engine, model_size)
     await load_engine_model(engine, model_size)

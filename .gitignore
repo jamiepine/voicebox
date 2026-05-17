@@ -7,6 +7,9 @@ __pycache__/
 *.so
 .Python
 venv/
+*.venv/
+.venv*/
+.conda*/
 env/
 ENV/
 *.prompt

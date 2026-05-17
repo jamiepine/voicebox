@@ -5,11 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useProfiles } from '@/lib/hooks/useProfiles';
 import { useUIStore } from '@/stores/uiStore';
+import { isProfileCompatibleWithEngine } from '../Generation/EngineModelSelector';
 import { ProfileCard } from './ProfileCard';
 import { ProfileForm } from './ProfileForm';
-
-/** Engines that use preset (built-in) voices instead of cloned profiles. */
-const PRESET_ENGINES = new Set(['kokoro', 'qwen_custom_voice']);
 
 export function ProfileList() {
   const { t } = useTranslation();
@@ -55,13 +53,9 @@ export function ProfileList() {
   }
 
   const allProfiles = profiles || [];
-  const isPresetEngine = PRESET_ENGINES.has(selectedEngine);
-
   /** Whether a profile is supported by the currently selected engine. */
   const isSupported = (p: (typeof allProfiles)[number]) =>
-    isPresetEngine
-      ? p.voice_type === 'preset' && p.preset_engine === selectedEngine
-      : p.voice_type !== 'preset';
+    isProfileCompatibleWithEngine(p, selectedEngine);
 
   // Sort so supported profiles come first
   const sortedProfiles = [...allProfiles].sort(

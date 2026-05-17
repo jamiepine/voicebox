@@ -126,6 +126,54 @@ class Project(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class DubbingProject(Base):
+    """An imported dubbing project driven by an SRT timeline."""
+
+    __tablename__ = "dubbing_projects"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    source_type = Column(String, nullable=False, default="srt")
+    source_path = Column(String, nullable=True)
+    engine = Column(String, nullable=False, default="qwen")
+    language = Column(String, nullable=False, default="fr")
+    profile_id = Column(String, ForeignKey("profiles.id"), nullable=True)
+    style_prompt = Column(Text, nullable=True)
+    pace_override = Column(Float, nullable=True)
+    temperature = Column(Float, nullable=True)
+    group_pace_overrides = Column(JSON, nullable=False, default=dict)
+    status = Column(String, nullable=False, default="draft")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DubbingSegment(Base):
+    """A single imported subtitle segment for timed dubbing."""
+
+    __tablename__ = "dubbing_segments"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    project_id = Column(String, ForeignKey("dubbing_projects.id"), nullable=False)
+    segment_order = Column(Integer, nullable=False)
+    srt_index = Column(Integer, nullable=False)
+    start_tc = Column(String, nullable=False)
+    end_tc = Column(String, nullable=False)
+    start_ms = Column(Integer, nullable=False)
+    end_ms = Column(Integer, nullable=False)
+    target_duration_ms = Column(Integer, nullable=False)
+    text_lines = Column(JSON, nullable=False, default=list)
+    text = Column(Text, nullable=False)
+    speaker = Column(String, nullable=True)
+    generation_id = Column(String, ForeignKey("generations.id"), nullable=True)
+    pace_group_id = Column(String, nullable=True)
+    actual_duration_ms = Column(Integer, nullable=True)
+    delta_ms = Column(Integer, nullable=True)
+    fit_status = Column(String, nullable=False, default="unknown")
+    status = Column(String, nullable=False, default="pending")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class GenerationVersion(Base):
     """A version of a generation's audio (original, processed, alternate takes)."""
 

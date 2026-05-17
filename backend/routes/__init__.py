@@ -19,6 +19,7 @@ def register_routers(app: FastAPI) -> None:
     from .models import router as models_router
     from .settings import router as settings_router
     from .tasks import router as tasks_router
+    from .dubbing import router as dubbing_router
     from .cuda import router as cuda_router
     from .speak import router as speak_router
     from .mcp_bindings import router as mcp_bindings_router
@@ -38,6 +39,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(models_router)
     app.include_router(settings_router)
     app.include_router(tasks_router)
+    app.include_router(dubbing_router)
     app.include_router(cuda_router)
     app.include_router(speak_router)
     app.include_router(mcp_bindings_router)

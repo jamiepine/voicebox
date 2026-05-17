@@ -43,6 +43,7 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_dubbing(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
 
 
@@ -263,6 +264,38 @@ def _migrate_mcp_bindings(engine, inspector, tables: set[str]) -> None:
             "default_personality",
         )
     if "default_intent" in columns:
+        if _supports_drop_column(engine):
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE mcp_client_bindings DROP COLUMN default_intent"))
+                conn.commit()
+            logger.info("Dropped legacy default_intent column from mcp_client_bindings")
+        else:
+            logger.warning(
+                "SQLite %s too old to DROP COLUMN (need 3.35+); leaving unused default_intent column on mcp_client_bindings in place.",
+                sqlite3.sqlite_version,
+            )
+
+
+def _migrate_dubbing(engine, inspector, tables: set[str]) -> None:
+    if "dubbing_projects" in tables:
+        columns = _get_columns(inspector, "dubbing_projects")
+        if "pace_override" not in columns:
+            _add_column(engine, "dubbing_projects", "pace_override FLOAT", "pace_override")
+        if "temperature" not in columns:
+            _add_column(engine, "dubbing_projects", "temperature FLOAT", "temperature")
+        if "group_pace_overrides" not in columns:
+            _add_column(
+                engine,
+                "dubbing_projects",
+                "group_pace_overrides JSON NOT NULL DEFAULT '{}'",
+                "group_pace_overrides",
+            )
+
+    if "dubbing_segments" in tables:
+        columns = _get_columns(inspector, "dubbing_segments")
+        if "pace_group_id" not in columns:
+            _add_column(engine, "dubbing_segments", "pace_group_id VARCHAR", "pace_group_id")
+    if False and "default_intent" in columns:
         if _supports_drop_column(engine):
             with engine.connect() as conn:
                 conn.execute(text("ALTER TABLE mcp_client_bindings DROP COLUMN default_intent"))

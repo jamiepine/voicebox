@@ -25,6 +25,7 @@ from ..utils.images import process_avatar, validate_image
 logger = logging.getLogger(__name__)
 
 CLONING_ENGINES = {"qwen", "luxtts", "chatterbox", "chatterbox_turbo", "tada"}
+DESIGNED_ENGINES = {"qwen_voice_design"}
 
 
 def _profile_to_response(
@@ -100,6 +101,8 @@ def _validate_profile_fields(
             return "Designed profiles require a design_prompt"
         if preset_engine or preset_voice_id:
             return "Designed profiles cannot set preset_engine or preset_voice_id"
+        if default_engine and default_engine not in DESIGNED_ENGINES:
+            return f"Designed profiles cannot use default engine '{default_engine}'"
         return None
 
     if preset_engine or preset_voice_id:
@@ -129,6 +132,10 @@ def validate_profile_engine(profile, engine: str) -> None:
         design_prompt = getattr(profile, "design_prompt", None)
         if not design_prompt or not design_prompt.strip():
             raise ValueError(f"Designed profile {profile.id} is missing design_prompt")
+        if engine not in DESIGNED_ENGINES:
+            raise ValueError(
+                f"Designed profile {profile.id} only supports engine 'qwen_voice_design', not '{engine}'"
+            )
         return
 
     if engine not in CLONING_ENGINES:
@@ -161,6 +168,8 @@ async def create_profile(
     voice_type = data.voice_type or "cloned"
     if voice_type == "preset" and data.preset_engine and not default_engine:
         default_engine = data.preset_engine
+    if voice_type == "designed" and not default_engine:
+        default_engine = "qwen_voice_design"
 
     validation_error = _validate_profile_fields(
         voice_type=voice_type,
@@ -384,7 +393,11 @@ async def update_profile(
     voice_type = getattr(profile, "voice_type", None) or "cloned"
     preset_engine = getattr(profile, "preset_engine", None)
     preset_voice_id = getattr(profile, "preset_voice_id", None)
-    design_prompt = getattr(profile, "design_prompt", None)
+    design_prompt = (
+        data.design_prompt
+        if data.design_prompt is not None
+        else getattr(profile, "design_prompt", None)
+    )
     default_engine = data.default_engine if data.default_engine is not None else getattr(profile, "default_engine", None)
 
     validation_error = _validate_profile_fields(
@@ -401,6 +414,8 @@ async def update_profile(
     profile.description = data.description
     profile.language = data.language
     profile.personality = data.personality
+    if voice_type == "designed" and data.design_prompt is not None:
+        profile.design_prompt = data.design_prompt
     if data.default_engine is not None:
         profile.default_engine = data.default_engine or None  # empty string → NULL
     profile.updated_at = datetime.utcnow()

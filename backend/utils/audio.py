@@ -2,6 +2,12 @@
 Audio processing utilities.
 """
 
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+import tempfile
 import numpy as np
 import soundfile as sf
 import librosa
@@ -108,6 +114,99 @@ def save_audio(
             pass  # Best effort cleanup
 
         raise OSError(f"Failed to save audio to {path}: {e}") from e
+
+
+def time_stretch_audio(audio: np.ndarray, rate: float) -> np.ndarray:
+    """
+    Time-stretch mono audio without changing pitch.
+
+    Args:
+        audio: Mono audio array.
+        rate: Playback rate. Values > 1.0 shorten the audio; values < 1.0 lengthen it.
+
+    Returns:
+        Time-stretched audio as float32.
+    """
+    rate = float(rate)
+    if rate <= 0:
+        raise ValueError("rate must be > 0")
+    if np.isclose(rate, 1.0, atol=1e-3):
+        return audio.astype(np.float32, copy=False)
+    stretched = librosa.effects.time_stretch(audio.astype(np.float32, copy=False), rate=rate)
+    return stretched.astype(np.float32, copy=False)
+
+
+def find_ffmpeg() -> str | None:
+    """Find a local ffmpeg executable without downloading anything."""
+    env_path = os.environ.get("VOICEBOX_FFMPEG_PATH")
+    candidates = [
+        Path(env_path) if env_path else None,
+        Path(sys.executable).resolve().parent / "ffmpeg.exe",
+        Path(sys.executable).resolve().parent / "_internal" / "ffmpeg.exe",
+        Path("C:/ffmpeg/bin/ffmpeg.exe"),
+    ]
+
+    path_ffmpeg = shutil.which("ffmpeg")
+    if path_ffmpeg:
+        candidates.insert(0, Path(path_ffmpeg))
+
+    for candidate in candidates:
+        if candidate is not None and candidate.exists():
+            return str(candidate)
+    return None
+
+
+def time_stretch_audio_file_with_ffmpeg(
+    path: str,
+    rate: float,
+    sample_rate: int = 24000,
+) -> bool:
+    """Apply FFmpeg atempo in-place, preserving pitch better than phase-vocoder fallback."""
+    rate = float(rate)
+    if rate <= 0:
+        raise ValueError("rate must be > 0")
+    if np.isclose(rate, 1.0, atol=1e-3):
+        return False
+
+    ffmpeg = find_ffmpeg()
+    if ffmpeg is None:
+        return False
+
+    target = Path(path)
+    with tempfile.NamedTemporaryFile(
+        suffix=".wav",
+        prefix=f"{target.stem}_atempo_",
+        dir=str(target.parent),
+        delete=False,
+    ) as temp_file:
+        temp_path = Path(temp_file.name)
+
+    try:
+        command = [
+            ffmpeg,
+            "-y",
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-i",
+            str(target),
+            "-filter:a",
+            f"atempo={rate:.6f}",
+            "-ar",
+            str(sample_rate),
+            "-ac",
+            "1",
+            str(temp_path),
+        ]
+        subprocess.run(command, check=True, capture_output=True, text=True)
+        os.replace(temp_path, target)
+        return True
+    except Exception:
+        try:
+            temp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+        raise
 
 
 def trim_tts_output(

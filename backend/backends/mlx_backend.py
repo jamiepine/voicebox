@@ -365,3 +365,12 @@ class MLXSTTBackend:
 
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)
+
+    async def transcribe_word_timestamps(
+        self,
+        audio_path: str,
+        language: Optional[str] = None,
+        model_size: Optional[str] = None,
+    ) -> list[dict]:
+        """MLX backend does not expose stable word timestamps in Voicebox yet."""
+        raise NotImplementedError("Word-level timestamps require the PyTorch Whisper backend.")
