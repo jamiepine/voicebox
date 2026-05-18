@@ -85,7 +85,7 @@ class GenerationRequest(BaseModel):
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B)$")
     instruct: Optional[str] = Field(None, max_length=500)
-    engine: Optional[str] = Field(default="qwen", pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$")
+    engine: Optional[str] = Field(default="qwen", pattern="^(qwen|qwen_custom_voice|qwen_voice_design|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$")
     personality: bool = Field(
         default=False,
         description="When true and the profile has a personality prompt, the input text is rewritten in-character before TTS.",
@@ -317,7 +317,7 @@ class MCPClientBindingResponse(BaseModel):
     profile_id: Optional[str] = None
     default_engine: Optional[str] = Field(
         None,
-        pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+        pattern="^(qwen|qwen_custom_voice|qwen_voice_design|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
     )
     default_personality: bool = False
     last_seen_at: Optional[datetime] = None
@@ -336,13 +336,266 @@ class MCPClientBindingUpsert(BaseModel):
     profile_id: Optional[str] = None
     default_engine: Optional[str] = Field(
         None,
-        pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+        pattern="^(qwen|qwen_custom_voice|qwen_voice_design|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
     )
     default_personality: bool = False
 
 
 class MCPClientBindingListResponse(BaseModel):
     items: List[MCPClientBindingResponse]
+
+
+class DubbingSegmentResponse(BaseModel):
+    """Response model for a single SRT dubbing segment."""
+
+    id: str
+    project_id: str
+    segment_order: int
+    srt_index: int
+    start_tc: str
+    end_tc: str
+    start_ms: int
+    end_ms: int
+    target_duration_ms: int
+    text_lines: List[str]
+    text: str
+    pace_group_id: Optional[str] = None
+    speaker: Optional[str] = None
+    generation_id: Optional[str] = None
+    generation_audio_path: Optional[str] = None
+    generation_audio_absolute_path: Optional[str] = None
+    generation_error: Optional[str] = None
+    cut_generation_id: Optional[str] = None
+    cut_audio_path: Optional[str] = None
+    cut_audio_absolute_path: Optional[str] = None
+    cut_duration_ms: Optional[int] = None
+    cut_source_start_ms: Optional[int] = None
+    cut_source_end_ms: Optional[int] = None
+    cut_source_type: Optional[str] = None
+    actual_duration_ms: Optional[int] = None
+    delta_ms: Optional[int] = None
+    fit_status: str = "unknown"
+    status: str = "pending"
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DubbingProjectResponse(BaseModel):
+    """Response model for a dubbing project and its segments."""
+
+    id: str
+    name: str
+    source_type: str = "srt"
+    source_path: Optional[str] = None
+    engine: str = "qwen"
+    language: str = "fr"
+    profile_id: Optional[str] = None
+    style_prompt: Optional[str] = None
+    pace_override: Optional[float] = None
+    temperature: Optional[float] = None
+    group_pace_overrides: dict[str, float] = {}
+    full_narration_generation_id: Optional[str] = None
+    full_narration_status: Optional[str] = None
+    full_narration_audio_path: Optional[str] = None
+    full_narration_duration_ms: Optional[int] = None
+    full_narration_revision_ms: Optional[int] = None
+    full_narration_generation_elapsed_ms: Optional[int] = None
+    full_narration_error: Optional[str] = None
+    post_processed_segment_count: int = 0
+    status: str = "draft"
+    created_at: datetime
+    updated_at: datetime
+    pace_groups: List["DubbingPaceGroupResponse"] = []
+    segments: List[DubbingSegmentResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class DubbingProjectListItemResponse(BaseModel):
+    """Compact response model for listing dubbing projects."""
+
+    id: str
+    name: str
+    source_type: str = "srt"
+    language: str = "fr"
+    profile_id: Optional[str] = None
+    status: str = "draft"
+    segment_count: int = 0
+    exact_count: int = 0
+    acceptable_count: int = 0
+    warning_count: int = 0
+    failed_count: int = 0
+    pending_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DubbingSegmentGenerateRequest(BaseModel):
+    """Request model for generating one dubbing segment."""
+
+    profile_id: str
+    language: str = Field(
+        default="fr",
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+    )
+    engine: Optional[str] = Field(
+        default=None,
+        pattern="^(qwen|qwen_custom_voice|qwen_voice_design|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+    )
+    model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B|default)$")
+    instruct: Optional[str] = Field(None, max_length=2000)
+    style_prompt: Optional[str] = Field(None, max_length=2000)
+    temperature: Optional[float] = Field(None, ge=0.1, le=1.2)
+
+
+class DubbingAutoFitRequest(BaseModel):
+    """Request model for automatic timing fit on one or more dubbing segments."""
+
+    profile_id: str
+    language: str = Field(
+        default="fr",
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+    )
+    engine: Optional[str] = Field(
+        default=None,
+        pattern="^(qwen|qwen_custom_voice|qwen_voice_design|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+    )
+    model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B|default)$")
+    instruct: Optional[str] = Field(None, max_length=2000)
+    style_prompt: Optional[str] = Field(None, max_length=2000)
+    temperature: Optional[float] = Field(None, ge=0.1, le=1.2)
+    max_attempts: int = Field(default=3, ge=1, le=6)
+
+
+class DubbingFullNarrationRequest(DubbingSegmentGenerateRequest):
+    """Request model for beta whole-SRT narration generation."""
+
+    pass
+
+
+class DubbingSegmentUpdateRequest(BaseModel):
+    """Request model for editing the source text of one dubbing segment."""
+
+    text: str = Field(..., min_length=1, max_length=5000)
+
+
+class DubbingSegmentTimingUpdateRequest(BaseModel):
+    """Request model for manually realigning one dubbing segment on the timeline."""
+
+    start_ms: int = Field(..., ge=0)
+    end_ms: int = Field(..., ge=1)
+    preserve_audio: bool = False
+
+
+class DubbingManualCutRequest(BaseModel):
+    """Request model for manually cutting one segment from the full narration WAV."""
+
+    cut_start_ms: int = Field(..., ge=0)
+    cut_end_ms: int = Field(..., ge=1)
+    use_previous_cut_end: bool = False
+
+
+class DubbingTimelineClipExportRequest(BaseModel):
+    """One visible Dubbing timeline clip to render into an export WAV."""
+
+    id: str
+    generation_id: str
+    start_ms: int = Field(..., ge=0)
+    duration_ms: int = Field(..., ge=1)
+    trim_start_ms: int = Field(default=0, ge=0)
+    trim_end_ms: int = Field(default=0, ge=0)
+    volume: float = Field(default=1.0, ge=0.0, le=2.0)
+
+
+class DubbingTimelineExportRequest(BaseModel):
+    """Visible Dubbing timeline state sent by the desktop UI for export."""
+
+    clips: List[DubbingTimelineClipExportRequest] = Field(default_factory=list)
+
+
+class DubbingAutoCutClipResponse(BaseModel):
+    """One full-narration clip proposed by automatic SRT word alignment."""
+
+    id: str
+    generation_id: str
+    segment_id: str
+    srt_index: int
+    start_ms: int
+    duration_ms: int
+    trim_start_ms: int = 0
+    trim_end_ms: int = 0
+    track: int = 0
+    volume: float = 1.0
+    confidence: str = "fallback"
+    cut_source: str = "proportional"
+
+
+class DubbingAutoCutResponse(BaseModel):
+    """Timeline-only auto-cut result for a full SRT narration."""
+
+    clips: List[DubbingAutoCutClipResponse] = Field(default_factory=list)
+    debug_path: Optional[str] = None
+
+
+class DubbingTempoSuggestionResponse(BaseModel):
+    """Global tempo hint computed from full narration word alignment."""
+
+    multiplier: float
+    target_duration_ms: int
+    projected_duration_ms: int
+    delta_ms: int
+    range: str
+    message: str
+    from_cached_alignment: bool = False
+    debug_path: Optional[str] = None
+
+
+class DubbingApplyTempoRequest(BaseModel):
+    """Optional override for applying a reviewed global tempo suggestion."""
+
+    multiplier: Optional[float] = Field(None, ge=0.8, le=1.2)
+
+
+class DubbingApplyTempoResponse(BaseModel):
+    """Tempo application result plus refreshed auto-cut timeline clips."""
+
+    suggestion: DubbingTempoSuggestionResponse
+    clips: List[DubbingAutoCutClipResponse] = Field(default_factory=list)
+    debug_path: Optional[str] = None
+
+
+class DubbingPaceGroupResponse(BaseModel):
+    """Computed pace-control group spanning one or more subtitle segments."""
+
+    id: str
+    label: str
+    segment_ids: List[str]
+    segment_orders: List[int]
+    start_ms: int
+    end_ms: int
+    target_duration_ms: int
+    pace_override: Optional[float] = None
+    effective_pace: float = 1.0
+
+
+class DubbingProjectSettingsUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=120)
+    pace_override: Optional[float] = Field(None, ge=0.8, le=1.2)
+    temperature: Optional[float] = Field(None, ge=0.1, le=1.2)
+
+
+class DubbingGroupPaceUpdateRequest(BaseModel):
+    pace_override: Optional[float] = Field(None, ge=0.8, le=1.2)
+
+
+DubbingProjectResponse.model_rebuild()
 
 
 class SpeakRequest(BaseModel):
@@ -355,7 +608,7 @@ class SpeakRequest(BaseModel):
     )
     engine: Optional[str] = Field(
         None,
-        pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+        pattern="^(qwen|qwen_custom_voice|qwen_voice_design|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
     )
     personality: Optional[bool] = Field(
         None,

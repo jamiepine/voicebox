@@ -402,12 +402,11 @@ async def check_and_update_cuda_binary():
         installed_libs = get_installed_cuda_libs_version()
         reasons.append(f"libs {installed_libs} != {CUDA_LIBS_VERSION}")
 
-    logger.info(f"CUDA backend needs update ({', '.join(reasons)}). Auto-downloading...")
-
-    try:
-        await download_cuda_binary()
-    except Exception as e:
-        logger.error(f"Auto-update of CUDA binary failed: {e}")
+    logger.warning(
+        "CUDA backend needs update (%s), but automatic CUDA downloads are disabled in this fork. "
+        "Use the GPU settings download action manually only when you want to replace the CUDA backend.",
+        ", ".join(reasons),
+    )
 
 
 async def delete_cuda_binary() -> bool:

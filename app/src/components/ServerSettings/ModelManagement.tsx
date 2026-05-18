@@ -73,6 +73,8 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
     'Qwen3-TTS CustomVoice 1.7B by Alibaba. 9 premium preset voices with instruct-based style control for tone, emotion, and prosody. Supports 10 languages.',
   'qwen-custom-voice-0.6B':
     'Qwen3-TTS CustomVoice 0.6B by Alibaba. Lightweight version with the same 9 preset voices and instruct control. Faster inference for lower-end hardware.',
+  'qwen-voice-design-1.7B':
+    'Qwen3-TTS VoiceDesign 1.7B by Alibaba. Creates a synthetic voice from a natural-language voice description, with instruct-based delivery control.',
   'whisper-base':
     'Smallest Whisper model (74M parameters). Fast transcription with moderate accuracy.',
   'whisper-small':
@@ -411,6 +413,7 @@ export function ModelManagement() {
       (m) =>
         m.model_name.startsWith('qwen-tts') ||
         m.model_name.startsWith('qwen-custom-voice') ||
+        m.model_name.startsWith('qwen-voice-design') ||
         m.model_name.startsWith('luxtts') ||
         m.model_name.startsWith('chatterbox') ||
         m.model_name.startsWith('tada') ||

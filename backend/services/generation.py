@@ -38,22 +38,33 @@ async def run_generation(
     normalize: bool = False,
     effects_chain: Optional[list] = None,
     instruct: Optional[str] = None,
+    temperature: Optional[float] = None,
     mode: Literal["generate", "retry", "regenerate"],
     max_chunk_chars: Optional[int] = None,
     crossfade_ms: Optional[int] = None,
     version_id: Optional[str] = None,
+    use_voice_prompt_cache: bool = True,
+    unload_after: bool = False,
 ) -> None:
     """Execute TTS inference and persist the result.
 
     This is the single entry point for all background generation work.
     It is designed to be enqueued via ``services.task_queue.enqueue_generation``.
     """
-    from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
+    from ..backends import (
+        ensure_model_cached_or_raise,
+        load_engine_model,
+        get_tts_backend_for_engine,
+        engine_needs_trim,
+    )
     from ..utils.chunked_tts import generate_chunked
     from ..utils.audio import normalize_audio, save_audio, trim_tts_output
 
     task_manager = get_task_manager()
     bg_db = next(get_db())
+    tts_model = None
+    voice_prompt = None
+    audio = None
 
     try:
         tts_model = get_tts_backend_for_engine(engine)
@@ -61,12 +72,13 @@ async def run_generation(
         if not tts_model.is_loaded():
             await history.update_generation_status(generation_id, "loading_model", bg_db)
 
+        await ensure_model_cached_or_raise(engine, model_size or "default")
         await load_engine_model(engine, model_size)
 
         voice_prompt = await profiles.create_voice_prompt_for_profile(
             profile_id,
             bg_db,
-            use_cache=True,
+            use_cache=use_voice_prompt_cache,
             engine=engine,
         )
 
@@ -77,6 +89,7 @@ async def run_generation(
             language=language,
             seed=seed if mode != "regenerate" else None,
             instruct=instruct,
+            temperature=temperature,
             trim_fn=trim_fn,
         )
         if max_chunk_chars is not None:
@@ -108,6 +121,7 @@ async def run_generation(
                 audio=audio,
                 sample_rate=sample_rate,
                 save_audio=save_audio,
+                db=bg_db,
             )
         elif mode == "regenerate":
             final_path = _save_regenerate(
@@ -118,6 +132,8 @@ async def run_generation(
                 save_audio=save_audio,
                 db=bg_db,
             )
+        else:
+            raise ValueError(f"Unknown generation mode: {mode}")
 
         await history.update_generation_status(
             generation_id=generation_id,
@@ -147,6 +163,41 @@ async def run_generation(
     else:
         _notify_speak_end(generation_id, status="completed")
     finally:
+        if unload_after:
+            voice_prompt = None
+            audio = None
+            try:
+                from ..backends import drop_tts_backend_for_engine
+
+                drop_tts_backend_for_engine(engine)
+            except Exception:
+                pass
+            try:
+                from ..utils.cache import clear_voice_prompt_memory_cache
+
+                clear_voice_prompt_memory_cache()
+            except Exception:
+                pass
+            tts_model = None
+            try:
+                import gc
+
+                gc.collect()
+            except Exception:
+                pass
+            try:
+                import torch
+
+                if torch.cuda.is_available():
+                    try:
+                        torch.cuda.synchronize()
+                    except Exception:
+                        pass
+                    torch.cuda.empty_cache()
+                    if hasattr(torch.cuda, "ipc_collect"):
+                        torch.cuda.ipc_collect()
+            except Exception:
+                pass
         task_manager.complete_generation(generation_id)
         bg_db.close()
 
@@ -232,14 +283,26 @@ def _save_retry(
     audio,
     sample_rate: int,
     save_audio,
+    db,
 ) -> str:
-    """Save retry output -- single file, no versions.
+    """Save retry output and register it as the current version.
 
     Returns the audio path.
     """
+    from . import versions as versions_mod
+
     audio_path = config.get_generations_dir() / f"{generation_id}.wav"
     save_audio(audio, str(audio_path), sample_rate)
-    return config.to_storage_path(audio_path)
+    storage_path = config.to_storage_path(audio_path)
+    versions_mod.create_version(
+        generation_id=generation_id,
+        label="retry",
+        audio_path=storage_path,
+        db=db,
+        effects_chain=None,
+        is_default=True,
+    )
+    return storage_path
 
 
 async def generate_audio_sync(
@@ -267,7 +330,12 @@ async def generate_audio_sync(
     normalize, then encodes in-memory via :func:`tts.audio_to_wav_bytes`
     (same helper ``/generate/stream`` uses).
     """
-    from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
+    from ..backends import (
+        ensure_model_cached_or_raise,
+        load_engine_model,
+        get_tts_backend_for_engine,
+        engine_needs_trim,
+    )
     from ..utils.chunked_tts import generate_chunked
     from ..utils.audio import normalize_audio, trim_tts_output
     from . import tts
@@ -275,6 +343,7 @@ async def generate_audio_sync(
     bg_db = next(get_db())
     try:
         tts_model = get_tts_backend_for_engine(engine)
+        await ensure_model_cached_or_raise(engine, model_size or "default")
         await load_engine_model(engine, model_size)
 
         voice_prompt = await profiles.create_voice_prompt_for_profile(

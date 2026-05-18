@@ -7,6 +7,7 @@ Wraps the LuxTTS (ZipVoice) model for zero-shot voice cloning.
 
 import asyncio
 import logging
+import re
 from typing import Optional, Tuple
 
 import numpy as np
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 # HuggingFace repo for model weight detection
 LUXTTS_HF_REPO = "YatharthS/LuxTTS"
+LUXTTS_MIN_KERNEL_TOKENS = 7
 
 
 class LuxTTSBackend:
@@ -56,6 +58,29 @@ class LuxTTSBackend:
             LUXTTS_HF_REPO,
             weight_extensions=(".pt", ".safetensors", ".onnx", ".bin"),
         )
+
+    @staticmethod
+    def _pad_text_for_min_sequence(text: str) -> str:
+        """Keep LuxTTS phoneme/token sequences above Conv1d kernel size.
+
+        Some Windows installs miss optional normalizers/phonemizers; very
+        short inputs can collapse to fewer than seven frames and crash inside
+        ZipVoice's Conv1d stack. Padding with punctuation is the least audible
+        fallback because it extends the token sequence without adding semantic
+        words to the requested line.
+        """
+        normalized = re.sub(r"\s+", " ", (text or "").strip())
+        if not normalized:
+            normalized = "."
+        tokenish_count = len(re.findall(r"[\wÀ-ÖØ-öø-ÿ]+|[^\w\s]", normalized, re.UNICODE))
+        if tokenish_count >= LUXTTS_MIN_KERNEL_TOKENS:
+            return normalized
+        return f"{normalized}{' .' * (LUXTTS_MIN_KERNEL_TOKENS - tokenish_count)}"
+
+    @staticmethod
+    def _is_short_sequence_error(exc: Exception) -> bool:
+        message = str(exc).lower()
+        return "kernel size" in message and "input size" in message
 
     async def load_model(self, model_size: str = "default") -> None:
         """Load the LuxTTS model."""
@@ -167,15 +192,31 @@ class LuxTTSBackend:
             if seed is not None:
                 manual_seed(seed, self.device)
 
-            wav = self.model.generate_speech(
-                text=text,
-                encode_dict=voice_prompt,
-                num_steps=4,
-                guidance_scale=3.0,
-                t_shift=0.5,
-                speed=1.0,
-                return_smooth=False,  # 48kHz output
-            )
+            safe_text = self._pad_text_for_min_sequence(text)
+            try:
+                wav = self.model.generate_speech(
+                    text=safe_text,
+                    encode_dict=voice_prompt,
+                    num_steps=4,
+                    guidance_scale=3.0,
+                    t_shift=0.5,
+                    speed=1.0,
+                    return_smooth=False,  # 48kHz output
+                )
+            except RuntimeError as exc:
+                if not self._is_short_sequence_error(exc):
+                    raise
+                retry_text = self._pad_text_for_min_sequence(f"{safe_text} ... ...")
+                logger.warning("LuxTTS short-sequence retry with padded text")
+                wav = self.model.generate_speech(
+                    text=retry_text,
+                    encode_dict=voice_prompt,
+                    num_steps=4,
+                    guidance_scale=3.0,
+                    t_shift=0.5,
+                    speed=1.0,
+                    return_smooth=False,
+                )
 
             # LuxTTS returns a tensor (may be on GPU/MPS), move to CPU first
             audio = wav.detach().cpu().numpy().squeeze()

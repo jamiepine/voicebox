@@ -41,6 +41,7 @@ async def get_version_audio(version_id: str, db: Session = Depends(get_db)):
         audio_path,
         media_type=_audio_media_type(audio_path),
         filename=f"generation_{version.generation_id}_{version.label}{audio_path.suffix}",
+        headers={"Cache-Control": "no-store"},
     )
 
 
@@ -59,6 +60,7 @@ async def get_audio(generation_id: str, db: Session = Depends(get_db)):
         audio_path,
         media_type=_audio_media_type(audio_path),
         filename=f"generation_{generation_id}{audio_path.suffix}",
+        headers={"Cache-Control": "no-store"},
     )
 
 
@@ -79,4 +81,5 @@ async def get_sample_audio(sample_id: str, db: Session = Depends(get_db)):
         audio_path,
         media_type="audio/wav",
         filename=f"sample_{sample_id}.wav",
+        headers={"Cache-Control": "no-store"},
     )

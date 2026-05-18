@@ -16,13 +16,13 @@ causal LM generates speech via flow-matching diffusion.
 import asyncio
 import logging
 import threading
+from pathlib import Path
 from typing import ClassVar, List, Optional, Tuple
 
 import numpy as np
 
 from . import TTSBackend
 from .base import (
-    is_model_cached,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -43,14 +43,38 @@ TADA_MODEL_REPOS = {
     "3B": TADA_3B_ML_REPO,
 }
 
-# Key weight files for cache detection
-_TADA_MODEL_WEIGHT_FILES = [
-    "model.safetensors",
-]
 
-_TADA_CODEC_WEIGHT_FILES = [
-    "encoder/model.safetensors",
-]
+def normalize_tada_model_size(model_size: str | None = None) -> str:
+    """Normalize UI/API variants to TADA's internal size keys."""
+    value = (model_size or "1B").strip().lower()
+    return "3B" if "3" in value else "1B"
+
+
+def _hf_repo_cache_dir(repo_id: str) -> Path | None:
+    try:
+        from huggingface_hub import constants as hf_constants
+
+        return Path(hf_constants.HF_HUB_CACHE) / ("models--" + repo_id.replace("/", "--"))
+    except Exception:
+        return None
+
+
+def _snapshot_has_file(repo_id: str, relative_path: str | None = None) -> bool:
+    """Robust cache check for hf-xet snapshots.
+
+    TADA downloads can leave stale .incomplete blobs even when completed
+    snapshot files are present. For generation we care about completed files
+    under snapshots, not progress bookkeeping in blobs.
+    """
+    repo_cache = _hf_repo_cache_dir(repo_id)
+    if repo_cache is None:
+        return False
+    snapshots_dir = repo_cache / "snapshots"
+    if not snapshots_dir.exists():
+        return False
+    if relative_path:
+        return any((snapshot / relative_path).is_file() for snapshot in snapshots_dir.iterdir() if snapshot.is_dir())
+    return any(snapshots_dir.rglob("*.safetensors")) or any(snapshots_dir.rglob("*.bin"))
 
 
 class HumeTadaBackend:
@@ -74,16 +98,22 @@ class HumeTadaBackend:
         return self.model is not None
 
     def _get_model_path(self, model_size: str = "1B") -> str:
+        model_size = normalize_tada_model_size(model_size)
         return TADA_MODEL_REPOS.get(model_size, TADA_1B_REPO)
 
     def _is_model_cached(self, model_size: str = "1B") -> bool:
+        model_size = normalize_tada_model_size(model_size)
         repo = TADA_MODEL_REPOS.get(model_size, TADA_1B_REPO)
-        model_cached = is_model_cached(repo, required_files=_TADA_MODEL_WEIGHT_FILES)
-        codec_cached = is_model_cached(TADA_CODEC_REPO, required_files=_TADA_CODEC_WEIGHT_FILES)
+        # hf-xet-backed TADA snapshots do not always expose stable progress
+        # metadata while caching. Any completed weight file in the snapshot is
+        # enough to consider the selected model locally available.
+        model_cached = _snapshot_has_file(repo)
+        codec_cached = _snapshot_has_file(TADA_CODEC_REPO, "encoder/model.safetensors")
         return model_cached and codec_cached
 
     async def load_model(self, model_size: str = "1B") -> None:
         """Load the TADA model and encoder."""
+        model_size = normalize_tada_model_size(model_size)
         if self.model is not None and self.model_size == model_size:
             return
         async with self._model_load_lock:
@@ -97,6 +127,7 @@ class HumeTadaBackend:
 
     def _load_model_sync(self, model_size: str = "1B"):
         """Synchronous model loading with progress tracking."""
+        model_size = normalize_tada_model_size(model_size)
         model_name = f"tada-{model_size.lower()}"
         is_cached = self._is_model_cached(model_size)
         repo = TADA_MODEL_REPOS.get(model_size, TADA_1B_REPO)

@@ -45,6 +45,22 @@ import type {
   CaptureSettings,
   CaptureSettingsUpdate,
   CaptureSource,
+  DubbingAutoFitRequest,
+  DubbingAutoCutResponse,
+  DubbingApplyTempoRequest,
+  DubbingApplyTempoResponse,
+  DubbingTempoSuggestionResponse,
+  DubbingFullNarrationRequest,
+  DubbingProjectListItemResponse,
+  DubbingProjectResponse,
+  DubbingProjectSettingsUpdateRequest,
+  DubbingManualCutRequest,
+  DubbingSegmentGenerateRequest,
+  DubbingGroupPaceUpdateRequest,
+  DubbingSegmentResponse,
+  DubbingSegmentTimingUpdateRequest,
+  DubbingSegmentUpdateRequest,
+  DubbingTimelineExportRequest,
   GenerationSettings,
   GenerationSettingsUpdate,
   MCPClientBinding,
@@ -287,6 +303,241 @@ class ApiClient {
     return res.json();
   }
 
+  async importDubbingSrt(file: File): Promise<DubbingProjectResponse> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${this.getBaseUrl()}/dubbing/import-srt`, {
+      method: 'POST',
+      body: form,
+    });
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({
+        detail: res.statusText,
+      }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${res.status}`));
+    }
+    return res.json();
+  }
+
+  async getDubbingProject(projectId: string): Promise<DubbingProjectResponse> {
+    return this.request<DubbingProjectResponse>(`/dubbing/projects/${projectId}`);
+  }
+
+  async listDubbingProjects(): Promise<DubbingProjectListItemResponse[]> {
+    return this.request<DubbingProjectListItemResponse[]>('/dubbing/projects');
+  }
+
+  async releaseDubbingMemory(): Promise<{ message: string; unloaded_tts_backends: number }> {
+    return this.request<{ message: string; unloaded_tts_backends: number }>('/dubbing/release-memory', {
+      method: 'POST',
+    });
+  }
+
+  async deleteDubbingProject(projectId: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/dubbing/projects/${projectId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async generateDubbingSegment(
+    projectId: string,
+    segmentId: string,
+    data: DubbingSegmentGenerateRequest,
+  ): Promise<DubbingSegmentResponse> {
+    return this.request<DubbingSegmentResponse>(
+      `/dubbing/projects/${projectId}/segments/${segmentId}/generate`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
+  async autoFitDubbingSegment(
+    projectId: string,
+    segmentId: string,
+    data: DubbingAutoFitRequest,
+  ): Promise<DubbingSegmentResponse> {
+    return this.request<DubbingSegmentResponse>(
+      `/dubbing/projects/${projectId}/segments/${segmentId}/auto-fit`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
+  async autoFitDubbingProject(
+    projectId: string,
+    data: DubbingAutoFitRequest,
+  ): Promise<DubbingProjectResponse> {
+    return this.request<DubbingProjectResponse>(`/dubbing/projects/${projectId}/generate-all`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async generateDubbingFullNarration(
+    projectId: string,
+    data: DubbingFullNarrationRequest,
+  ): Promise<DubbingProjectResponse> {
+    return this.request<DubbingProjectResponse>(`/dubbing/projects/${projectId}/generate-full-narration`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async postProcessDubbingProject(projectId: string): Promise<DubbingProjectResponse> {
+    return this.request<DubbingProjectResponse>(`/dubbing/projects/${projectId}/post-process`, {
+      method: 'POST',
+    });
+  }
+
+  async updateDubbingSegment(
+    projectId: string,
+    segmentId: string,
+    data: DubbingSegmentUpdateRequest,
+  ): Promise<DubbingSegmentResponse> {
+    return this.request<DubbingSegmentResponse>(`/dubbing/projects/${projectId}/segments/${segmentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateDubbingSegmentTiming(
+    projectId: string,
+    segmentId: string,
+    data: DubbingSegmentTimingUpdateRequest,
+  ): Promise<DubbingSegmentResponse> {
+    return this.request<DubbingSegmentResponse>(
+      `/dubbing/projects/${projectId}/segments/${segmentId}/timing`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
+  async updateDubbingProjectSettings(
+    projectId: string,
+    data: DubbingProjectSettingsUpdateRequest,
+  ): Promise<DubbingProjectResponse> {
+    return this.request<DubbingProjectResponse>(`/dubbing/projects/${projectId}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateDubbingGroupPace(
+    projectId: string,
+    groupId: string,
+    data: DubbingGroupPaceUpdateRequest,
+  ): Promise<DubbingProjectResponse> {
+    return this.request<DubbingProjectResponse>(`/dubbing/projects/${projectId}/groups/${groupId}/pace`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDubbingSegmentGeneration(
+    projectId: string,
+    segmentId: string,
+  ): Promise<DubbingSegmentResponse> {
+    return this.request<DubbingSegmentResponse>(
+      `/dubbing/projects/${projectId}/segments/${segmentId}/generation`,
+      {
+        method: 'DELETE',
+      },
+    );
+  }
+
+  async createDubbingManualCut(
+    projectId: string,
+    segmentId: string,
+    data: DubbingManualCutRequest,
+  ): Promise<DubbingSegmentResponse> {
+    return this.request<DubbingSegmentResponse>(
+      `/dubbing/projects/${projectId}/segments/${segmentId}/manual-cut`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      },
+    );
+  }
+
+  async autoCutDubbingProject(projectId: string): Promise<DubbingAutoCutResponse> {
+    return this.request<DubbingAutoCutResponse>(`/dubbing/projects/${projectId}/auto-cut`, {
+      method: 'POST',
+    });
+  }
+
+  async suggestDubbingTempo(projectId: string): Promise<DubbingTempoSuggestionResponse> {
+    return this.request<DubbingTempoSuggestionResponse>(`/dubbing/projects/${projectId}/tempo-suggestion`, {
+      method: 'POST',
+    });
+  }
+
+  async applyDubbingTempo(
+    projectId: string,
+    data: DubbingApplyTempoRequest = {},
+  ): Promise<DubbingApplyTempoResponse> {
+    return this.request<DubbingApplyTempoResponse>(`/dubbing/projects/${projectId}/apply-tempo`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteDubbingSegment(projectId: string, segmentId: string): Promise<DubbingProjectResponse> {
+    return this.request<DubbingProjectResponse>(`/dubbing/projects/${projectId}/segments/${segmentId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async exportDubbingProjectAudio(projectId: string, data?: DubbingTimelineExportRequest): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/dubbing/projects/${projectId}/export-audio`;
+    const response = await fetch(url, data ? {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    } : undefined);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: response.statusText,
+      }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+
+    return response.blob();
+  }
+
+  async exportDubbingProjectPackage(projectId: string, data?: DubbingTimelineExportRequest): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/dubbing/projects/${projectId}/export-package`;
+    const response = await fetch(url, data ? {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    } : undefined);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: response.statusText,
+      }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+
+    return response.blob();
+  }
+
+  async cancelDubbingProjectTasks(projectId: string): Promise<{ message: string; cancelled: number }> {
+    return this.request<{ message: string; cancelled: number }>(
+      `/dubbing/projects/${projectId}/cancel-all`,
+      {
+        method: 'POST',
+      },
+    );
+  }
+
   async toggleFavorite(generationId: string): Promise<{ is_favorited: boolean }> {
     return this.request<{ is_favorited: boolean }>(`/history/${generationId}/favorite`, {
       method: 'POST',
@@ -383,8 +634,9 @@ class ApiClient {
   }
 
   // Audio
-  getAudioUrl(audioId: string): string {
-    return `${this.getBaseUrl()}/audio/${audioId}`;
+  getAudioUrl(audioId: string, revision?: string | number | null): string {
+    const url = `${this.getBaseUrl()}/audio/${audioId}`;
+    return revision == null ? url : `${url}?v=${encodeURIComponent(String(revision))}`;
   }
 
   getSampleUrl(sampleId: string): string {

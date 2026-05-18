@@ -5,7 +5,7 @@ import * as z from 'zod';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { EffectConfig } from '@/lib/api/types';
-import { LANGUAGE_CODES, type LanguageCode } from '@/lib/constants/languages';
+import { getLanguageOptionsForEngine, LANGUAGE_CODES, type LanguageCode } from '@/lib/constants/languages';
 import { useGeneration } from '@/lib/hooks/useGeneration';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { useGenerationSettings } from '@/lib/hooks/useSettings';
@@ -22,6 +22,7 @@ const generationSchema = z.object({
     .enum([
       'qwen',
       'qwen_custom_voice',
+      'qwen_voice_design',
       'luxtts',
       'chatterbox',
       'chatterbox_turbo',
@@ -102,6 +103,8 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   ? 'kokoro'
                   : engine === 'qwen_custom_voice'
                     ? `qwen-custom-voice-${data.modelSize}`
+                    : engine === 'qwen_voice_design'
+                      ? `qwen-voice-design-${data.modelSize || '1.7B'}`
                     : `qwen-tts-${data.modelSize}`;
       const displayName =
         engine === 'luxtts'
@@ -120,6 +123,8 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                     ? data.modelSize === '1.7B'
                       ? 'Qwen CustomVoice 1.7B'
                       : 'Qwen CustomVoice 0.6B'
+                    : engine === 'qwen_voice_design'
+                      ? 'Qwen VoiceDesign 1.7B'
                     : data.modelSize === '1.7B'
                       ? 'Qwen TTS 1.7B'
                       : 'Qwen TTS 0.6B';
@@ -132,22 +137,46 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         if (model && !model.downloaded) {
           setDownloadingModelName(modelName);
           setDownloadingDisplayName(displayName);
+          toast({
+            title: 'Model not downloaded',
+            description: `Download ${displayName} from the Models tab before generating.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        if (engine === 'qwen_voice_design' && !model) {
+          toast({
+            title: 'Model not available',
+            description: 'Qwen VoiceDesign 1.7B is missing from the local model registry.',
+            variant: 'destructive',
+          });
+          return;
         }
       } catch (error) {
         console.error('Failed to check model status:', error);
       }
 
       const hasModelSizes =
-        engine === 'qwen' || engine === 'qwen_custom_voice' || engine === 'tada';
-      // Only Qwen CustomVoice actually honors the instruct kwarg at model level.
+        engine === 'qwen' ||
+        engine === 'qwen_custom_voice' ||
+        engine === 'qwen_voice_design' ||
+        engine === 'tada';
+      const engineLanguages = getLanguageOptionsForEngine(engine);
+      const safeLanguage = engineLanguages.some((lang) => lang.value === data.language)
+        ? data.language
+        : ((engineLanguages[0]?.value ?? 'en') as LanguageCode);
+      if (safeLanguage !== data.language) {
+        form.setValue('language', safeLanguage);
+      }
       // Base Qwen3-TTS accepts the kwarg but ignores it.
-      const supportsInstruct = engine === 'qwen_custom_voice';
+      const supportsInstruct = engine === 'qwen_custom_voice' || engine === 'qwen_voice_design';
       const effectsChain = options.getEffectsChain?.();
       // This now returns immediately with status="generating"
       const result = await generation.mutateAsync({
         profile_id: selectedProfileId,
         text: data.text,
-        language: data.language,
+        language: safeLanguage,
         seed: data.seed,
         model_size: hasModelSizes ? data.modelSize : undefined,
         engine,
@@ -165,7 +194,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       // Reset form immediately — user can start typing again
       form.reset({
         text: '',
-        language: data.language,
+        language: safeLanguage,
         seed: undefined,
         modelSize: data.modelSize,
         instruct: '',
