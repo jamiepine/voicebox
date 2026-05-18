@@ -16,7 +16,6 @@ import torch
 
 from . import LANGUAGE_CODE_TO_NAME
 from .base import (
-    combine_voice_prompts as _combine_voice_prompts,
     get_torch_device,
     is_model_cached,
     model_load_progress,
@@ -109,6 +108,15 @@ class QwenVoiceDesignBackend:
         use_cache: bool = True,
     ) -> tuple[dict, bool]:
         """Create a VoiceDesign prompt from text for protocol compatibility."""
+        if audio_path:
+            logger.warning(
+                "Qwen VoiceDesign ignores audio_path while creating a designed voice prompt: %s",
+                audio_path,
+            )
+        if use_cache:
+            logger.debug(
+                "Qwen VoiceDesign uses text design prompts directly; use_cache is ignored."
+            )
         return {
             "voice_type": "designed",
             "design_prompt": reference_text,
@@ -119,7 +127,7 @@ class QwenVoiceDesignBackend:
         audio_paths: list[str],
         reference_texts: list[str],
     ) -> tuple[np.ndarray, str]:
-        return await _combine_voice_prompts(audio_paths, reference_texts)
+        raise NotImplementedError("Qwen VoiceDesign does not support combining audio voice prompts.")
 
     async def generate(
         self,

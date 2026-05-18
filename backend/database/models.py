@@ -136,7 +136,7 @@ class DubbingProject(Base):
     source_type = Column(String, nullable=False, default="srt")
     source_path = Column(String, nullable=True)
     engine = Column(String, nullable=False, default="qwen")
-    language = Column(String, nullable=False, default="fr")
+    language = Column(String, nullable=False, default="en")
     profile_id = Column(String, ForeignKey("profiles.id"), nullable=True)
     style_prompt = Column(Text, nullable=True)
     pace_override = Column(Float, nullable=True)

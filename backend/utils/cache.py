@@ -49,17 +49,15 @@ def get_cache_key(audio_path: str, reference_text: str) -> str:
         reference_text: Reference text
 
     Returns:
-        Cache key (MD5 hash)
+        Cache key (SHA-256 hash)
     """
-    # Read audio file
+    digest = hashlib.sha256()
     with open(audio_path, "rb") as f:
-        audio_bytes = f.read()
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
 
-    # Combine audio bytes and text
-    combined = audio_bytes + reference_text.encode("utf-8")
-
-    # Generate hash
-    return hashlib.md5(combined).hexdigest()
+    digest.update(reference_text.encode("utf-8"))
+    return digest.hexdigest()
 
 
 def get_cached_voice_prompt(

@@ -257,10 +257,14 @@ async def _run_startup(application: FastAPI) -> None:
                     "actual_duration_ms = NULL, delta_ms = NULL "
                     "WHERE generation_id IN ("
                     "  SELECT id FROM generations "
-                "  WHERE status IN ('generating', 'loading_model', 'failed') "
+                    "  WHERE status IN ('generating', 'loading_model', 'failed') "
                     "  AND source = 'dubbing_segment'"
                     ")"
                 )
+            )
+        else:
+            logger.debug(
+                "Skipping stale dubbing segment reset; required tables/columns are not available yet."
             )
         result = db.execute(
             sa_text(
@@ -283,7 +287,7 @@ async def _run_startup(application: FastAPI) -> None:
         db.commit()
     except Exception as e:
         db.rollback()
-        logger.warning("Could not clean up stale generations: %s", e)
+        logger.exception("Could not clean up stale generations during startup")
     finally:
         db.close()
 

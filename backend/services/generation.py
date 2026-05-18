@@ -121,6 +121,7 @@ async def run_generation(
                 audio=audio,
                 sample_rate=sample_rate,
                 save_audio=save_audio,
+                db=bg_db,
             )
         elif mode == "regenerate":
             final_path = _save_regenerate(
@@ -131,6 +132,8 @@ async def run_generation(
                 save_audio=save_audio,
                 db=bg_db,
             )
+        else:
+            raise ValueError(f"Unknown generation mode: {mode}")
 
         await history.update_generation_status(
             generation_id=generation_id,
@@ -280,14 +283,26 @@ def _save_retry(
     audio,
     sample_rate: int,
     save_audio,
+    db,
 ) -> str:
-    """Save retry output -- single file, no versions.
+    """Save retry output and register it as the current version.
 
     Returns the audio path.
     """
+    from . import versions as versions_mod
+
     audio_path = config.get_generations_dir() / f"{generation_id}.wav"
     save_audio(audio, str(audio_path), sample_rate)
-    return config.to_storage_path(audio_path)
+    storage_path = config.to_storage_path(audio_path)
+    versions_mod.create_version(
+        generation_id=generation_id,
+        label="retry",
+        audio_path=storage_path,
+        db=db,
+        effects_chain=None,
+        is_default=True,
+    )
+    return storage_path
 
 
 async def generate_audio_sync(

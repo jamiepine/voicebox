@@ -295,25 +295,6 @@ def _migrate_dubbing(engine, inspector, tables: set[str]) -> None:
         columns = _get_columns(inspector, "dubbing_segments")
         if "pace_group_id" not in columns:
             _add_column(engine, "dubbing_segments", "pace_group_id VARCHAR", "pace_group_id")
-    if False and "default_intent" in columns:
-        if _supports_drop_column(engine):
-            with engine.connect() as conn:
-                conn.execute(text("ALTER TABLE mcp_client_bindings DROP COLUMN default_intent"))
-                conn.commit()
-            logger.info("Dropped legacy default_intent column from mcp_client_bindings")
-        else:
-            # ALTER TABLE … DROP COLUMN on SQLite requires 3.35+ (Mar
-            # 2021). Production PyInstaller builds bundle Python 3.12
-            # which links to SQLite 3.40+; this branch only fires for
-            # dev environments running the backend directly against an
-            # old system SQLite (Ubuntu 20.04 = 3.31, Debian 11 = 3.34).
-            # Leaving the unused column in place is harmless — the ORM
-            # only maps declared columns, so a stray one does no work
-            # and gets no reads or writes.
-            logger.warning(
-                "SQLite %s too old to DROP COLUMN (need 3.35+); leaving unused default_intent column on mcp_client_bindings in place.",
-                sqlite3.sqlite_version,
-            )
 
 
 def _supports_drop_column(engine) -> bool:
