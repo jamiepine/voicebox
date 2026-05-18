@@ -55,6 +55,11 @@ import { Slider } from '@/components/ui/slider';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
+import {
+  getLanguageOptionsForEngine,
+  LANGUAGE_CODES,
+  type LanguageCode,
+} from '@/lib/constants/languages';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import type {
   DubbingProjectListItemResponse,
@@ -212,6 +217,7 @@ type Srt2VoiceEngineOption = {
 const FULL_NARRATION_CLIP_PREFIX = 'full-narration-clip';
 const AUTO_RESTART_SERVER_FOR_VRAM_RELEASE = false;
 const QWEN_DEFAULT_TEMPERATURE = 0.9;
+const SRT2VOICE_DEFAULT_LANGUAGE: LanguageCode = 'fr';
 
 const SRT2VOICE_ENGINE_OPTIONS: Srt2VoiceEngineOption[] = [
   { value: 'qwen', engine: 'qwen', label: 'Qwen3-TTS 1.7B' },
@@ -236,6 +242,10 @@ function isSrt2VoiceEngine(value?: string | null): value is Srt2VoiceEngine {
     value === 'tada' ||
     value === 'kokoro'
   );
+}
+
+function isLanguageCode(value?: string | null): value is LanguageCode {
+  return !!value && LANGUAGE_CODES.includes(value as LanguageCode);
 }
 
 function isProfileCompatibleWithSrt2VoiceEngine(
@@ -417,7 +427,7 @@ export function DubbingTab() {
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [selectedEngine, setSelectedEngine] = useState<Srt2VoiceEngine>('qwen');
   const [selectedTadaModelSize, setSelectedTadaModelSize] = useState<'1B' | '3B'>('3B');
-  const [language, setLanguage] = useState<'fr' | 'en'>('fr');
+  const [language, setLanguage] = useState<LanguageCode>(SRT2VOICE_DEFAULT_LANGUAGE);
   const [instruct, setInstruct] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -678,6 +688,12 @@ export function DubbingTab() {
     [profiles, selectedProfileId],
   );
   const availableEngineOptions = SRT2VOICE_ENGINE_OPTIONS;
+  const availableLanguageOptions = useMemo(() => {
+    if (selectedEngine === 'tada' && selectedTadaModelSize === '1B') {
+      return getLanguageOptionsForEngine('luxtts');
+    }
+    return getLanguageOptionsForEngine(selectedEngine);
+  }, [selectedEngine, selectedTadaModelSize]);
   const selectedEngineValue = selectedEngine === 'tada' ? `tada:${selectedTadaModelSize}` : selectedEngine;
   const selectedModelSize =
     selectedEngine === 'qwen' || selectedEngine === 'qwen_custom_voice' || selectedEngine === 'qwen_voice_design'
@@ -782,7 +798,7 @@ export function DubbingTab() {
     });
     setSelectedProfileId(imported.profile_id ?? '');
     setSelectedEngine(isSrt2VoiceEngine(imported.engine) ? imported.engine : 'qwen');
-    setLanguage(imported.language === 'en' || imported.language === 'fr' ? imported.language : 'fr');
+    setLanguage(isLanguageCode(imported.language) ? imported.language : SRT2VOICE_DEFAULT_LANGUAGE);
     setInstruct(imported.style_prompt ?? '');
   };
 
@@ -941,14 +957,9 @@ export function DubbingTab() {
   }, [selectedEngine, selectedProfile, selectedProfileId]);
 
   useEffect(() => {
-    const requiresEnglish =
-      selectedEngine === 'chatterbox_turbo' ||
-      selectedEngine === 'luxtts' ||
-      (selectedEngine === 'tada' && selectedTadaModelSize === '1B');
-    if (requiresEnglish && language !== 'en') {
-      setLanguage('en');
-    }
-  }, [language, selectedEngine, selectedTadaModelSize]);
+    if (availableLanguageOptions.some((option) => option.value === language)) return;
+    setLanguage((availableLanguageOptions[0]?.value ?? SRT2VOICE_DEFAULT_LANGUAGE) as LanguageCode);
+  }, [availableLanguageOptions, language]);
 
   useEffect(() => {
     setEditedSegmentText(selectedSegment?.text ?? '');
@@ -2969,13 +2980,23 @@ export function DubbingTab() {
 
                       <div className="space-y-2">
                         <div className="text-xs uppercase tracking-wide text-muted-foreground">Language</div>
-                        <Select value={language} onValueChange={(value: 'fr' | 'en') => setLanguage(value)}>
+                        <Select
+                          value={language}
+                          onValueChange={(value) => {
+                            if (isLanguageCode(value)) {
+                              setLanguage(value);
+                            }
+                          }}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="fr">French</SelectItem>
-                            <SelectItem value="en">English</SelectItem>
+                            {availableLanguageOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
