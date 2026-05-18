@@ -45,6 +45,10 @@ RUN pip install --no-cache-dir --upgrade pip
 
 COPY backend/requirements.txt .
 
+# ROCm version to pull PyTorch wheels for. Default is 6.3 (supports RDNA1/2/3).
+# Set ROCM_VERSION=7.2 for RDNA 4 (RX 9000 series) support.
+ARG ROCM_VERSION=6.3
+
 # When building the ROCm variant, install the ROCm-enabled PyTorch wheels
 # first so that the subsequent requirements.txt install sees them as already
 # satisfying the torch/torchaudio constraints and leaves them in place.
@@ -52,7 +56,7 @@ COPY backend/requirements.txt .
 RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
       pip install --no-cache-dir --prefix=/install \
         torch torchaudio \
-        --index-url https://download.pytorch.org/whl/rocm6.3; \
+        --index-url "https://download.pytorch.org/whl/rocm${ROCM_VERSION}"; \
     fi
 
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
@@ -70,9 +74,10 @@ ARG PYTORCH_VARIANT=cpu
 
 # ROCm device access requires the container user to belong to the render
 # and video groups. GIDs are parameterised to match the host; Ubuntu 22.04+
-# defaults are used here. Override at build time if your host differs:
-#   docker compose ... --build-arg RENDER_GID=$(getent group render | cut -d: -f3)
-#   docker compose ... --build-arg VIDEO_GID=$(getent group video  | cut -d: -f3)
+# defaults are used here. Override via env vars (docker-compose.rocm.yml
+# passes them through automatically):
+#   export RENDER_GID=$(getent group render | cut -d: -f3)
+#   export VIDEO_GID=$(getent group video  | cut -d: -f3)
 ARG RENDER_GID=992
 ARG VIDEO_GID=44
 RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \

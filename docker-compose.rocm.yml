@@ -8,13 +8,17 @@
 #   2. Current user in the 'render' and 'video' groups:
 #        sudo usermod -aG render,video $USER   (then log out/in)
 #
-# If the container fails to open /dev/kfd with "permission denied", the GIDs of
-# the render and video groups on your host differ from the Ubuntu 22.04 defaults
-# used in the Dockerfile (render=992, video=44). Pass the correct values at
-# build time:
-#   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build \
-#     --build-arg RENDER_GID=$(getent group render | cut -d: -f3) \
-#     --build-arg VIDEO_GID=$(getent group video  | cut -d: -f3)
+# If the render/video GIDs on your host differ from the Ubuntu 22.04 defaults
+# (render=992, video=44), export them before running compose so the build arg
+# and group_add values both stay in sync automatically:
+#   export RENDER_GID=$(getent group render | cut -d: -f3)
+#   export VIDEO_GID=$(getent group video  | cut -d: -f3)
+#   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
+#
+# ROCm version (ROCM_VERSION):
+#   Default is 6.3 (supports RDNA1/2/3). For RDNA 4 (RX 9000 series) use 7.2:
+#   export ROCM_VERSION=7.2
+#   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
 
 services:
   voicebox:
@@ -22,6 +26,11 @@ services:
       context: .
       args:
         PYTORCH_VARIANT: rocm
+        # These build args read from env vars so a single export covers both the
+        # Dockerfile group creation and the runtime group_add below.
+        RENDER_GID: ${RENDER_GID:-992}
+        VIDEO_GID: ${VIDEO_GID:-44}
+        ROCM_VERSION: ${ROCM_VERSION:-6.3}
 
     # Pass the AMD GPU device nodes into the container.
     # /dev/kfd  — ROCm compute interface (required for GPU inference)
@@ -32,17 +41,18 @@ services:
 
     # Grant access to the render and video groups so the non-root user
     # inside the container can open the GPU device nodes.
-    # Numeric GIDs work even when group names differ between host and container.
-    # Check yours with: getent group render video | cut -d: -f3
+    # These reference the same env vars used in build.args above so a
+    # single export keeps Dockerfile groups and runtime group_add in sync.
     group_add:
-      - "992"   # render — Ubuntu 22.04+ default; adjust if different on your host
-      - "44"    # video  — Ubuntu 22.04+ default; adjust if different on your host
+      - "${RENDER_GID:-992}"   # render
+      - "${VIDEO_GID:-44}"     # video
 
     environment:
       # HSA_OVERRIDE_GFX_VERSION forces the ROCm runtime to treat the GPU as a
       # specific GFX version when auto-detection fails or the GPU is newer than
       # the ROCm release. app.py sets 10.3.0 (RDNA2) by default; override here
       # for your GPU family:
+      #   RDNA4 / RX 9000 series:              12.0.0  (requires ROCM_VERSION=7.2)
       #   RDNA3 / RX 7000 series / Strix Halo: 11.0.0
       #   RDNA2 / RX 6000 series:              10.3.0
       #   RDNA1 / RX 5000 series:              10.1.0
