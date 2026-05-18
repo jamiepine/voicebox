@@ -9,6 +9,7 @@ VoiceDesign checkpoint and calls generate_voice_design().
 
 import asyncio
 import logging
+import threading
 from typing import Optional
 
 import numpy as np
@@ -36,9 +37,12 @@ class QwenVoiceDesignBackend:
         self.model_size = model_size
         self.device = get_torch_device(allow_xpu=True, allow_directml=True)
         self._current_model_size: Optional[str] = None
+        self._model_load_lock = asyncio.Lock()
+        self._state_lock = threading.RLock()
 
     def is_loaded(self) -> bool:
-        return self.model is not None
+        with self._state_lock:
+            return self.model is not None
 
     def _get_model_path(self, model_size: str) -> str:
         if model_size not in QWEN_VD_HF_REPOS:
@@ -53,44 +57,51 @@ class QwenVoiceDesignBackend:
         if model_size is None:
             model_size = self.model_size
 
-        if self.model is not None and self._current_model_size == model_size:
-            return
+        async with self._model_load_lock:
+            with self._state_lock:
+                if self.model is not None and self._current_model_size == model_size:
+                    return
 
-        if self.model is not None and self._current_model_size != model_size:
-            self.unload_model()
+                if self.model is not None and self._current_model_size != model_size:
+                    self._unload_model_locked()
 
-        await asyncio.to_thread(self._load_model_sync, model_size)
+            await asyncio.to_thread(self._load_model_sync, model_size)
 
     load_model = load_model_async
 
     def _load_model_sync(self, model_size: str) -> None:
-        model_name = f"qwen-voice-design-{model_size}"
-        is_cached = self._is_model_cached(model_size)
+        with self._state_lock:
+            model_name = f"qwen-voice-design-{model_size}"
+            is_cached = self._is_model_cached(model_size)
 
-        with model_load_progress(model_name, is_cached):
-            from qwen_tts import Qwen3TTSModel
+            with model_load_progress(model_name, is_cached):
+                from qwen_tts import Qwen3TTSModel
 
-            model_path = self._get_model_path(model_size)
-            logger.info("Loading Qwen VoiceDesign %s on %s...", model_size, self.device)
+                model_path = self._get_model_path(model_size)
+                logger.info("Loading Qwen VoiceDesign %s on %s...", model_size, self.device)
 
-            if self.device == "cpu":
-                self.model = Qwen3TTSModel.from_pretrained(
-                    model_path,
-                    torch_dtype=torch.float32,
-                    low_cpu_mem_usage=False,
-                )
-            else:
-                self.model = Qwen3TTSModel.from_pretrained(
-                    model_path,
-                    device_map=self.device,
-                    torch_dtype=torch.bfloat16,
-                )
+                if self.device == "cpu":
+                    self.model = Qwen3TTSModel.from_pretrained(
+                        model_path,
+                        torch_dtype=torch.float32,
+                        low_cpu_mem_usage=False,
+                    )
+                else:
+                    self.model = Qwen3TTSModel.from_pretrained(
+                        model_path,
+                        device_map=self.device,
+                        torch_dtype=torch.bfloat16,
+                    )
 
-        self._current_model_size = model_size
-        self.model_size = model_size
-        logger.info("Qwen VoiceDesign %s loaded successfully", model_size)
+            self._current_model_size = model_size
+            self.model_size = model_size
+            logger.info("Qwen VoiceDesign %s loaded successfully", model_size)
 
     def unload_model(self) -> None:
+        with self._state_lock:
+            self._unload_model_locked()
+
+    def _unload_model_locked(self) -> None:
         if self.model is not None:
             del self.model
             self.model = None
