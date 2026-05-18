@@ -12,7 +12,7 @@ import {
   Volume2,
   VolumeX,
 } from 'lucide-react';
-import type { MouseEvent, ReactNode } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -368,6 +368,38 @@ export function AudioTrackEditor({
     window.addEventListener('mouseup', handleUp, { once: true });
   };
 
+  const handlePlayheadKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    let nextTimeMs: number | null = null;
+    const smallStepMs = 100;
+    const largeStepMs = 1000;
+
+    switch (event.key) {
+      case 'ArrowLeft':
+        nextTimeMs = currentTimeMs - smallStepMs;
+        break;
+      case 'ArrowRight':
+        nextTimeMs = currentTimeMs + smallStepMs;
+        break;
+      case 'PageDown':
+        nextTimeMs = currentTimeMs - largeStepMs;
+        break;
+      case 'PageUp':
+        nextTimeMs = currentTimeMs + largeStepMs;
+        break;
+      case 'Home':
+        nextTimeMs = 0;
+        break;
+      case 'End':
+        nextTimeMs = totalDurationMs;
+        break;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    onSeek(Math.max(0, Math.min(totalDurationMs, Math.round(nextTimeMs))));
+  };
+
   const handleTrimStart = (event: MouseEvent, clip: AudioTrackClip, side: 'start' | 'end') => {
     event.stopPropagation();
     setTrimmingClipId(clip.id);
@@ -568,10 +600,10 @@ export function AudioTrackEditor({
 
         <div className="mt-2 flex items-center justify-between border-b bg-muted/30 px-3 py-2">
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onPlayPause}>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onPlayPause} aria-label={isPlaying ? 'Pause' : 'Play'}>
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </Button>
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onStop} disabled={!isPlaying}>
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onStop} disabled={!isPlaying} aria-label="Stop">
               <Square className="h-3 w-3" />
             </Button>
             <span className="ml-2 text-xs tabular-nums text-muted-foreground">
@@ -614,10 +646,10 @@ export function AudioTrackEditor({
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">Zoom:</span>
-            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={handleZoomOut}>
+            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={handleZoomOut} aria-label="Zoom out">
               <Minus className="h-3 w-3" />
             </Button>
-            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={handleZoomIn}>
+            <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={handleZoomIn} aria-label="Zoom in">
               <Plus className="h-3 w-3" />
             </Button>
           </div>
@@ -766,11 +798,14 @@ export function AudioTrackEditor({
                 )}
                 style={{ left: `${msToPixels(currentTimeMs)}px` }}
                 onMouseDown={handlePlayheadMouseDown}
+                onKeyDown={handlePlayheadKeyDown}
                 role="slider"
+                tabIndex={0}
                 aria-label="Timeline playhead"
                 aria-valuemin={0}
                 aria-valuemax={Math.round(totalDurationMs)}
                 aria-valuenow={Math.round(currentTimeMs)}
+                aria-valuetext={formatTime(currentTimeMs)}
               >
                 <div className="absolute -top-1 left-1/2 h-3 w-3 -translate-x-1/2 rounded-full bg-accent" />
               </div>

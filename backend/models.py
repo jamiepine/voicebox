@@ -426,6 +426,7 @@ class DubbingProjectListItemResponse(BaseModel):
     status: str = "draft"
     segment_count: int = 0
     exact_count: int = 0
+    acceptable_count: int = 0
     warning_count: int = 0
     failed_count: int = 0
     pending_count: int = 0
@@ -469,6 +470,7 @@ class DubbingAutoFitRequest(BaseModel):
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B|default)$")
     instruct: Optional[str] = Field(None, max_length=2000)
     style_prompt: Optional[str] = Field(None, max_length=2000)
+    temperature: Optional[float] = Field(None, ge=0.1, le=1.2)
     max_attempts: int = Field(default=3, ge=1, le=6)
 
 

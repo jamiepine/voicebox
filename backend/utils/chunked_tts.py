@@ -11,6 +11,7 @@ overhead.
 
 import logging
 import re
+import inspect
 from typing import List, Tuple
 
 import numpy as np
@@ -20,6 +21,18 @@ logger = logging.getLogger("voicebox.chunked-tts")
 # Default chunk size in characters.  Can be overridden per-request via
 # the ``max_chunk_chars`` field on GenerationRequest.
 DEFAULT_MAX_CHUNK_CHARS = 800
+
+
+def _temperature_kwargs(backend, temperature: float | None) -> dict:
+    if temperature is None:
+        return {}
+    try:
+        signature = inspect.signature(backend.generate)
+    except (TypeError, ValueError):
+        return {}
+    if "temperature" in signature.parameters:
+        return {"temperature": temperature}
+    return {}
 
 # Common abbreviations that should NOT be treated as sentence endings.
 # Lowercase for case-insensitive matching.
@@ -249,7 +262,7 @@ async def generate_chunked(
 
     if len(chunks) <= 1:
         # Short text — single-shot fast path
-        extra_kwargs = {"temperature": temperature} if temperature is not None else {}
+        extra_kwargs = _temperature_kwargs(backend, temperature)
         audio, sample_rate = await backend.generate(
             text,
             voice_prompt,
@@ -284,7 +297,7 @@ async def generate_chunked(
         # always produces the same output.
         chunk_seed = (seed + i) if seed is not None else None
 
-        extra_kwargs = {"temperature": temperature} if temperature is not None else {}
+        extra_kwargs = _temperature_kwargs(backend, temperature)
         chunk_audio, chunk_sr = await backend.generate(
             chunk_text,
             voice_prompt,

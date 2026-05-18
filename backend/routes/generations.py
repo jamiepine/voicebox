@@ -53,6 +53,18 @@ def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
     return data.engine or getattr(profile, "default_engine", None) or getattr(profile, "preset_engine", None) or "qwen"
 
 
+def _resolve_existing_generation_model_size(engine: str, model_size: str | None) -> str:
+    from ..backends import engine_has_model_sizes
+
+    if model_size:
+        return model_size
+    if engine == "tada":
+        return "1B"
+    if engine_has_model_sizes(engine):
+        return "1.7B"
+    return "default"
+
+
 @router.post("/generate", response_model=models.GenerationResponse)
 async def generate_speech(
     data: models.GenerationRequest,
@@ -163,7 +175,9 @@ async def retry_generation(generation_id: str, db: Session = Depends(get_db)):
 
     from ..backends import ensure_model_cached_or_raise
 
-    await ensure_model_cached_or_raise(gen.engine or "qwen", gen.model_size or "1.7B")
+    engine = gen.engine or "qwen"
+    model_size = _resolve_existing_generation_model_size(engine, gen.model_size)
+    await ensure_model_cached_or_raise(engine, model_size)
 
     gen.status = "generating"
     gen.error = None
@@ -186,8 +200,8 @@ async def retry_generation(generation_id: str, db: Session = Depends(get_db)):
             profile_id=gen.profile_id,
             text=gen.text,
             language=gen.language,
-            engine=gen.engine or "qwen",
-            model_size=gen.model_size or "1.7B",
+            engine=engine,
+            model_size=model_size,
             seed=gen.seed,
             instruct=gen.instruct,
             mode="retry",
@@ -211,7 +225,9 @@ async def regenerate_generation(generation_id: str, db: Session = Depends(get_db
 
     from ..backends import ensure_model_cached_or_raise
 
-    await ensure_model_cached_or_raise(gen.engine or "qwen", gen.model_size or "1.7B")
+    engine = gen.engine or "qwen"
+    model_size = _resolve_existing_generation_model_size(engine, gen.model_size)
+    await ensure_model_cached_or_raise(engine, model_size)
 
     gen.status = "generating"
     gen.error = None
@@ -234,8 +250,8 @@ async def regenerate_generation(generation_id: str, db: Session = Depends(get_db
             profile_id=gen.profile_id,
             text=gen.text,
             language=gen.language,
-            engine=gen.engine or "qwen",
-            model_size=gen.model_size or "1.7B",
+            engine=engine,
+            model_size=model_size,
             seed=gen.seed,
             instruct=gen.instruct,
             mode="regenerate",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from ..services.task_queue import cancel_generation as cancel_generation_job
 from ..utils.tasks import get_task_manager
 
 router = APIRouter(prefix="/dubbing", tags=["dubbing"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/release-memory")
@@ -98,11 +101,96 @@ def _serialize_segment(segment, db: Session) -> models.DubbingSegmentResponse:
     )
 
 
+def _serialize_segment_with_context(
+    segment,
+    *,
+    generation: DBGeneration | None,
+    cut_generation: DBGeneration | None,
+    cut_bounds: dict[str, int | str] | None,
+) -> models.DubbingSegmentResponse:
+    generation_audio_path = None
+    generation_audio_absolute_path = None
+    generation_error = None
+    cut_audio_path = None
+    cut_audio_absolute_path = None
+    cut_duration_ms = None
+    cut_source_start_ms = None
+    cut_source_end_ms = None
+    cut_source_type = None
+
+    if generation is not None:
+        generation_audio_path = generation.audio_path
+        generation_error = generation.error
+        resolved_path = (
+            config.resolve_storage_path(generation.audio_path) if generation.audio_path else None
+        )
+        generation_audio_absolute_path = str(resolved_path) if resolved_path is not None else None
+
+    if cut_generation is not None:
+        cut_audio_path = cut_generation.audio_path
+        cut_duration_ms = (
+            int(round(cut_generation.duration * 1000))
+            if cut_generation.duration is not None
+            else None
+        )
+        resolved_cut_path = (
+            config.resolve_storage_path(cut_generation.audio_path) if cut_generation.audio_path else None
+        )
+        cut_audio_absolute_path = str(resolved_cut_path) if resolved_cut_path is not None else None
+        if cut_bounds is not None:
+            cut_source_start_ms = int(cut_bounds["cut_start_ms"])
+            cut_source_end_ms = int(cut_bounds["cut_end_ms"])
+            cut_source_type = str(cut_bounds["source_type"])
+
+    return models.DubbingSegmentResponse(
+        id=segment.id,
+        project_id=segment.project_id,
+        segment_order=segment.segment_order,
+        srt_index=segment.srt_index,
+        start_tc=segment.start_tc,
+        end_tc=segment.end_tc,
+        start_ms=segment.start_ms,
+        end_ms=segment.end_ms,
+        target_duration_ms=segment.target_duration_ms,
+        text_lines=segment.text_lines,
+        text=segment.text,
+        pace_group_id=segment.pace_group_id,
+        speaker=segment.speaker,
+        generation_id=segment.generation_id,
+        generation_audio_path=generation_audio_path,
+        generation_audio_absolute_path=generation_audio_absolute_path,
+        generation_error=generation_error,
+        cut_generation_id=cut_generation.id if cut_generation is not None else None,
+        cut_audio_path=cut_audio_path,
+        cut_audio_absolute_path=cut_audio_absolute_path,
+        cut_duration_ms=cut_duration_ms,
+        cut_source_start_ms=cut_source_start_ms,
+        cut_source_end_ms=cut_source_end_ms,
+        cut_source_type=cut_source_type,
+        actual_duration_ms=segment.actual_duration_ms,
+        delta_ms=segment.delta_ms,
+        fit_status=segment.fit_status,
+        status=segment.status,
+        created_at=segment.created_at,
+        updated_at=segment.updated_at,
+    )
+
+
 def _serialize_project(project, db: Session) -> models.DubbingProjectResponse:
     segments = dubbing.list_project_segments(project.id, db)
     pace_groups = dubbing.build_pace_group_responses(project, segments)
     full_narration = dubbing.get_full_narration_generation(project.id, db)
-    cut_count = len(dubbing.list_cut_generations(project.id, db))
+    cut_generations = dubbing.list_cut_generations(project.id, db)
+    generation_ids = [segment.generation_id for segment in segments if segment.generation_id]
+    generations_by_id = {
+        row.id: row
+        for row in db.query(DBGeneration).filter(DBGeneration.id.in_(generation_ids)).all()
+    } if generation_ids else {}
+    cut_bounds_by_segment_id = {
+        segment.id: dubbing.get_cut_source_bounds(project.id, segment.id)
+        for segment in segments
+    }
+    cut_count = len(cut_generations)
     full_narration_generation_elapsed_ms = None
     full_narration_revision_ms = None
     if full_narration is not None and full_narration.status in {"completed", "failed"}:
@@ -113,7 +201,6 @@ def _serialize_project(project, db: Session) -> models.DubbingProjectResponse:
                 full_narration_revision_ms = int(round(audio_path.stat().st_mtime * 1000))
     elif full_narration is not None and full_narration.created_at is not None:
         full_narration_revision_ms = int(round(full_narration.created_at.timestamp() * 1000))
-    db.refresh(project)
     return models.DubbingProjectResponse(
         id=project.id,
         name=project.name,
@@ -142,16 +229,25 @@ def _serialize_project(project, db: Session) -> models.DubbingProjectResponse:
         created_at=project.created_at,
         updated_at=project.updated_at,
         pace_groups=[models.DubbingPaceGroupResponse(**group) for group in pace_groups],
-        segments=[_serialize_segment(segment, db) for segment in segments],
+        segments=[
+            _serialize_segment_with_context(
+                segment,
+                generation=generations_by_id.get(segment.generation_id),
+                cut_generation=cut_generations.get(segment.id),
+                cut_bounds=cut_bounds_by_segment_id.get(segment.id),
+            )
+            for segment in segments
+        ],
     )
 
 
 def _serialize_project_list_item(project, db: Session) -> models.DubbingProjectListItemResponse:
     segments = dubbing.list_project_segments(project.id, db)
     exact_count = sum(1 for segment in segments if segment.fit_status == "exact")
+    acceptable_count = sum(1 for segment in segments if segment.fit_status == "acceptable")
     warning_count = sum(1 for segment in segments if segment.fit_status == "warning")
     failed_count = sum(1 for segment in segments if segment.status == "failed")
-    pending_count = sum(1 for segment in segments if segment.status in {"pending", "generating"})
+    pending_count = sum(1 for segment in segments if segment.status == "pending")
     return models.DubbingProjectListItemResponse(
         id=project.id,
         name=project.name,
@@ -161,6 +257,7 @@ def _serialize_project_list_item(project, db: Session) -> models.DubbingProjectL
         status=project.status,
         segment_count=len(segments),
         exact_count=exact_count,
+        acceptable_count=acceptable_count,
         warning_count=warning_count,
         failed_count=failed_count,
         pending_count=pending_count,
@@ -187,7 +284,12 @@ async def import_srt(file: UploadFile = File(...), db: Session = Depends(get_db)
     try:
         content = raw.decode("utf-8-sig")
     except UnicodeDecodeError:
-        content = raw.decode("cp1252")
+        try:
+            logger.warning("Imported SRT %s is not UTF-8; trying UTF-16.", file.filename)
+            content = raw.decode("utf-16")
+        except UnicodeDecodeError:
+            logger.warning("Imported SRT %s is not UTF-8/UTF-16; falling back to cp1252.", file.filename)
+            content = raw.decode("cp1252")
 
     try:
         project = dubbing.create_project_from_srt(filename=file.filename or "import.srt", content=content, db=db)
@@ -398,17 +500,25 @@ async def auto_fit_segment(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    segment.status = "generating"
-    segment.fit_status = "unknown"
-    project.status = "processing"
-    project.profile_id = data.profile_id
-    project.style_prompt = dubbing.sanitize_dubbing_instructions(data.instruct or data.style_prompt)
-    project.language = data.language
-    project.engine = engine
-    db.commit()
-    db.refresh(segment)
+    try:
+        segment.status = "generating"
+        segment.fit_status = "unknown"
+        project.status = "processing"
+        project.profile_id = data.profile_id
+        project.style_prompt = dubbing.sanitize_dubbing_instructions(data.instruct or data.style_prompt)
+        project.language = data.language
+        project.engine = engine
+        db.commit()
+        db.refresh(segment)
 
-    dubbing.start_auto_fit_segment(project_id=project_id, segment_id=segment_id, request=data, engine=engine)
+        dubbing.start_auto_fit_segment(project_id=project_id, segment_id=segment_id, request=data, engine=engine)
+    except Exception:
+        db.rollback()
+        segment.status = "pending"
+        segment.fit_status = "unknown"
+        project.status = "draft"
+        db.commit()
+        raise
     return _serialize_segment(segment, db)
 
 
@@ -724,8 +834,8 @@ async def cancel_project_tasks(project_id: str, db: Session = Depends(get_db)):
             continue
 
         cancellation_state = cancel_generation_job(generation.id)
-        cancelled += 1
         if cancellation_state is not None:
+            cancelled += 1
             task_manager.complete_generation(generation.id)
         await history.update_generation_status(
             generation_id=generation.id,
@@ -746,8 +856,8 @@ async def cancel_project_tasks(project_id: str, db: Session = Depends(get_db)):
     full_narration = dubbing.get_full_narration_generation(project_id, db)
     if full_narration is not None and (full_narration.status or "completed") in {"loading_model", "generating"}:
         cancellation_state = cancel_generation_job(full_narration.id)
-        cancelled += 1
         if cancellation_state is not None:
+            cancelled += 1
             task_manager.complete_generation(full_narration.id)
         await history.update_generation_status(
             generation_id=full_narration.id,

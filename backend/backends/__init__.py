@@ -782,8 +782,10 @@ def drop_tts_backend_for_engine(engine: str) -> bool:
         return False
     try:
         backend.unload_model()
-    finally:
         return True
+    except Exception:
+        logger.exception("Failed to unload TTS backend %s", engine)
+        raise
 
 
 def unload_all_tts_backends() -> int:

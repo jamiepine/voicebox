@@ -175,7 +175,6 @@ export function FloatingGenerateBox({
     if (selectedProfile?.voice_type === 'designed') {
       form.setValue('engine', 'qwen_voice_design');
       form.setValue('modelSize', '1.7B');
-      return;
     }
     // Auto-switch engine to match the profile
     const engine = selectedProfile?.default_engine ?? selectedProfile?.preset_engine;
