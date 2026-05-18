@@ -3160,7 +3160,7 @@ export function DubbingTab() {
                   <CardHeader>
                     <CardTitle>Segments</CardTitle>
                     <CardDescription>
-                      One SRT block equals one dubbing segment with a fixed timing budget.
+                      Click a segment text to edit its wording and timing.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="flex min-h-0 flex-1 flex-col overflow-hidden">
