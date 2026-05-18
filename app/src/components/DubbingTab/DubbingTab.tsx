@@ -3096,6 +3096,10 @@ export function DubbingTab() {
                         </>
                       ) : null}
 
+                      {/* Phrase-group pace belongs to the abandoned segmented-generation workflow.
+                          It stays hidden while we evaluate whether phrase-level tempo still has a
+                          role in the full-narration SRT2Voice workflow. Do not expose without
+                          reworking the UX and timing model. */}
                       <div className="hidden">
                         {selectedPaceGroup ? (
                           <>
