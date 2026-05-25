@@ -4,13 +4,12 @@ import asyncio
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 
 from .. import models
-from ..utils.platform_detect import get_backend_type
 from ..services.task_queue import create_background_task
+from ..utils.platform_detect import get_backend_type
 from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
 
@@ -171,7 +170,7 @@ async def migrate_models(request: models.ModelMigrateRequest):
                             status="downloading",
                         )
                     except Exception as e:
-                        errors.append(f"{item.name}: {str(e)}")
+                        errors.append(f"{item.name}: {e!s}")
             else:
                 total_bytes = sum(_get_dir_size(d) for d in model_dirs)
                 progress_manager.update_progress(
@@ -190,7 +189,7 @@ async def migrate_models(request: models.ModelMigrateRequest):
                         await asyncio.to_thread(shutil.rmtree, str(item))
                         moved += 1
                     except Exception as e:
-                        errors.append(f"{item.name}: {str(e)}")
+                        errors.append(f"{item.name}: {e!s}")
 
             progress_manager.update_progress("migration", 1, 1, status="complete")
             progress_manager.mark_complete("migration")
@@ -240,7 +239,7 @@ async def get_model_status():
     except ImportError:
         use_scan_cache = False
 
-    from ..backends import get_all_model_configs, check_model_loaded
+    from ..backends import check_model_loaded, get_all_model_configs
 
     registry_configs = get_all_model_configs()
     model_configs = [
@@ -381,6 +380,53 @@ async def get_model_status():
                 )
             )
 
+    # ── Inject custom model entries ──────────────────────────────────────
+    try:
+        from .. import custom_models as cm_module
+
+        custom_entries = cm_module.list_custom_models()
+        for entry in custom_entries:
+            cm_name = f"custom:{entry['id']}"
+            hf_repo = entry.get("hf_repo_id", "")
+            display = entry.get("display_name", cm_name)
+            downloaded = False
+            cm_size_mb = None
+            try:
+                cache_dir = hf_constants.HF_HUB_CACHE
+                repo_cache = Path(cache_dir) / ("models--" + hf_repo.replace("/", "--"))
+                if repo_cache.exists():
+                    snapshots = repo_cache / "snapshots"
+                    if snapshots.exists() and (
+                        any(snapshots.rglob("*.safetensors"))
+                        or any(snapshots.rglob("*.bin"))
+                    ):
+                        downloaded = True
+                        total = sum(
+                            f.stat().st_size
+                            for f in repo_cache.rglob("*")
+                            if f.is_file()
+                        )
+                        cm_size_mb = total / (1024 * 1024)
+            except Exception:
+                pass
+
+            statuses.append(
+                models.ModelStatus(
+                    model_name=cm_name,
+                    display_name=display,
+                    hf_repo_id=hf_repo,
+                    downloaded=downloaded,
+                    downloading=hf_repo in active_download_repos,
+                    size_mb=cm_size_mb,
+                    loaded=False,
+                )
+            )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).warning(
+            "Failed to inject custom model status", exc_info=True
+        )
+
     return models.ModelStatusListResponse(models=statuses)
 
 
@@ -444,7 +490,30 @@ async def cancel_model_download(request: models.ModelDownloadRequest):
 @router.delete("/models/{model_name}")
 async def delete_model(model_name: str):
     """Delete a downloaded model from the HuggingFace cache."""
+    # Handle custom models
+    if model_name.startswith("custom:"):
+        from huggingface_hub import constants as hf_constants
+
+        from .. import custom_models as cm_module
+
+        custom_id = model_name[len("custom:"):]
+        cm = cm_module.get_custom_model(custom_id)
+        if not cm:
+            raise HTTPException(status_code=404, detail=f"Custom model '{custom_id}' not found")
+        hf_repo_id = cm.get("hf_repo_id", "")
+        try:
+            cache_dir = hf_constants.HF_HUB_CACHE
+            repo_cache_dir = Path(cache_dir) / ("models--" + hf_repo_id.replace("/", "--"))
+            if repo_cache_dir.exists():
+                shutil.rmtree(repo_cache_dir)
+            return {"message": f"Custom model {model_name} cache deleted successfully"}
+        except Exception as e:
+            raise HTTPException(
+                status_code=500, detail=f"Failed to delete custom model cache: {e!s}"
+            ) from e
+
     from huggingface_hub import constants as hf_constants
+
     from ..backends import get_model_config, unload_model_by_config
 
     config = get_model_config(model_name)
@@ -465,11 +534,11 @@ async def delete_model(model_name: str):
         try:
             shutil.rmtree(repo_cache_dir)
         except OSError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {e!s}") from e
 
         return {"message": f"Model {model_name} deleted successfully"}
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete model: {e!s}") from e
