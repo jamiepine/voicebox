@@ -142,7 +142,10 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
       <SelectContent>
         {availableOptions.map((opt) => (
           <SelectItem key={opt.value} value={opt.value} className={itemClass}>
-            {opt.label}
+            <div>
+              <div>{opt.label}</div>
+              <div className="text-xs text-muted-foreground">{ENGINE_DESCRIPTIONS[opt.engine]}</div>
+            </div>
           </SelectItem>
         ))}
       </SelectContent>
