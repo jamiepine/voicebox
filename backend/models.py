@@ -81,11 +81,15 @@ class GenerationRequest(BaseModel):
 
     profile_id: str
     text: str = Field(..., min_length=1, max_length=50000)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$")
+    language: str = Field(
+        default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
     seed: int | None = Field(None, ge=0)
     model_size: str | None = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B)$")
     instruct: str | None = Field(None, max_length=500)
-    engine: str | None = Field(default="qwen", pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$")
+    engine: str | None = Field(
+        default="qwen", pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$"
+    )
     personality: bool = Field(
         default=False,
         description="When true and the profile has a personality prompt, the input text is rewritten in-character before TTS.",
@@ -258,12 +262,8 @@ class CaptureSettingsResponse(BaseModel):
     allow_auto_paste: bool = True
     default_playback_voice_id: str | None = None
     hotkey_enabled: bool = False
-    chord_push_to_talk_keys: list[str] = Field(
-        default_factory=default_push_to_talk_chord
-    )
-    chord_toggle_to_talk_keys: list[str] = Field(
-        default_factory=default_toggle_to_talk_chord
-    )
+    chord_push_to_talk_keys: list[str] = Field(default_factory=default_push_to_talk_chord)
+    chord_toggle_to_talk_keys: list[str] = Field(default_factory=default_toggle_to_talk_chord)
 
     class Config:
         from_attributes = True
@@ -498,7 +498,9 @@ class CustomModelCreate(BaseModel):
     """Request model for adding a custom HuggingFace model."""
 
     hf_repo_id: str = Field(
-        ..., min_length=3, max_length=200,
+        ...,
+        min_length=3,
+        max_length=200,
         pattern=r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$",
     )
     display_name: str | None = Field(None, min_length=1, max_length=200)

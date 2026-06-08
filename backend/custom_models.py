@@ -65,9 +65,7 @@ def _write(entries: list[dict]) -> None:
     path = _config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    fd, tmp_path = tempfile.mkstemp(
-        dir=str(path.parent), suffix=".tmp", prefix="custom_models_"
-    )
+    fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp", prefix="custom_models_")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(entries, fh, indent=2, ensure_ascii=False)
@@ -116,10 +114,7 @@ def add_custom_model(
         ValueError: If the repo ID is malformed or already registered.
     """
     if not _HF_REPO_RE.match(hf_repo_id):
-        raise ValueError(
-            f"Invalid HuggingFace repo ID: '{hf_repo_id}'. "
-            "Expected format: owner/model"
-        )
+        raise ValueError(f"Invalid HuggingFace repo ID: '{hf_repo_id}'. Expected format: owner/model")
 
     model_id = _slug(hf_repo_id)
 
@@ -127,9 +122,7 @@ def add_custom_model(
         entries = _read()
 
         if any(e.get("id") == model_id for e in entries):
-            raise ValueError(
-                f"Custom model '{hf_repo_id}' is already registered"
-            )
+            raise ValueError(f"Custom model '{hf_repo_id}' is already registered")
 
         entry = {
             "id": model_id,

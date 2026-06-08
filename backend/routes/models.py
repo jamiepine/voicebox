@@ -396,16 +396,9 @@ async def get_model_status():
                 repo_cache = Path(cache_dir) / ("models--" + hf_repo.replace("/", "--"))
                 if repo_cache.exists():
                     snapshots = repo_cache / "snapshots"
-                    if snapshots.exists() and (
-                        any(snapshots.rglob("*.safetensors"))
-                        or any(snapshots.rglob("*.bin"))
-                    ):
+                    if snapshots.exists() and (any(snapshots.rglob("*.safetensors")) or any(snapshots.rglob("*.bin"))):
                         downloaded = True
-                        total = sum(
-                            f.stat().st_size
-                            for f in repo_cache.rglob("*")
-                            if f.is_file()
-                        )
+                        total = sum(f.stat().st_size for f in repo_cache.rglob("*") if f.is_file())
                         cm_size_mb = total / (1024 * 1024)
             except Exception:
                 pass
@@ -423,9 +416,8 @@ async def get_model_status():
             )
     except Exception:
         import logging
-        logging.getLogger(__name__).warning(
-            "Failed to inject custom model status", exc_info=True
-        )
+
+        logging.getLogger(__name__).warning("Failed to inject custom model status", exc_info=True)
 
     return models.ModelStatusListResponse(models=statuses)
 
@@ -496,7 +488,7 @@ async def delete_model(model_name: str):
 
         from .. import custom_models as cm_module
 
-        custom_id = model_name[len("custom:"):]
+        custom_id = model_name[len("custom:") :]
         cm = cm_module.get_custom_model(custom_id)
         if not cm:
             raise HTTPException(status_code=404, detail=f"Custom model '{custom_id}' not found")
@@ -508,9 +500,7 @@ async def delete_model(model_name: str):
                 shutil.rmtree(repo_cache_dir)
             return {"message": f"Custom model {model_name} cache deleted successfully"}
         except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Failed to delete custom model cache: {e!s}"
-            ) from e
+            raise HTTPException(status_code=500, detail=f"Failed to delete custom model cache: {e!s}") from e
 
     from huggingface_hub import constants as hf_constants
 

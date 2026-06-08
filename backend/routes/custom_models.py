@@ -52,6 +52,7 @@ async def delete_custom_model(model_id: str):
     """Remove a custom model definition and delete its cached files if present."""
     import shutil
     from pathlib import Path
+
     from huggingface_hub import constants as hf_constants
 
     cm = custom_models.get_custom_model(model_id)
