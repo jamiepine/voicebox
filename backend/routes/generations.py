@@ -274,11 +274,21 @@ async def cancel_generation(generation_id: str, db: Session = Depends(get_db)):
 
 @router.get("/generate/{generation_id}/status")
 async def get_generation_status(generation_id: str, db: Session = Depends(get_db)):
-    """SSE endpoint that streams generation status updates."""
+    """SSE endpoint that streams generation status updates.
+
+    Emits a status frame every second while the generation is in flight, then
+    one final frame when it completes or fails. A heartbeat comment is sent
+    periodically so WebKit/proxies do not treat a quiet model load as a dead
+    connection. This avoids false frontend failures where the generation
+    succeeds but the UI drops the pending item before receiving completion.
+    """
     import json
+
+    heartbeat_cycles = 15
 
     async def event_stream():
         try:
+            cycles_since_data = 0
             while True:
                 db.expire_all()
                 gen = db.query(DBGeneration).filter_by(id=generation_id).first()
@@ -296,11 +306,16 @@ async def get_generation_status(generation_id: str, db: Session = Depends(get_db
                     "source": gen.source,
                 }
                 yield f"data: {json.dumps(payload)}\n\n"
+                cycles_since_data = 0
 
                 if (gen.status or "completed") in ("completed", "failed"):
                     return
 
                 await asyncio.sleep(1)
+                cycles_since_data += 1
+                if cycles_since_data >= heartbeat_cycles:
+                    yield ": heartbeat\n\n"
+                    cycles_since_data = 0
         except (BrokenPipeError, ConnectionResetError, asyncio.CancelledError):
             logger.debug("SSE client disconnected for generation %s", generation_id)
 
