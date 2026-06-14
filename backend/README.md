@@ -120,6 +120,14 @@ curl http://localhost:17493/generate/{id}/status
 
 Default location is the OS-specific app data directory. Override with `--data-dir` or the `VOICEBOX_DATA_DIR` environment variable.
 
+## Known HTTP clients
+
+Third-party apps that integrate with this server over the local REST API (`127.0.0.1:17493`):
+
+| Client | Repository | Notes |
+|--------|--------------|-------|
+| **TTS Hub** | https://github.com/xcwajdax/TTS_hub | Desktop TTS hub (Google Gemini, MiniMax, Voicebox). Sends `User-Agent: TTS-Hub/… (Voicebox-client)` and `X-Voicebox-Client-Id: tts-hub`. Upstream heads-up: https://github.com/jamiepine/voicebox/issues/749 |
+
 ## Code quality
 
 Linting and formatting are enforced by [ruff](https://docs.astral.sh/ruff/), configured in `pyproject.toml`. See `STYLE_GUIDE.md` for conventions.
