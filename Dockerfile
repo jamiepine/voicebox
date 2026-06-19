@@ -82,6 +82,13 @@ COPY --from=frontend --chown=voicebox:voicebox /build/web/dist /app/frontend/
 RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache \
     && chown -R voicebox:voicebox /app/data
 
+# Pre-create the HuggingFace cache dir owned by voicebox so the named volume
+# mounted here inherits this ownership on first init (Docker copies ownership
+# from the image path). Otherwise the volume mount point is root-owned and the
+# non-root server cannot write the downloaded model cache.
+RUN mkdir -p /home/voicebox/.cache/huggingface \
+    && chown -R voicebox:voicebox /home/voicebox/.cache
+
 # Switch to non-root user
 USER voicebox
 
