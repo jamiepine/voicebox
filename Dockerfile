@@ -63,10 +63,12 @@ RUN groupadd -r voicebox && \
 
 WORKDIR /app
 
-# Install only runtime system dependencies
+# Install only runtime system dependencies.
+# gosu drops privileges from the root entrypoint to the voicebox user.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder stage
@@ -78,19 +80,17 @@ COPY --chown=voicebox:voicebox backend/ /app/backend/
 # Copy built frontend from frontend stage
 COPY --from=frontend --chown=voicebox:voicebox /build/web/dist /app/frontend/
 
-# Create data directories owned by non-root user
+# Create data directories owned by non-root user. At runtime the entrypoint
+# re-applies ownership to whatever bind mounts / named volumes get mounted here.
 RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache \
-    && chown -R voicebox:voicebox /app/data
+        /home/voicebox/.cache/huggingface \
+    && chown -R voicebox:voicebox /app/data /home/voicebox/.cache
 
-# Pre-create the HuggingFace cache dir owned by voicebox so the named volume
-# mounted here inherits this ownership on first init (Docker copies ownership
-# from the image path). Otherwise the volume mount point is root-owned and the
-# non-root server cannot write the downloaded model cache.
-RUN mkdir -p /home/voicebox/.cache/huggingface \
-    && chown -R voicebox:voicebox /home/voicebox/.cache
+# Entrypoint fixes mount ownership as root, then drops to the voicebox user.
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
-# Switch to non-root user
-USER voicebox
+# NOTE: the container intentionally starts as root so the entrypoint can chown
+# the mounts; it immediately drops to the unprivileged voicebox user via gosu.
 
 # Expose the API port
 EXPOSE 17493
@@ -100,4 +100,5 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
     CMD curl -f http://localhost:17493/health || exit 1
 
 # Start the FastAPI server
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "17493"]
