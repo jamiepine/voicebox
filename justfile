@@ -281,12 +281,16 @@ build-web:
 
 # ─── Code Quality ────────────────────────────────────────────────────
 
-# Run all checks (JS + Python lint + format)
-check: check-js check-python
+# Run all checks (JS + Python lint + format + version sync)
+check: check-js check-python check-py-version
 
 # JS/TS: lint + format + typecheck (Biome)
 check-js:
     bun run check
+
+# Verify the Python version matches everywhere (source of truth: .python-version)
+check-py-version:
+    bash scripts/check-python-version.sh
 
 # Python: lint + format check (ruff)
 check-python: _ensure-venv

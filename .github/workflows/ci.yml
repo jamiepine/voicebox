@@ -7,6 +7,15 @@ on:
       - main
 
 jobs:
+  python-version-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Python version is consistent across the repo
+        run: bash scripts/check-python-version.sh
+
   frontend-quality:
     runs-on: ubuntu-latest
 
