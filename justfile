@@ -1,5 +1,8 @@
 # Voicebox development commands
 # Install: brew install just (or cargo install just)
+# Optional: uv — https://docs.astral.sh/uv/  When uv is installed, setup-python
+#           uses it for the venv (and lets uv provision Python). Without uv it
+#           falls back to the system python + venv + pip flow below.
 # Usage: just --list
 
 # Directories
@@ -9,6 +12,10 @@ app_dir := "app"
 web_dir := "web"
 venv := backend_dir / "venv"
 
+# Python version uv provisions for the backend venv when uv is available
+# (auto-downloaded by uv if missing). The pip fallback uses system_python below.
+python_version := "3.12"
+
 # Platform-aware paths
 venv_bin := if os() == "windows" { venv / "Scripts" } else { venv / "bin" }
 python := if os() == "windows" { venv_bin / "python.exe" } else { venv_bin / "python" }
@@ -17,7 +24,7 @@ pip := if os() == "windows" { venv_bin / "pip.exe" } else { venv_bin / "pip" }
 # Shell selection: use powershell on Windows, bash elsewhere
 set windows-shell := ["powershell", "-NoProfile", "-Command"]
 
-# Detect best python for venv creation (platform-aware)
+# Detect best python for the pip fallback when uv is not installed (platform-aware)
 system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
 
 # ─── Setup ────────────────────────────────────────────────────────────
@@ -32,65 +39,89 @@ setup: setup-python setup-js
 setup-python:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ ! -d "{{ venv }}" ]; then
-        echo "Creating Python virtual environment..."
-        PY_MINOR=$({{ system_python }} -c "import sys; print(sys.version_info[1])")
-        if [ "$PY_MINOR" -gt 13 ]; then
-            echo "Warning: Python 3.$PY_MINOR detected. ML packages may not be compatible."
-            echo "Recommended: brew install python@3.12"
+
+    # Prefer uv when it's installed (faster, and it provisions Python itself).
+    # Otherwise fall back to the original system-python + venv + pip flow so
+    # contributors without uv can still set up the project.
+    if command -v uv >/dev/null 2>&1; then
+        pip_install() { uv pip install --python "{{ python }}" "$@"; }
+        if [ ! -d "{{ venv }}" ]; then
+            echo "Creating Python {{ python_version }} virtual environment with uv..."
+            # --seed keeps pip/setuptools in the venv for build scripts that shell out to them.
+            uv venv --seed --python {{ python_version }} {{ venv }}
         fi
-        {{ system_python }} -m venv {{ venv }}
+    else
+        pip_install() { "{{ pip }}" install "$@"; }
+        if [ ! -d "{{ venv }}" ]; then
+            echo "uv not found — creating virtual environment with system python..."
+            echo "(Install uv for faster setup: https://docs.astral.sh/uv/)"
+            PY_MINOR=$({{ system_python }} -c "import sys; print(sys.version_info[1])")
+            if [ "$PY_MINOR" -gt 13 ]; then
+                echo "Warning: Python 3.$PY_MINOR detected. ML packages may not be compatible."
+                echo "Recommended: brew install python@3.12 (or install uv)"
+            fi
+            {{ system_python }} -m venv {{ venv }}
+            "{{ pip }}" install --upgrade pip -q
+        fi
     fi
+
     echo "Installing Python dependencies..."
-    {{ pip }} install --upgrade pip -q
-    {{ pip }} install -r {{ backend_dir }}/requirements.txt
+    pip_install -r {{ backend_dir }}/requirements.txt
     # Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
-    {{ pip }} install --no-deps chatterbox-tts
+    pip_install --no-deps chatterbox-tts
     # HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
-    {{ pip }} install --no-deps hume-tada
+    pip_install --no-deps hume-tada
     # Apple Silicon: install MLX backend
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
-        {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        pip_install -r {{ backend_dir }}/requirements-mlx.txt
     fi
-    {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
-    {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
+    pip_install git+https://github.com/QwenLM/Qwen3-TTS.git
+    pip_install pyinstaller ruff pytest pytest-asyncio
     echo "Python environment ready."
 
 [windows]
 setup-python:
     if (-not (Test-Path "{{ venv }}")) { \
-        Write-Host "Creating Python virtual environment..."; \
-        $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
-        if ([int]$pyMinor -gt 13) { \
-            Write-Host "Warning: Python 3.$pyMinor detected. ML packages may not be compatible."; \
-        }; \
-        & {{ system_python }} -m venv {{ venv }}; \
+        if (Get-Command uv -ErrorAction SilentlyContinue) { \
+            Write-Host "Creating Python {{ python_version }} virtual environment with uv..."; \
+            uv venv --seed --python {{ python_version }} "{{ venv }}"; \
+        } else { \
+            Write-Host "uv not found — creating virtual environment with system python..."; \
+            Write-Host "(Install uv for faster setup: https://docs.astral.sh/uv/)"; \
+            $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
+            if ([int]$pyMinor -gt 13) { \
+                Write-Host "Warning: Python 3.$pyMinor detected. ML packages may not be compatible."; \
+            }; \
+            & {{ system_python }} -m venv "{{ venv }}"; \
+            & "{{ python }}" -m pip install --upgrade pip -q; \
+        } \
     }
     Write-Host "Installing Python dependencies..."
-    & "{{ python }}" -m pip install --upgrade pip -q
+    $useUv = [bool](Get-Command uv -ErrorAction SilentlyContinue)
+    function PipInstall { if ($useUv) { uv pip install --python "{{ python }}" @args } else { & "{{ pip }}" install @args } }
     $gpus = Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name
     Write-Host "Detected GPUs: $($gpus -join ', ')"
     $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0
     $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
-        & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
+        PipInstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
     } elseif ($hasIntelArc) { \
         Write-Host "Intel Arc GPU detected — installing PyTorch with XPU support..."; \
-        & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
-        & "{{ pip }}" install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
+        PipInstall torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
+        PipInstall intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
     } else { \
         Write-Host "No NVIDIA or Intel Arc GPU detected — using CPU-only PyTorch."; \
         Write-Host "If you have an Intel Arc GPU, install XPU support manually:"; \
-        Write-Host "  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
-        Write-Host "  pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
+        Write-Host "  uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
+        Write-Host "  uv pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
     }
-    & "{{ pip }}" install -r {{ backend_dir }}/requirements.txt
-    & "{{ pip }}" install --no-deps chatterbox-tts
-    & "{{ pip }}" install --no-deps hume-tada
-    & "{{ pip }}" install git+https://github.com/QwenLM/Qwen3-TTS.git
-    & "{{ pip }}" install pyinstaller ruff pytest pytest-asyncio -q
+    PipInstall -r {{ backend_dir }}/requirements.txt
+    PipInstall --no-deps chatterbox-tts
+    PipInstall --no-deps hume-tada
+    PipInstall git+https://github.com/QwenLM/Qwen3-TTS.git
+    PipInstall pyinstaller ruff pytest pytest-asyncio
     Write-Host "Python environment ready."
 
 # Install JavaScript dependencies
