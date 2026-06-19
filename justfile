@@ -56,7 +56,7 @@ setup-python:
             echo "uv not found — creating virtual environment with system python..."
             echo "(Install uv for faster setup: https://docs.astral.sh/uv/)"
             PY_MINOR=$({{ system_python }} -c "import sys; print(sys.version_info[1])")
-            if [ "$PY_MINOR" -gt 13 ]; then
+            if [ "$PY_MINOR" -ge 13 ]; then
                 echo "Warning: Python 3.$PY_MINOR detected. ML packages may not be compatible."
                 echo "Recommended: brew install python@3.12 (or install uv)"
             fi
@@ -90,7 +90,7 @@ setup-python:
             Write-Host "uv not found — creating virtual environment with system python..."; \
             Write-Host "(Install uv for faster setup: https://docs.astral.sh/uv/)"; \
             $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
-            if ([int]$pyMinor -gt 13) { \
+            if ([int]$pyMinor -ge 13) { \
                 Write-Host "Warning: Python 3.$pyMinor detected. ML packages may not be compatible."; \
             }; \
             & {{ system_python }} -m venv "{{ venv }}"; \
@@ -289,8 +289,19 @@ check-js:
     bun run check
 
 # Verify the Python version matches everywhere (source of truth: .python-version)
+[unix]
 check-py-version:
     bash scripts/check-python-version.sh
+
+[windows]
+check-py-version:
+    if (Get-Command bash -ErrorAction SilentlyContinue) { \
+        bash scripts/check-python-version.sh; \
+        exit $LASTEXITCODE; \
+    } else { \
+        Write-Error "bash is required for check-py-version (install Git Bash or run in WSL)."; \
+        exit 1; \
+    }
 
 # Python: lint + format check (ruff)
 check-python: _ensure-venv

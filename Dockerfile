@@ -28,6 +28,9 @@ RUN cd web && bunx --bun vite build
 # === Stage 2: Build Python dependencies ===
 FROM python:${PYTHON_VERSION}-slim AS backend-builder
 ARG PYTHON_VERSION
+# Pin external sources so image rebuilds are deterministic.
+ARG UV_VERSION=0.11.23
+ARG QWEN3_TTS_REF=022e286b98fbec7e1e916cb940cdf532cd9f488e
 
 WORKDIR /build
 
@@ -39,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv (self-contained binary, shipped as a PyPI wheel) for fast,
 # parallel dependency resolution. Installs into an isolated --prefix that the
 # runtime stage copies onto the system path.
-RUN pip install --no-cache-dir uv
+RUN pip install --no-cache-dir "uv==${UV_VERSION}"
 
 COPY backend/requirements.txt .
 RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} -r requirements.txt
@@ -48,7 +51,7 @@ RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION}
 # hume-tada pins torch>=2.7,<2.8 — install without its deps
 RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} --no-deps hume-tada
 RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} \
-    git+https://github.com/QwenLM/Qwen3-TTS.git
+    git+https://github.com/QwenLM/Qwen3-TTS.git@${QWEN3_TTS_REF}
 
 
 # === Stage 3: Runtime ===
