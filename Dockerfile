@@ -3,6 +3,10 @@
 # 3-stage build: Frontend → Python deps → Runtime
 # ============================================================
 
+# Single source for the Python version. Keep equal to /.python-version —
+# this is enforced in CI by scripts/check-python-version.sh.
+ARG PYTHON_VERSION=3.12
+
 # === Stage 1: Build frontend ===
 FROM oven/bun:1 AS frontend
 
@@ -22,7 +26,8 @@ RUN cd web && bunx --bun vite build
 
 
 # === Stage 2: Build Python dependencies ===
-FROM python:3.11-slim AS backend-builder
+FROM python:${PYTHON_VERSION}-slim AS backend-builder
+ARG PYTHON_VERSION
 
 WORKDIR /build
 
@@ -31,18 +36,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --upgrade pip
+# Install uv (self-contained binary, shipped as a PyPI wheel) for fast,
+# parallel dependency resolution. Installs into an isolated --prefix that the
+# runtime stage copies onto the system path.
+RUN pip install --no-cache-dir uv
 
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
-RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
-RUN pip install --no-cache-dir --prefix=/install \
+RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} -r requirements.txt
+# chatterbox-tts pins numpy<1.26 / torch==2.6 — install without its deps
+RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} --no-deps chatterbox-tts
+# hume-tada pins torch>=2.7,<2.8 — install without its deps
+RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} --no-deps hume-tada
+RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} \
     git+https://github.com/QwenLM/Qwen3-TTS.git
 
 
 # === Stage 3: Runtime ===
-FROM python:3.11-slim
+FROM python:${PYTHON_VERSION}-slim
 
 # Create non-root user for security
 RUN groupadd -r voicebox && \
