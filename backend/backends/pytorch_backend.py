@@ -347,6 +347,9 @@ class PyTorchSTTBackend:
                 audio,
                 sampling_rate=16000,
                 return_tensors="pt",
+                truncation=False,
+                padding="longest",
+                return_attention_mask=True,
             )
             inputs = inputs.to(self.device)
 
@@ -354,15 +357,14 @@ class PyTorchSTTBackend:
             # If language is provided, force it; otherwise let Whisper auto-detect
             generate_kwargs = {}
             if language:
-                forced_decoder_ids = self.processor.get_decoder_prompt_ids(
-                    language=language,
-                    task="transcribe",
-                )
-                generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
+                generate_kwargs["language"] = language
+                generate_kwargs["task"] = "transcribe"
 
             with torch.no_grad():
                 predicted_ids = self.model.generate(
                     inputs["input_features"],
+                    attention_mask=inputs["attention_mask"],
+                    return_timestamps=True,
                     **generate_kwargs,
                 )
 
