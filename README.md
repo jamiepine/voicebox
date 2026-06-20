@@ -270,7 +270,8 @@ Use cases: agent dev loops (dictate a question, hear the answer in a cloned voic
 | Platform                 | Backend        | Notes                                          |
 | ------------------------ | -------------- | ---------------------------------------------- |
 | macOS (Apple Silicon)    | MLX (Metal)    | 4-5x faster via Neural Engine                  |
-| Windows / Linux (NVIDIA) | PyTorch (CUDA) | Auto-downloads CUDA binary from within the app |
+| Windows (NVIDIA)         | PyTorch (CUDA) | Auto-downloads CUDA binary from within the app |
+| Linux (NVIDIA)           | PyTorch (CUDA) | Use a local/remote Python backend with CUDA PyTorch |
 | Linux (AMD)              | PyTorch (ROCm) | Auto-configures HSA_OVERRIDE_GFX_VERSION       |
 | Windows (any GPU)        | DirectML       | Universal Windows GPU support                  |
 | Intel Arc                | IPEX/XPU       | Intel discrete GPU acceleration                |
