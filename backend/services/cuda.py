@@ -31,9 +31,22 @@ GITHUB_RELEASES_URL = "https://github.com/jamiepine/voicebox/releases/download"
 
 PROGRESS_KEY = "cuda-backend"
 
-# The current expected CUDA libs version.  Bump this when we change the
-# CUDA toolkit version or torch's CUDA dependency changes (e.g. cu126 -> cu128).
-CUDA_LIBS_VERSION = "cu128-v1"
+CUDA_DOWNLOAD_UNSUPPORTED_REASON = "CUDA binary downloads are only supported on Windows. Linux users should use a local or remote Python backend."
+
+def is_cuda_download_supported() -> bool:
+    """Check if CUDA binary download is supported on the current platform."""
+    return sys.platform == "win32"
+
+def get_cuda_download_unsupported_reason() -> Optional[str]:
+    """Return the reason why CUDA download is unsupported, or None if supported."""
+    return CUDA_DOWNLOAD_UNSUPPORTED_REASON if not is_cuda_download_supported() else None
+
+def ensure_cuda_download_supported():
+    """Raise RuntimeError if CUDA download is not supported on the current platform."""
+    reason = get_cuda_download_unsupported_reason()
+    if reason:
+        raise RuntimeError(reason)
+
 
 # Prevents concurrent download_cuda_binary() calls from racing on the same
 # temp file.  The auto-update background task and the manual HTTP endpoint
@@ -111,6 +124,8 @@ def get_cuda_status() -> dict:
         "cuda_libs_version": cuda_libs_version,
         "downloading": progress is not None and progress.get("status") == "downloading",
         "download_progress": progress,
+        "download_supported": is_cuda_download_supported(),
+        "unsupported_reason": get_cuda_download_unsupported_reason(),
     }
 
 
@@ -257,6 +272,7 @@ async def download_cuda_binary(version: Optional[str] = None):
 
 async def _download_cuda_binary_locked(version: Optional[str] = None):
     """Inner implementation of download_cuda_binary, called under _download_lock."""
+    ensure_cuda_download_supported()
     import httpx
 
     if version is None:
@@ -379,11 +395,15 @@ def get_cuda_binary_version() -> Optional[str]:
 
 async def check_and_update_cuda_binary():
     """Check if the CUDA binary is outdated and auto-download if so.
-
+    
     Called on server startup. Checks both server version and CUDA libs
     version. Downloads only what's needed.
     """
+    if not is_cuda_download_supported():
+        return
+
     cuda_path = get_cuda_binary_path()
+
     if not cuda_path:
         return  # No CUDA binary installed, nothing to update
 
