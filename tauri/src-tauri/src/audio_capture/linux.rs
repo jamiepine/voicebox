@@ -99,20 +99,21 @@ pub async fn start_capture(
         stop_flag_clone.store(true, Ordering::Relaxed);
     });
 
+    // Before spawning the capture thread, try to set PULSE_SOURCE so
+    // PulseAudio/PipeWire's ALSA plugin uses the monitor as the default
+    // input source. We do this in the async context (not inside the spawned
+    // thread) because std::env::set_var is not thread-safe on Unix.
+    let monitor_source = find_monitor_source_via_pactl();
+    if let Some(ref source_name) = monitor_source {
+        eprintln!(
+            "Linux audio capture: Setting PULSE_SOURCE={}",
+            source_name
+        );
+        std::env::set_var("PULSE_SOURCE", source_name);
+    }
+
     // Spawn capture on a dedicated thread
     thread::spawn(move || {
-        // Try to set PULSE_SOURCE to a monitor before initializing cpal.
-        // This tells PulseAudio/PipeWire's ALSA plugin to use the monitor
-        // as the default input source for this process.
-        let monitor_source = find_monitor_source_via_pactl();
-        if let Some(ref source_name) = monitor_source {
-            eprintln!(
-                "Linux audio capture: Setting PULSE_SOURCE={}",
-                source_name
-            );
-            std::env::set_var("PULSE_SOURCE", source_name);
-        }
-
         let host = cpal::default_host();
 
         // Select the capture device.
@@ -306,6 +307,12 @@ pub async fn start_capture(
 
         // Stream will be dropped here, stopping capture
         eprintln!("Linux audio capture: Stream stopped");
+
+        // Clean up PULSE_SOURCE if we set it, to avoid leaking the env
+        // var after capture completes.
+        if monitor_source.is_some() {
+            std::env::remove_var("PULSE_SOURCE");
+        }
     });
 
     // Spawn timeout task
