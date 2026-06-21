@@ -286,9 +286,12 @@ export interface CudaDownloadProgress {
 export interface CudaStatus {
   available: boolean; // CUDA binary exists on disk
   active: boolean; // Currently running the CUDA binary
-  binary_path?: string;
+  binary_path: string | null;
   downloading: boolean; // Download in progress
   download_progress?: CudaDownloadProgress;
+  cuda_libs_version: string | null;
+  download_supported: boolean; // Platform has a matching release asset
+  unsupported_reason: string | null;
 }
 
 export interface ModelProgress {
