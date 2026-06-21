@@ -1,6 +1,6 @@
 """Task and cache management endpoints."""
 
-from datetime import datetime
+from datetime import datetime, UTC
 
 from fastapi import APIRouter
 
@@ -91,9 +91,9 @@ async def get_active_tasks():
                 try:
                     started_at = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
                 except (ValueError, AttributeError):
-                    started_at = datetime.utcnow()
+                    started_at = datetime.now(UTC)
             else:
-                started_at = datetime.utcnow()
+                started_at = datetime.now(UTC)
 
             active_downloads.append(
                 models.ActiveDownloadTask(
