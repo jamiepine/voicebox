@@ -288,7 +288,7 @@ export interface CudaStatus {
   active: boolean; // Currently running the CUDA binary
   binary_path: string | null;
   cuda_libs_version: string | null;
-  download_supported?: boolean; // Platform has a matching release asset
+  download_supported: boolean; // Platform has a matching release asset
   unsupported_reason: string | null;
   downloading: boolean; // Download in progress
   download_progress?: CudaDownloadProgress;
