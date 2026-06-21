@@ -90,6 +90,8 @@ async def get_active_tasks():
             if timestamp_str:
                 try:
                     started_at = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                    if started_at.tzinfo is None:
+                        started_at = started_at.replace(tzinfo=UTC)
                 except (ValueError, AttributeError):
                     started_at = datetime.now(UTC)
             else:

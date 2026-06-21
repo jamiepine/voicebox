@@ -150,7 +150,7 @@ SAMPLE_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 SAMPLE_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
 AVATAR_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 AVATAR_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
-_ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
+_ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 
 
 @router.post("/profiles/{profile_id}/samples", response_model=models.ProfileSampleResponse)
@@ -236,10 +236,9 @@ async def upload_profile_avatar(
 ):
     """Upload or update avatar image for a profile."""
     _uploaded_ext = Path(file.filename or "").suffix.lower()
-    file_suffix = _uploaded_ext if _uploaded_ext in _ALLOWED_IMAGE_EXTS else ".png"
-    
-    if _uploaded_ext and _uploaded_ext not in _ALLOWED_IMAGE_EXTS:
+    if _uploaded_ext not in _ALLOWED_IMAGE_EXTS:
         raise HTTPException(status_code=400, detail=f"Unsupported file extension: {_uploaded_ext}")
+    file_suffix = _uploaded_ext
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp:
         total_size = 0

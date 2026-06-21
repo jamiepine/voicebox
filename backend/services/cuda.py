@@ -31,7 +31,7 @@ GITHUB_RELEASES_URL = "https://github.com/jamiepine/voicebox/releases/download"
 
 PROGRESS_KEY = "cuda-backend"
 
-CUDA_DOWNLOAD_UNSUPPORTED_REASON = "CUDA binary downloads are only supported on Windows. Linux users should use a local or remote Python backend."
+CUDA_DOWNLOAD_UNSUPPORTED_REASON = "CUDA binary downloads are only supported on Windows. On non-Windows platforms, use a local or remote Python backend."
 
 def is_cuda_download_supported() -> bool:
     """Check if CUDA binary download is supported on the current platform."""
