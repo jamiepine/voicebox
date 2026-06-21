@@ -4,7 +4,7 @@ import io
 import json as _json
 import logging
 import tempfile
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -356,7 +356,7 @@ async def update_profile_effects(
     else:
         profile.effects_chain = None
 
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(profile)
 
