@@ -347,7 +347,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
     from pathlib import Path
     import tempfile
     import shutil
-        from datetime import datetime, UTC
+    from datetime import datetime, UTC
     from .. import config
     
     zip_buffer = io.BytesIO(file_bytes)
