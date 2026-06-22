@@ -5,6 +5,15 @@
 
 # Changelog
 
+## [Unreleased]
+
+Voicebox can now experiment with Fun-CosyVoice3 as an optional cloned-voice engine, focused on Cantonese and other multilingual speech workflows.
+
+### Voice Generation
+
+- **Fun-CosyVoice3 engine option.** Adds a dev-mode `cosyvoice3` backend for `FunAudioLLM/Fun-CosyVoice3-0.5B-2512`, with cloned voice prompts, model management metadata, and frontend engine selection.
+- **Cantonese language path.** Adds `yue` / Cantonese as a language option and routes CosyVoice3 Cantonese generation through its instruction-style prompt format.
+
 ## [0.5.0] - 2026-04-22
 
 **The Capture release.** Voicebox stops being just a voice-cloning studio and becomes a full AI voice studio. Hold a key anywhere on your machine, speak, release — the transcript lands in the focused text field. Flip the primitive around and any MCP-aware agent — Claude Code, Cursor, Spacebot — speaks back through an on-screen pill in one of your cloned voices. A local LLM sits between the two, so transcripts come out clean and voice profiles can carry a personality that reshapes what the agent says before it gets spoken.

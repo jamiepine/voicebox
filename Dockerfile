@@ -37,6 +37,7 @@ COPY backend/requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
 RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
+RUN pip install --no-cache-dir --prefix=/install --no-build-isolation openai-whisper==20231117
 RUN pip install --no-cache-dir --prefix=/install \
     git+https://github.com/QwenLM/Qwen3-TTS.git
 

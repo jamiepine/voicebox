@@ -24,6 +24,7 @@ const ENGINE_OPTIONS = [
   { value: 'luxtts', label: 'LuxTTS', engine: 'luxtts' },
   { value: 'chatterbox', label: 'Chatterbox', engine: 'chatterbox' },
   { value: 'chatterbox_turbo', label: 'Chatterbox Turbo', engine: 'chatterbox_turbo' },
+  { value: 'cosyvoice3:0.5B', label: 'Fun-CosyVoice3 0.5B', engine: 'cosyvoice3' },
   { value: 'tada:1B', label: 'TADA 1B', engine: 'tada' },
   { value: 'tada:3B', label: 'TADA 3B Multilingual', engine: 'tada' },
   { value: 'kokoro', label: 'Kokoro 82M', engine: 'kokoro' },
@@ -35,6 +36,7 @@ const ENGINE_DESCRIPTIONS: Record<string, string> = {
   luxtts: 'Fast, English-focused',
   chatterbox: '23 languages, incl. Hebrew',
   chatterbox_turbo: 'English, [laugh] [cough] tags',
+  cosyvoice3: '0.5B, Cantonese via instruction',
   tada: 'HumeAI, 700s+ coherent audio',
   kokoro: '82M params, CPU realtime, 8 langs',
 };
@@ -43,7 +45,7 @@ const ENGINE_DESCRIPTIONS: Record<string, string> = {
 const ENGLISH_ONLY_ENGINES = new Set(['luxtts', 'chatterbox_turbo']);
 
 /** Engines that support cloned (reference audio) profiles. */
-const CLONING_ENGINES = new Set(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada']);
+const CLONING_ENGINES = new Set(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'cosyvoice3', 'tada']);
 
 function getAvailableOptions(selectedProfile?: VoiceProfileResponse | null) {
   if (!selectedProfile) return ENGINE_OPTIONS;
@@ -53,6 +55,7 @@ function getAvailableOptions(selectedProfile?: VoiceProfileResponse | null) {
 function getSelectValue(engine: string, modelSize?: string): string {
   if (engine === 'qwen') return `qwen:${modelSize || '1.7B'}`;
   if (engine === 'qwen_custom_voice') return `qwen_custom_voice:${modelSize || '1.7B'}`;
+  if (engine === 'cosyvoice3') return `cosyvoice3:${modelSize || '0.5B'}`;
   if (engine === 'tada') return `tada:${modelSize || '1B'}`;
   return engine;
 }
@@ -74,6 +77,14 @@ export function applyEngineSelection(form: UseFormReturn<GenerationFormValues>, 
     // Validate language is supported by Qwen
     const currentLang = form.getValues('language');
     const available = getLanguageOptionsForEngine('qwen');
+    if (!available.some((l) => l.value === currentLang)) {
+      form.setValue('language', available[0]?.value ?? 'en');
+    }
+  } else if (value.startsWith('cosyvoice3:')) {
+    form.setValue('engine', 'cosyvoice3');
+    form.setValue('modelSize', '0.5B' as GenerationFormValues['modelSize']);
+    const currentLang = form.getValues('language');
+    const available = getLanguageOptionsForEngine('cosyvoice3');
     if (!available.some((l) => l.value === currentLang)) {
       form.setValue('language', available[0]?.value ?? 'en');
     }

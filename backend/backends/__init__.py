@@ -25,6 +25,7 @@ from ..utils.platform_detect import get_backend_type
 
 LANGUAGE_CODE_TO_NAME = {
     "zh": "chinese",
+    "yue": "cantonese",
     "en": "english",
     "ja": "japanese",
     "ko": "korean",
@@ -213,6 +214,7 @@ TTS_ENGINES = {
     "luxtts": "LuxTTS",
     "chatterbox": "Chatterbox TTS",
     "chatterbox_turbo": "Chatterbox Turbo",
+    "cosyvoice3": "Fun-CosyVoice3",
     "tada": "TADA",
     "kokoro": "Kokoro",
 }
@@ -337,6 +339,17 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             size_mb=1500,
             needs_trim=True,
             languages=["en"],
+        ),
+        ModelConfig(
+            model_name="cosyvoice3-0.5B",
+            display_name="Fun-CosyVoice3 0.5B",
+            engine="cosyvoice3",
+            hf_repo_id="FunAudioLLM/Fun-CosyVoice3-0.5B-2512",
+            model_size="0.5B",
+            size_mb=2500,
+            needs_trim=True,
+            supports_instruct=True,
+            languages=["zh", "yue", "en", "ja", "ko"],
         ),
         ModelConfig(
             model_name="tada-1b",
@@ -505,7 +518,9 @@ def engine_needs_trim(engine: str) -> bool:
 
 
 def engine_has_model_sizes(engine: str) -> bool:
-    """Whether this engine supports multiple model sizes (only Qwen currently)."""
+    """Whether requests should preserve and pass a model_size for this engine."""
+    if engine == "cosyvoice3":
+        return True
     configs = [c for c in get_tts_model_configs() if c.engine == engine]
     return len(configs) > 1
 
@@ -515,7 +530,7 @@ async def load_engine_model(engine: str, model_size: str = "default") -> None:
     backend = get_tts_backend_for_engine(engine)
     if engine in ("qwen", "qwen_custom_voice"):
         await backend.load_model_async(model_size)
-    elif engine == "tada":
+    elif engine in ("tada", "cosyvoice3"):
         await backend.load_model(model_size)
     else:
         await backend.load_model()
@@ -532,7 +547,7 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
             cfg = c
             break
 
-    if engine in ("qwen", "qwen_custom_voice", "tada"):
+    if engine in ("qwen", "qwen_custom_voice", "tada", "cosyvoice3"):
         if not backend._is_model_cached(model_size):
             raise HTTPException(
                 status_code=400,
@@ -696,6 +711,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .chatterbox_turbo_backend import ChatterboxTurboTTSBackend
 
             backend = ChatterboxTurboTTSBackend()
+        elif engine == "cosyvoice3":
+            from .cosyvoice3_backend import CosyVoice3Backend
+
+            backend = CosyVoice3Backend()
         elif engine == "tada":
             from .hume_backend import HumeTadaBackend
 
