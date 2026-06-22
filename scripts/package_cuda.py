@@ -1,17 +1,3 @@
-"""
-Package the PyInstaller --onedir CUDA build into two archives.
-
-Takes the PyInstaller --onedir output directory and splits it into:
-  1. voicebox-server-cuda.tar.gz  — server core (exe + non-NVIDIA deps)
-  2. cuda-libs-cu128.tar.gz       — NVIDIA runtime libraries only
-  3. cuda-libs.json                — version manifest for the CUDA libs
-
-Usage:
-    python scripts/package_cuda.py backend/dist/voicebox-server-cuda/
-    python scripts/package_cuda.py backend/dist/voicebox-server-cuda/ --output release-assets/
-    python scripts/package_cuda.py backend/dist/voicebox-server-cuda/ --cuda-libs-version cu128-v1
-"""
-
 import argparse
 import hashlib
 import json
@@ -58,6 +44,10 @@ def is_nvidia_file(rel_path: str) -> bool:
     share NVIDIA-related names.
     """
     rel_lower = rel_path.lower().replace("\\", "/")
+
+    # Feature: Strict validation to protect core executable assets from false positives
+    if rel_lower.endswith((".exe", ".json", ".manifest")) and "/" not in rel_lower:
+        return False
 
     # Never split out Python source files or small stubs
     if rel_lower in NVIDIA_KEEP_IN_CORE:
