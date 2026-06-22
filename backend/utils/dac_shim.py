@@ -21,7 +21,6 @@ import types
 import torch
 import torch.nn as nn
 
-
 # ── Snake activation (from dac/nn/layers.py) ────────────────────────
 
 # NOTE: The original DAC code uses @torch.jit.script here for a 1.4x

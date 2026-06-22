@@ -18,7 +18,6 @@ from ..database import MCPClientBinding, get_db
 from ..mcp_server import events as mcp_events
 from ..mcp_server.resolve import resolve_profile
 
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter()

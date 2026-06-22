@@ -1,5 +1,14 @@
 import { Link, useMatchRoute } from '@tanstack/react-router';
-import { AudioLines, Box, Captions, type LucideIcon, Mic, Settings, Volume2, Wand2 } from 'lucide-react';
+import {
+  AudioLines,
+  Box,
+  Captions,
+  type LucideIcon,
+  Mic,
+  Settings,
+  Volume2,
+  Wand2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import voiceboxLogo from '@/assets/voicebox-logo.png';

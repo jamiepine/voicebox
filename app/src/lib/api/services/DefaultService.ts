@@ -2,6 +2,10 @@
 /* istanbul ignore file */
 /* tslint:disable */
 /* eslint-disable */
+
+import type { CancelablePromise } from '../core/CancelablePromise';
+import { OpenAPI } from '../core/OpenAPI';
+import { request as __request } from '../core/request';
 import type { Body_add_profile_sample_profiles__profile_id__samples_post } from '../models/Body_add_profile_sample_profiles__profile_id__samples_post';
 import type { Body_transcribe_audio_transcribe_post } from '../models/Body_transcribe_audio_transcribe_post';
 import type { GenerationRequest } from '../models/GenerationRequest';
@@ -15,9 +19,6 @@ import type { ProfileSampleResponse } from '../models/ProfileSampleResponse';
 import type { TranscriptionResponse } from '../models/TranscriptionResponse';
 import type { VoiceProfileCreate } from '../models/VoiceProfileCreate';
 import type { VoiceProfileResponse } from '../models/VoiceProfileResponse';
-import type { CancelablePromise } from '../core/CancelablePromise';
-import { OpenAPI } from '../core/OpenAPI';
-import { request as __request } from '../core/request';
 export class DefaultService {
   /**
    * Root

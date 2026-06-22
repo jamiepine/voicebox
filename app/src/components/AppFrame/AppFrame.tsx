@@ -1,12 +1,12 @@
 import { useRouterState } from '@tanstack/react-router';
-import { TitleBarDragRegion } from '@/components/TitleBarDragRegion';
 import { AudioKeepAlive } from '@/components/AudioPlayer/AudioKeepAlive';
 import { AudioPlayer } from '@/components/AudioPlayer/AudioPlayer';
 import { StoryTrackEditor } from '@/components/StoriesTab/StoryTrackEditor';
+import { TitleBarDragRegion } from '@/components/TitleBarDragRegion';
 import { TOP_SAFE_AREA_PADDING } from '@/lib/constants/ui';
+import { useStory } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
 import { useStoryStore } from '@/stores/storyStore';
-import { useStory } from '@/lib/hooks/useStories';
 
 interface AppFrameProps {
   children: React.ReactNode;

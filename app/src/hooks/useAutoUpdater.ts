@@ -12,7 +12,9 @@ interface UseAutoUpdaterOptions {
 
 export function useAutoUpdater(options: boolean | UseAutoUpdaterOptions = false) {
   const { checkOnMount } =
-    typeof options === 'boolean' ? { checkOnMount: options } : { checkOnMount: options.checkOnMount ?? false };
+    typeof options === 'boolean'
+      ? { checkOnMount: options }
+      : { checkOnMount: options.checkOnMount ?? false };
 
   const platform = usePlatform();
   const [status, setStatus] = useState<UpdateStatus>(platform.updater.getStatus());

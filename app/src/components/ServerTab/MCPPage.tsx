@@ -12,8 +12,8 @@ import {
 import { useMCPBindings } from '@/lib/hooks/useMCPBindings';
 import { useProfiles } from '@/lib/hooks/useProfiles';
 import { useCaptureSettings } from '@/lib/hooks/useSettings';
-import { useServerStore } from '@/stores/serverStore';
 import { formatDate } from '@/lib/utils/format';
+import { useServerStore } from '@/stores/serverStore';
 import { SettingRow, SettingSection } from './SettingRow';
 
 function getStdioShimCommand(): string {
@@ -135,9 +135,7 @@ export function MCPPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__default__">
-                    {t('settings.mcp.defaultVoice.none')}
-                  </SelectItem>
+                  <SelectItem value="__default__">{t('settings.mcp.defaultVoice.none')}</SelectItem>
                   {(profiles ?? []).map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
@@ -165,16 +163,18 @@ export function MCPPage() {
                   className="py-3 grid grid-cols-[1fr_auto_auto] gap-4 items-center"
                 >
                   <div className="min-w-0">
-                    <div className="font-medium text-sm truncate">
-                      {b.label || b.client_id}
-                    </div>
+                    <div className="font-medium text-sm truncate">{b.label || b.client_id}</div>
                     <div className="text-xs text-muted-foreground truncate">
                       <code className="text-[11px]">{b.client_id}</code>
                       {' · '}
                       {b.last_seen_at ? (
-                        <span title={t('settings.mcp.bindings.lastSeenTitle', { when: b.last_seen_at })}>
+                        <span
+                          title={t('settings.mcp.bindings.lastSeenTitle', { when: b.last_seen_at })}
+                        >
                           <Plug className="inline h-3 w-3 text-emerald-500" />{' '}
-                          {t('settings.mcp.bindings.lastSeen', { when: formatDate(b.last_seen_at) })}
+                          {t('settings.mcp.bindings.lastSeen', {
+                            when: formatDate(b.last_seen_at),
+                          })}
                         </span>
                       ) : (
                         <span>{t('settings.mcp.bindings.neverConnected')}</span>
@@ -254,11 +254,7 @@ export function MCPPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              size="sm"
-              onClick={handleAdd}
-              disabled={!newClientId.trim() || adding}
-            >
+            <Button size="sm" onClick={handleAdd} disabled={!newClientId.trim() || adding}>
               {t('settings.mcp.bindings.add.action')}
             </Button>
           </div>

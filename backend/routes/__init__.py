@@ -5,24 +5,24 @@ from fastapi import FastAPI
 
 def register_routers(app: FastAPI) -> None:
     """Include all domain routers on the application."""
-    from .health import router as health_router
-    from .profiles import router as profiles_router
-    from .channels import router as channels_router
-    from .generations import router as generations_router
-    from .history import router as history_router
-    from .transcription import router as transcription_router
-    from .llm import router as llm_router
-    from .captures import router as captures_router
-    from .stories import router as stories_router
-    from .effects import router as effects_router
     from .audio import router as audio_router
-    from .models import router as models_router
-    from .settings import router as settings_router
-    from .tasks import router as tasks_router
+    from .captures import router as captures_router
+    from .channels import router as channels_router
     from .cuda import router as cuda_router
-    from .speak import router as speak_router
-    from .mcp_bindings import router as mcp_bindings_router
+    from .effects import router as effects_router
     from .events import router as events_router
+    from .generations import router as generations_router
+    from .health import router as health_router
+    from .history import router as history_router
+    from .llm import router as llm_router
+    from .mcp_bindings import router as mcp_bindings_router
+    from .models import router as models_router
+    from .profiles import router as profiles_router
+    from .settings import router as settings_router
+    from .speak import router as speak_router
+    from .stories import router as stories_router
+    from .tasks import router as tasks_router
+    from .transcription import router as transcription_router
 
     app.include_router(health_router)
     app.include_router(profiles_router)

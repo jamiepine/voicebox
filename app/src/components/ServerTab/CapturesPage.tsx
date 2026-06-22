@@ -1,11 +1,20 @@
-import { Check, ChevronDown, FolderOpen, Info, Keyboard, Laptop, Lock, Volume2 } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  FolderOpen,
+  Info,
+  Keyboard,
+  Laptop,
+  Lock,
+  Volume2,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AccessibilityNotice } from '@/components/AccessibilityGate/AccessibilityGate';
-import { InputMonitoringNotice } from '@/components/InputMonitoringGate/InputMonitoringGate';
 import { CapturePill, type PillState } from '@/components/CapturePill/CapturePill';
 import { DictationReadinessChecklist } from '@/components/CapturesTab/DictationReadinessChecklist';
 import { ChordPicker } from '@/components/ChordPicker/ChordPicker';
+import { InputMonitoringNotice } from '@/components/InputMonitoringGate/InputMonitoringGate';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -24,20 +33,22 @@ import {
 } from '@/components/ui/select';
 import { Toggle } from '@/components/ui/toggle';
 import { useToast } from '@/components/ui/use-toast';
+import type { Qwen3ModelSize, VoiceProfileResponse, WhisperModelSize } from '@/lib/api/types';
 import { useDictationReadiness } from '@/lib/hooks/useDictationReadiness';
-import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { useProfiles } from '@/lib/hooks/useProfiles';
-import { usePlatform } from '@/platform/PlatformContext';
-import { useServerStore } from '@/stores/serverStore';
+import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { cn } from '@/lib/utils/cn';
 import { defaultChordKeys, displayLabelForKey, modifierSideHint } from '@/lib/utils/keyCodes';
-import type { Qwen3ModelSize, VoiceProfileResponse, WhisperModelSize } from '@/lib/api/types';
+import { usePlatform } from '@/platform/PlatformContext';
+import { useServerStore } from '@/stores/serverStore';
 import { SettingRow, SettingSection } from './SettingRow';
 
 function ChordPreview({ keys }: { keys: string[] }) {
   const { t } = useTranslation();
   if (keys.length === 0) {
-    return <span className="text-xs text-muted-foreground italic">{t('captures.chord.notSet')}</span>;
+    return (
+      <span className="text-xs text-muted-foreground italic">{t('captures.chord.notSet')}</span>
+    );
   }
   return (
     <div className="flex items-center gap-1">
@@ -61,8 +72,7 @@ function ChordPreview({ keys }: { keys: string[] }) {
   );
 }
 
-const isWindows =
-  typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
+const isWindows = typeof navigator !== 'undefined' && navigator.userAgent.includes('Windows');
 
 const PILL_SEQUENCE: PillState[] = ['recording', 'transcribing', 'refining', 'rest'];
 const PILL_DURATIONS: Partial<Record<PillState, number>> = {
@@ -149,9 +159,7 @@ export function CapturesPage() {
     fetch(`${serverUrl}/health/filesystem`)
       .then((res) => res.json())
       .then((data) => {
-        const dir = data.directories?.find((d: { path: string }) =>
-          d.path.includes('captures'),
-        );
+        const dir = data.directories?.find((d: { path: string }) => d.path.includes('captures'));
         if (dir?.path) setCapturesPath(dir.path);
       })
       .catch(() => {});
@@ -170,369 +178,401 @@ export function CapturesPage() {
   }, [platform, capturesPath]);
 
   const voices: VoiceProfileResponse[] = profiles ?? [];
-  const defaultVoice =
-    voices.find((v) => v.id === defaultVoiceId) ?? null;
+  const defaultVoice = voices.find((v) => v.id === defaultVoiceId) ?? null;
 
   return (
     <div className="flex gap-8 items-start max-w-5xl">
       <div className="flex-1 min-w-0 max-w-2xl space-y-10">
-      <SettingSection
-        title={t('settings.captures.dictation.title')}
-        description={t('settings.captures.dictation.description')}
-      >
-        <div>
-          <SettingRow
-            title={t('settings.captures.dictation.globalShortcut.title')}
-            description={t('settings.captures.dictation.globalShortcut.description')}
-            htmlFor="hotkeyEnabled"
-            action={
-              <Toggle
-                id="hotkeyEnabled"
-                checked={hotkeyEnabled}
-                onCheckedChange={(v) => {
-                  update({ hotkey_enabled: v });
-                  // Surface model-readiness blocks at the toggle. The
-                  // InputMonitoringNotice below already covers TCC, but
-                  // missing models would otherwise be invisible from this
-                  // page — the user toggles on, presses the chord, and
-                  // nothing happens because useChordSync gates on readiness.
-                  if (!v) return;
-                  const missingModels = readiness.missing.filter(
-                    (g) => g === 'stt' || g === 'llm',
-                  );
-                  if (missingModels.length === 0) return;
-                  const names = [
-                    missingModels.includes('stt') ? readiness.stt?.display_name : null,
-                    missingModels.includes('llm') ? readiness.llm?.display_name : null,
-                  ]
-                    .filter(Boolean)
-                    .join(' and ');
-                  toast({
-                    title: t('captures.toast.shortcutNotArmed'),
-                    description: t('captures.toast.shortcutNotArmedDescription', {
-                      names,
-                      count: missingModels.length,
-                    }),
-                  });
-                }}
-              />
-            }
-          />
-          <InputMonitoringNotice enabled={hotkeyEnabled} />
-        </div>
-
-        <SettingRow
-          title={t('settings.captures.dictation.pushToTalk.title')}
-          description={t('settings.captures.dictation.pushToTalk.description')}
-          action={
-            <div className="flex items-center gap-2">
-              <ChordPreview keys={pushToTalkKeys} />
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!hotkeyEnabled}
-                onClick={() => setChordEditor('push')}
-              >
-                <Keyboard className="h-3.5 w-3.5 mr-1.5" />
-                {t('settings.captures.dictation.pushToTalk.change')}
-              </Button>
-            </div>
-          }
-        />
-
-        <SettingRow
-          title={t('settings.captures.dictation.toggle.title')}
-          description={t('settings.captures.dictation.toggle.description')}
-          action={
-            <div className="flex items-center gap-2">
-              <ChordPreview keys={toggleToTalkKeys} />
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!hotkeyEnabled}
-                onClick={() => setChordEditor('toggle')}
-              >
-                <Keyboard className="h-3.5 w-3.5 mr-1.5" />
-                {t('settings.captures.dictation.toggle.change')}
-              </Button>
-            </div>
-          }
-        />
-
-        <ChordPicker
-          open={chordEditor === 'push'}
-          title={t('settings.captures.dictation.chordPicker.pttTitle')}
-          description={t('settings.captures.dictation.chordPicker.pttDescription')}
-          initialKeys={pushToTalkKeys}
-          onCancel={() => setChordEditor(null)}
-          onSave={(keys) => {
-            update({ chord_push_to_talk_keys: keys });
-            setChordEditor(null);
-          }}
-        />
-
-        <ChordPicker
-          open={chordEditor === 'toggle'}
-          title={t('settings.captures.dictation.chordPicker.toggleTitle')}
-          description={t('settings.captures.dictation.chordPicker.toggleDescription')}
-          initialKeys={toggleToTalkKeys}
-          onCancel={() => setChordEditor(null)}
-          onSave={(keys) => {
-            update({ chord_toggle_to_talk_keys: keys });
-            setChordEditor(null);
-          }}
-        />
-
-        <SettingRow
-          title={t('settings.captures.dictation.preview.title')}
-          description={t('settings.captures.dictation.preview.description')}
+        <SettingSection
+          title={t('settings.captures.dictation.title')}
+          description={t('settings.captures.dictation.description')}
         >
-          <HotkeyPillPreview enabled={hotkeyEnabled} />
-        </SettingRow>
+          <div>
+            <SettingRow
+              title={t('settings.captures.dictation.globalShortcut.title')}
+              description={t('settings.captures.dictation.globalShortcut.description')}
+              htmlFor="hotkeyEnabled"
+              action={
+                <Toggle
+                  id="hotkeyEnabled"
+                  checked={hotkeyEnabled}
+                  onCheckedChange={(v) => {
+                    update({ hotkey_enabled: v });
+                    // Surface model-readiness blocks at the toggle. The
+                    // InputMonitoringNotice below already covers TCC, but
+                    // missing models would otherwise be invisible from this
+                    // page — the user toggles on, presses the chord, and
+                    // nothing happens because useChordSync gates on readiness.
+                    if (!v) return;
+                    const missingModels = readiness.missing.filter(
+                      (g) => g === 'stt' || g === 'llm',
+                    );
+                    if (missingModels.length === 0) return;
+                    const names = [
+                      missingModels.includes('stt') ? readiness.stt?.display_name : null,
+                      missingModels.includes('llm') ? readiness.llm?.display_name : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' and ');
+                    toast({
+                      title: t('captures.toast.shortcutNotArmed'),
+                      description: t('captures.toast.shortcutNotArmedDescription', {
+                        names,
+                        count: missingModels.length,
+                      }),
+                    });
+                  }}
+                />
+              }
+            />
+            <InputMonitoringNotice enabled={hotkeyEnabled} />
+          </div>
 
-        <div>
           <SettingRow
-            title={t('settings.captures.dictation.autoPaste.title')}
-            description={t('settings.captures.dictation.autoPaste.description')}
-            htmlFor="autoPaste"
+            title={t('settings.captures.dictation.pushToTalk.title')}
+            description={t('settings.captures.dictation.pushToTalk.description')}
             action={
-              <Toggle
-                id="autoPaste"
-                checked={allowAutoPaste}
-                onCheckedChange={(v) => update({ allow_auto_paste: v })}
-                disabled={!hotkeyEnabled}
-              />
-            }
-          />
-          <AccessibilityNotice />
-        </div>
-      </SettingSection>
-
-      <SettingSection
-        title={t('settings.captures.transcription.title')}
-        description={t('settings.captures.transcription.description')}
-      >
-        <SettingRow
-          title={t('settings.captures.transcription.model.title')}
-          description={t('settings.captures.transcription.model.description')}
-          action={
-            <Select
-              value={sttModel}
-              onValueChange={(v) => update({ stt_model: v as WhisperModelSize })}
-            >
-              <SelectTrigger className="w-[300px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="base">
-                  {t('settings.captures.transcription.model.base', { tail: t('settings.captures.transcription.model.tail.fast') })}
-                </SelectItem>
-                <SelectItem value="small">
-                  {t('settings.captures.transcription.model.small', { tail: t('settings.captures.transcription.model.tail.balanced') })}
-                </SelectItem>
-                <SelectItem value="medium">
-                  {t('settings.captures.transcription.model.medium', { tail: t('settings.captures.transcription.model.tail.higher') })}
-                </SelectItem>
-                <SelectItem value="large">
-                  {t('settings.captures.transcription.model.large', { tail: t('settings.captures.transcription.model.tail.best') })}
-                </SelectItem>
-                <SelectItem value="turbo">
-                  {t('settings.captures.transcription.model.turbo', { tail: t('settings.captures.transcription.model.tail.nearBest') })}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          }
-        />
-
-        <SettingRow
-          title={t('settings.captures.transcription.language.title')}
-          description={t('settings.captures.transcription.language.description')}
-          action={
-            <Select value={language} onValueChange={(v) => update({ language: v })}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auto">{t('settings.captures.transcription.language.auto')}</SelectItem>
-                <SelectItem value="en">{t('settings.captures.transcription.language.en')}</SelectItem>
-                <SelectItem value="es">{t('settings.captures.transcription.language.es')}</SelectItem>
-                <SelectItem value="fr">{t('settings.captures.transcription.language.fr')}</SelectItem>
-                <SelectItem value="de">{t('settings.captures.transcription.language.de')}</SelectItem>
-                <SelectItem value="ja">{t('settings.captures.transcription.language.ja')}</SelectItem>
-                <SelectItem value="zh">{t('settings.captures.transcription.language.zh')}</SelectItem>
-                <SelectItem value="hi">{t('settings.captures.transcription.language.hi')}</SelectItem>
-              </SelectContent>
-            </Select>
-          }
-        />
-
-      </SettingSection>
-
-      <SettingSection
-        title={t('settings.captures.refinement.title')}
-        description={t('settings.captures.refinement.description')}
-      >
-        <SettingRow
-          title={t('settings.captures.refinement.auto.title')}
-          description={t('settings.captures.refinement.auto.description')}
-          htmlFor="autoRefine"
-          action={
-            <Toggle
-              id="autoRefine"
-              checked={autoRefine}
-              onCheckedChange={(v) => update({ auto_refine: v })}
-            />
-          }
-        />
-
-        <SettingRow
-          title={t('settings.captures.refinement.model.title')}
-          description={t('settings.captures.refinement.model.description')}
-          action={
-            <Select
-              value={llmModel}
-              onValueChange={(v) => update({ llm_model: v as Qwen3ModelSize })}
-              disabled={!autoRefine}
-            >
-              <SelectTrigger className="w-[260px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0.6B">
-                  {t('settings.captures.refinement.model.size06', { tail: t('settings.captures.refinement.model.tail.veryFast') })}
-                </SelectItem>
-                <SelectItem value="1.7B">
-                  {t('settings.captures.refinement.model.size17', { tail: t('settings.captures.refinement.model.tail.fast') })}
-                </SelectItem>
-                <SelectItem value="4B">
-                  {t('settings.captures.refinement.model.size40', { tail: t('settings.captures.refinement.model.tail.fullQuality') })}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          }
-        />
-
-        <SettingRow
-          title={t('settings.captures.refinement.smartCleanup.title')}
-          description={t('settings.captures.refinement.smartCleanup.description')}
-          htmlFor="smartCleanup"
-          action={
-            <Toggle
-              id="smartCleanup"
-              checked={smartCleanup}
-              onCheckedChange={(v) => update({ smart_cleanup: v })}
-              disabled={!autoRefine}
-            />
-          }
-        />
-
-        <SettingRow
-          title={t('settings.captures.refinement.selfCorrection.title')}
-          description={t('settings.captures.refinement.selfCorrection.description')}
-          htmlFor="selfCorrection"
-          action={
-            <Toggle
-              id="selfCorrection"
-              checked={selfCorrection}
-              onCheckedChange={(v) => update({ self_correction: v })}
-              disabled={!autoRefine}
-            />
-          }
-        />
-
-        <SettingRow
-          title={t('settings.captures.refinement.preserveTechnical.title')}
-          description={t('settings.captures.refinement.preserveTechnical.description')}
-          htmlFor="preserveTechnical"
-          action={
-            <Toggle
-              id="preserveTechnical"
-              checked={preserveTechnical}
-              onCheckedChange={(v) => update({ preserve_technical: v })}
-              disabled={!autoRefine}
-            />
-          }
-        />
-      </SettingSection>
-
-      <SettingSection
-        title={t('settings.captures.playback.title')}
-        description={t('settings.captures.playback.description')}
-      >
-        <SettingRow
-          title={t('settings.captures.playback.defaultVoice.title')}
-          description={t('settings.captures.playback.defaultVoice.description')}
-          action={
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <div className="flex items-center gap-2">
+                <ChordPreview keys={pushToTalkKeys} />
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-2 min-w-[220px] justify-between"
-                  disabled={voices.length === 0}
+                  disabled={!hotkeyEnabled}
+                  onClick={() => setChordEditor('push')}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    {defaultVoice ? (
-                      <span className="truncate">{defaultVoice.name}</span>
-                    ) : (
-                      <span className="truncate text-muted-foreground">
-                        {voices.length === 0
-                          ? t('settings.captures.playback.defaultVoice.noClonedVoices')
-                          : t('settings.captures.playback.defaultVoice.noneSelected')}
-                      </span>
-                    )}
-                  </div>
-                  <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                  <Keyboard className="h-3.5 w-3.5 mr-1.5" />
+                  {t('settings.captures.dictation.pushToTalk.change')}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-                  {t('settings.captures.playback.defaultVoice.clonedVoices')}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {voices.map((v) => (
-                  <DropdownMenuItem
-                    key={v.id}
-                    onClick={() => update({ default_playback_voice_id: v.id })}
-                    className="gap-2.5 py-2"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{v.name}</div>
-                      {v.description ? (
-                        <div className="text-[11px] text-muted-foreground truncate">
-                          {v.description}
-                        </div>
-                      ) : null}
-                    </div>
-                    {v.id === defaultVoiceId && <Check className="h-3.5 w-3.5 text-accent shrink-0" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          }
-        />
-      </SettingSection>
+              </div>
+            }
+          />
 
-      <SettingSection
-        title={t('settings.captures.storage.title')}
-        description={t('settings.captures.storage.description')}
-      >
-        <SettingRow
-          title={t('settings.captures.storage.folder.title')}
-          description={capturesPath ?? t('settings.captures.storage.folder.description')}
-          action={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={openCapturesFolder}
-              disabled={opening || !capturesPath}
-            >
-              <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
-              {t('settings.captures.storage.folder.open')}
-            </Button>
-          }
-        />
-      </SettingSection>
+          <SettingRow
+            title={t('settings.captures.dictation.toggle.title')}
+            description={t('settings.captures.dictation.toggle.description')}
+            action={
+              <div className="flex items-center gap-2">
+                <ChordPreview keys={toggleToTalkKeys} />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!hotkeyEnabled}
+                  onClick={() => setChordEditor('toggle')}
+                >
+                  <Keyboard className="h-3.5 w-3.5 mr-1.5" />
+                  {t('settings.captures.dictation.toggle.change')}
+                </Button>
+              </div>
+            }
+          />
+
+          <ChordPicker
+            open={chordEditor === 'push'}
+            title={t('settings.captures.dictation.chordPicker.pttTitle')}
+            description={t('settings.captures.dictation.chordPicker.pttDescription')}
+            initialKeys={pushToTalkKeys}
+            onCancel={() => setChordEditor(null)}
+            onSave={(keys) => {
+              update({ chord_push_to_talk_keys: keys });
+              setChordEditor(null);
+            }}
+          />
+
+          <ChordPicker
+            open={chordEditor === 'toggle'}
+            title={t('settings.captures.dictation.chordPicker.toggleTitle')}
+            description={t('settings.captures.dictation.chordPicker.toggleDescription')}
+            initialKeys={toggleToTalkKeys}
+            onCancel={() => setChordEditor(null)}
+            onSave={(keys) => {
+              update({ chord_toggle_to_talk_keys: keys });
+              setChordEditor(null);
+            }}
+          />
+
+          <SettingRow
+            title={t('settings.captures.dictation.preview.title')}
+            description={t('settings.captures.dictation.preview.description')}
+          >
+            <HotkeyPillPreview enabled={hotkeyEnabled} />
+          </SettingRow>
+
+          <div>
+            <SettingRow
+              title={t('settings.captures.dictation.autoPaste.title')}
+              description={t('settings.captures.dictation.autoPaste.description')}
+              htmlFor="autoPaste"
+              action={
+                <Toggle
+                  id="autoPaste"
+                  checked={allowAutoPaste}
+                  onCheckedChange={(v) => update({ allow_auto_paste: v })}
+                  disabled={!hotkeyEnabled}
+                />
+              }
+            />
+            <AccessibilityNotice />
+          </div>
+        </SettingSection>
+
+        <SettingSection
+          title={t('settings.captures.transcription.title')}
+          description={t('settings.captures.transcription.description')}
+        >
+          <SettingRow
+            title={t('settings.captures.transcription.model.title')}
+            description={t('settings.captures.transcription.model.description')}
+            action={
+              <Select
+                value={sttModel}
+                onValueChange={(v) => update({ stt_model: v as WhisperModelSize })}
+              >
+                <SelectTrigger className="w-[300px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="base">
+                    {t('settings.captures.transcription.model.base', {
+                      tail: t('settings.captures.transcription.model.tail.fast'),
+                    })}
+                  </SelectItem>
+                  <SelectItem value="small">
+                    {t('settings.captures.transcription.model.small', {
+                      tail: t('settings.captures.transcription.model.tail.balanced'),
+                    })}
+                  </SelectItem>
+                  <SelectItem value="medium">
+                    {t('settings.captures.transcription.model.medium', {
+                      tail: t('settings.captures.transcription.model.tail.higher'),
+                    })}
+                  </SelectItem>
+                  <SelectItem value="large">
+                    {t('settings.captures.transcription.model.large', {
+                      tail: t('settings.captures.transcription.model.tail.best'),
+                    })}
+                  </SelectItem>
+                  <SelectItem value="turbo">
+                    {t('settings.captures.transcription.model.turbo', {
+                      tail: t('settings.captures.transcription.model.tail.nearBest'),
+                    })}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
+          />
+
+          <SettingRow
+            title={t('settings.captures.transcription.language.title')}
+            description={t('settings.captures.transcription.language.description')}
+            action={
+              <Select value={language} onValueChange={(v) => update({ language: v })}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">
+                    {t('settings.captures.transcription.language.auto')}
+                  </SelectItem>
+                  <SelectItem value="en">
+                    {t('settings.captures.transcription.language.en')}
+                  </SelectItem>
+                  <SelectItem value="es">
+                    {t('settings.captures.transcription.language.es')}
+                  </SelectItem>
+                  <SelectItem value="fr">
+                    {t('settings.captures.transcription.language.fr')}
+                  </SelectItem>
+                  <SelectItem value="de">
+                    {t('settings.captures.transcription.language.de')}
+                  </SelectItem>
+                  <SelectItem value="ja">
+                    {t('settings.captures.transcription.language.ja')}
+                  </SelectItem>
+                  <SelectItem value="zh">
+                    {t('settings.captures.transcription.language.zh')}
+                  </SelectItem>
+                  <SelectItem value="hi">
+                    {t('settings.captures.transcription.language.hi')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
+          />
+        </SettingSection>
+
+        <SettingSection
+          title={t('settings.captures.refinement.title')}
+          description={t('settings.captures.refinement.description')}
+        >
+          <SettingRow
+            title={t('settings.captures.refinement.auto.title')}
+            description={t('settings.captures.refinement.auto.description')}
+            htmlFor="autoRefine"
+            action={
+              <Toggle
+                id="autoRefine"
+                checked={autoRefine}
+                onCheckedChange={(v) => update({ auto_refine: v })}
+              />
+            }
+          />
+
+          <SettingRow
+            title={t('settings.captures.refinement.model.title')}
+            description={t('settings.captures.refinement.model.description')}
+            action={
+              <Select
+                value={llmModel}
+                onValueChange={(v) => update({ llm_model: v as Qwen3ModelSize })}
+                disabled={!autoRefine}
+              >
+                <SelectTrigger className="w-[260px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.6B">
+                    {t('settings.captures.refinement.model.size06', {
+                      tail: t('settings.captures.refinement.model.tail.veryFast'),
+                    })}
+                  </SelectItem>
+                  <SelectItem value="1.7B">
+                    {t('settings.captures.refinement.model.size17', {
+                      tail: t('settings.captures.refinement.model.tail.fast'),
+                    })}
+                  </SelectItem>
+                  <SelectItem value="4B">
+                    {t('settings.captures.refinement.model.size40', {
+                      tail: t('settings.captures.refinement.model.tail.fullQuality'),
+                    })}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            }
+          />
+
+          <SettingRow
+            title={t('settings.captures.refinement.smartCleanup.title')}
+            description={t('settings.captures.refinement.smartCleanup.description')}
+            htmlFor="smartCleanup"
+            action={
+              <Toggle
+                id="smartCleanup"
+                checked={smartCleanup}
+                onCheckedChange={(v) => update({ smart_cleanup: v })}
+                disabled={!autoRefine}
+              />
+            }
+          />
+
+          <SettingRow
+            title={t('settings.captures.refinement.selfCorrection.title')}
+            description={t('settings.captures.refinement.selfCorrection.description')}
+            htmlFor="selfCorrection"
+            action={
+              <Toggle
+                id="selfCorrection"
+                checked={selfCorrection}
+                onCheckedChange={(v) => update({ self_correction: v })}
+                disabled={!autoRefine}
+              />
+            }
+          />
+
+          <SettingRow
+            title={t('settings.captures.refinement.preserveTechnical.title')}
+            description={t('settings.captures.refinement.preserveTechnical.description')}
+            htmlFor="preserveTechnical"
+            action={
+              <Toggle
+                id="preserveTechnical"
+                checked={preserveTechnical}
+                onCheckedChange={(v) => update({ preserve_technical: v })}
+                disabled={!autoRefine}
+              />
+            }
+          />
+        </SettingSection>
+
+        <SettingSection
+          title={t('settings.captures.playback.title')}
+          description={t('settings.captures.playback.description')}
+        >
+          <SettingRow
+            title={t('settings.captures.playback.defaultVoice.title')}
+            description={t('settings.captures.playback.defaultVoice.description')}
+            action={
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 min-w-[220px] justify-between"
+                    disabled={voices.length === 0}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      {defaultVoice ? (
+                        <span className="truncate">{defaultVoice.name}</span>
+                      ) : (
+                        <span className="truncate text-muted-foreground">
+                          {voices.length === 0
+                            ? t('settings.captures.playback.defaultVoice.noClonedVoices')
+                            : t('settings.captures.playback.defaultVoice.noneSelected')}
+                        </span>
+                      )}
+                    </div>
+                    <ChevronDown className="h-3.5 w-3.5 opacity-60 shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                    {t('settings.captures.playback.defaultVoice.clonedVoices')}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {voices.map((v) => (
+                    <DropdownMenuItem
+                      key={v.id}
+                      onClick={() => update({ default_playback_voice_id: v.id })}
+                      className="gap-2.5 py-2"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{v.name}</div>
+                        {v.description ? (
+                          <div className="text-[11px] text-muted-foreground truncate">
+                            {v.description}
+                          </div>
+                        ) : null}
+                      </div>
+                      {v.id === defaultVoiceId && (
+                        <Check className="h-3.5 w-3.5 text-accent shrink-0" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            }
+          />
+        </SettingSection>
+
+        <SettingSection
+          title={t('settings.captures.storage.title')}
+          description={t('settings.captures.storage.description')}
+        >
+          <SettingRow
+            title={t('settings.captures.storage.folder.title')}
+            description={capturesPath ?? t('settings.captures.storage.folder.description')}
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openCapturesFolder}
+                disabled={opening || !capturesPath}
+              >
+                <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
+                {t('settings.captures.storage.folder.open')}
+              </Button>
+            }
+          />
+        </SettingSection>
       </div>
 
       <aside className="hidden lg:block w-[280px] shrink-0 space-y-6 sticky top-0">
@@ -544,12 +584,16 @@ export function CapturesPage() {
         </div>
 
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold">{t('settings.captures.sidebar.differencesTitle')}</h3>
+          <h3 className="text-sm font-semibold">
+            {t('settings.captures.sidebar.differencesTitle')}
+          </h3>
           <ul className="space-y-3 text-sm text-muted-foreground">
             <li className="flex gap-2.5">
               <Lock className="h-4 w-4 shrink-0 mt-0.5 text-accent" />
               <span className="leading-relaxed">
-                <span className="text-foreground font-medium">{t('settings.captures.sidebar.local.title')}</span>{' '}
+                <span className="text-foreground font-medium">
+                  {t('settings.captures.sidebar.local.title')}
+                </span>{' '}
                 {t('settings.captures.sidebar.local.body')}
               </span>
             </li>

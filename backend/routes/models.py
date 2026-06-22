@@ -4,13 +4,12 @@ import asyncio
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 
 from .. import models
-from ..utils.platform_detect import get_backend_type
 from ..services.task_queue import create_background_task
+from ..utils.platform_detect import get_backend_type
 from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
 
@@ -57,7 +56,7 @@ async def load_model(model_size: str = "1.7B"):
         await tts_model.load_model_async(model_size)
         return {"message": f"Model {model_size} loaded successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/models/unload")
@@ -69,7 +68,7 @@ async def unload_model():
         tts.unload_tts_model()
         return {"message": "Model unloaded successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/models/{model_name}/unload")
@@ -171,7 +170,7 @@ async def migrate_models(request: models.ModelMigrateRequest):
                             status="downloading",
                         )
                     except Exception as e:
-                        errors.append(f"{item.name}: {str(e)}")
+                        errors.append(f"{item.name}: {e!s}")
             else:
                 total_bytes = sum(_get_dir_size(d) for d in model_dirs)
                 progress_manager.update_progress(
@@ -190,7 +189,7 @@ async def migrate_models(request: models.ModelMigrateRequest):
                         await asyncio.to_thread(shutil.rmtree, str(item))
                         moved += 1
                     except Exception as e:
-                        errors.append(f"{item.name}: {str(e)}")
+                        errors.append(f"{item.name}: {e!s}")
 
             progress_manager.update_progress("migration", 1, 1, status="complete")
             progress_manager.mark_complete("migration")
@@ -240,7 +239,7 @@ async def get_model_status():
     except ImportError:
         use_scan_cache = False
 
-    from ..backends import get_all_model_configs, check_model_loaded
+    from ..backends import check_model_loaded, get_all_model_configs
 
     registry_configs = get_all_model_configs()
     model_configs = [
@@ -445,6 +444,7 @@ async def cancel_model_download(request: models.ModelDownloadRequest):
 async def delete_model(model_name: str):
     """Delete a downloaded model from the HuggingFace cache."""
     from huggingface_hub import constants as hf_constants
+
     from ..backends import get_model_config, unload_model_by_config
 
     config = get_model_config(model_name)
@@ -465,11 +465,11 @@ async def delete_model(model_name: str):
         try:
             shutil.rmtree(repo_cache_dir)
         except OSError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {e!s}") from e
 
         return {"message": f"Model {model_name} deleted successfully"}
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete model: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete model: {e!s}") from e

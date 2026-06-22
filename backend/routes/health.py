@@ -6,13 +6,11 @@ import signal
 from pathlib import Path
 
 import torch
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
 
 from .. import config, models
 from ..services import tts
-from ..database import get_db
 from ..utils.platform_detect import get_backend_type
 
 router = APIRouter()
@@ -56,8 +54,9 @@ async def watchdog_disable():
 @router.get("/health", response_model=models.HealthResponse)
 async def health():
     """Health check endpoint."""
-    from huggingface_hub import constants as hf_constants
     from pathlib import Path
+
+    from huggingface_hub import constants as hf_constants
 
     tts_model = tts.get_tts_model()
     backend_type = get_backend_type()

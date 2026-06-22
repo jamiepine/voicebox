@@ -5,8 +5,8 @@
 import { ApiError } from './ApiError';
 import type { ApiRequestOptions } from './ApiRequestOptions';
 import type { ApiResult } from './ApiResult';
-import { CancelablePromise } from './CancelablePromise';
 import type { OnCancel } from './CancelablePromise';
+import { CancelablePromise } from './CancelablePromise';
 import type { OpenAPIConfig } from './OpenAPI';
 
 export const isDefined = <T>(
@@ -43,8 +43,8 @@ export const isFormData = (value: any): value is FormData => {
 export const base64 = (str: string): string => {
   try {
     return btoa(str);
-  } catch (err) {
-    // @ts-ignore
+  } catch (_err) {
+    // @ts-expect-error
     return Buffer.from(str).toString('base64');
   }
 };
@@ -167,12 +167,12 @@ export const getHeaders = async (
     );
 
   if (isStringWithValue(token)) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers.Authorization = `Bearer ${token}`;
   }
 
   if (isStringWithValue(username) && isStringWithValue(password)) {
     const credentials = base64(`${username}:${password}`);
-    headers['Authorization'] = `Basic ${credentials}`;
+    headers.Authorization = `Basic ${credentials}`;
   }
 
   if (options.body !== undefined) {
@@ -286,7 +286,7 @@ export const catchErrorCodes = (options: ApiRequestOptions, result: ApiResult): 
     const errorBody = (() => {
       try {
         return JSON.stringify(result.body, null, 2);
-      } catch (e) {
+      } catch (_e) {
         return undefined;
       }
     })();

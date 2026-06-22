@@ -6,15 +6,13 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import List, Optional
 
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-
-from ..utils.effects import validate_effects_chain
+from sqlalchemy.orm import Session
 
 from ..database import EffectPreset as DBEffectPreset
-from ..models import EffectPresetResponse, EffectPresetCreate, EffectPresetUpdate, EffectConfig
+from ..models import EffectConfig, EffectPresetCreate, EffectPresetResponse, EffectPresetUpdate
+from ..utils.effects import validate_effects_chain
 
 
 def _preset_response(p: DBEffectPreset) -> EffectPresetResponse:
@@ -30,13 +28,13 @@ def _preset_response(p: DBEffectPreset) -> EffectPresetResponse:
     )
 
 
-def list_presets(db: Session) -> List[EffectPresetResponse]:
+def list_presets(db: Session) -> list[EffectPresetResponse]:
     """List all effect presets (built-in + user-created)."""
     presets = db.query(DBEffectPreset).order_by(DBEffectPreset.sort_order, DBEffectPreset.name).all()
     return [_preset_response(p) for p in presets]
 
 
-def get_preset(preset_id: str, db: Session) -> Optional[EffectPresetResponse]:
+def get_preset(preset_id: str, db: Session) -> EffectPresetResponse | None:
     """Get a preset by ID."""
     p = db.query(DBEffectPreset).filter_by(id=preset_id).first()
     if not p:
@@ -44,7 +42,7 @@ def get_preset(preset_id: str, db: Session) -> Optional[EffectPresetResponse]:
     return _preset_response(p)
 
 
-def get_preset_by_name(name: str, db: Session) -> Optional[EffectPresetResponse]:
+def get_preset_by_name(name: str, db: Session) -> EffectPresetResponse | None:
     """Get a preset by name."""
     p = db.query(DBEffectPreset).filter_by(name=name).first()
     if not p:
@@ -75,14 +73,14 @@ def create_preset(data: EffectPresetCreate, db: Session) -> EffectPresetResponse
     db.add(preset)
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as err:
         db.rollback()
-        raise ValueError(f"A preset named '{data.name}' already exists")
+        raise ValueError(f"A preset named '{data.name}' already exists") from err
     db.refresh(preset)
     return _preset_response(preset)
 
 
-def update_preset(preset_id: str, data: EffectPresetUpdate, db: Session) -> Optional[EffectPresetResponse]:
+def update_preset(preset_id: str, data: EffectPresetUpdate, db: Session) -> EffectPresetResponse | None:
     """Update a user effect preset. Cannot modify built-in presets."""
     preset = db.query(DBEffectPreset).filter_by(id=preset_id).first()
     if not preset:

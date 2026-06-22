@@ -1,12 +1,12 @@
+import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
+import { Check, ChevronDown } from 'lucide-react';
 import * as React from 'react';
-import { ChevronDown, Check } from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
+import { cn } from '@/lib/utils/cn';
 
 export interface MultiSelectOption {
   value: string;

@@ -32,10 +32,8 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import httpx
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -126,13 +124,13 @@ class Scorecard:
     refined: str
     latency_ms: int
     length_chars: int = 0
-    prompt_leak: Optional[str] = None
-    refusal: Optional[str] = None
+    prompt_leak: str | None = None
+    refusal: str | None = None
     stage_directions: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
 
 
-def first_match(patterns, text: str) -> Optional[str]:
+def first_match(patterns, text: str) -> str | None:
     s = text.lstrip()
     for pat in patterns:
         m = pat.search(s)
@@ -186,7 +184,7 @@ known-shipping Kokoro voice so the throwaway profile satisfies the
 preset-engine validator on creation."""
 
 
-def detect_backend_port(hint: Optional[int]) -> int:
+def detect_backend_port(hint: int | None) -> int:
     candidates: list[int] = []
     if hint is not None:
         candidates.append(hint)

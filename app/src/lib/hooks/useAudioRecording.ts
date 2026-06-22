@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePlatform } from '@/platform/PlatformContext';
 import { convertToWav } from '@/lib/utils/audio';
+import { usePlatform } from '@/platform/PlatformContext';
 
 interface UseAudioRecordingOptions {
   maxDurationSeconds?: number;
@@ -162,7 +162,7 @@ export function useAudioRecording({
       setError(errorMessage);
       setIsRecording(false);
     }
-  }, [maxDurationSeconds, onRecordingComplete]);
+  }, [maxDurationSeconds, onRecordingComplete, platform.metadata.isTauri]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {

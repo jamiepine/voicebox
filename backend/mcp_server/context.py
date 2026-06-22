@@ -11,13 +11,12 @@ import asyncio
 import ipaddress
 import logging
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
-
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +140,7 @@ def _stamp_last_seen(client_id: str) -> None:
         if row is None:
             row = MCPClientBinding(client_id=client_id)
             db.add(row)
-        row.last_seen_at = datetime.now(timezone.utc)
+        row.last_seen_at = datetime.now(UTC)
         db.commit()
     except Exception:
         logger.debug(

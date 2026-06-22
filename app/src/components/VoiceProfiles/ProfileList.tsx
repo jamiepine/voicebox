@@ -38,7 +38,7 @@ export function ProfileList() {
       cancelAnimationFrame(rafId);
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [selectedProfileId, selectedEngine]);
+  }, [selectedProfileId]);
 
   if (isLoading) {
     return null;

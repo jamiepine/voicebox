@@ -10,13 +10,14 @@ and a model config registry that eliminates per-engine dispatch maps.
 # import time, which wraps transformers' tokenizer load against the
 # unconditional HuggingFace metadata call that otherwise raises on
 # HF_HUB_OFFLINE=1 and on network failures.
-from ..utils import hf_offline_patch  # noqa: F401
-
 import threading
 from dataclasses import dataclass, field
-from typing import Protocol, Optional, Tuple, List
-from typing_extensions import runtime_checkable
+from typing import List, Optional, Protocol, Tuple
+
 import numpy as np
+from typing_extensions import runtime_checkable
+
+from ..utils import hf_offline_patch
 
 DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
@@ -76,7 +77,7 @@ class TTSBackend(Protocol):
         audio_path: str,
         reference_text: str,
         use_cache: bool = True,
-    ) -> Tuple[dict, bool]:
+    ) -> tuple[dict, bool]:
         """
         Create voice prompt from reference audio.
 
@@ -87,9 +88,9 @@ class TTSBackend(Protocol):
 
     async def combine_voice_prompts(
         self,
-        audio_paths: List[str],
-        reference_texts: List[str],
-    ) -> Tuple[np.ndarray, str]:
+        audio_paths: list[str],
+        reference_texts: list[str],
+    ) -> tuple[np.ndarray, str]:
         """
         Combine multiple voice prompts.
 
@@ -103,9 +104,9 @@ class TTSBackend(Protocol):
         text: str,
         voice_prompt: dict,
         language: str = "en",
-        seed: Optional[int] = None,
-        instruct: Optional[str] = None,
-    ) -> Tuple[np.ndarray, int]:
+        seed: int | None = None,
+        instruct: str | None = None,
+    ) -> tuple[np.ndarray, int]:
         """
         Generate audio from text.
 
@@ -143,8 +144,8 @@ class STTBackend(Protocol):
     async def transcribe(
         self,
         audio_path: str,
-        language: Optional[str] = None,
-        model_size: Optional[str] = None,
+        language: str | None = None,
+        model_size: str | None = None,
     ) -> str:
         """
         Transcribe audio to text.
@@ -174,11 +175,11 @@ class LLMBackend(Protocol):
     async def generate(
         self,
         prompt: str,
-        system: Optional[str] = None,
+        system: str | None = None,
         max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
         temperature: float = DEFAULT_LLM_TEMPERATURE,
-        model_size: Optional[str] = None,
-        examples: Optional[list[tuple[str, str]]] = None,
+        model_size: str | None = None,
+        examples: list[tuple[str, str]] | None = None,
     ) -> str:
         """Run a single-turn chat completion and return the assistant reply.
 
@@ -198,10 +199,10 @@ class LLMBackend(Protocol):
 
 
 # Global backend instances
-_tts_backend: Optional[TTSBackend] = None
+_tts_backend: TTSBackend | None = None
 _tts_backends: dict[str, TTSBackend] = {}
 _tts_backends_lock = threading.Lock()
-_stt_backend: Optional[STTBackend] = None
+_stt_backend: STTBackend | None = None
 _llm_backends: dict[str, LLMBackend] = {}
 _llm_backends_lock = threading.Lock()
 
@@ -488,7 +489,7 @@ def get_stt_model_configs() -> list[ModelConfig]:
 # Lookup helpers — these replace the if/elif chains in main.py
 
 
-def get_model_config(model_name: str) -> Optional[ModelConfig]:
+def get_model_config(model_name: str) -> ModelConfig | None:
     """Look up a model config by model_name."""
     for cfg in get_all_model_configs():
         if cfg.model_name == model_name:
@@ -549,8 +550,8 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
 
 def unload_model_by_config(config: ModelConfig) -> bool:
     """Unload a model given its config. Returns True if it was loaded, False otherwise."""
+    from ..services import llm as llm_service, transcribe, tts
     from . import get_tts_backend_for_engine
-    from ..services import tts, transcribe, llm as llm_service
 
     if config.engine == "whisper":
         whisper_model = transcribe.get_whisper_model()
@@ -593,8 +594,8 @@ def unload_model_by_config(config: ModelConfig) -> bool:
 
 def check_model_loaded(config: ModelConfig) -> bool:
     """Check if a model is currently loaded."""
+    from ..services import llm as llm_service, transcribe, tts
     from . import get_tts_backend_for_engine
-    from ..services import tts, transcribe, llm as llm_service
 
     try:
         if config.engine == "whisper":
@@ -624,8 +625,8 @@ def check_model_loaded(config: ModelConfig) -> bool:
 
 def get_model_load_func(config: ModelConfig):
     """Return a callable that loads/downloads the model."""
+    from ..services import llm as llm_service, transcribe, tts
     from . import get_tts_backend_for_engine
-    from ..services import tts, transcribe, llm as llm_service
 
     if config.engine == "whisper":
         return lambda: transcribe.get_whisper_model().load_model(config.model_size)

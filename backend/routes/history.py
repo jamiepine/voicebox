@@ -7,9 +7,9 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import export_import, history
 from ..app import safe_content_disposition
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
+from ..services import export_import, history
 
 router = APIRouter()
 
@@ -57,9 +57,9 @@ async def import_generation(
         result = await export_import.import_generation_from_zip(content, db)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/history/failed")
@@ -144,9 +144,9 @@ async def export_generation(
     try:
         zip_bytes = export_import.export_generation_to_zip(generation_id, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     safe_text = "".join(c for c in generation.text[:30] if c.isalnum() or c in (" ", "-", "_")).strip()
     if not safe_text:

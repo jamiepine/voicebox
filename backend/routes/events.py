@@ -14,7 +14,6 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..mcp_server import events as mcp_events
 
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter()

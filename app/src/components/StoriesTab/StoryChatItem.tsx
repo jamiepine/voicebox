@@ -13,8 +13,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import type { StoryItemDetail } from '@/lib/api/types';
 import { cn } from '@/lib/utils/cn';
-import { useStoryStore } from '@/stores/storyStore';
 import { useServerStore } from '@/stores/serverStore';
+import { useStoryStore } from '@/stores/storyStore';
 
 interface StoryChatItemProps {
   item: StoryItemDetail;

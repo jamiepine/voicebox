@@ -9,13 +9,12 @@ import logging
 import platform
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 
-from ..utils.audio import normalize_audio, load_audio
-from ..utils.progress import get_progress_manager
+from ..utils.audio import load_audio, normalize_audio
 from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback
+from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
 
 logger = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ def is_model_cached(
     hf_repo: str,
     *,
     weight_extensions: tuple[str, ...] = (".safetensors", ".bin"),
-    required_files: Optional[list[str]] = None,
+    required_files: list[str] | None = None,
 ) -> bool:
     """
     Check if a HuggingFace model is fully cached locally.
@@ -196,11 +195,11 @@ def manual_seed(seed: int, device: str) -> None:
 
 
 async def combine_voice_prompts(
-    audio_paths: List[str],
-    reference_texts: List[str],
+    audio_paths: list[str],
+    reference_texts: list[str],
     *,
-    sample_rate: Optional[int] = None,
-) -> Tuple[np.ndarray, str]:
+    sample_rate: int | None = None,
+) -> tuple[np.ndarray, str]:
     """
     Combine multiple reference audio samples into one.
 
@@ -230,7 +229,7 @@ async def combine_voice_prompts(
 def model_load_progress(
     model_name: str,
     is_cached: bool,
-    filter_non_downloads: Optional[bool] = None,
+    filter_non_downloads: bool | None = None,
 ):
     """
     Context manager for model loading with HF download progress tracking.

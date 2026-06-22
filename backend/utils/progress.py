@@ -2,8 +2,6 @@
 Progress tracking for model downloads using Server-Sent Events.
 """
 
-from typing import Optional, Callable, Dict, List
-from fastapi.responses import StreamingResponse
 import asyncio
 import json
 import threading
@@ -12,34 +10,34 @@ from datetime import datetime
 
 class ProgressManager:
     """Manages download progress for multiple models.
-    
+
     Thread-safe: can be called from background threads (e.g., via asyncio.to_thread).
     """
-    
+
     # Throttle settings to prevent overwhelming SSE clients
     THROTTLE_INTERVAL_SECONDS = 0.5  # Minimum time between updates
     THROTTLE_PROGRESS_DELTA = 1.0    # Minimum progress change (%) to force update
-    
+
     def __init__(self):
-        self._progress: Dict[str, Dict] = {}
-        self._listeners: Dict[str, list] = {}
+        self._progress: dict[str, dict] = {}
+        self._listeners: dict[str, list] = {}
         self._lock = threading.Lock()  # Thread-safe lock for progress dict
-        self._main_loop: Optional[asyncio.AbstractEventLoop] = None
-        self._last_notify_time: Dict[str, float] = {}  # Last notification time per model
-        self._last_notify_progress: Dict[str, float] = {}  # Last notified progress per model
-    
+        self._main_loop: asyncio.AbstractEventLoop | None = None
+        self._last_notify_time: dict[str, float] = {}  # Last notification time per model
+        self._last_notify_progress: dict[str, float] = {}  # Last notified progress per model
+
     def _set_main_loop(self, loop: asyncio.AbstractEventLoop):
         """Set the main event loop for thread-safe operations."""
         self._main_loop = loop
-    
-    def _notify_listeners_threadsafe(self, model_name: str, progress_data: Dict):
+
+    def _notify_listeners_threadsafe(self, model_name: str, progress_data: dict):
         """Notify listeners in a thread-safe manner."""
         import logging
         logger = logging.getLogger(__name__)
-        
+
         if model_name not in self._listeners:
             return
-            
+
         for queue in self._listeners[model_name]:
             try:
                 # Check if we're in the main event loop thread
@@ -66,14 +64,14 @@ class ProgressManager:
         model_name: str,
         current: int,
         total: int,
-        filename: Optional[str] = None,
+        filename: str | None = None,
         status: str = "downloading",
     ):
         """
         Update progress for a model download.
 
         Thread-safe: can be called from background threads.
-        
+
         Progress updates are throttled to prevent overwhelming SSE clients.
         Updates are sent at most every THROTTLE_INTERVAL_SECONDS, or when
         progress changes by at least THROTTLE_PROGRESS_DELTA percent.
@@ -116,20 +114,20 @@ class ProgressManager:
         current_time = time.time()
         last_time = self._last_notify_time.get(model_name, 0)
         last_progress = self._last_notify_progress.get(model_name, -100)
-        
+
         time_delta = current_time - last_time
         progress_delta = abs(progress_pct - last_progress)
-        
+
         # Always notify for complete/error status, or if throttle conditions are met
         should_notify = (
             status in ("complete", "error") or
             time_delta >= self.THROTTLE_INTERVAL_SECONDS or
             progress_delta >= self.THROTTLE_PROGRESS_DELTA
         )
-        
+
         if not should_notify:
             return  # Skip this update (throttled)
-        
+
         # Update throttle tracking
         self._last_notify_time[model_name] = current_time
         self._last_notify_progress[model_name] = progress_pct
@@ -142,14 +140,14 @@ class ProgressManager:
             self._notify_listeners_threadsafe(model_name, progress_data)
         else:
             logger.debug(f"No listeners for {model_name}, progress update stored: {progress_pct:.1f}%")
-    
-    def get_progress(self, model_name: str) -> Optional[Dict]:
+
+    def get_progress(self, model_name: str) -> dict | None:
         """Get current progress for a model. Thread-safe."""
         with self._lock:
             progress = self._progress.get(model_name)
             return progress.copy() if progress else None
-    
-    def get_all_active(self) -> List[Dict]:
+
+    def get_all_active(self) -> list[dict]:
         """Get all active downloads (status is 'downloading' or 'extracting'). Thread-safe."""
         active = []
         with self._lock:
@@ -158,25 +156,25 @@ class ProgressManager:
                 if status in ("downloading", "extracting"):
                     active.append(progress.copy())
         return active
-    
-    def create_progress_callback(self, model_name: str, filename: Optional[str] = None):
+
+    def create_progress_callback(self, model_name: str, filename: str | None = None):
         """
         Create a progress callback function for HuggingFace downloads.
-        
+
         Args:
             model_name: Name of the model
             filename: Optional filename filter
-            
+
         Returns:
             Callback function
         """
-        def callback(progress: Dict):
+        def callback(progress: dict):
             """HuggingFace Hub progress callback."""
             if "total" in progress and "current" in progress:
                 current = progress.get("current", 0)
                 total = progress.get("total", 0)
                 file_name = progress.get("filename", filename)
-                
+
                 self.update_progress(
                     model_name=model_name,
                     current=current,
@@ -184,9 +182,9 @@ class ProgressManager:
                     filename=file_name,
                     status="downloading",
                 )
-        
+
         return callback
-    
+
     async def subscribe(self, model_name: str):
         """
         Subscribe to progress updates for a model.
@@ -195,7 +193,7 @@ class ProgressManager:
         """
         import logging
         logger = logging.getLogger(__name__)
-        
+
         # Store the main event loop for thread-safe operations
         try:
             self._main_loop = asyncio.get_running_loop()
@@ -217,7 +215,7 @@ class ProgressManager:
                 initial_progress = self._progress.get(model_name)
                 if initial_progress:
                     initial_progress = initial_progress.copy()
-            
+
             if initial_progress:
                 status = initial_progress.get('status')
                 # Only send initial progress if download is actually in progress
@@ -242,7 +240,7 @@ class ProgressManager:
                     if progress.get("status") in ("complete", "error"):
                         logger.info(f"Download {progress.get('status')} for {model_name}, closing SSE connection")
                         break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send heartbeat
                     yield ": heartbeat\n\n"
                     continue
@@ -255,7 +253,7 @@ class ProgressManager:
                 if not self._listeners[model_name]:
                     del self._listeners[model_name]
                 logger.info(f"SSE client unsubscribed from {model_name}, remaining listeners: {len(self._listeners.get(model_name, []))}")
-    
+
     def mark_complete(self, model_name: str):
         """Mark a model download as complete. Thread-safe."""
         import logging
@@ -269,11 +267,11 @@ class ProgressManager:
             else:
                 logger.warning(f"Cannot mark {model_name} as complete: not found in progress")
                 return
-        
+
         logger.info(f"Marked {model_name} as complete")
         # Notify listeners (thread-safe)
         self._notify_listeners_threadsafe(model_name, progress_data)
-    
+
     def mark_error(self, model_name: str, error: str):
         """Mark a model download as failed. Thread-safe."""
         import logging
@@ -297,14 +295,14 @@ class ProgressManager:
                     "timestamp": datetime.now().isoformat(),
                 }
                 self._progress[model_name] = progress_data
-        
+
         logger.error(f"Marked {model_name} as error: {error}")
         # Notify listeners (thread-safe)
         self._notify_listeners_threadsafe(model_name, progress_data)
 
 
 # Global progress manager instance
-_progress_manager: Optional[ProgressManager] = None
+_progress_manager: ProgressManager | None = None
 
 
 def get_progress_manager() -> ProgressManager:

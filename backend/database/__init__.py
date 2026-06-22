@@ -6,8 +6,8 @@ without changing any importers.
 """
 
 from .models import (
-    Base,
     AudioChannel,
+    Base,
     Capture,
     CaptureSettings,
     ChannelDeviceMapping,
@@ -23,7 +23,7 @@ from .models import (
     StoryItem,
     VoiceProfile,
 )
-from .session import engine, SessionLocal, _db_path, init_db, get_db
+from .session import SessionLocal, _db_path, engine, get_db, init_db
 
 __all__ = [
     # Models

@@ -709,8 +709,7 @@ export function HistoryTable() {
                                 ? gen.versions?.find((sv) => sv.id === v.source_version_id)
                                 : null;
                               const showSource =
-                                sourceVersion &&
-                                sourceVersion.effects_chain &&
+                                sourceVersion?.effects_chain &&
                                 sourceVersion.effects_chain.length > 0;
 
                               return (

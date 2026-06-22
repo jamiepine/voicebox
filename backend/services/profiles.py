@@ -5,7 +5,6 @@ import logging
 import shutil
 import uuid
 from datetime import datetime
-from pathlib import Path
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session

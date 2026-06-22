@@ -10,13 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils/cn';
 import {
   canonicalKeyFromEvent,
   displayLabelForKey,
   modifierSideHint,
   sortChordKeys,
 } from '@/lib/utils/keyCodes';
-import { cn } from '@/lib/utils/cn';
 
 interface ChordPickerProps {
   open: boolean;
@@ -71,43 +71,40 @@ export function ChordPicker({
     return;
   }, [open, initialKeys]);
 
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent) => {
-      // Esc reaches the dialog's onOpenChange and closes the modal — let
-      // it pass through unmodified.
-      if (event.key === 'Escape') return;
-      // Tab cycles focus inside the dialog; capturing it would trap the
-      // user. Same for the dialog's own keyboard interactions.
-      if (event.key === 'Tab') return;
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    // Esc reaches the dialog's onOpenChange and closes the modal — let
+    // it pass through unmodified.
+    if (event.key === 'Escape') return;
+    // Tab cycles focus inside the dialog; capturing it would trap the
+    // user. Same for the dialog's own keyboard interactions.
+    if (event.key === 'Tab') return;
 
-      const canonical = canonicalKeyFromEvent(event);
-      if (!canonical) {
-        setUnsupportedAttempt(event.code || event.key || 'unknown');
-        event.preventDefault();
-        return;
-      }
-
+    const canonical = canonicalKeyFromEvent(event);
+    if (!canonical) {
+      setUnsupportedAttempt(event.code || event.key || 'unknown');
       event.preventDefault();
-      event.stopPropagation();
-      setUnsupportedAttempt(null);
+      return;
+    }
 
-      setPressed((prev) => {
-        if (prev.has(canonical)) return prev;
-        const next = new Set(prev);
-        next.add(canonical);
-        setCaptured((prevCaptured) => {
-          const candidate = sortChordKeys(Array.from(next));
-          // First key in a fresh sequence replaces the peak — otherwise a
-          // user trying to swap a longer saved chord for a shorter one is
-          // stuck because their candidate never beats the seed length.
-          if (prev.size === 0) return candidate;
-          return candidate.length >= prevCaptured.length ? candidate : prevCaptured;
-        });
-        return next;
+    event.preventDefault();
+    event.stopPropagation();
+    setUnsupportedAttempt(null);
+
+    setPressed((prev) => {
+      if (prev.has(canonical)) return prev;
+      const next = new Set(prev);
+      next.add(canonical);
+      setCaptured((prevCaptured) => {
+        const candidate = sortChordKeys(Array.from(next));
+        // First key in a fresh sequence replaces the peak — otherwise a
+        // user trying to swap a longer saved chord for a shorter one is
+        // stuck because their candidate never beats the seed length.
+        if (prev.size === 0) return candidate;
+        return candidate.length >= prevCaptured.length ? candidate : prevCaptured;
       });
-    },
-    [],
-  );
+      return next;
+    });
+  }, []);
 
   const handleKeyUp = useCallback((event: KeyboardEvent) => {
     if (event.key === 'Escape' || event.key === 'Tab') return;
@@ -134,14 +131,17 @@ export function ChordPicker({
     };
   }, [open, handleKeyDown, handleKeyUp]);
 
-  const displayKeys = pressed.size > 0
-    ? sortChordKeys(Array.from(pressed))
-    : captured;
+  const displayKeys = pressed.size > 0 ? sortChordKeys(Array.from(pressed)) : captured;
 
   const canSave = captured.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onCancel();
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

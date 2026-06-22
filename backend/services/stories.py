@@ -2,37 +2,37 @@
 Story management module.
 """
 
-from typing import List, Optional
-from datetime import datetime
-import uuid
 import tempfile
+import uuid
+from datetime import datetime
 from pathlib import Path
-from sqlalchemy.orm import Session
+
+import numpy as np
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from .. import config
-from ..models import (
-    StoryCreate,
-    StoryResponse,
-    StoryDetailResponse,
-    StoryItemDetail,
-    StoryItemCreate,
-    StoryItemBatchUpdate,
-    StoryItemMove,
-    StoryItemTrim,
-    StoryItemVolumeUpdate,
-    StoryItemSplit,
-    StoryItemVersionUpdate,
-)
 from ..database import (
+    Generation as DBGeneration,
     Story as DBStory,
     StoryItem as DBStoryItem,
-    Generation as DBGeneration,
     VoiceProfile as DBVoiceProfile,
 )
-from .history import _get_versions_for_generation
+from ..models import (
+    StoryCreate,
+    StoryDetailResponse,
+    StoryItemBatchUpdate,
+    StoryItemCreate,
+    StoryItemDetail,
+    StoryItemMove,
+    StoryItemSplit,
+    StoryItemTrim,
+    StoryItemVersionUpdate,
+    StoryItemVolumeUpdate,
+    StoryResponse,
+)
 from ..utils.audio import load_audio, save_audio
-import numpy as np
+from .history import _get_versions_for_generation
 
 
 def _build_item_detail(
@@ -113,7 +113,7 @@ async def create_story(
 
 async def list_stories(
     db: Session,
-) -> List[StoryResponse]:
+) -> list[StoryResponse]:
     """
     List all stories.
 
@@ -139,7 +139,7 @@ async def list_stories(
 async def get_story(
     story_id: str,
     db: Session,
-) -> Optional[StoryDetailResponse]:
+) -> StoryDetailResponse | None:
     """
     Get a story with all its items.
 
@@ -176,7 +176,7 @@ async def update_story(
     story_id: str,
     data: StoryCreate,
     db: Session,
-) -> Optional[StoryResponse]:
+) -> StoryResponse | None:
     """
     Update a story.
 
@@ -238,7 +238,7 @@ async def add_item_to_story(
     story_id: str,
     data: StoryItemCreate,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Add a generation to a story.
 
@@ -324,7 +324,7 @@ async def move_story_item(
     item_id: str,
     data: StoryItemMove,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Move a story item (update position and/or track).
 
@@ -416,7 +416,7 @@ async def trim_story_item(
     item_id: str,
     data: StoryItemTrim,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Trim a story item (update trim_start_ms and trim_end_ms).
 
@@ -474,7 +474,7 @@ async def update_story_item_volume(
     item_id: str,
     data: StoryItemVolumeUpdate,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """Update a story item's playback volume (per-clip linear gain)."""
     item = (
         db.query(DBStoryItem)
@@ -505,7 +505,7 @@ async def split_story_item(
     item_id: str,
     data: StoryItemSplit,
     db: Session,
-) -> Optional[List[StoryItemDetail]]:
+) -> list[StoryItemDetail] | None:
     """
     Split a story item at a given time, creating two clips.
 
@@ -592,7 +592,7 @@ async def duplicate_story_item(
     story_id: str,
     item_id: str,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Duplicate a story item, creating a copy with all properties.
 
@@ -696,10 +696,10 @@ async def update_story_item_times(
 
 async def reorder_story_items(
     story_id: str,
-    generation_ids: List[str],
+    generation_ids: list[str],
     db: Session,
     gap_ms: int = 200,
-) -> Optional[List[StoryItemDetail]]:
+) -> list[StoryItemDetail] | None:
     """
     Reorder story items and recalculate timecodes.
 
@@ -763,7 +763,7 @@ async def set_story_item_version(
     item_id: str,
     data: StoryItemVersionUpdate,
     db: Session,
-) -> Optional[StoryItemDetail]:
+) -> StoryItemDetail | None:
     """
     Pin a story item to a specific generation version.
 
@@ -824,7 +824,7 @@ async def set_story_item_version(
 async def export_story_audio(
     story_id: str,
     db: Session,
-) -> Optional[bytes]:
+) -> bytes | None:
     """
     Export story as single mixed audio file with timecode-based mixing.
 

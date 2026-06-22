@@ -139,8 +139,8 @@ function ClipWaveform({
 // Per-clip volume popover. Local state drives the slider during a drag so
 // each pointer-move pixel doesn't fire a PATCH; commits on release.
 function ClipVolumePopover({
-  storyId,
-  itemId,
+  storyId: _storyId,
+  itemId: _itemId,
   volume,
   onChange,
 }: {
@@ -154,7 +154,7 @@ function ClipVolumePopover({
   // out-of-band (split/duplicate carry the value forward).
   useEffect(() => {
     setLocalVolume(volume);
-  }, [volume, itemId, storyId]);
+  }, [volume]);
 
   const display = Math.round(localVolume * 100);
   const Icon = localVolume === 0 ? VolumeX : Volume2;
@@ -466,7 +466,10 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   useEffect(() => {
     if (hasAppliedDefaultZoomRef.current) return;
     if (visibleTrackWidth <= 0) return;
-    const defaultScope = Math.min(DEFAULT_VISIBLE_SECONDS, Math.max(projectSeconds, MIN_VISIBLE_SECONDS));
+    const defaultScope = Math.min(
+      DEFAULT_VISIBLE_SECONDS,
+      Math.max(projectSeconds, MIN_VISIBLE_SECONDS),
+    );
     setPixelsPerSecond(visibleTrackWidth / defaultScope);
     hasAppliedDefaultZoomRef.current = true;
   }, [visibleTrackWidth, projectSeconds]);
@@ -875,11 +878,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
 
       const rect = tracksRef.current.getBoundingClientRect();
       const x =
-        e.clientX -
-        rect.left +
-        tracksRef.current.scrollLeft -
-        dragOffset.x -
-        LABEL_COL_WIDTH;
+        e.clientX - rect.left + tracksRef.current.scrollLeft - dragOffset.x - LABEL_COL_WIDTH;
       // Subtract ruler height since clips are positioned relative to tracks area
       const y = e.clientY - rect.top - dragOffset.y - TIME_RULER_HEIGHT;
 
@@ -1032,8 +1031,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
 
       // Recompute the thumb width that corresponded to the drag start, then
       // apply the mouse delta to the dragged edge.
-      const startTimelinePx =
-        (totalDurationMs / 1000) * drag.startPixelsPerSecond + 200;
+      const startTimelinePx = (totalDurationMs / 1000) * drag.startPixelsPerSecond + 200;
       const startThumbWidth = Math.max(
         30,
         Math.min(scrollbarTrackWidth, (containerWidth / startTimelinePx) * scrollbarTrackWidth),
@@ -1058,8 +1056,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
             }
           : {
               type: 'right',
-              timeMs:
-                ((drag.startScrollLeft + containerWidth) / drag.startPixelsPerSecond) * 1000,
+              timeMs: ((drag.startScrollLeft + containerWidth) / drag.startPixelsPerSecond) * 1000,
             };
 
       setPixelsPerSecond(newPps);
@@ -1074,7 +1071,15 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [maxTimelineScroll, thumbRange, scrollbarTrackWidth, containerWidth, totalDurationMs, minPps, maxPps]);
+  }, [
+    maxTimelineScroll,
+    thumbRange,
+    scrollbarTrackWidth,
+    containerWidth,
+    totalDurationMs,
+    minPps,
+    maxPps,
+  ]);
 
   if (items.length === 0) {
     return null;
@@ -1478,15 +1483,9 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
         </div>
 
         {/* Horizontal timeline scrollbar + zoom handles */}
-        <div
-          className="flex border-t bg-background/40"
-          style={{ height: `${SCRUB_BAR_HEIGHT}px` }}
-        >
+        <div className="flex border-t bg-background/40" style={{ height: `${SCRUB_BAR_HEIGHT}px` }}>
           <div className="w-16 shrink-0 border-r" />
-          <div
-            ref={scrollbarTrackRef}
-            className="relative flex-1 overflow-hidden select-none px-1"
-          >
+          <div ref={scrollbarTrackRef} className="relative flex-1 overflow-hidden select-none px-1">
             <div
               className="absolute top-1 bottom-1 bg-foreground/10 hover:bg-foreground/15 transition-colors group rounded-full"
               style={{ width: `${thumbWidth}px`, left: `${thumbLeft}px` }}

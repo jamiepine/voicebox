@@ -2,25 +2,25 @@
 PyTorch backend implementation for TTS and STT.
 """
 
-from typing import Optional, List, Tuple
 import asyncio
 import logging
-import torch
+
 import numpy as np
+import torch
 
 logger = logging.getLogger(__name__)
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
+from ..utils.audio import load_audio
+from ..utils.cache import cache_voice_prompt, get_cache_key, get_cached_voice_prompt
+from . import LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
 from .base import (
-    is_model_cached,
-    get_torch_device,
-    empty_device_cache,
-    manual_seed,
     combine_voice_prompts as _combine_voice_prompts,
+    empty_device_cache,
+    get_torch_device,
+    is_model_cached,
+    manual_seed,
     model_load_progress,
 )
-from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
-from ..utils.audio import load_audio
 
 
 class PyTorchTTSBackend:
@@ -63,7 +63,7 @@ class PyTorchTTSBackend:
     def _is_model_cached(self, model_size: str) -> bool:
         return is_model_cached(self._get_model_path(model_size))
 
-    async def load_model_async(self, model_size: Optional[str] = None):
+    async def load_model_async(self, model_size: str | None = None):
         """
         Lazy load the TTS model with automatic downloading from HuggingFace Hub.
 
@@ -140,7 +140,7 @@ class PyTorchTTSBackend:
         audio_path: str,
         reference_text: str,
         use_cache: bool = True,
-    ) -> Tuple[dict, bool]:
+    ) -> tuple[dict, bool]:
         """
         Create voice prompt from reference audio.
 
@@ -165,7 +165,7 @@ class PyTorchTTSBackend:
                     # For PyTorch backend, the dict should contain tensors, not file paths
                     # So we can safely return it
                     return cached_prompt, True
-                elif isinstance(cached_prompt, torch.Tensor):
+                if isinstance(cached_prompt, torch.Tensor):
                     # Legacy cache format - convert to dict
                     # This shouldn't happen in practice, but handle it
                     return {"prompt": cached_prompt}, True
@@ -194,9 +194,9 @@ class PyTorchTTSBackend:
 
     async def combine_voice_prompts(
         self,
-        audio_paths: List[str],
-        reference_texts: List[str],
-    ) -> Tuple[np.ndarray, str]:
+        audio_paths: list[str],
+        reference_texts: list[str],
+    ) -> tuple[np.ndarray, str]:
         return await _combine_voice_prompts(audio_paths, reference_texts)
 
     async def generate(
@@ -204,9 +204,9 @@ class PyTorchTTSBackend:
         text: str,
         voice_prompt: dict,
         language: str = "en",
-        seed: Optional[int] = None,
-        instruct: Optional[str] = None,
-    ) -> Tuple[np.ndarray, int]:
+        seed: int | None = None,
+        instruct: str | None = None,
+    ) -> tuple[np.ndarray, int]:
         """
         Generate audio from text using voice prompt.
 
@@ -266,7 +266,7 @@ class PyTorchSTTBackend:
         hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
         return is_model_cached(hf_repo)
 
-    async def load_model_async(self, model_size: Optional[str] = None):
+    async def load_model_async(self, model_size: str | None = None):
         """
         Lazy load the Whisper model.
 
@@ -290,7 +290,7 @@ class PyTorchSTTBackend:
         is_cached = self._is_model_cached(model_size)
 
         with model_load_progress(progress_model_name, is_cached):
-            from transformers import WhisperProcessor, WhisperForConditionalGeneration
+            from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
             model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
             logger.info("Loading Whisper model %s on %s...", model_size, self.device)
@@ -317,8 +317,8 @@ class PyTorchSTTBackend:
     async def transcribe(
         self,
         audio_path: str,
-        language: Optional[str] = None,
-        model_size: Optional[str] = None,
+        language: str | None = None,
+        model_size: str | None = None,
     ) -> str:
         """
         Transcribe audio to text.

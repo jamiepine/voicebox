@@ -141,9 +141,7 @@ export function DictateWindow() {
     audio.onplaying = () => {
       emit('dictate:show').catch(() => {});
       setSpeaking((prev) =>
-        prev && prev.generationId === generationId
-          ? { ...prev, startedAt: Date.now() }
-          : prev,
+        prev && prev.generationId === generationId ? { ...prev, startedAt: Date.now() } : prev,
       );
       setSpeakElapsed(0);
     };
@@ -249,7 +247,16 @@ export function DictateWindow() {
       for (const p of unlistens) p.then((fn) => fn()).catch(() => {});
       dismissSpeak();
     };
-  }, []);
+  }, [
+    // Hard cap on how long the pill can sit in the 'speaking' state
+    // without ever hearing back from the backend. Covers the case where
+    // the gen row is deleted mid-flight (SSE 404s and EventSource silently
+    // retries) or the backend goes away while a request is in flight.
+    // Clears as soon as a real status event lands.
+    clearStatusTimeout,
+    dismissSpeak,
+    startSpeakPlayback,
+  ]);
 
   // Advance the pill's elapsed-time label while audio is playing. Paused
   // during the pre-playback generation window (startedAt is null) so the
@@ -261,7 +268,7 @@ export function DictateWindow() {
       setSpeakElapsed(Date.now() - anchor);
     }, 250);
     return () => window.clearInterval(iv);
-  }, [speaking?.generationId, speaking?.startedAt]);
+  }, [speaking?.startedAt]);
 
   // --- Effective pill state -----------------------------------------------
 

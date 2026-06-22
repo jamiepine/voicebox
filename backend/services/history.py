@@ -2,17 +2,25 @@
 Generation history management module.
 """
 
-from typing import List, Optional, Tuple
-from datetime import datetime
 import uuid
-import shutil
-from pathlib import Path
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from datetime import datetime
 
-from ..models import GenerationRequest, GenerationResponse, HistoryQuery, HistoryResponse, HistoryListResponse, GenerationVersionResponse, EffectConfig
-from ..database import Generation as DBGeneration, GenerationVersion as DBGenerationVersion, VoiceProfile as DBVoiceProfile
+from sqlalchemy.orm import Session
+
 from .. import config
+from ..database import (
+    Generation as DBGeneration,
+    GenerationVersion as DBGenerationVersion,
+    VoiceProfile as DBVoiceProfile,
+)
+from ..models import (
+    EffectConfig,
+    GenerationResponse,
+    GenerationVersionResponse,
+    HistoryListResponse,
+    HistoryQuery,
+    HistoryResponse,
+)
 
 
 def _get_versions_for_generation(generation_id: str, db: Session) -> tuple:
@@ -58,13 +66,13 @@ async def create_generation(
     language: str,
     audio_path: str,
     duration: float,
-    seed: Optional[int],
+    seed: int | None,
     db: Session,
-    instruct: Optional[str] = None,
-    generation_id: Optional[str] = None,
+    instruct: str | None = None,
+    generation_id: str | None = None,
     status: str = "completed",
-    engine: Optional[str] = "qwen",
-    model_size: Optional[str] = None,
+    engine: str | None = "qwen",
+    model_size: str | None = None,
     source: str = "manual",
 ) -> GenerationResponse:
     """
@@ -118,10 +126,10 @@ async def update_generation_status(
     generation_id: str,
     status: str,
     db: Session,
-    audio_path: Optional[str] = None,
-    duration: Optional[float] = None,
-    error: Optional[str] = None,
-) -> Optional[GenerationResponse]:
+    audio_path: str | None = None,
+    duration: float | None = None,
+    error: str | None = None,
+) -> GenerationResponse | None:
     """Update the status of a generation (used by async generation flow)."""
     generation = db.query(DBGeneration).filter_by(id=generation_id).first()
     if not generation:
@@ -143,21 +151,21 @@ async def update_generation_status(
 async def get_generation(
     generation_id: str,
     db: Session,
-) -> Optional[GenerationResponse]:
+) -> GenerationResponse | None:
     """
     Get a generation by ID.
-    
+
     Args:
         generation_id: Generation ID
         db: Database session
-        
+
     Returns:
         Generation or None if not found
     """
     generation = db.query(DBGeneration).filter_by(id=generation_id).first()
     if not generation:
         return None
-    
+
     return GenerationResponse.model_validate(generation)
 
 
@@ -167,11 +175,11 @@ async def list_generations(
 ) -> HistoryListResponse:
     """
     List generations with optional filters.
-    
+
     Args:
         query: Query parameters (filters, pagination)
         db: Database session
-        
+
     Returns:
         HistoryListResponse with items and total count
     """
@@ -183,28 +191,28 @@ async def list_generations(
         DBVoiceProfile,
         DBGeneration.profile_id == DBVoiceProfile.id
     )
-    
+
     # Apply profile filter
     if query.profile_id:
         q = q.filter(DBGeneration.profile_id == query.profile_id)
-    
+
     # Apply search filter (searches in text content)
     if query.search:
         search_pattern = f"%{query.search}%"
         q = q.filter(DBGeneration.text.like(search_pattern))
-    
+
     # Get total count before pagination
     total_count = q.count()
-    
+
     # Apply ordering (newest first)
     q = q.order_by(DBGeneration.created_at.desc())
-    
+
     # Apply pagination
     q = q.offset(query.offset).limit(query.limit)
-    
+
     # Execute query
     results = q.all()
-    
+
     # Convert to HistoryResponse with profile_name
     items = []
     for generation, profile_name in results:
@@ -228,7 +236,7 @@ async def list_generations(
             versions=versions,
             active_version_id=active_version_id,
         ))
-    
+
     return HistoryListResponse(
         items=items,
         total=total_count,
@@ -241,11 +249,11 @@ async def delete_generation(
 ) -> bool:
     """
     Delete a generation.
-    
+
     Args:
         generation_id: Generation ID
         db: Database session
-        
+
     Returns:
         True if deleted, False if not found
     """
@@ -266,7 +274,7 @@ async def delete_generation(
     # Delete from database
     db.delete(generation)
     db.commit()
-    
+
     return True
 
 
@@ -313,16 +321,16 @@ async def delete_generations_by_profile(
 ) -> int:
     """
     Delete all generations for a profile.
-    
+
     Args:
         profile_id: Profile ID
         db: Database session
-        
+
     Returns:
         Number of generations deleted
     """
     generations = db.query(DBGeneration).filter_by(profile_id=profile_id).all()
-    
+
     count = 0
     for generation in generations:
         # Delete associated version files and rows first
@@ -333,38 +341,38 @@ async def delete_generations_by_profile(
         audio_path = config.resolve_storage_path(generation.audio_path)
         if audio_path is not None and audio_path.exists():
             audio_path.unlink()
-        
+
         # Delete from database
         db.delete(generation)
         count += 1
-    
+
     db.commit()
-    
+
     return count
 
 
 async def get_generation_stats(db: Session) -> dict:
     """
     Get generation statistics.
-    
+
     Args:
         db: Database session
-        
+
     Returns:
         Statistics dictionary
     """
     from sqlalchemy import func
-    
+
     total = db.query(func.count(DBGeneration.id)).scalar()
-    
+
     total_duration = db.query(func.sum(DBGeneration.duration)).scalar() or 0
-    
+
     # Get generations by profile
     by_profile = db.query(
         DBGeneration.profile_id,
         func.count(DBGeneration.id).label('count')
     ).group_by(DBGeneration.profile_id).all()
-    
+
     return {
         "total_generations": total,
         "total_duration_seconds": total_duration,

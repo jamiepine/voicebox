@@ -15,26 +15,26 @@ Prerequisites:
 
 import asyncio
 import json
-import httpx
 import time
-from typing import List, Dict, Optional
+
+import httpx
 
 
-async def monitor_sse_stream(model_name: str, timeout: int = 600) -> List[Dict]:
+async def monitor_sse_stream(model_name: str, timeout: int = 600) -> list[dict]:
     """
     Monitor SSE stream for a model download.
-    
+
     Args:
         model_name: Name of the model to monitor
         timeout: Maximum time to wait for download (seconds)
-        
+
     Returns:
         List of SSE events received
     """
-    events: List[Dict] = []
+    events: list[dict] = []
     url = f"http://localhost:8000/models/progress/{model_name}"
     last_progress = -1
-    
+
     print(f"\n📡 Connecting to SSE endpoint: {url}")
 
     try:
@@ -54,14 +54,14 @@ async def monitor_sse_stream(model_name: str, timeout: int = 600) -> List[Dict]:
                         try:
                             data = json.loads(line[6:])
                             events.append(data)
-                            
+
                             # Print progress (only when it changes significantly)
                             progress = data.get('progress', 0)
                             status = data.get('status', 'unknown')
                             filename = data.get('filename', '')
                             current = data.get('current', 0)
                             total = data.get('total', 0)
-                            
+
                             # Print every 5% change or status change
                             if abs(progress - last_progress) >= 5 or status in ('complete', 'error'):
                                 current_mb = current / (1024 * 1024)
@@ -72,7 +72,7 @@ async def monitor_sse_stream(model_name: str, timeout: int = 600) -> List[Dict]:
                             # Stop if complete or error
                             if status in ("complete", "error"):
                                 if status == "complete":
-                                    print(f"   ✅ Download complete!")
+                                    print("   ✅ Download complete!")
                                 else:
                                     print(f"   ❌ Download error: {data.get('error', 'unknown')}")
                                 break
@@ -119,20 +119,19 @@ async def delete_model(model_name: str) -> bool:
         async with httpx.AsyncClient(timeout=30) as client:
             response = await client.delete(url)
             if response.status_code == 200:
-                print(f"   ✅ Model deleted")
+                print("   ✅ Model deleted")
                 return True
-            elif response.status_code == 404:
-                print(f"   ℹ️  Model not found (already deleted)")
+            if response.status_code == 404:
+                print("   ℹ️  Model not found (already deleted)")
                 return True
-            else:
-                print(f"   ⚠️  Delete response: {response.status_code} - {response.text}")
-                return False
+            print(f"   ⚠️  Delete response: {response.status_code} - {response.text}")
+            return False
     except Exception as e:
         print(f"   ❌ Error deleting model: {e}")
         return False
 
 
-async def check_model_status(model_name: str) -> Optional[Dict]:
+async def check_model_status(model_name: str) -> dict | None:
     """Check the status of a model."""
     try:
         async with httpx.AsyncClient(timeout=10) as client:
@@ -176,7 +175,7 @@ async def main():
 
     # Test model
     model_name = "qwen-tts-0.6B"
-    
+
     # Check current status
     print(f"\n📊 Checking status of {model_name}...")
     status = await check_model_status(model_name)
@@ -196,13 +195,13 @@ async def main():
         print("   [y] Yes, delete and download fresh")
         print("   [n] No, just test SSE connection")
         print("   [q] Quit")
-        
+
         choice = input("\nChoice [y/n/q]: ").strip().lower()
-        
+
         if choice == 'q':
             print("Exiting...")
             return True
-        
+
         if choice == 'y':
             if not await delete_model(model_name):
                 print("Failed to delete model. Continue anyway? [y/n]")
@@ -270,12 +269,12 @@ async def main():
     # Analyze events
     first_event = events[0]
     last_event = events[-1]
-    
-    print(f"\n📊 First event:")
+
+    print("\n📊 First event:")
     print(f"   Status: {first_event.get('status')}")
     print(f"   Progress: {first_event.get('progress', 0):.1f}%")
-    
-    print(f"\n📊 Last event:")
+
+    print("\n📊 Last event:")
     print(f"   Status: {last_event.get('status')}")
     print(f"   Progress: {last_event.get('progress', 0):.1f}%")
 
@@ -284,7 +283,7 @@ async def main():
     has_increasing_progress = False
     has_complete = any(e.get('status') == 'complete' for e in events)
     has_100_percent = any(e.get('progress', 0) >= 100 for e in events)
-    
+
     # Check if progress increased over time
     if len(events) >= 2:
         progress_values = [e.get('progress', 0) for e in events]
@@ -298,7 +297,7 @@ async def main():
 
     # Overall result
     success = has_progress_updates and has_complete
-    
+
     if success:
         print("\n" + "=" * 70)
         print("✅ TEST PASSED - Qwen TTS download progress tracking works!")

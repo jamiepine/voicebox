@@ -1,9 +1,9 @@
 import type { Platform } from '@/platform/types';
-import { webFilesystem } from './filesystem';
-import { webUpdater } from './updater';
 import { webAudio } from './audio';
+import { webFilesystem } from './filesystem';
 import { webLifecycle } from './lifecycle';
 import { webMetadata } from './metadata';
+import { webUpdater } from './updater';
 
 export const webPlatform: Platform = {
   filesystem: webFilesystem,

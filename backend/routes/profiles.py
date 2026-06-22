@@ -31,9 +31,9 @@ async def create_profile(
     try:
         return await profiles.create_profile(data, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/profiles", response_model=list[models.VoiceProfileResponse])
@@ -61,9 +61,9 @@ async def import_profile(
         profile = await export_import.import_profile_from_zip(content, db)
         return profile
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ── Preset Voice Endpoints ───────────────────────────────────────────
@@ -131,7 +131,7 @@ async def update_profile(
             raise HTTPException(status_code=404, detail="Profile not found")
         return profile
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/profiles/{profile_id}")
@@ -184,9 +184,9 @@ async def add_profile_sample(
         )
         return sample
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process audio file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process audio file: {e!s}") from e
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
@@ -241,7 +241,7 @@ async def upload_profile_avatar(
         profile = await profiles.upload_avatar(profile_id, tmp_path, db)
         return profile
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
@@ -302,9 +302,9 @@ async def export_profile(
             headers={"Content-Disposition": safe_content_disposition("attachment", filename)},
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/profiles/{profile_id}/channels")
@@ -317,7 +317,7 @@ async def get_profile_channels(
         channel_ids = await channels.get_profile_channels(profile_id, db)
         return {"channel_ids": channel_ids}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/profiles/{profile_id}/channels")
@@ -331,7 +331,7 @@ async def set_profile_channels(
         await channels.set_profile_channels(profile_id, data, db)
         return {"message": "Profile channels updated successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/profiles/{profile_id}/effects", response_model=models.VoiceProfileResponse)
@@ -386,7 +386,7 @@ async def compose_in_character(
     try:
         result = await personality.compose_as_profile(profile.personality)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return models.PersonalityTextResponse(
         text=result.text, model_size=result.model_size
     )

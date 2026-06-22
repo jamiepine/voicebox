@@ -2,6 +2,15 @@ import { BookOpen, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  ListPane,
+  ListPaneActions,
+  ListPaneHeader,
+  ListPaneScroll,
+  ListPaneSearch,
+  ListPaneTitle,
+  ListPaneTitleRow,
+} from '@/components/ListPane';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -29,15 +38,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  ListPane,
-  ListPaneActions,
-  ListPaneHeader,
-  ListPaneScroll,
-  ListPaneSearch,
-  ListPaneTitle,
-  ListPaneTitleRow,
-} from '@/components/ListPane';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import {

@@ -10,8 +10,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
+from ..services import history, personality, profiles, tts
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
 from ..utils.audio import load_audio
@@ -72,7 +72,7 @@ async def generate_speech(
     try:
         profiles.validate_profile_engine(profile, engine)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
@@ -82,7 +82,7 @@ async def generate_speech(
         try:
             llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         text = llm_result.text.strip()
         if not text:
             raise HTTPException(status_code=500, detail="LLM produced empty output; nothing to speak.")
@@ -321,7 +321,12 @@ async def stream_speech(
     db: Session = Depends(get_db),
 ):
     """Generate speech and stream the WAV audio directly without saving to disk."""
-    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim
+    from ..backends import (
+        engine_needs_trim,
+        ensure_model_cached_or_raise,
+        get_tts_backend_for_engine,
+        load_engine_model,
+    )
 
     profile = await profiles.get_profile(data.profile_id, db)
     if not profile:
@@ -331,7 +336,7 @@ async def stream_speech(
     try:
         profiles.validate_profile_engine(profile, engine)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     tts_model = get_tts_backend_for_engine(engine)
     model_size = data.model_size or "1.7B"
 
