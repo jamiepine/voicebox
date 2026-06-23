@@ -4,6 +4,7 @@ MLX backend implementation for TTS and STT using mlx-audio.
 
 from typing import Optional, List, Tuple, TypeVar
 import asyncio
+import contextvars
 import functools
 import logging
 from collections.abc import Callable
@@ -26,13 +27,16 @@ _mlx_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx")
 async def _run_on_mlx_thread(func: Callable[..., _T], *args: object, **kwargs: object) -> _T:  # noqa: UP047 -- see TypeVar note above (3.11 compat)
     """Run a blocking MLX call on the single dedicated MLX worker thread.
 
-    Drop-in replacement for ``asyncio.to_thread`` (forwards the same ``*args``
-    and ``**kwargs``) that pins every MLX call -- load, generate and transcribe
-    -- to one thread, so a model and the stream mlx-audio caches at load time
-    always share a thread. ``max_workers=1`` also serialises the single local GPU.
+    Drop-in replacement for ``asyncio.to_thread``: forwards the same ``*args``
+    and ``**kwargs`` and copies the caller's ``contextvars`` context into the
+    worker (so client-id / request tracing survive). Pins every MLX call --
+    load, generate and transcribe -- to one thread, so a model and the stream
+    mlx-audio caches at load time always share a thread. ``max_workers=1`` also
+    serialises the single local GPU.
     """
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(_mlx_executor, functools.partial(func, *args, **kwargs))
+    ctx = contextvars.copy_context()
+    return await loop.run_in_executor(_mlx_executor, functools.partial(ctx.run, func, *args, **kwargs))
 
 
 # PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
