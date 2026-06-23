@@ -3,6 +3,8 @@
 import asyncio
 import logging
 import os
+import re
+import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -37,8 +39,44 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # AMD GPU environment variables must be set before torch import
+# Only set HSA_OVERRIDE_GFX_VERSION for older GPUs that need it.
+# RDNA 3+ (gfx1100+) and RDNA 4 (gfx1200+) are natively supported by ROCm
+# and the override can cause suboptimal performance or errors.
 if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
-    os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+    try:
+        result = subprocess.run(
+            ["rocminfo"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            # Parse the GPU name from rocminfo output
+            for line in result.stdout.splitlines():
+                if "gfx" in line.lower():
+                    # Extract gfx version (e.g., gfx1201, gfx1100)
+                    match = re.search(r"(gfx\d+)", line)
+                    if match:
+                        gfx_version = match.group(1)
+                        # Extract numeric part (e.g., 1201 from gfx1201)
+                        gfx_num = int(re.search(r"\d+", gfx_version).group())
+                        # Only override for RDNA 2 and older (gfx10xx and below)
+                        # RDNA 3 (gfx11xx) and RDNA 4 (gfx12xx) are natively supported
+                        if gfx_num < 1100:
+                            os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+                            logger.info(
+                                "AMD GPU detected (%s), setting HSA_OVERRIDE_GFX_VERSION=10.3.0 for compatibility",
+                                gfx_version,
+                            )
+                        else:
+                            logger.info(
+                                "AMD GPU detected (%s), native ROCm support available, skipping HSA_OVERRIDE_GFX_VERSION",
+                                gfx_version,
+                            )
+                        break
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
+        # rocminfo not available or error — don't set the override
+        logger.debug("Could not detect AMD GPU via rocminfo: %s", e)
 if not os.environ.get("MIOPEN_LOG_LEVEL"):
     os.environ["MIOPEN_LOG_LEVEL"] = "4"
 
