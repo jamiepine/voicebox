@@ -5,6 +5,8 @@ Story management module.
 from typing import List, Optional
 from dataclasses import dataclass
 from datetime import datetime
+import asyncio
+import os
 import re
 import shutil
 import subprocess
@@ -827,6 +829,8 @@ async def set_story_item_version(
 
 @dataclass
 class _Chapter:
+    """Single chapter boundary used when exporting a story to m4b/mp3."""
+
     start_ms: int
     end_ms: int
     title: str
@@ -882,7 +886,12 @@ def _derive_chapters_auto(
 
 
 def _escape_ffmetadata(value: str) -> str:
-    # Per https://ffmpeg.org/ffmpeg-formats.html#Metadata-1 — escape =, ;, #, \, newline.
+    """Escape a metadata value for an FFMETADATA1 file.
+
+    Per the spec (https://ffmpeg.org/ffmpeg-formats.html#Metadata-1) ``=``,
+    ``;``, ``#``, ``\\``, and literal newlines must be backslash-escaped, or
+    ffmpeg will reject (or silently mangle) the chapter entry.
+    """
     return (
         value.replace("\\", "\\\\")
         .replace("=", "\\=")
@@ -893,6 +902,7 @@ def _escape_ffmetadata(value: str) -> str:
 
 
 def _write_ffmetadata(chapters: List[_Chapter], path: Path) -> None:
+    """Serialize chapter list to an FFMETADATA1 file ffmpeg can ingest via ``-i``."""
     lines = [";FFMETADATA1"]
     for ch in chapters:
         lines.extend(
@@ -939,13 +949,31 @@ def _ffmpeg_encode(
             raise ValueError(f"Unsupported export format: {fmt}")
 
         cmd.append(str(out_path))
-        result = subprocess.run(cmd, capture_output=True, check=False)
+        try:
+            # Hard ceiling — a stuck ffmpeg must not pin server resources
+            # indefinitely. 10 minutes is generous enough for a multi-hour
+            # audiobook on slow hardware but still bounded.
+            result = subprocess.run(cmd, capture_output=True, check=False, timeout=600)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("ffmpeg timed out during story export") from exc
         if result.returncode != 0:
             stderr = result.stderr.decode("utf-8", errors="replace").strip()
             raise RuntimeError(f"ffmpeg exited {result.returncode}: {stderr}")
     finally:
         if meta_path is not None:
             meta_path.unlink(missing_ok=True)
+
+
+def _make_tempfile(suffix: str) -> Path:
+    """Create a closed-on-return temp file path with the given suffix.
+
+    Uses ``tempfile.mkstemp`` rather than ``NamedTemporaryFile(delete=False).name``
+    so the OS file descriptor is released immediately instead of lingering
+    until garbage collection (Ruff SIM115).
+    """
+    fd, name = tempfile.mkstemp(suffix=suffix)
+    os.close(fd)
+    return Path(name)
 
 
 async def export_story_audio(
@@ -1091,7 +1119,7 @@ async def export_story_audio(
     if fmt != "wav" and chapters_mode == "auto":
         chapters = _derive_chapters_auto(audio_data, max_end_time_ms) or None
 
-    wav_path = Path(tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name)
+    wav_path = _make_tempfile(suffix=".wav")
     out_path: Optional[Path] = None
     try:
         save_audio(final_audio, str(wav_path), sample_rate)
@@ -1099,8 +1127,11 @@ async def export_story_audio(
             return wav_path.read_bytes()
 
         out_suffix = ".m4b" if fmt == "m4b" else ".mp3"
-        out_path = Path(tempfile.NamedTemporaryFile(suffix=out_suffix, delete=False).name)
-        _ffmpeg_encode(wav_path, out_path, fmt, chapters)
+        out_path = _make_tempfile(suffix=out_suffix)
+        # ffmpeg is CPU-bound and can run for several seconds on a real
+        # audiobook — offload to a worker thread so it doesn't block the
+        # FastAPI event loop while it runs.
+        await asyncio.to_thread(_ffmpeg_encode, wav_path, out_path, fmt, chapters)
         return out_path.read_bytes()
     finally:
         wav_path.unlink(missing_ok=True)
