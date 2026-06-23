@@ -51,32 +51,47 @@ if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
             timeout=5,
         )
         if result.returncode == 0:
-            # Parse the GPU name from rocminfo output
+            # Collect all GPUs found in rocminfo output
+            gfx_versions = []
             for line in result.stdout.splitlines():
-                if "gfx" in line.lower():
-                    # Extract gfx version (e.g., gfx1201, gfx1100)
-                    match = re.search(r"(gfx\d+)", line)
+                line_lower = line.lower()
+                if "gfx" in line_lower:
+                    match = re.search(r"(gfx\d+)", line_lower)
                     if match:
-                        gfx_version = match.group(1)
-                        # Extract numeric part (e.g., 1201 from gfx1201)
-                        gfx_num = int(re.search(r"\d+", gfx_version).group())
-                        # Only override for RDNA 2 and older (gfx10xx and below)
-                        # RDNA 3 (gfx11xx) and RDNA 4 (gfx12xx) are natively supported
-                        if gfx_num < 1100:
+                        gfx_versions.append(match.group(1))
+
+            if gfx_versions:
+                # Check if any GPU needs the override (RDNA 2 and older)
+                # Use the oldest GPU (lowest gfx number) for the decision
+                try:
+                    gfx_nums = []
+                    for v in gfx_versions:
+                        m = re.search(r"\d+", v)
+                        if m:
+                            gfx_nums.append(int(m.group()))
+                    if gfx_nums:
+                        oldest_num = min(gfx_nums)
+                        oldest_gfx = gfx_versions[gfx_nums.index(oldest_num)]
+                        if oldest_num < 1100:
                             os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
                             logger.info(
-                                "AMD GPU detected (%s), setting HSA_OVERRIDE_GFX_VERSION=10.3.0 for compatibility",
-                                gfx_version,
+                                "AMD GPU detected (%s), setting HSA_OVERRIDE_GFX_VERSION=10.3.0 for compatibility. All GPUs: %s",
+                                oldest_gfx,
+                                ", ".join(gfx_versions),
                             )
                         else:
                             logger.info(
-                                "AMD GPU detected (%s), native ROCm support available, skipping HSA_OVERRIDE_GFX_VERSION",
-                                gfx_version,
+                                "AMD GPU detected (%s), native ROCm support available, skipping HSA_OVERRIDE_GFX_VERSION. All GPUs: %s",
+                                oldest_gfx,
+                                ", ".join(gfx_versions),
                             )
-                        break
+                except (ValueError, AttributeError) as e:
+                    logger.info("Could not parse GPU version from rocminfo output: %s", e)
     except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
-        # rocminfo not available or error — don't set the override
-        logger.debug("Could not detect AMD GPU via rocminfo: %s", e)
+        logger.info(
+            "Could not detect AMD GPU via rocminfo, skipping automatic HSA_OVERRIDE_GFX_VERSION configuration: %s",
+            e,
+        )
 if not os.environ.get("MIOPEN_LOG_LEVEL"):
     os.environ["MIOPEN_LOG_LEVEL"] = "4"
 
