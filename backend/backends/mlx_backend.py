@@ -2,7 +2,7 @@
 MLX backend implementation for TTS and STT using mlx-audio.
 """
 
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, TypeVar
 import asyncio
 import functools
 import logging
@@ -13,22 +13,26 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# A TypeVar rather than PEP 695 ``[T]`` generics keeps this module importable on
+# Python 3.11, which the Dockerfile still uses; ruff's UP047 prefers PEP 695 here.
+_T = TypeVar("_T")
+
 # MLX streams are thread-local and mlx-audio caches one on the model at load
 # time, so model load and inference must run on the same OS thread or inference
 # aborts with "There is no Stream(gpu, N) in current thread" (issues #675, #699).
 _mlx_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx")
 
 
-async def _run_on_mlx_thread[T](func: Callable[..., T], *args: object) -> T:
+async def _run_on_mlx_thread(func: Callable[..., _T], *args: object, **kwargs: object) -> _T:  # noqa: UP047 -- see TypeVar note above (3.11 compat)
     """Run a blocking MLX call on the single dedicated MLX worker thread.
 
-    Drop-in replacement for ``asyncio.to_thread`` that pins every MLX call --
-    load, generate and transcribe -- to one thread, so a model and the stream
-    mlx-audio caches at load time always share a thread. ``max_workers=1`` also
-    serialises work on the single local GPU.
+    Drop-in replacement for ``asyncio.to_thread`` (forwards the same ``*args``
+    and ``**kwargs``) that pins every MLX call -- load, generate and transcribe
+    -- to one thread, so a model and the stream mlx-audio caches at load time
+    always share a thread. ``max_workers=1`` also serialises the single local GPU.
     """
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(_mlx_executor, functools.partial(func, *args))
+    return await loop.run_in_executor(_mlx_executor, functools.partial(func, *args, **kwargs))
 
 
 # PATCH: Import and apply offline patch BEFORE any huggingface_hub usage

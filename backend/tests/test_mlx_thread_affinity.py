@@ -1,14 +1,11 @@
 """Regression tests for MLX worker-thread affinity (issues #675, #699)."""
 
-import sys
+import asyncio
 import threading
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from backends.mlx_backend import _mlx_executor, _run_on_mlx_thread  # noqa: E402 -- needs the sys.path shim above
+from backend.backends.mlx_backend import _run_on_mlx_thread
 
 
 class TestMLXThreadAffinity:
@@ -20,14 +17,15 @@ class TestMLXThreadAffinity:
     single-dedicated-thread guarantee that prevents that.
     """
 
-    def test_executor_is_single_worker(self):
-        """A single worker is what guarantees cross-call thread affinity."""
-        assert _mlx_executor._max_workers == 1
-
     @pytest.mark.asyncio
-    async def test_all_calls_share_one_thread(self):
-        """Load plus many inference calls all run on the same OS thread."""
-        thread_ids = [await _run_on_mlx_thread(threading.get_ident) for _ in range(25)]
+    async def test_all_calls_run_on_one_thread(self):
+        """Concurrently dispatched MLX calls all land on the same OS thread.
+
+        Dispatching concurrently (not sequentially) is what makes this prove a
+        single worker: with more than one worker the gather would fan out across
+        threads and the id set would have more than one entry.
+        """
+        thread_ids = await asyncio.gather(*[_run_on_mlx_thread(threading.get_ident) for _ in range(25)])
 
         assert len(set(thread_ids)) == 1, f"MLX work spread across threads: {set(thread_ids)}"
 
