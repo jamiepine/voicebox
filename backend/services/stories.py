@@ -3,7 +3,11 @@ Story management module.
 """
 
 from typing import List, Optional
+from dataclasses import dataclass
 from datetime import datetime
+import re
+import shutil
+import subprocess
 import uuid
 import tempfile
 from pathlib import Path
@@ -821,16 +825,145 @@ async def set_story_item_version(
     return _build_item_detail(item, generation, profile.name if profile else "Unknown", db)
 
 
+@dataclass
+class _Chapter:
+    start_ms: int
+    end_ms: int
+    title: str
+
+
+# Latin sentences end with [.!?] + whitespace; CJK sentences end with [。！？]
+# and conventionally have no following whitespace, so the boundary is the mark
+# itself. Both lookbehinds are zero-width — split() just consumes whitespace
+# when present.
+_SENTENCE_BREAK = re.compile(r"(?<=[.!?])\s+|(?<=[。！？])")
+
+
+def _chapter_title_from_text(text: Optional[str], max_len: int = 80) -> str:
+    """Derive a chapter title from the linked generation's text.
+
+    Takes the first sentence (or the leading slice if the sentence is long).
+    """
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return "Chapter"
+    first = _SENTENCE_BREAK.split(cleaned, maxsplit=1)[0].strip()
+    if not first:
+        return "Chapter"
+    if len(first) > max_len:
+        return first[:max_len].rstrip() + "…"
+    return first
+
+
+def _derive_chapters_auto(
+    segments: List[dict],
+    total_duration_ms: int,
+) -> List[_Chapter]:
+    """One chapter per story segment, ordered by start_time_ms.
+
+    Each segment dict must carry ``start_time_ms`` and ``text``. The final
+    chapter runs to ``total_duration_ms``. Segments with identical
+    ``start_time_ms`` are deduped (only the first contributes a chapter
+    boundary) so multi-track items don't produce zero-length chapters.
+    """
+    ordered = sorted(segments, key=lambda s: s["start_time_ms"])
+    chapters: List[_Chapter] = []
+    for seg in ordered:
+        start = int(seg["start_time_ms"])
+        if chapters and chapters[-1].start_ms == start:
+            continue
+        chapters.append(
+            _Chapter(start_ms=start, end_ms=0, title=_chapter_title_from_text(seg.get("text")))
+        )
+    for i, ch in enumerate(chapters):
+        ch.end_ms = chapters[i + 1].start_ms if i + 1 < len(chapters) else total_duration_ms
+    # Skip degenerate trailing chapter that would have zero duration.
+    return [ch for ch in chapters if ch.end_ms > ch.start_ms]
+
+
+def _escape_ffmetadata(value: str) -> str:
+    # Per https://ffmpeg.org/ffmpeg-formats.html#Metadata-1 — escape =, ;, #, \, newline.
+    return (
+        value.replace("\\", "\\\\")
+        .replace("=", "\\=")
+        .replace(";", "\\;")
+        .replace("#", "\\#")
+        .replace("\n", "\\n")
+    )
+
+
+def _write_ffmetadata(chapters: List[_Chapter], path: Path) -> None:
+    lines = [";FFMETADATA1"]
+    for ch in chapters:
+        lines.extend(
+            [
+                "[CHAPTER]",
+                "TIMEBASE=1/1000",
+                f"START={ch.start_ms}",
+                f"END={ch.end_ms}",
+                f"title={_escape_ffmetadata(ch.title)}",
+            ]
+        )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _ffmpeg_encode(
+    wav_path: Path,
+    out_path: Path,
+    fmt: str,
+    chapters: Optional[List[_Chapter]],
+) -> None:
+    """Transcode WAV → fmt with optional embedded chapter metadata.
+
+    Raises RuntimeError on missing ffmpeg or non-zero exit.
+    """
+    if shutil.which("ffmpeg") is None:
+        raise RuntimeError(
+            "ffmpeg is required for m4b/mp3 story export — install it or request format=wav"
+        )
+
+    cmd: List[str] = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav_path)]
+    meta_path: Optional[Path] = None
+    try:
+        if chapters:
+            meta_path = wav_path.with_suffix(".chapters.txt")
+            _write_ffmetadata(chapters, meta_path)
+            cmd.extend(["-i", str(meta_path), "-map_metadata", "1", "-map_chapters", "1"])
+
+        if fmt == "m4b":
+            # The 'ipod' muxer is ffmpeg's name for the .m4b container.
+            cmd.extend(["-map", "0:a", "-c:a", "aac", "-b:a", "128k", "-f", "ipod"])
+        elif fmt == "mp3":
+            cmd.extend(["-map", "0:a", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3"])
+        else:
+            raise ValueError(f"Unsupported export format: {fmt}")
+
+        cmd.append(str(out_path))
+        result = subprocess.run(cmd, capture_output=True, check=False)
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"ffmpeg exited {result.returncode}: {stderr}")
+    finally:
+        if meta_path is not None:
+            meta_path.unlink(missing_ok=True)
+
+
 async def export_story_audio(
     story_id: str,
     db: Session,
+    fmt: str = "wav",
+    chapters_mode: str = "none",
 ) -> Optional[bytes]:
     """
-    Export story as single mixed audio file with timecode-based mixing.
+    Export story as a single mixed audio file with timecode-based mixing.
 
     Args:
         story_id: Story ID
         db: Database session
+        fmt: Output container — "wav" (default), "m4b", or "mp3".
+        chapters_mode: "none" (default) leaves chapter metadata off; "auto"
+            derives one chapter per story item, titled from its generation
+            text. WAV ignores this — chapters are an m4b/mp3 feature.
 
     Returns:
         Audio file bytes or None if story not found
@@ -906,6 +1039,7 @@ async def export_story_audio(
                     "audio": trimmed_audio,
                     "start_time_ms": start_time_ms,
                     "duration_ms": effective_duration_ms,
+                    "text": generation.text,
                 }
             )
         except Exception:
@@ -949,18 +1083,26 @@ async def export_story_audio(
     if max_val > 1.0:
         final_audio = final_audio / max_val
 
-    # Save to temporary file
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        tmp_path = tmp.name
+    fmt = (fmt or "wav").lower()
+    if fmt not in ("wav", "m4b", "mp3"):
+        raise ValueError(f"Unsupported export format: {fmt}")
 
+    chapters: Optional[List[_Chapter]] = None
+    if fmt != "wav" and chapters_mode == "auto":
+        chapters = _derive_chapters_auto(audio_data, max_end_time_ms) or None
+
+    wav_path = Path(tempfile.NamedTemporaryFile(suffix=".wav", delete=False).name)
+    out_path: Optional[Path] = None
     try:
-        save_audio(final_audio, tmp_path, sample_rate)
+        save_audio(final_audio, str(wav_path), sample_rate)
+        if fmt == "wav":
+            return wav_path.read_bytes()
 
-        # Read file bytes
-        with open(tmp_path, "rb") as f:
-            audio_bytes = f.read()
-
-        return audio_bytes
+        out_suffix = ".m4b" if fmt == "m4b" else ".mp3"
+        out_path = Path(tempfile.NamedTemporaryFile(suffix=out_suffix, delete=False).name)
+        _ffmpeg_encode(wav_path, out_path, fmt, chapters)
+        return out_path.read_bytes()
     finally:
-        # Clean up temp file
-        Path(tmp_path).unlink(missing_ok=True)
+        wav_path.unlink(missing_ok=True)
+        if out_path is not None:
+            out_path.unlink(missing_ok=True)
