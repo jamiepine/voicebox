@@ -2,7 +2,7 @@
 
 import io
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -216,7 +216,10 @@ _EXPORT_MIME = {
 @router.get("/stories/{story_id}/export-audio")
 async def export_story_audio(
     story_id: str,
-    format: str = "wav",
+    # ``format_`` shadows the builtin ``format`` if exposed directly (Ruff
+    # A002), so the local identifier is renamed while the public query-param
+    # name stays ``format`` via the Query alias.
+    format_: str = Query("wav", alias="format"),
     chapters: str = "none",
     db: Session = Depends(get_db),
 ):
@@ -227,9 +230,9 @@ async def export_story_audio(
         chapters: ``none`` (default) or ``auto``. ``auto`` emits one chapter
             per story item, titled from its generation text. WAV ignores this.
     """
-    fmt = (format or "wav").lower()
+    fmt = (format_ or "wav").lower()
     if fmt not in _EXPORT_MIME:
-        raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {format_}")
     chapters_mode = (chapters or "none").lower()
     if chapters_mode not in ("none", "auto"):
         raise HTTPException(status_code=400, detail=f"Unsupported chapters mode: {chapters}")
@@ -244,8 +247,8 @@ async def export_story_audio(
                 story_id, db, fmt=fmt, chapters_mode=chapters_mode
             )
         except RuntimeError as e:
-            # Most likely: ffmpeg missing or ffmpeg returned non-zero.
-            raise HTTPException(status_code=503, detail=str(e))
+            # Most likely: ffmpeg missing, timed out, or returned non-zero.
+            raise HTTPException(status_code=503, detail=str(e)) from e
 
         if not audio_bytes:
             raise HTTPException(status_code=400, detail="Story has no audio items")

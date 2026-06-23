@@ -143,7 +143,8 @@ class TestFFmpegEncodeIntegration:
             _Chapter(start_ms=4000, end_ms=12000, title="Closing"),
         ]
         _ffmpeg_encode(wav_path, out_path, fmt="m4b", chapters=chapters)
-        assert out_path.exists() and out_path.stat().st_size > 0
+        assert out_path.exists()
+        assert out_path.stat().st_size > 0
 
         probe = subprocess.run(
             [
