@@ -5,19 +5,6 @@
 
 # Changelog
 
-## [Unreleased]
-
-This draft follows the Capture release with a more configurable dictation overlay and a smoother Apple Silicon dev setup. The capture preview can now live where it is easiest to see while dictating, and the local setup path installs the MLX audio packages needed by the backend on Apple Silicon machines.
-
-### Captures
-
-- **Configurable preview placement.** Settings -> Captures now includes a preview location selector with top-left, top-center, top-right, bottom-left, bottom-center, and bottom-right options. The setting persists with the rest of the capture configuration and applies to the floating dictate preview ([#796](https://github.com/jamiepine/voicebox/pull/796)).
-- **Monitor-aware preview positioning.** The dictate preview now positions itself on the monitor containing the cursor when recording starts, then falls back to the current or primary monitor if needed ([#796](https://github.com/jamiepine/voicebox/pull/796)).
-
-### Development
-
-- **Apple Silicon setup installs MLX audio dependencies.** `just setup` now installs the missing `mlx-lm` and `mlx-audio` packages needed for the local backend on Apple Silicon machines ([#796](https://github.com/jamiepine/voicebox/pull/796)).
-
 ## [0.5.0] - 2026-04-22
 
 **The Capture release.** Voicebox stops being just a voice-cloning studio and becomes a full AI voice studio. Hold a key anywhere on your machine, speak, release — the transcript lands in the focused text field. Flip the primitive around and any MCP-aware agent — Claude Code, Cursor, Spacebot — speaks back through an on-screen pill in one of your cloned voices. A local LLM sits between the two, so transcripts come out clean and voice profiles can carry a personality that reshapes what the agent says before it gets spoken.
