@@ -32,13 +32,23 @@ export function useChordSync() {
   const enabled = settings?.hotkey_enabled;
   const pushKeys = settings?.chord_push_to_talk_keys;
   const toggleKeys = settings?.chord_toggle_to_talk_keys;
+  const previewLocation = settings?.preview_location ?? 'top_left';
+
+  useEffect(() => {
+    if (!platform.metadata.isTauri) return;
+    invoke('set_dictate_preview_location', { location: previewLocation }).catch((err) => {
+      console.warn('[chord-sync] set_dictate_preview_location failed:', err);
+    });
+  }, [platform.metadata.isTauri, previewLocation]);
 
   useEffect(() => {
     if (!platform.metadata.isTauri) return;
     if (enabled === undefined || !pushKeys || !toggleKeys) return;
     const shouldArm = enabled && canRecord;
     const command = shouldArm ? 'enable_hotkey' : 'disable_hotkey';
-    const args = shouldArm ? { pushToTalk: pushKeys, toggleToTalk: toggleKeys } : {};
+    const args = shouldArm
+      ? { pushToTalk: pushKeys, toggleToTalk: toggleKeys, previewLocation }
+      : {};
     invoke(command, args).catch((err) => {
       console.warn(`[chord-sync] ${command} failed:`, err);
     });
@@ -50,5 +60,6 @@ export function useChordSync() {
     // doesn't fire a redundant invoke on every settings refetch.
     pushKeys?.join(','),
     toggleKeys?.join(','),
+    previewLocation,
   ]);
 }

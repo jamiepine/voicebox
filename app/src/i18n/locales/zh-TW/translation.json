@@ -902,6 +902,18 @@
           "title": "預覽",
           "description": "按住快捷鍵時螢幕上顯示的內容。"
         },
+        "previewLocation": {
+          "title": "預覽位置",
+          "description": "選擇浮動擷取預覽的顯示位置。",
+          "options": {
+            "top_left": "左上",
+            "top_center": "頂部置中",
+            "top_right": "右上",
+            "bottom_left": "左下",
+            "bottom_center": "底部置中",
+            "bottom_right": "右下"
+          }
+        },
         "copyToClipboard": {
           "title": "將轉錄文字複製到剪貼簿",
           "description": "擷取完成時,清理過的轉錄文字會出現在您的剪貼簿。"

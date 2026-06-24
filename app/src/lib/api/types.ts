@@ -217,7 +217,17 @@ export interface CaptureSettings {
   chord_push_to_talk_keys: string[];
   /** keytap key names. Toggle adds Space to the platform-specific PTT chord. */
   chord_toggle_to_talk_keys: string[];
+  /** Where the floating capture preview appears on the target display. */
+  preview_location: CapturePreviewLocation;
 }
+
+export type CapturePreviewLocation =
+  | 'top_left'
+  | 'top_center'
+  | 'top_right'
+  | 'bottom_left'
+  | 'bottom_center'
+  | 'bottom_right';
 
 export type CaptureSettingsUpdate = Partial<CaptureSettings>;
 

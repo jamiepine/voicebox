@@ -31,8 +31,22 @@ import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
 import { cn } from '@/lib/utils/cn';
 import { defaultChordKeys, displayLabelForKey, modifierSideHint } from '@/lib/utils/keyCodes';
-import type { Qwen3ModelSize, VoiceProfileResponse, WhisperModelSize } from '@/lib/api/types';
+import type {
+  CapturePreviewLocation,
+  Qwen3ModelSize,
+  VoiceProfileResponse,
+  WhisperModelSize,
+} from '@/lib/api/types';
 import { SettingRow, SettingSection } from './SettingRow';
+
+const PREVIEW_LOCATION_OPTIONS: CapturePreviewLocation[] = [
+  'top_left',
+  'top_center',
+  'top_right',
+  'bottom_left',
+  'bottom_center',
+  'bottom_right',
+];
 
 function ChordPreview({ keys }: { keys: string[] }) {
   const { t } = useTranslation();
@@ -140,6 +154,7 @@ export function CapturesPage() {
   const hotkeyEnabled = settings?.hotkey_enabled ?? false;
   const pushToTalkKeys = settings?.chord_push_to_talk_keys ?? defaultChordKeys('push');
   const toggleToTalkKeys = settings?.chord_toggle_to_talk_keys ?? defaultChordKeys('toggle');
+  const previewLocation = settings?.preview_location ?? 'top_left';
 
   const [chordEditor, setChordEditor] = useState<'push' | 'toggle' | null>(null);
   const [opening, setOpening] = useState(false);
@@ -281,6 +296,28 @@ export function CapturesPage() {
             update({ chord_toggle_to_talk_keys: keys });
             setChordEditor(null);
           }}
+        />
+
+        <SettingRow
+          title={t('settings.captures.dictation.previewLocation.title')}
+          description={t('settings.captures.dictation.previewLocation.description')}
+          action={
+            <Select
+              value={previewLocation}
+              onValueChange={(v) => update({ preview_location: v as CapturePreviewLocation })}
+            >
+              <SelectTrigger className="w-[220px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PREVIEW_LOCATION_OPTIONS.map((location) => (
+                  <SelectItem key={location} value={location}>
+                    {t(`settings.captures.dictation.previewLocation.options.${location}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          }
         />
 
         <SettingRow

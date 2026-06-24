@@ -3,7 +3,7 @@ Pydantic models for request/response validation.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Literal, Optional, List
 from datetime import datetime
 
 from .utils.capture_chords import (
@@ -264,6 +264,14 @@ class CaptureSettingsResponse(BaseModel):
     chord_toggle_to_talk_keys: List[str] = Field(
         default_factory=default_toggle_to_talk_chord
     )
+    preview_location: Literal[
+        "top_left",
+        "top_center",
+        "top_right",
+        "bottom_left",
+        "bottom_center",
+        "bottom_right",
+    ] = "top_left"
 
     class Config:
         from_attributes = True
@@ -284,6 +292,16 @@ class CaptureSettingsUpdate(BaseModel):
     hotkey_enabled: Optional[bool] = None
     chord_push_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
     chord_toggle_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
+    preview_location: Optional[
+        Literal[
+            "top_left",
+            "top_center",
+            "top_right",
+            "bottom_left",
+            "bottom_center",
+            "bottom_right",
+        ]
+    ] = None
 
 
 class GenerationSettingsResponse(BaseModel):

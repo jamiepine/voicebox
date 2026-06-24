@@ -902,6 +902,18 @@
           "title": "Preview",
           "description": "What appears on screen while you're holding the shortcut."
         },
+        "previewLocation": {
+          "title": "Preview location",
+          "description": "Choose where the floating capture preview appears.",
+          "options": {
+            "top_left": "Top left",
+            "top_center": "Top center",
+            "top_right": "Top right",
+            "bottom_left": "Bottom left",
+            "bottom_center": "Bottom center",
+            "bottom_right": "Bottom right"
+          }
+        },
         "copyToClipboard": {
           "title": "Copy transcript to clipboard",
           "description": "The cleaned transcript lands on your clipboard when the capture finishes."

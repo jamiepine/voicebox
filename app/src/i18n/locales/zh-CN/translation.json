@@ -902,6 +902,18 @@
           "title": "预览",
           "description": "按住快捷键时屏幕上显示的内容。"
         },
+        "previewLocation": {
+          "title": "预览位置",
+          "description": "选择浮动捕获预览的显示位置。",
+          "options": {
+            "top_left": "左上",
+            "top_center": "顶部居中",
+            "top_right": "右上",
+            "bottom_left": "左下",
+            "bottom_center": "底部居中",
+            "bottom_right": "右下"
+          }
+        },
         "copyToClipboard": {
           "title": "将转录复制到剪贴板",
           "description": "捕获完成后,清理过的转录会出现在剪贴板上。"
