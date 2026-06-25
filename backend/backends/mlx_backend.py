@@ -228,8 +228,30 @@ class MLXTTSBackend:
 
                     sig = inspect.signature(self.model.generate)
                     if "ref_audio" in sig.parameters:
-                        # Generate with voice cloning
-                        for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
+                        # Generate with voice cloning.
+                        #
+                        # NOTE: We deliberately do NOT pass ref_text here.
+                        # The mlx_audio Qwen3 TTS model has two code paths for
+                        # ref_audio:
+                        #
+                        #   1. ICL (In-Context Learning) — triggered when BOTH
+                        #      ref_audio AND ref_text are provided AND the
+                        #      speech tokenizer has an encoder.  This path
+                        #      encodes the reference audio into codec tokens,
+                        #      prepends them to the generated codes, and
+                        #      decodes everything together — so the output
+                        #      CONTAINS THE REFERENCE AUDIO (the bug).
+                        #
+                        #   2. Speaker-embedding path — triggered when only
+                        #      ref_audio is provided (or the tokenizer lacks
+                        #      an encoder).  This path extracts a speaker
+                        #      embedding from the reference audio and uses it
+                        #      to condition generation WITHOUT including the
+                        #      reference audio in the output.
+                        #
+                        # By omitting ref_text we force path 2, which is the
+                        # correct zero-shot voice cloning behaviour.
+                        for result in self.model.generate(text, ref_audio=ref_audio, lang_code=lang):
                             audio_chunks.append(np.array(result.audio))
                             sample_rate = result.sample_rate
                     else:
