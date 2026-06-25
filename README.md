@@ -11,6 +11,10 @@
 </p>
 
 <p align="center">
+  <strong>English</strong> · <a href="README.es.md">Español</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/jamiepine/voicebox/releases">
     <img src="https://img.shields.io/github/downloads/jamiepine/voicebox/total?style=flat&color=blue" alt="Downloads" />
   </a>
