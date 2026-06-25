@@ -5,7 +5,6 @@ to avoid GPU contention.
 
 import asyncio
 import logging
-import traceback
 from dataclasses import dataclass
 from typing import Coroutine, Literal
 
@@ -59,7 +58,6 @@ async def _generation_worker():
                     raise
         except Exception:
             logger.exception("Generation worker failed for %s", job.generation_id)
-            traceback.print_exc()
             await _force_fail_if_active(
                 job.generation_id,
                 "Worker exited without writing terminal status",
@@ -95,7 +93,6 @@ async def _force_fail_if_active(generation_id: str, error: str) -> None:
             db.close()
     except Exception:
         logger.exception("Failed to force-fail orphaned generation %s", generation_id)
-        traceback.print_exc()
 
 
 def enqueue_generation(generation_id: str, coro):
