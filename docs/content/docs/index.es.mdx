@@ -1,0 +1,46 @@
+---
+title: "Documentación de Voicebox"
+description: "Voicebox es el estudio de voz con IA de código abierto y local-first — una alternativa gratuita a ElevenLabs y WisprFlow que se ejecuta enteramente en tu equipo."
+---
+
+Voicebox es el **estudio de voz con IA de código abierto y local-first** — una
+alternativa gratuita a ElevenLabs y WisprFlow en una sola app. Clona voces, genera
+voz con 7 motores TTS, dicta en cualquier app con un atajo global,
+compón proyectos multivoz y deja que cualquier agente compatible con MCP hable en una voz
+que es tuya. Todo se ejecuta en tu hardware.
+
+![Captura de la app Voicebox](/images/app-screenshot-1.webp)
+
+- **Dictado** — mantén pulsada una combinación en cualquier parte de tu equipo, habla, suelta; la transcripción se pega en el campo activo
+- **Pestaña Capturas** — archivo emparejado de audio + transcripción, vuelve a transcribir / refina / reproduce como voz
+- **Personalidades de voz** — botón de redactar por perfil + interruptor de reescritura en personaje, impulsados por un LLM local
+- **Los agentes responden hablando** — cualquier agente compatible con MCP puede llamar a Voicebox para hablar con una de tus voces clonadas
+- **7 motores TTS** — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, Kokoro
+- **Clonación y voces predefinidas** — clonación zero-shot o más de 50 voces predefinidas curadas
+- **23 idiomas** — del inglés al árabe, japonés, hindi y suajili
+- **Efectos de posprocesado** — cambio de tono, reverberación, retardo, coro, compresión, filtros
+- **Voz expresiva** — etiquetas paralingüísticas (`[laugh]`, `[sigh]`) y control de la interpretación en lenguaje natural
+- **Longitud ilimitada** — fragmentación automática con fundido cruzado para guiones largos
+- **Editor de historias** — línea de tiempo multipista para conversaciones, pódcasts y narraciones
+- **API-first** — API REST + WebSocket, servidor MCP para integraciones con agentes
+- **Privacidad total** — los modelos, el audio, las transcripciones y la salida del LLM nunca salen de tu equipo
+- **Funciona en todas partes** — macOS (MLX/Metal), Windows (CUDA / DirectML), Linux (ROCm / CPU), Intel Arc, Docker
+
+## Descargar
+
+| Plataforma | Descarga |
+|----------|----------|
+| macOS (Apple Silicon) | [Descargar DMG](https://voicebox.sh/download/mac-arm) |
+| macOS (Intel) | [Descargar DMG](https://voicebox.sh/download/mac-intel) |
+| Windows | [Descargar MSI](https://voicebox.sh/download/windows) |
+| Docker | `docker compose up` |
+
+[Ver todos los releases](https://github.com/jamiepine/voicebox/releases/latest)
+
+## Empezar
+
+- [Instalación](/overview/installation) — descarga e instala Voicebox
+- [Inicio rápido](/overview/quick-start) — ponte en marcha en 5 minutos
+- [Dictado](/overview/dictation) — empieza a hablarle a tu ordenador
+- [Personalidades de voz](/overview/voice-personalities) — redacta y reescribe en cualquier perfil
+- [Referencia de la API](/api-reference) — integra la síntesis de voz en tus apps
