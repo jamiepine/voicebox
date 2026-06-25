@@ -1,0 +1,110 @@
+---
+title: "Introducción"
+description: "Voicebox es el estudio de voz con IA de código abierto y local-first — una alternativa gratuita a ElevenLabs y WisprFlow, que se ejecuta por completo en tu máquina."
+---
+
+## ¿Qué es Voicebox?
+
+Voicebox es el **estudio de voz con IA de código abierto y local-first**. Cierra
+el bucle de E/S de voz en ambas direcciones en una sola máquina, sin nube y sin
+cuentas:
+
+- **Los humanos hablan** — mantén pulsado un acorde en cualquier parte de tu
+  máquina y tu dictado aparece como texto limpio en el campo de texto que
+  tuvieras enfocado
+- **Los agentes responden** — cualquier agente compatible con MCP puede llamar a
+  Voicebox para hablar con una de tus voces clonadas
+- **Las voces hablan por sí mismas** — los perfiles de voz pueden llevar una
+  personalidad que redacta líneas nuevas o reescribe el texto antes de
+  pronunciarlo
+
+Es la alternativa gratuita y local tanto a ElevenLabs (clonación de voz y TTS)
+como a WisprFlow (dictado por voz para agentes y usuarios avanzados) — cubriendo
+ambos lados del mismo bucle en una sola app, con un único directorio de modelos
+y un LLM compartido entre la entrada y la salida.
+
+## Qué incluye la app
+
+- **Dictado** — atajo global, modos de pulsar para hablar y de alternancia,
+  pegado automático en el campo enfocado en macOS y Windows (consulta [Dictado](/overview/dictation))
+- **Pestaña de capturas** — archivo emparejado de audio + transcripción,
+  retranscribir, refinar, reproducir como voz, promover a muestra (consulta [Capturas](/overview/captures))
+- **Clonación de voz** — 5 motores de clonación que cubren 23 idiomas. Clonación
+  zero-shot a partir de una muestra de referencia (consulta [Clonación de voz](/overview/voice-cloning))
+- **Voces de preajuste** — más de 50 voces seleccionadas mediante Kokoro y Qwen CustomVoice
+  para cuando no quieras clonar (consulta [Voces de preajuste](/overview/preset-voices))
+- **Personalidades de voz** — personalidad opcional de formato libre en cualquier perfil
+  más un botón de redacción y una alternancia de reescritura de persona impulsada por un LLM local (consulta
+  [Personalidades de voz](/overview/voice-personalities))
+- **Efectos de postprocesado** — cambio de tono, reverberación, retardo, coro,
+  compresión, filtros (Pedalboard de Spotify)
+- **Voz expresiva** — etiquetas paralingüísticas como `[laugh]` y `[sigh]`
+  mediante Chatterbox Turbo; control de interpretación en lenguaje natural mediante Qwen CustomVoice
+- **Longitud ilimitada** — fragmentación automática con fundido cruzado para guiones largos
+- **Editor de historias** — línea de tiempo multipista para conversaciones y podcasts
+- **API-first** — API REST + WebSocket; servidor MCP para integraciones de agentes
+- **Funciona en todas partes** — macOS (MLX/Metal), Windows (CUDA / DirectML), Linux
+  (ROCm / CPU), Intel Arc, Docker
+
+## Motores de TTS
+
+Siete motores con diferentes puntos fuertes, conmutables por generación:
+
+| Motor | Tipo de perfil | Idiomas | Puntos fuertes |
+|--------|--------------|-----------|-----------|
+| **Qwen3-TTS** (0.6B / 1.7B) | Clonado | 10 | Clonación multilingüe de alta calidad |
+| **Qwen CustomVoice** (0.6B / 1.7B) | Preajuste (9 voces) | 10 | Control de interpretación en lenguaje natural (tono, emoción, ritmo) |
+| **LuxTTS** | Clonado | Inglés | Ligero (~1GB VRAM), salida a 48kHz, 150x tiempo real en CPU |
+| **Chatterbox Multilingual** | Clonado | 23 | La cobertura de idiomas más amplia |
+| **Chatterbox Turbo** | Clonado | Inglés | Modelo rápido de 350M con etiquetas paralingüísticas de emoción/sonido |
+| **TADA** (1B / 3B) | Clonado | 10 | Modelo de lenguaje-voz de HumeAI — más de 700s de audio coherente |
+| **Kokoro** | Preajuste (50 voces) | 9 | 82M de parámetros, tiempo real en CPU, la menor VRAM de cualquier motor |
+
+## STT y LLM local
+
+Voicebox también ejecuta una pila completa de reconocimiento de voz y LLM local,
+compartida entre el dictado, la pestaña de capturas y los modos de personalidad por perfil:
+
+| Capa | Modelos |
+|---|---|
+| **STT** | Whisper Base / Small / Medium / Large / Turbo (PyTorch o MLX) |
+| **LLM** | Qwen3 0.6B / 1.7B / 4B (refinamiento + redacción por perfil / reescritura de persona) |
+
+Sin recurso a la nube, sin traer tu propia clave de API. Lo local es el producto.
+
+## Compatibilidad con GPU
+
+| Plataforma | Backend | Notas |
+|----------|---------|-------|
+| macOS (Apple Silicon) | MLX (Metal) | 4-5x más rápido mediante Neural Engine |
+| Windows / Linux (NVIDIA) | PyTorch (CUDA) | Descarga automáticamente el binario CUDA desde dentro de la app |
+| Linux (AMD) | PyTorch (ROCm) | Configura automáticamente HSA_OVERRIDE_GFX_VERSION |
+| Windows (cualquier GPU) | DirectML | Compatibilidad universal con GPU en Windows |
+| Intel Arc | IPEX/XPU | Aceleración de GPU discreta de Intel |
+| Cualquiera | CPU | Funciona en todas partes, solo que más lento |
+
+## Casos de uso
+
+- **Dictado para humanos y agentes** — habla en lugar de escribir, en cualquier app
+- **Salida de voz para agentes** — cualquier agente compatible con MCP puede hablar con una voz clonada
+- **Desarrollo de videojuegos** — genera diálogos dinámicos para personajes
+- **Creación de contenido** — podcasts, voces en off para vídeos, audiolibros
+- **Accesibilidad** — voz a texto para cualquier campo, TTS con una voz que te pertenece
+- **Asistentes de voz** — interfaces de voz personalizadas sin una factura en la nube
+- **Pipelines de producción** — automatiza flujos de trabajo de voz mediante la API REST
+
+## Pila tecnológica
+
+| Capa | Tecnología |
+|-------|------------|
+| App de escritorio | Tauri (Rust) |
+| Frontend | React, TypeScript, Tailwind CSS |
+| Estado | Zustand, React Query |
+| Backend | FastAPI (Python) |
+| Motores de TTS | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
+| STT | Whisper / Whisper Turbo (PyTorch o MLX) |
+| LLM local | Qwen3 0.6B / 1.7B / 4B (MLX o PyTorch) |
+| Efectos | Pedalboard (Spotify) |
+| Inferencia | MLX (Apple Silicon) / PyTorch (CUDA/ROCm/XPU/CPU) |
+| Base de datos | SQLite |
+| Audio | WaveSurfer.js, librosa |

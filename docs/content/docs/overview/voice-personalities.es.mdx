@@ -1,0 +1,194 @@
+---
+title: "Personalidades de voz"
+description: "Asocia una personalidad a un perfil de voz, redacta nuevas frases en personaje y reescribe el texto de entrada en su voz — todo impulsado por un LLM local."
+---
+
+## Resumen
+
+Una **personalidad** es una descripción opcional de formato libre asociada a un
+perfil de voz — quién es esta voz, cómo habla, qué le importa. Define una
+y aparecen dos controles nuevos junto al botón de generar, ambos impulsados por
+un LLM Qwen3 incluido que se ejecuta enteramente en local:
+
+- **Redactar** — coloca una nueva frase en personaje dentro del área de texto.
+  Haz clic de nuevo para obtener otra versión.
+- **Hablar en personaje** — una alternancia que reescribe el texto de entrada en
+  la voz del personaje antes del TTS, conservando todas las ideas.
+
+El LLM produce el texto. El perfil de voz lo dice. Sin viajes de ida y vuelta a
+la nube, sin API externa — todo el bucle se ejecuta en tu hardware.
+
+<Callout type="info">
+  Las personalidades llegaron en la **0.5.0**. El mismo LLM local funciona
+  además como modelo de refinamiento para el [Dictado](/overview/dictation) — un
+  LLM en la aplicación, no dos, compartiendo una caché de modelos y una huella de
+  memoria de GPU.
+</Callout>
+
+## Definir una personalidad
+
+Abre la vista de edición de un perfil de voz. El campo **Personalidad** es texto
+de formato libre de hasta **2.000 caracteres**. Describe la voz como mejor te
+sirva — frases pasadas que diría, patrones de habla, tono, límites.
+
+Las buenas descripciones suelen incluir:
+
+- Una identidad de una línea (quién es)
+- Patrones de habla (ritmo, vocabulario, qué evita)
+- Frases representativas — las frases de ejemplo le muestran al LLM el tono
+  objetivo mejor que los adjetivos
+- Qué *no* haría el personaje (no explica, no se disculpa, se niega a salir del
+  personaje, etc.)
+
+Puedes definir una personalidad en cualquier tipo de perfil de voz — clonado o
+preajustado. Los tres modos funcionan de forma idéntica independientemente del
+motor.
+
+## Las dos acciones
+
+Cada acción está afinada para un trabajo específico y la temperatura del LLM se
+ajusta en consecuencia.
+
+### Redactar
+
+Genera una nueva frase en la voz del personaje, sin texto de partida.
+Haz clic en el botón de barajar para colocar una frase directamente en el área
+de texto de generación; haz clic de nuevo para obtener otra versión.
+
+- **Cuándo usarlo:** prototipado, muestrear la voz de un personaje, hacer una
+  lluvia de ideas de una frase sin teclear primero
+- **Temperatura:** alta — la variedad es el objetivo
+- **Salida típica:** una frase corta y contundente que encaja en el registro
+  del personaje
+
+### Hablar en personaje (reescritura)
+
+Activa la alternancia de persona y todo lo que teclees (o dictes) se reescribe en
+la voz del personaje antes del TTS — se conserva cada idea, solo cambia la
+formulación. Modo de alta fidelidad: el contenido no cambia, solo la voz.
+
+- **Cuándo usarlo:** convertir una nota dictada en habla en personaje; elevar un
+  guion en español llano a una voz específica sin editar a mano
+- **Temperatura:** baja — gana la fidelidad
+- **Salida típica:** las mismas ideas, el mismo orden, distinta formulación y
+  cadencia
+
+## Encuadre de solo habla
+
+Ambos modos imponen una salida de **solo habla**. Se le indica al LLM que
+produzca cosas que una persona diría realmente en voz alta — sin narración, sin
+etiquetas de acción (`*sighs*`, `[laughs]`), sin metacomentarios, sin formato
+markdown, sin acotaciones escénicas.
+
+Esto es deliberado: la salida va directa al TTS, y cualquier cosa que no sea
+pronunciable acaba ignorándose o leyéndose literalmente. El encuadre de solo
+habla también hace que la salida encaje limpiamente dentro de un diálogo, de modo
+que puedes colocar un resultado de Responder directamente en una Historia.
+
+## El LLM local
+
+El LLM incluido es **Qwen3**, disponible en tres tamaños:
+
+| Modelo | Tamaño de descarga | Mejor para |
+|---|---|---|
+| Qwen3 0.6B | ~400 MB | Predeterminado. Muy rápido, bueno para uso casual. |
+| Qwen3 1.7B | ~1.1 GB | El punto óptimo para personalidades de personaje con formulación específica. |
+| Qwen3 4B | ~2.5 GB | Calidad completa. El más lento. Útil para un tono muy particular. |
+
+El modelo se ejecuta a través de la misma división de backend que Voicebox ya
+usa para el TTS — **MLX** (cuantizaciones de 4 bits de la comunidad) en Apple
+Silicon, **PyTorch** (transformers `AutoModelForCausalLM`) en el resto. Las
+descargas pasan por la misma caché y la misma interfaz de gestión de modelos que
+los modelos de TTS.
+
+Elige un tamaño en **Ajustes → Capturas → Refinamiento → Modelo de refinamiento**
+— los modos de personalidad lo reutilizan. Si cambias de modelo, tanto el
+refinamiento como la salida de personalidad adoptan el cambio en la siguiente
+llamada.
+
+## Usar los controles
+
+Ambos controles aparecen en el cuadro flotante de generación cuando el perfil
+seleccionado tiene una personalidad definida.
+
+<Steps>
+  <Step title="Redactar — barajar una frase">
+    Haz clic en el botón de barajar. El LLM se ejecuta y el resultado rellena el
+    área de texto de generación. Edítalo si quieres y luego pulsa generar.
+  </Step>
+  <Step title="Hablar en personaje — activar la reescritura de persona">
+    Teclea (o dicta) lo que quieres que se diga. Activa la alternancia de la
+    varita. Pulsa generar — Voicebox pasa primero el texto por el LLM de
+    personalidad y luego el TTS dice la versión reescrita. Deja la alternancia
+    desactivada para un TTS normal.
+  </Step>
+</Steps>
+
+Redactar siempre te da algo distinto al volver a hacer clic. La alternancia de
+persona, en cambio, es un modo — se aplica a cada llamada de generación hasta que
+vuelves a desactivarla.
+
+## Casos de uso
+
+- **Agentes que hablan con una voz que te pertenece.** Combina la alternancia de
+  persona con el [Servidor MCP](/overview/mcp-server) integrado para que Claude
+  Code, Cursor, Cline o cualquier agente compatible con MCP pueda responder a
+  través de un perfil con personalidad. El agente llama a `voicebox.speak({ text,
+  profile, personality: true })` y Voicebox reescribe el texto en personaje antes
+  de hablar.
+- **Personajes interactivos.** Juegos, herramientas narrativas, experiencias de
+  accesibilidad. Un personaje con una descripción de personalidad más una voz
+  clonada se convierte en un recurso reutilizable.
+- **Accesibilidad.** Las personas que no pueden hablar con su voz original pueden
+  conservar una descripción de personalidad de cómo solían sonar y usar la
+  alternancia de reescritura para convertir la entrada tecleada en habla en
+  personaje.
+- **Borradores creativos.** Escribe un guion llano, activa la alternancia de
+  persona, genera frase a frase en la voz del personaje y coloca el audio en una
+  Historia.
+
+## Superficie de la API
+
+Las personalidades son accesibles vía REST:
+
+| Método | Endpoint | Cuerpo |
+|---|---|---|
+| `PUT` | `/profiles/{id}` | Incluye un campo `personality` de hasta 2.000 caracteres para definirla. |
+| `POST` | `/profiles/{id}/compose` | Sin cuerpo. Devuelve una nueva frase en personaje como texto. |
+| `POST` | `/generate` | Incluye `personality: true` para pasar el texto de entrada por el LLM de personalidad antes del TTS. Igual para `POST /speak`. |
+
+`POST /generate` con `personality: true` es la misma primitiva que usa la
+herramienta `voicebox.speak` de MCP cuando pasas `personality: true`. Los scripts
+y los agentes pueden usarla directamente.
+
+## Límites y trampas
+
+- **La personalidad es un prompt, no un ajuste fino.** El LLM a veces se
+  desviará del personaje, especialmente en Redactar con temperatura alta. Haz
+  clic de nuevo para obtener otra versión.
+- **Las personalidades largas no siempre son mejores.** 2.000 caracteres es un
+  techo, no un objetivo. Una descripción nítida de 300 caracteres con dos frases
+  de ejemplo suele superar a una larga.
+- **El encuadre de solo habla se impone, pero no es infalible.** Los prompts muy
+  grandes o las entradas inusuales pueden colar una etiqueta de acción. Si ves
+  `[laughs]` en la salida del TTS, suele ser una pista del campo de personalidad
+  a la que el modelo se ha aferrado — quítala de la descripción.
+- **La reescritura es más estricta que Responder.** Si la salida está cambiando
+  tu significado, probablemente quieras Responder (o un Redactar completo con
+  contexto en la entrada), no Reescribir.
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Dictado" href="/overview/dictation">
+    Dicta la entrada para Reescribir o Responder desde cualquier parte de tu
+    máquina.
+  </Card>
+  <Card title="Capturas" href="/overview/captures">
+    Las capturas alimentan las personalidades de forma natural — dicta una nota,
+    reescríbela en una voz de personaje, genera voz.
+  </Card>
+  <Card title="Crear perfiles de voz" href="/overview/creating-voice-profiles">
+    Añade una personalidad a un perfil existente.
+  </Card>
+</Cards>

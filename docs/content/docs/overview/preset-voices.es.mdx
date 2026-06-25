@@ -1,0 +1,202 @@
+---
+title: "Voces de preajuste"
+description: "Usa voces integradas y listas para usar sin grabar muestras de audio"
+---
+
+## Resumen
+
+Algunos motores de Voicebox incluyen un conjunto curado de voces preconstruidas. En lugar de clonar a partir de tu propia muestra de audio, eliges una voz de un catálogo fijo y el modelo habla con esa voz. Sin grabación, sin subir nada, sin entrenamiento por voz.
+
+Dos motores en la versión 0.4 incluyen voces de preajuste:
+
+| Motor                 | Voces                   | Idiomas   | Puntos fuertes                                          |
+| --------------------- | ----------------------- | --------- | ------------------------------------------------------- |
+| **Kokoro 82M**        | 50                      | 9         | Modelo diminuto, apto para CPU, la VRAM más baja de todos los motores |
+| **Qwen CustomVoice**  | 9 (premium curadas)     | 4         | Control del estilo en lenguaje natural sobre tono, emoción y ritmo |
+
+<Callout type="info">
+  ¿Buscas clonar la voz de una persona concreta en su lugar? Consulta [Clonación de voz](/overview/voice-cloning).
+</Callout>
+
+## Cuándo usar voces de preajuste
+
+<Cards>
+  <Card title="Sin audio de referencia">
+    No tienes (o no quieres proporcionar) una grabación de la voz objetivo
+  </Card>
+  <Card title="Fiabilidad en producción">
+    Las voces curadas tienen una calidad predecible con cualquier texto de entrada
+  </Card>
+  <Card title="Velocidad">
+    Sáltate la limpieza del audio, la preparación de muestras y el ciclo de iteración de calidad
+  </Card>
+  <Card title="Configuración ligera">
+    Kokoro corre a tiempo real en CPU con ~150 MB en disco, sin necesidad de GPU
+  </Card>
+</Cards>
+
+## Crear un perfil de voz de preajuste
+
+<Steps>
+  <Step title="Abre Perfiles → Nuevo perfil">
+    El mismo punto de entrada que para los perfiles de clonación
+  </Step>
+  <Step title="Elige el motor">
+    Selecciona **Kokoro** o **Qwen CustomVoice** en el desplegable de motores
+  </Step>
+  <Step title="Elige una voz de preajuste">
+    Aparece el catálogo de voces del motor elegido — previsualiza cada una haciendo clic en ella
+  </Step>
+  <Step title="Ponle nombre y guarda">
+    Dale un nombre al perfil. No hace falta ninguna muestra de audio — solo guarda
+  </Step>
+  <Step title="Genera">
+    Usa el perfil como cualquier otro en el cuadro flotante de generación o en la página Generar
+  </Step>
+</Steps>
+
+<Callout type="info">
+  Los perfiles de preajuste están bloqueados a su motor de origen — cambiar de motor no funcionará, ya que la voz solo existe para ese modelo. La cuadrícula de perfiles atenúa los perfiles de preajuste cuando cambias a un motor distinto, y al hacer clic en uno se vuelve a cambiar automáticamente al motor correcto.
+</Callout>
+
+## Kokoro 82M — 50 voces en 9 idiomas
+
+Kokoro es el motor más pequeño de Voicebox, con 82M de parámetros. Corre a tiempo real en CPU con una VRAM insignificante, lo que lo convierte en la mejor opción para inferencia local ligera. Las voces son vectores de estilo preconstruidos entrenados dentro del modelo — aquí no existe el concepto de clonar.
+
+**Repositorio:** [`hexgrad/Kokoro-82M`](https://huggingface.co/hexgrad/Kokoro-82M) · con licencia Apache 2.0
+
+### Inglés americano
+
+| Femeninas | Masculinas |
+| --------- | ---------- |
+| Alloy     | Adam       |
+| Aoede     | Echo       |
+| Bella     | Eric       |
+| Heart     | Fenrir     |
+| Jessica   | Liam       |
+| Kore      | Michael    |
+| Nicole    | Onyx       |
+| Nova      | Puck       |
+| River     | Santa      |
+| Sarah     |            |
+| Sky       |            |
+
+### Inglés británico
+
+| Femeninas | Masculinas |
+| --------- | ---------- |
+| Alice     | Daniel     |
+| Emma      | Fable      |
+| Isabella  | George     |
+| Lily      | Lewis      |
+
+### Otros idiomas
+
+| Idioma            | Voces                                       |
+| ----------------- | ------------------------------------------- |
+| Español (`es`)    | Dora (f), Alex (m), Santa (m)               |
+| Francés (`fr`)    | Siwis (f)                                   |
+| Hindi (`hi`)      | Alpha (f), Beta (f), Omega (m), Psi (m)     |
+| Italiano (`it`)   | Sara (f), Nicola (m)                        |
+| Japonés (`ja`)    | Alpha (f), Gongitsune (f), Nezumi (f), Tebukuro (f), Kumo (m) |
+| Portugués (`pt`)  | Dora (f), Alex (m), Santa (m)               |
+| Chino (`zh`)      | Xiaobei (f), Xiaoni (f), Xiaoxiao (f), Xiaoyi (f) |
+
+### Kokoro de un vistazo
+
+| Propiedad         | Valor                                        |
+| ----------------- | -------------------------------------------- |
+| Parámetros        | 82M                                          |
+| Frecuencia de muestreo | 24 kHz                                  |
+| VRAM              | ~150 MB (insignificante en CPU)              |
+| Velocidad         | Tiempo real en CPU, más rápido en GPU        |
+| Instruct          | No compatible (la voz de preajuste lleva el estilo) |
+| Licencia          | Apache 2.0                                   |
+
+## Qwen CustomVoice — 9 voces premium con control Instruct
+
+Qwen CustomVoice incluye 9 hablantes curados y admite **control del estilo en lenguaje natural** — le dices al modelo cómo interpretar la frase ("habla despacio y con calidez", "con autoridad y claridad") y este adapta el tono, la emoción y el ritmo.
+
+Dos tamaños de modelo:
+- **1.7B** — calidad completa, predeterminado recomendado
+- **0.6B** — más ligero, más rápido, para hardware de gama baja
+
+**Repositorio:** [`Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`](https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice) (y variante 0.6B) · de Alibaba
+
+### Catálogo de voces
+
+| Hablante  | Género    | Idioma   | Descripción                                                  |
+| --------- | --------- | -------- | ------------------------------------------------------------ |
+| Vivian    | femenino  | Chino    | Voz femenina joven, brillante y con un punto atrevido        |
+| Serena    | femenino  | Chino    | Voz femenina joven, cálida y suave                           |
+| Uncle Fu  | masculino | Chino    | Voz masculina madura con un timbre grave y suave             |
+| Dylan     | masculino | Chino    | Voz masculina joven de Pekín con un timbre claro y natural   |
+| Eric      | masculino | Chino    | Voz masculina animada de Chengdu con un brillo ligeramente ronco |
+| Ryan      | masculino | Inglés   | Voz masculina dinámica con un fuerte empuje rítmico (predeterminada) |
+| Aiden     | masculino | Inglés   | Voz masculina americana radiante con un registro medio claro |
+| Ono Anna  | femenino  | Japonés  | Voz femenina japonesa juguetona con un timbre ligero y ágil  |
+| Sohee     | femenino  | Coreano  | Voz femenina coreana cálida y con mucha emoción              |
+
+### Usar el modo Instruct
+
+En el cuadro flotante de generación, cambia a un perfil de Qwen CustomVoice y haz clic en la alternancia de **instrucciones de interpretación** (icono de deslizador, a la izquierda del botón de generar). Aparece un segundo cuadro de texto debajo del texto principal:
+
+- Texto principal → lo que quieres que diga la voz
+- Texto de instrucción → cómo quieres que se interprete
+
+Ejemplos de instrucciones efectivas:
+
+```
+Speak slowly with emphasis, like reading bedtime stories
+Warm and friendly, conversational tone
+Professional and authoritative, broadcast quality
+Whisper, intimate and close
+Excited and energetic, like sports commentary
+```
+
+La página completa Generar también muestra el campo de instrucción como una entrada aparte.
+
+### Qwen CustomVoice de un vistazo
+
+| Propiedad         | Valor                                              |
+| ----------------- | -------------------------------------------------- |
+| Parámetros        | 1.7B / 0.6B                                        |
+| Idiomas           | Chino, inglés, japonés, coreano (10 compatibles)   |
+| Voces             | 9 hablantes de preajuste curados                   |
+| VRAM              | ~3.5 GB (1.7B), ~1.2 GB (0.6B)                     |
+| Instruct          | Sí — control del estilo en lenguaje natural        |
+| Clonación         | No — el motor emparejado Base Qwen3-TTS gestiona la clonación |
+
+## Clonación frente a preajuste — decisión rápida
+
+| Quieres…                                           | Usa                                       |
+| -------------------------------------------------- | ----------------------------------------- |
+| Replicar la voz de una persona concreta            | [Clonación de voz](/overview/voice-cloning) |
+| Voces listas para producción sin preparar audio    | Kokoro o Qwen CustomVoice                 |
+| La huella más pequeña posible (solo CPU)           | Kokoro                                    |
+| Control fino de la interpretación (tono, ritmo, emoción) | Qwen CustomVoice                    |
+| La cobertura de idiomas más amplia                 | [Clonación de voz](/overview/voice-cloning) mediante Chatterbox Multilingual (23 idiomas) |
+
+## Limitaciones
+
+<Callout type="warn">
+  Las voces de preajuste son fijas — no puedes ajustarlas ni modificar la voz subyacente. Si quieres una voz concreta que no está en el catálogo, usa un motor de clonación y proporciona una muestra de referencia.
+</Callout>
+
+- Las voces de preajuste no se pueden exportar como audio para usarlas en otras instalaciones de Voicebox (solo como metadatos de perfil que apuntan al mismo motor + ID de voz)
+- El catálogo de voces de Kokoro lo define el modelo original — aparecen voces nuevas solo cuando hexgrad publica nuevas versiones del modelo
+- Los 9 hablantes de Qwen CustomVoice forman parte del checkpoint del modelo — la misma restricción
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Clonación de voz" href="/overview/voice-cloning">
+    Clona una voz concreta a partir de tu propio audio
+  </Card>
+  <Card title="Generar voz" href="/overview/generating-speech">
+    Usa un perfil para generar audio
+  </Card>
+  <Card title="Crear historias" href="/overview/building-stories">
+    Compón narraciones con varias voces
+  </Card>
+</Cards>

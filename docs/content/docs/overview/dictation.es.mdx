@@ -1,0 +1,218 @@
+---
+title: "Dictado"
+description: "Mantén pulsada una tecla en cualquier parte de tu equipo, habla, suéltala — la transcripción aparece en el campo de texto que tuvieras enfocado."
+---
+
+## Resumen
+
+El dictado te permite convertir voz en texto limpio en cualquier parte de tu
+ordenador. Mantén pulsado un atajo, habla, suelta — Voicebox transcribe lo que
+dijiste con Whisper, opcionalmente lo limpia con un LLM local, y pega el
+resultado en el campo de texto que tuvieras enfocado al empezar.
+
+Todo ocurre en tu hardware. Sin nube, sin cuentas, sin que el audio salga de
+la máquina.
+
+<Callout type="info">
+  El dictado se introdujo en **0.5.0** junto con la pestaña Capturas y los
+  modos de personalidad por perfil. Es la mitad de "entrada" del bucle de E/S
+  de voz de Voicebox — la clonación y el TTS siguen siendo la mitad de "salida".
+</Callout>
+
+## El flujo
+
+<Steps>
+  <Step title="Mantén pulsado el atajo">
+    Mantén pulsado el atajo de pulsar para hablar en cualquier parte de tu
+    equipo. Una pequeña píldora aparece con un fundido sobre tu app actual.
+  </Step>
+  <Step title="Habla">
+    La píldora muestra `Recording` con una forma de onda en vivo y un contador
+    de tiempo transcurrido. Habla con naturalidad — no tienes que esperar a
+    nada.
+  </Step>
+  <Step title="Suelta">
+    Al soltar, la píldora cambia a `Transcribing`, luego a `Refining` si el
+    refinamiento automático está activado, y después desaparece.
+  </Step>
+  <Step title="El texto aparece en tu app">
+    Si el pegado automático está habilitado y Voicebox tiene permiso de
+    Accesibilidad, la transcripción se pega en el campo de texto que tuvieras
+    enfocado al empezar a hablar — no donde se haya desplazado el foco
+    mientras hablabas.
+  </Step>
+</Steps>
+
+En cualquier caso, cada captura aparece también en la **pestaña Capturas** con
+el audio original y la transcripción emparejados. Consulta
+[Capturas](/overview/captures) para ver qué puedes hacer con ellas después.
+
+## Modos de pulsar para hablar y de alternancia
+
+Voicebox incluye dos comportamientos de atajo de fábrica:
+
+| Modo | Por defecto (macOS) | Por defecto (Windows) | Comportamiento |
+|---|---|---|---|
+| **Pulsar para hablar** | `⌘` derecha + `⌥` derecha | `Ctrl` derecha + `Shift` derecha | La grabación se detiene cuando sueltas el atajo. |
+| **Alternancia para hablar** | Pulsar para hablar + `Space` | Pulsar para hablar + `Space` | La grabación continúa hasta que vuelves a pulsar el atajo. |
+
+**Mantener pulsado PTT y tocar `Space` a mitad de la pulsación convierte una
+pulsación mantenida en una sesión de alternancia** sin un hueco en el audio.
+Este es el detalle más útil del sistema de atajos — las ráfagas cortas se
+sienten rápidas, la narración larga se siente manos libres, y no hay que
+decidir de antemano qué modo querías.
+
+## La píldora en pantalla
+
+Mientras dictas, aparece una píldora flotante sobre la app actual. Recorre los
+estados del ciclo de captura y muestra señales en vivo para cada uno:
+
+| Estado | Qué muestra |
+|---|---|
+| `Recording` | Forma de onda en vivo + tiempo transcurrido. |
+| `Transcribing` | Forma de onda "pensando" mientras se ejecuta Whisper. |
+| `Refining` | La misma forma de onda "pensando" mientras el LLM limpia la transcripción (solo si el refinamiento automático está activado). |
+| Error | Tinte rojo. Haz clic en la píldora para copiar el error al portapapeles. Se descarta automáticamente. |
+
+La píldora es transparente, siempre encima, y se precrea oculta al iniciar la
+app — así aparece al instante cuando pulsas el atajo, sin parpadeo de ventana.
+
+## Personalizar el atajo
+
+Abre **Ajustes → Capturas → Dictado** para cambiar cualquiera de los dos atajos.
+
+- **Distintivos de modificador izquierdo vs derecho.** Cuando mantienes teclas
+  pulsadas en el selector de atajos, Voicebox registra si cada modificador es
+  la variante izquierda o derecha. Eso significa que puedes asignar solo el
+  `⌥` derecho dejando libre el `⌥` izquierdo — útil si quieres el dictado en
+  una mano y mantener intactos tus atajos de la otra mano.
+- **Los atajos por defecto se eligen para no estorbarte.** En macOS, los
+  valores por defecto evitan deliberadamente los atajos `Cmd+Option` de la
+  mano izquierda para que `Cmd+Option+I` (herramientas de desarrollo),
+  `Cmd+Option+Esc` (forzar salida) y `Cmd+Option+Space` (Spotlight) sigan
+  siendo tuyos. En Windows, los valores por defecto rodean las colisiones de
+  AltGr en las distribuciones alemana / francesa / española donde `Ctrl+Alt`
+  sintetiza AltGr.
+- **Recarga en vivo.** Cambiar un atajo en Ajustes surte efecto de inmediato —
+  sin reinicio, sin recargar la pestaña.
+
+## Pegado automático en la app enfocada
+
+Una vez que termina la transcripción, Voicebox puede sintetizar un pegado
+nativo en el campo de texto que tuviera el foco cuando iniciaste el atajo. Tu
+portapapeles se guarda antes y se restaura después, así que no se pierde nada
+de lo que hubieras copiado.
+
+| Plataforma | Mecanismo |
+|---|---|
+| macOS | `CGEventPost` en el tap HID con una secuencia completa de teclas `⌘V`, precedida por la reactivación de la app original mediante `NSRunningApplication`. |
+| Windows | `SendInput` con los scan codes correctos, más un handshake `SetForegroundWindow` + `AttachThreadInput` para vencer el bloqueo de primer plano al pegar en una ventana que no estaba en primer plano al iniciar el atajo. |
+
+**El foco se captura en una instantánea al iniciar el atajo.** El pegado
+apunta al campo original incluso si el foco se desplaza durante la
+transcripción / refinamiento — ese es el comportamiento de "pega desde donde
+estabas hablando, no donde estás mirando *ahora*".
+
+<Callout type="info">
+  El pegado automático es opcional. Si el permiso de Accesibilidad no está
+  concedido (macOS), o prefieres mantener desactivada la entrada sintética, el
+  dictado sigue funcionando — las transcripciones aparecen en la pestaña
+  Capturas y puedes copiarlas manualmente. El ajuste vive en línea junto al
+  aviso de Accesibilidad en Ajustes → Capturas → Dictado, no como un banner
+  global.
+</Callout>
+
+## Refinamiento
+
+Si el refinamiento automático está activado, un LLM local limpia la
+transcripción cruda de Whisper antes de pegarla. El objetivo es eliminar el
+ruido verbal sin reescribir lo que realmente dijiste.
+
+Lo que el refinamiento suele corregir:
+
+- Muletillas (`um`, `uh`, `like` usado como pausa, `you know`)
+- Autocorrecciones — el LLM conserva la versión final y descarta los intentos
+  anteriores (`could you uh run the migration real quick, and then, yeah,
+  check the logs` → `Could you run the migration, then check the logs?`)
+- Puntuación y mayúsculas básicas
+- Alucinaciones de bucle de Whisper — Voicebox elimina los tokens repetidos
+  (seis o más tokens idénticos seguidos, sin distinguir mayúsculas) *antes* de
+  que el LLM vea la transcripción, de modo que un modelo de refinamiento
+  pequeño no pueda devolverlos como eco
+
+Lo que el refinamiento conserva deliberadamente:
+
+- Términos técnicos e identificadores de código (`npm install`, `handleSubmit`)
+- Repetición legítima (`no, no, no, no, no` tiene menos de seis tokens
+  idénticos, así que sobrevive)
+- Tu intención — el refinamiento es limpieza, no reescritura
+
+Los flags se capturan en una instantánea por captura, de modo que puedes
+volver a refinar la misma transcripción cruda más tarde con flags distintos
+sin perder el original. El selector de modelo de refinamiento (**Ajustes →
+Capturas → Refinamiento**) ofrece tres tamaños de Qwen3 incluidos:
+
+| Modelo | Tamaño | Mejor para |
+|---|---|---|
+| Qwen3 0.6B | ~400 MB | Por defecto. Muy rápido, bueno para dictado casual. |
+| Qwen3 1.7B | ~1.1 GB | El punto óptimo cuando las transcripciones contienen identificadores de código. |
+| Qwen3 4B | ~2.5 GB | Calidad completa, el más lento. |
+
+Este es el mismo LLM local que usan los modos de personalidad por perfil — un
+solo LLM en la app, no dos. Consulta [Personalidades de voz](/overview/voice-personalities).
+
+## Notas por plataforma
+
+### macOS
+
+- **El permiso de Accesibilidad** es necesario para el pegado automático. El
+  aviso vive en línea junto a la alternancia en **Ajustes → Capturas →
+  Dictado**, con un enlace directo a **Ajustes del Sistema → Privacidad y
+  Seguridad → Accesibilidad**.
+- **Mitigación del crash de TSM.** El escucha de atajos globales se ejecuta en
+  un hilo en segundo plano con `set_is_main_thread(false)` para esquivar un
+  crash conocido en macOS 14+ de la librería `rdev`. Si te topas con un fallo
+  de dictado inesperado en macOS, revisa los logs en busca de mensajes
+  relacionados con TSM.
+
+### Windows
+
+- **Salvedad de UAC / UIPI.** El pegado sintético en una ventana *elevada*
+  desde un Voicebox no elevado lo bloquea el propio Windows. Ejecuta Voicebox
+  elevado si dictas habitualmente en apps elevadas (p. ej. un terminal elevado
+  o el Administrador de tareas).
+- **El atajo por defecto de la mano derecha** (`Ctrl+Shift`) evita las
+  colisiones de AltGr en las distribuciones de teclado donde `Ctrl+Alt` es la
+  tecla de composición (alemán, francés, español, algunas otras).
+
+### Linux
+
+- **Todavía no en esta versión.** El shim de Rust incluye las rutas de macOS y
+  Windows en 0.5.0. El soporte de `uinput` / AT-SPI en Linux y el asunto del
+  pegado en Wayland se siguen en `docs/plans/VOICE_IO.md`.
+
+## Cuándo el pegado automático se omite a sí mismo
+
+Algunos casos en los que Voicebox deliberadamente *no* sintetiza un pegado:
+
+- **El foco estaba dentro de Voicebox** cuando empezó el atajo. La
+  transcripción va a la pestaña Capturas para que un ciclo de dictado dentro
+  de Voicebox no pegue accidentalmente en la caja de generación.
+- **No se detectó ningún foco de texto.** La transcripción aparece igualmente
+  en la pestaña Capturas; cópiala desde ahí con un clic.
+- **El permiso de Accesibilidad no está concedido** en macOS. Lo mismo — solo
+  la pestaña Capturas.
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Capturas" href="/overview/captures">
+    El archivo emparejado de audio + transcripción en el que aterriza cada dictado.
+  </Card>
+  <Card title="Personalidades de voz" href="/overview/voice-personalities">
+    El mismo LLM local impulsa la redacción por perfil y la reescritura de persona.
+  </Card>
+  <Card title="Transcripción" href="/developer/transcription">
+    Detalles a nivel de desarrollador sobre Whisper, Whisper Turbo y el backend de STT.
+  </Card>
+</Cards>
