@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import App from '../../app/src/App';
 import '../../app/src/index.css';
 import { PlatformProvider } from '../../app/src/platform/PlatformContext';
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <PlatformProvider platform={webPlatform}>
         <App />
+        <SpeedInsights />
       </PlatformProvider>
     </QueryClientProvider>
   </React.StrictMode>,

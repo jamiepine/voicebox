@@ -13,6 +13,7 @@
     "@icons-pack/react-simple-icons": "^13.13.0",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@vercel/speed-insights": "^2.0.0",
     "autoprefixer": "^10.4.17",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
