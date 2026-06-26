@@ -2,10 +2,12 @@
 Audio processing utilities.
 """
 
+import struct
+from typing import Optional, Tuple
+
+import librosa
 import numpy as np
 import soundfile as sf
-import librosa
-from typing import Tuple, Optional
 
 
 def normalize_audio(
@@ -84,8 +86,8 @@ def save_audio(
     Raises:
         OSError: If file cannot be written
     """
-    from pathlib import Path
     import os
+    from pathlib import Path
 
     temp_path = f"{path}.tmp"
     try:
@@ -108,6 +110,48 @@ def save_audio(
             pass  # Best effort cleanup
 
         raise OSError(f"Failed to save audio to {path}: {e}") from e
+
+
+def audio_to_pcm16_bytes(audio: np.ndarray) -> bytes:
+    """Convert float audio samples to little-endian signed PCM16 bytes."""
+    clipped = np.clip(np.asarray(audio, dtype=np.float32), -1.0, 1.0)
+    pcm = (clipped * 32767.0).astype("<i2", copy=False)
+    return pcm.tobytes()
+
+
+def streaming_wav_header(
+    sample_rate: int,
+    *,
+    channels: int = 1,
+    bits_per_sample: int = 16,
+) -> bytes:
+    """Return a PCM WAV header suitable for HTTP chunked streaming.
+
+    Standard WAV normally stores total file sizes in the RIFF and data
+    headers. A live stream does not know those sizes up front, so we use the
+    common all-ones sentinel to let clients start playback before generation
+    has finished.
+    """
+    byte_rate = sample_rate * channels * bits_per_sample // 8
+    block_align = channels * bits_per_sample // 8
+    unknown_size = 0xFFFFFFFF
+
+    return struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF",
+        unknown_size,
+        b"WAVE",
+        b"fmt ",
+        16,
+        1,
+        channels,
+        sample_rate,
+        byte_rate,
+        block_align,
+        bits_per_sample,
+        b"data",
+        unknown_size,
+    )
 
 
 def trim_tts_output(

@@ -10,11 +10,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
+from ..services import history, personality, profiles, tts
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
-from ..utils.audio import load_audio
+from ..utils.audio import audio_to_pcm16_bytes, load_audio, streaming_wav_header
 from ..utils.tasks import get_task_manager
 
 logger = logging.getLogger(__name__)
@@ -321,7 +321,12 @@ async def stream_speech(
     db: Session = Depends(get_db),
 ):
     """Generate speech and stream the WAV audio directly without saving to disk."""
-    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim
+    from ..backends import (
+        engine_needs_trim,
+        ensure_model_cached_or_raise,
+        get_tts_backend_for_engine,
+        load_engine_model,
+    )
 
     profile = await profiles.get_profile(data.profile_id, db)
     if not profile:
@@ -344,13 +349,68 @@ async def stream_speech(
         engine=engine,
     )
 
-    from ..utils.chunked_tts import generate_chunked
+    from ..utils.chunked_tts import generate_chunked, generate_chunked_stream, split_text_into_chunks
 
     trim_fn = None
     if engine_needs_trim(engine):
         from ..utils.audio import trim_tts_output
 
         trim_fn = trim_tts_output
+
+    effects_chain_config = None
+    if data.effects_chain is not None:
+        effects_chain_config = [e.model_dump() for e in data.effects_chain]
+    elif profile.effects_chain:
+        import json as _json
+
+        try:
+            effects_chain_config = _json.loads(profile.effects_chain)
+        except Exception:
+            effects_chain_config = None
+
+    text_chunks = split_text_into_chunks(data.text, data.max_chunk_chars)
+    supports_live_stream = callable(getattr(tts_model, "generate_stream", None))
+    needs_buffer = (
+        data.normalize
+        or bool(effects_chain_config)
+        or trim_fn is not None
+        or (len(text_chunks) > 1 and data.crossfade_ms > 0)
+    )
+
+    if supports_live_stream and not needs_buffer:
+        async def _live_wav_stream():
+            header_sent = False
+            try:
+                async for chunk_audio, sample_rate in generate_chunked_stream(
+                    tts_model,
+                    data.text,
+                    voice_prompt,
+                    language=data.language,
+                    seed=data.seed,
+                    instruct=data.instruct,
+                    max_chunk_chars=data.max_chunk_chars,
+                    trim_fn=trim_fn,
+                ):
+                    if not header_sent:
+                        yield streaming_wav_header(sample_rate)
+                        header_sent = True
+                    yield audio_to_pcm16_bytes(chunk_audio)
+
+                if not header_sent:
+                    yield streaming_wav_header(24000)
+            except (BrokenPipeError, ConnectionResetError, asyncio.CancelledError):
+                logger.debug("Client disconnected during live audio stream")
+
+        return StreamingResponse(
+            _live_wav_stream(),
+            media_type="audio/wav",
+            headers={
+                "Content-Disposition": 'attachment; filename="speech.wav"',
+                "Cache-Control": "no-cache",
+                "X-Accel-Buffering": "no",
+                "X-Voicebox-Stream-Mode": "live",
+            },
+        )
 
     audio, sample_rate = await generate_chunked(
         tts_model,
@@ -363,17 +423,6 @@ async def stream_speech(
         crossfade_ms=data.crossfade_ms,
         trim_fn=trim_fn,
     )
-
-    effects_chain_config = None
-    if data.effects_chain is not None:
-        effects_chain_config = [e.model_dump() for e in data.effects_chain]
-    elif profile.effects_chain:
-        import json as _json
-
-        try:
-            effects_chain_config = _json.loads(profile.effects_chain)
-        except Exception:
-            effects_chain_config = None
 
     if effects_chain_config:
         from ..utils.effects import apply_effects
@@ -398,7 +447,10 @@ async def stream_speech(
     return StreamingResponse(
         _wav_stream(),
         media_type="audio/wav",
-        headers={"Content-Disposition": 'attachment; filename="speech.wav"'},
+        headers={
+            "Content-Disposition": 'attachment; filename="speech.wav"',
+            "X-Voicebox-Stream-Mode": "buffered",
+        },
     )
 
 
