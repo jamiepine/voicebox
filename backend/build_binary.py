@@ -29,6 +29,19 @@ def build_server(cuda=False):
         cuda: If True, build with CUDA support and name the binary
               voicebox-server-cuda instead of voicebox-server.
     """
+    # Install DAC shim before PyInstaller analysis starts. TADA submodules
+    # (collected via collect_submodules('tada') in hiddenimports) import 'dac'
+    # at the top level. The shim provides a fake 'dac' package to avoid
+    # installing the heavy descript-audio-codec dependency.
+    try:
+        from utils.dac_shim import install_dac_shim
+        install_dac_shim()
+    except ImportError:
+        # Fallback for when running from a different CWD or as a package
+        sys.path.append(str(Path(__file__).parent))
+        from utils.dac_shim import install_dac_shim
+        install_dac_shim()
+
     backend_dir = Path(__file__).parent
 
     binary_name = "voicebox-server-cuda" if cuda else "voicebox-server"
