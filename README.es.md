@@ -315,7 +315,7 @@ Voicebox incluye un servidor **Model Context Protocol** integrado para que cualq
 
 **Comando de una línea para Claude Code:**
 
-```
+```bash
 claude mcp add voicebox \
   --transport http \
   --url http://127.0.0.1:17493/mcp \
@@ -439,7 +439,7 @@ La guía está optimizada para agentes de programación con IA. Una [skill de ag
 
 ### Estructura del proyecto
 
-```
+```text
 voicebox/
 ├── app/              # Frontend React compartido
 ├── tauri/            # App de escritorio (Tauri + Rust)
