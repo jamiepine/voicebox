@@ -65,3 +65,6 @@ keytap = "0.4"
 [features]
 # This feature is used for production builds or when `devPath` points to the filesystem
 custom-protocol = ["tauri/custom-protocol"]
+
+[patch.crates-io]
+tao = { path = "../vendor/tao" }
