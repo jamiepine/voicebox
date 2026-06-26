@@ -7,7 +7,7 @@ description: "Asocia una personalidad a un perfil de voz, redacta nuevas frases 
 
 Una **personalidad** es una descripción opcional de formato libre asociada a un
 perfil de voz — quién es esta voz, cómo habla, qué le importa. Define una
-y aparecen dos controles nuevos junto al botón de generar, ambos impulsados por
+personalidad y aparecen dos controles nuevos junto al botón de generar, ambos impulsados por
 un LLM Qwen3 incluido que se ejecuta enteramente en local:
 
 - **Redactar** — coloca una nueva frase en personaje dentro del área de texto.
@@ -20,7 +20,7 @@ la nube, sin API externa — todo el bucle se ejecuta en tu hardware.
 
 <Callout type="info">
   Las personalidades llegaron en la **0.5.0**. El mismo LLM local funciona
-  además como modelo de refinamiento para el [Dictado](/overview/dictation) — un
+  además como modelo de refinamiento para el [Dictado](./dictation.mdx) — un
   LLM en la aplicación, no dos, compartiendo una caché de modelos y una huella de
   memoria de GPU.
 </Callout>
@@ -131,7 +131,7 @@ vuelves a desactivarla.
 ## Casos de uso
 
 - **Agentes que hablan con una voz que te pertenece.** Combina la alternancia de
-  persona con el [Servidor MCP](/overview/mcp-server) integrado para que Claude
+  persona con el [Servidor MCP](./mcp-server.mdx) integrado para que Claude
   Code, Cursor, Cline o cualquier agente compatible con MCP pueda responder a
   través de un perfil con personalidad. El agente llama a `voicebox.speak({ text,
   profile, personality: true })` y Voicebox reescribe el texto en personaje antes

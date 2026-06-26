@@ -23,7 +23,7 @@ tus perfiles de voz.
 
 | Origen | Cómo aparece | Insignia |
 |---|---|---|
-| **Dictado** | Activado por el atajo global (ver [Dictado](/overview/dictation)). Refinado automáticamente por defecto. | `dictation` |
+| **Dictado** | Activado por el atajo global (ver [Dictado](./dictation.mdx)). Refinado automáticamente por defecto. | `dictation` |
 | **Grabación en la app** | Grabada directamente en la pestaña Capturas usando el micrófono integrado. | `recording` |
 | **Subida de archivo** | Cualquier archivo de audio arrastrado a la pestaña Capturas — `.wav`, `.mp3`, `.m4a`, `.webm`, `.opus`, `.flac`. | `file` |
 
@@ -80,7 +80,7 @@ en bruto:
 | **Eliminar autocorrecciones** | Conserva la versión final cuando el hablante se desdice ("en realidad, no, el martes"). |
 | **Preservar términos técnicos** | Deja los identificadores (`handleSubmit`, `npm install`) intactos. |
 
-Consulta la sección de Refinamiento de [Dictado](/overview/dictation#refinement) para saber
+Consulta la sección de Refinamiento de [Dictado](./dictation.mdx#refinement) para saber
 cómo Voicebox elimina las alucinaciones de bucle de Whisper *antes* de que el LLM vea la
 transcripción — una captura se puede volver a refinar cualquier número de veces sin
 reintroducir ecos de "thanks for watching thanks for watching".
@@ -105,9 +105,9 @@ La reproducción usa el motor al que esté vinculado el perfil seleccionado — 
 reglas que la pestaña Generar. No hay LLM en esta vía; la transcripción pasa
 sin cambios. Si quieres el flujo estilo agente de "transforma el contenido antes
 de hablar", eso es lo que hacen los
-[modos de personalidad](/overview/voice-personalities) — y la misma
+[modos de personalidad](./voice-personalities.mdx) — y la misma
 primitiva se expone a los agentes compatibles con MCP a través del
-[Servidor MCP](/overview/mcp-server) para que Claude Code, Cursor o Cline puedan hablar
+[Servidor MCP](./mcp-server.mdx) para que Claude Code, Cursor o Cline puedan hablar
 con una de tus voces por su cuenta.
 
 <Callout type="info">
@@ -170,7 +170,7 @@ La pestaña Capturas está respaldada por un pequeño conjunto de endpoints REST
 | `POST` | `/profiles/{id}/samples/from-capture/{capture_id}` | Promueve una captura a una muestra de perfil de voz. |
 
 Estos endpoints son estables y utilizables desde tus propios scripts — consulta
-[Modo Remoto](/overview/remote-mode) para ejecutar Voicebox como un servidor con el que pueda hablar el resto
+[Modo Remoto](./remote-mode.mdx) para ejecutar Voicebox como un servidor con el que pueda hablar el resto
 de tu máquina.
 
 ## Próximos pasos

@@ -16,8 +16,8 @@ indicador en pantalla muestra el nombre de la voz durante toda la duración para
 siempre veas lo que sale de tu máquina.
 
 <Callout type="info">
-  MCP llegó en la **0.5.0** junto con el [Dictado](/overview/dictation) y las
-  [Personalidades de Voz](/overview/voice-personalities). El objetivo de diseño es
+  MCP llegó en la **0.5.0** junto con el [Dictado](./dictation.mdx) y las
+  [Personalidades de Voz](./voice-personalities.mdx). El objetivo de diseño es
   "una capa de voz local para cada agente de tu máquina" — la misma app que
   captura tu voz puede generar una respuesta con cualquier perfil de voz que hayas
   clonado.
@@ -136,7 +136,7 @@ Devuelve:
 
 - **TTS plano** — `personality: false` (u omitido + el valor por defecto de la vinculación es false). El texto se habla tal cual.
 - **Modo personaje** — `personality: true` y el perfil debe tener configurado un prompt de personalidad.
-  El LLM reescribe el texto en personaje antes del TTS. Consulta las [Personalidades de Voz](/overview/voice-personalities).
+  El LLM reescribe el texto en personaje antes del TTS. Consulta las [Personalidades de Voz](./voice-personalities.mdx).
 
 ### `voicebox.transcribe`
 
@@ -204,7 +204,7 @@ agente. Cada fila incluye:
 ## El indicador de habla
 
 Cada vez que un agente inicia una orden de hablar aparece el indicador flotante de la misma forma
-que con el [Dictado](/overview/dictation), en un nuevo estado `Speaking` que muestra el
+que con el [Dictado](./dictation.mdx), en un nuevo estado `Speaking` que muestra el
 nombre del perfil y un temporizador transcurrido. El indicador es intencionadamente imposible de pasar por alto —
 un TTS silencioso en segundo plano es un riesgo de confianza, así que Voicebox siempre muestra qué
 se está hablando y con qué voz.
@@ -261,7 +261,7 @@ generación aparece en la pestaña Capturas.
 - **Las lecturas de `audio_path` no tienen restricciones** dentro del mismo límite de
   confianza. Si estás haciendo scripting contra un host compartido, prefiere
   `audio_base64` para no tener que pensar en el sandboxing de rutas.
-- **Se aplica el consentimiento para clonar voces.** Consulta [Clonación de Voz](/overview/voice-cloning#limitations)
+- **Se aplica el consentimiento para clonar voces.** Consulta [Clonación de Voz](./voice-cloning.mdx#limitations)
   — que un agente pueda llamar a `voicebox.speak` con la voz de alguien
   no cambia la ética de a quién clonas la voz.
 

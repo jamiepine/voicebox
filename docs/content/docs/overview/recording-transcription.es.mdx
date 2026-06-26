@@ -11,9 +11,9 @@ enlaces para ver el detalle.
 
 | Objetivo | Dónde | Documentación |
 |---|---|---|
-| Hablar y que tus palabras aterricen en otra app | Atajo global → pestaña Capturas + pegado automático | [Dictado](/overview/dictation) |
-| Grabar una idea, una reunión o una nota de voz dentro de Voicebox | Pestaña Capturas | [Capturas](/overview/captures) |
-| Grabar un clip del que clonar una voz | Pestaña Voces → muestras de perfil | [Crear perfiles de voz](/overview/creating-voice-profiles) |
+| Hablar y que tus palabras aterricen en otra app | Atajo global → pestaña Capturas + pegado automático | [Dictado](./dictation.mdx) |
+| Grabar una idea, una reunión o una nota de voz dentro de Voicebox | Pestaña Capturas | [Capturas](./captures.mdx) |
+| Grabar un clip del que clonar una voz | Pestaña Voces → muestras de perfil | [Crear perfiles de voz](./creating-voice-profiles.mdx) |
 
 Las tres vías comparten el mismo backend STT — lo que difiere es el flujo de
 trabajo que las rodea.
@@ -26,7 +26,7 @@ enfocado, depurada por un LLM local si tienes activado el refinamiento automáti
 Las capturas se acumulan en la pestaña Capturas para reproducirlas o retranscribirlas
 más tarde.
 
-Se cubre de principio a fin en [Dictado](/overview/dictation).
+Se cubre de principio a fin en [Dictado](./dictation.mdx).
 
 ## Pestaña Capturas
 
@@ -37,7 +37,7 @@ que ya aterrizaron ahí. Cada captura conserva su audio original, puede retransc
 con un modelo diferente y puede reproducirse a través de cualquier perfil de voz
 que tengas.
 
-Se cubre en [Capturas](/overview/captures).
+Se cubre en [Capturas](./captures.mdx).
 
 ## Muestras de perfil de voz
 
@@ -51,7 +51,7 @@ Puedes promover una captura a muestra desde el menú Enviar a de la pestaña Cap
 referencia para que puedas corregir el último ~10% de precisión de la transcripción
 antes de guardar.
 
-Se cubre en [Crear perfiles de voz](/overview/creating-voice-profiles).
+Se cubre en [Crear perfiles de voz](./creating-voice-profiles.mdx).
 
 ## Modelos de transcripción
 
@@ -91,7 +91,7 @@ preprocesamiento y el endpoint `/transcribe` vive en la
 [guía de transcripción para desarrolladores](/developer/transcription). El pipeline
 de Capturas también expone `/captures` como un endpoint de más alto nivel que envuelve
 STT + archivado + refinamiento opcional en una sola llamada — consulta
-[Capturas](/overview/captures#api-surface).
+[Capturas](./captures.mdx#api-surface).
 
 ## Próximos pasos
 
