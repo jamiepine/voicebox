@@ -196,7 +196,28 @@ The model management API (`/models/load`, `/models/unload`) lets users free VRAM
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/generate` | Generate speech from text |
+| POST | `/generate/stream` | Stream generated speech bytes directly |
 | GET | `/audio/{generation_id}` | Serve generated audio file |
+
+### Streaming generation
+
+`POST /generate/stream` returns `audio/wav` without writing a generation row.
+When the selected backend can yield audio incrementally, Voicebox sends a WAV
+header followed by PCM16 chunks as soon as the model produces them. The response
+header `X-Voicebox-Stream-Mode` is `live` for this low-latency path and
+`buffered` when Voicebox has to preserve whole-file processing semantics.
+
+The live path currently requires all of these to be true:
+
+- the backend implements `generate_stream()` (Qwen on MLX does)
+- `normalize` is `false`
+- no effects chain is applied
+- the engine does not require trim post-processing
+- long-text chunking does not require crossfade across text chunks
+
+If any of those constraints are not met, `/generate/stream` keeps the existing
+compatibility behavior: it generates the full waveform first, applies requested
+post-processing, then streams the completed WAV bytes.
 
 ### Response schema
 
