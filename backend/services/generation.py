@@ -17,13 +17,18 @@ Mode differences:
 from __future__ import annotations
 
 import asyncio
+import logging
 import traceback
 from typing import Literal, Optional
+
+import numpy as np
 
 from .. import config
 from . import history, profiles
 from ..database import get_db
 from ..utils.tasks import get_task_manager
+
+logger = logging.getLogger(__name__)
 
 
 async def run_generation(
@@ -85,6 +90,7 @@ async def run_generation(
             gen_kwargs["crossfade_ms"] = crossfade_ms
 
         audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
+        _validate_generated_audio(audio, sample_rate)
 
         # --- Normalize (generate and regenerate always; retry skips) -----
         if normalize or mode == "regenerate":
@@ -136,6 +142,7 @@ async def run_generation(
         )
         _notify_speak_end(generation_id, status="cancelled")
     except Exception as e:
+        logger.exception("Generation %s failed", generation_id)
         traceback.print_exc()
         await history.update_generation_status(
             generation_id=generation_id,
@@ -149,6 +156,22 @@ async def run_generation(
     finally:
         task_manager.complete_generation(generation_id)
         bg_db.close()
+
+
+def _validate_generated_audio(audio, sample_rate: int) -> None:
+    """Fail clearly instead of saving an empty/corrupt WAV as a completed item."""
+    if sample_rate is None or sample_rate <= 0:
+        raise RuntimeError(f"TTS returned invalid sample rate: {sample_rate}")
+
+    if audio is None:
+        raise RuntimeError("TTS returned no audio")
+
+    audio_array = np.asarray(audio)
+    if audio_array.size == 0:
+        raise RuntimeError("TTS returned empty audio")
+
+    if not np.isfinite(audio_array).all():
+        raise RuntimeError("TTS returned non-finite audio samples")
 
 
 def _notify_speak_end(generation_id: str, *, status: str) -> None:
@@ -302,6 +325,7 @@ async def generate_audio_sync(
     audio, sample_rate = await generate_chunked(
         tts_model, text, voice_prompt, **gen_kwargs
     )
+    _validate_generated_audio(audio, sample_rate)
 
     if normalize:
         audio = normalize_audio(audio)
