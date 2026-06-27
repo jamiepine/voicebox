@@ -54,11 +54,19 @@ def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
 
 
 @router.post("/generate", response_model=models.GenerationResponse)
-async def generate_speech(
+async def generate_speech_endpoint(
     data: models.GenerationRequest,
     db: Session = Depends(get_db),
 ):
     """Generate speech from text using a voice profile."""
+    return await generate_speech(data, db)
+
+
+async def generate_speech(
+    data: models.GenerationRequest,
+    db: Session,
+    source: "models.GenerationSource | None" = None,
+):
     task_manager = get_task_manager()
     generation_id = str(uuid.uuid4())
 
@@ -77,7 +85,7 @@ async def generate_speech(
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
     text = data.text
-    source = "manual"
+    resolved_source: models.GenerationSource = source or "manual"
     if data.personality and getattr(profile, "personality", None):
         try:
             llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
@@ -86,7 +94,8 @@ async def generate_speech(
         text = llm_result.text.strip()
         if not text:
             raise HTTPException(status_code=500, detail="LLM produced empty output; nothing to speak.")
-        source = "personality_speak"
+        if not source:
+            resolved_source = "personality_speak"
 
     generation = await history.create_generation(
         profile_id=data.profile_id,
@@ -101,7 +110,7 @@ async def generate_speech(
         status="generating",
         engine=engine,
         model_size=model_size if engine_has_model_sizes(engine) else None,
-        source=source,
+        source=resolved_source,
     )
 
     task_manager.start_generation(

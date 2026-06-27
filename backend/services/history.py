@@ -10,7 +10,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
-from ..models import GenerationRequest, GenerationResponse, HistoryQuery, HistoryResponse, HistoryListResponse, GenerationVersionResponse, EffectConfig
+from ..models import GenerationRequest, GenerationResponse, GenerationSource, HistoryQuery, HistoryResponse, HistoryListResponse, GenerationVersionResponse, EffectConfig
 from ..database import Generation as DBGeneration, GenerationVersion as DBGenerationVersion, VoiceProfile as DBVoiceProfile
 from .. import config
 
@@ -65,7 +65,7 @@ async def create_generation(
     status: str = "completed",
     engine: Optional[str] = "qwen",
     model_size: Optional[str] = None,
-    source: str = "manual",
+    source: GenerationSource = "manual",
 ) -> GenerationResponse:
     """
     Create a new generation history entry.

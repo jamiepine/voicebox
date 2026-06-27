@@ -241,7 +241,7 @@ async def _speak(
         engine=engine,
         personality=personality,
     )
-    generation = await generate_speech(req, db)
+    generation = await generate_speech(req, db, source="mcp")
     return _speak_response(generation, profile_name, source="mcp")
 
 
