@@ -1,0 +1,299 @@
+---
+title: "Servidor MCP"
+description: "Deja que Claude Code, Cursor, Cline o cualquier agente compatible con MCP hable con una de tus voces clonadas — de forma local, sin nube."
+---
+
+## Visión general
+
+Voicebox incluye un servidor de **Model Context Protocol** integrado para que los
+agentes de IA locales puedan llamar a tu instalación de Voicebox directamente: hablar
+texto con un perfil de voz, transcribir audio y listar capturas o perfiles. El servidor
+se ejecuta dentro del mismo proceso que el resto de Voicebox y está montado en `/mcp`
+sobre Streamable HTTP.
+
+El agente pide hablar → Voicebox reproduce el audio por tus altavoces → un
+indicador en pantalla muestra el nombre de la voz durante toda la duración para que
+siempre veas lo que sale de tu máquina.
+
+<Callout type="info">
+  MCP llegó en la **0.5.0** junto con el [Dictado](./dictation.mdx) y las
+  [Personalidades de Voz](./voice-personalities.mdx). El objetivo de diseño es
+  "una capa de voz local para cada agente de tu máquina" — la misma app que
+  captura tu voz puede generar una respuesta con cualquier perfil de voz que hayas
+  clonado.
+</Callout>
+
+## Instalación rápida
+
+### Claude Code
+
+```
+claude mcp add voicebox \
+  --transport http \
+  --url http://127.0.0.1:17493/mcp \
+  --header "X-Voicebox-Client-Id: claude-code"
+```
+
+### Cursor / Windsurf / VS Code MCP / cualquier cliente MCP por HTTP
+
+Pega esto en la configuración MCP del cliente (normalmente `.mcp.json` o una interfaz de Ajustes):
+
+```json
+{
+  "mcpServers": {
+    "voicebox": {
+      "url": "http://127.0.0.1:17493/mcp",
+      "headers": { "X-Voicebox-Client-Id": "cursor" }
+    }
+  }
+}
+```
+
+Cambia `cursor` por el nombre que quieras que aparezca para la vinculación en
+Voicebox → Ajustes → MCP. El valor es solo un identificador para la
+vinculación de voz por cliente — no es un secreto ni una credencial.
+
+### Clientes que solo hablan stdio
+
+Con la app de escritorio se incluye un binario puente para stdio llamado `voicebox-mcp`. Apunta
+el cliente a la ruta absoluta de ese binario:
+
+<Tabs items={["macOS", "Windows", "Linux"]}>
+  <Tab value="macOS">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "/Applications/Voicebox.app/Contents/MacOS/voicebox-mcp",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+  <Tab value="Windows">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "C:\\Program Files\\Voicebox\\voicebox-mcp.exe",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+  <Tab value="Linux">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "/opt/voicebox/voicebox-mcp",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+</Tabs>
+
+El puente espera hasta 30 segundos a que arranque el backend de Voicebox y luego
+hace de proxy del JSON-RPC desde stdio sobre Streamable HTTP. Voicebox debe estar en
+ejecución para que el puente pueda conectarse.
+
+## Herramientas
+
+| Herramienta | Uso |
+|---|---|
+| `voicebox.speak` | Habla texto con un perfil de voz. Devuelve un `generation_id` para consultar. |
+| `voicebox.transcribe` | Transcripción con Whisper de audio en base64 o de una ruta local absoluta. |
+| `voicebox.list_captures` | Capturas recientes con transcripciones, paginadas. |
+| `voicebox.list_profiles` | Perfiles de voz disponibles (clonados + preajuste). |
+
+### `voicebox.speak`
+
+```ts
+voicebox.speak({
+  text: "Deploy complete.",
+  profile?: "Morgan",            // name or id; falls back to per-client binding, then default
+  engine?: "qwen",               // qwen | qwen_custom_voice | luxtts | chatterbox | chatterbox_turbo | tada | kokoro
+  personality?: true,            // rewrite via the profile's personality LLM before TTS; default comes from the per-client binding
+  language?: "en",
+})
+```
+
+Devuelve:
+
+```json
+{
+  "generation_id": "…",
+  "status": "generating",
+  "profile": "Morgan",
+  "source": "mcp",
+  "poll_url": "/generate/<id>/status"
+}
+```
+
+- **TTS plano** — `personality: false` (u omitido + el valor por defecto de la vinculación es false). El texto se habla tal cual.
+- **Modo personaje** — `personality: true` y el perfil debe tener configurado un prompt de personalidad.
+  El LLM reescribe el texto en personaje antes del TTS. Consulta las [Personalidades de Voz](./voice-personalities.mdx).
+
+### `voicebox.transcribe`
+
+```ts
+voicebox.transcribe({
+  audio_base64?: "<base64>",    // exactly one of these two
+  audio_path?: "/absolute/path/to/file.wav",
+  language?: "en",
+  model?: "turbo",              // base | small | medium | large | turbo
+})
+```
+
+Devuelve `{ text, duration, language, model }`. Límite de 200 MB en cualquiera de las dos rutas.
+
+### `voicebox.list_captures`
+
+`{ limit?: 20, offset?: 0 }` → `{ captures: [...], total }`. `limit` se
+ajusta al rango `1..=200`.
+
+### `voicebox.list_profiles`
+
+Sin argumentos → `{ profiles: [{ id, name, voice_type, language, has_personality }] }`.
+
+## Resolución de la voz
+
+Cada llamada a `voicebox.speak` (y a `POST /speak`) resuelve el perfil de voz
+en este orden:
+
+<Steps>
+  <Step title="Argumento `profile` explícito">
+    Se pasa como nombre (sin distinguir mayúsculas) o id. Si el nombre/id no coincide,
+    la llamada da error — el servidor no recurre a una alternativa de forma silenciosa.
+  </Step>
+  <Step title="Vinculación por cliente">
+    Se busca mediante la cabecera `X-Voicebox-Client-Id`. Se gestiona en
+    **Voicebox → Ajustes → MCP**. Te permite fijar Claude Code a Morgan,
+    Cursor a Scarlett, etc.
+  </Step>
+  <Step title="Valor por defecto global">
+    `capture_settings.default_playback_voice_id` — la misma voz por defecto
+    que usa la acción "Reproducir como voz" de la pestaña Capturas.
+  </Step>
+</Steps>
+
+Si ninguno de los tres produce un perfil, la herramienta devuelve un error útil
+que apunta a Ajustes.
+
+## Vinculaciones por cliente
+
+Voicebox → Ajustes → MCP muestra una fila por cada `client_id` del que Voicebox ha
+recibido peticiones, además de los fragmentos de configuración que puedes copiar en cada
+agente. Cada fila incluye:
+
+| Campo | Propósito |
+|---|---|
+| `label` | Nombre visible en la interfaz de Ajustes (p. ej. "Claude Code"). |
+| `profile_id` | La voz que usa este cliente cuando no se pasa `profile`. |
+| `default_engine` | Anula el motor de TTS para este cliente. |
+| `default_personality` | Cuando es true, `voicebox.speak` enruta por defecto a través del LLM de personalidad del perfil (reescritura). |
+| `last_seen_at` | Última vez que el servidor vio una petición de este cliente. |
+
+`last_seen_at` lo marca automáticamente el middleware en cada petición a `/mcp/*`
+— útil cuando no estás seguro de si tu configuración ha surtido efecto.
+
+## El indicador de habla
+
+Cada vez que un agente inicia una orden de hablar aparece el indicador flotante de la misma forma
+que con el [Dictado](./dictation.mdx), en un nuevo estado `Speaking` que muestra el
+nombre del perfil y un temporizador transcurrido. El indicador es intencionadamente imposible de pasar por alto —
+un TTS silencioso en segundo plano es un riesgo de confianza, así que Voicebox siempre muestra qué
+se está hablando y con qué voz.
+
+Entre bastidores, el backend emite eventos `speak-start` y `speak-end`
+en `GET /events/speak`, a los que `DictateWindow` se suscribe mediante SSE.
+El indicador prevalece sobre la sesión de captura cuando ambos se renderizarían — no puedes
+oír dos indicadores a la vez.
+
+## Superficie REST sin MCP
+
+`POST /speak` es una envoltura ligera sobre la misma ruta de código para quienes
+no hablan MCP — scripts de shell, ACP, A2A, GitHub Actions, lo que sea.
+
+```bash
+curl -X POST http://127.0.0.1:17493/speak \
+  -H 'Content-Type: application/json' \
+  -H 'X-Voicebox-Client-Id: ci' \
+  -d '{"text":"Build complete.","profile":"Morgan"}'
+```
+
+Los campos del cuerpo coinciden con la herramienta MCP: `text`, opcionalmente `profile`, `engine`,
+`personality`, `language`. Devuelve un `GenerationResponse` — la misma forma que
+`POST /generate`.
+
+## Depuración
+
+Usa el MCP Inspector para probar las herramientas directamente sin pasar por
+un agente:
+
+```
+npx @modelcontextprotocol/inspector http://127.0.0.1:17493/mcp
+```
+
+Empieza con `voicebox.list_profiles` para confirmar la conexión, y luego
+`voicebox.speak` para una prueba de extremo a extremo — deberías oír audio y ver que la
+generación aparece en la pestaña Capturas.
+
+<Callout type="info">
+  Si un agente no puede llegar al servidor, lo primero que hay que comprobar es que
+  Voicebox esté en ejecución — el backend solo escucha mientras la app de escritorio está
+  abierta. El puente de stdio lo muestra como un error de JSON-RPC en el lado del
+  cliente una vez transcurre su ventana de espera de salud de 30 segundos.
+</Callout>
+
+## Seguridad
+
+- **Solo localhost.** El servidor se enlaza a `127.0.0.1`. Si en algún momento apuntas
+  Voicebox a una interfaz que no sea de loopback (p. ej. modo remoto sobre una red
+  de confianza), añade un token bearer — está en la hoja de ruta pero no en la 0.5.0.
+- **Sin autenticación hoy.** Cualquier proceso que pueda conectarse a tu loopback puede
+  llamar a MCP. Es el mismo límite de confianza que el resto de la API REST de Voicebox
+  y es apropiado para una herramienta local de un solo usuario.
+- **Las lecturas de `audio_path` no tienen restricciones** dentro del mismo límite de
+  confianza. Si estás haciendo scripting contra un host compartido, prefiere
+  `audio_base64` para no tener que pensar en el sandboxing de rutas.
+- **Se aplica el consentimiento para clonar voces.** Consulta [Clonación de Voz](./voice-cloning.mdx#limitations)
+  — que un agente pueda llamar a `voicebox.speak` con la voz de alguien
+  no cambia la ética de a quién clonas la voz.
+
+## Notas de implementación
+
+- **Transporte:** Streamable HTTP (especificación MCP de noviembre de 2025, posterior a SSE). Claude
+  Code, Cursor, Windsurf y las extensiones MCP de VS Code lo soportan todas.
+- **Nombrado del paquete:** el paquete del backend es `backend/mcp_server/`, no
+  `mcp`, para evitar ensombrecer el paquete `mcp` de PyPI que FastMCP importa
+  internamente.
+- **Dependencias:** `fastmcp>=3.0,<4.0`, `sse-starlette>=2.0`.
+- **Lifespan:** montar FastMCP requiere el argumento `lifespan=` en
+  `FastAPI()` — los decoradores de eventos de arranque/apagado son incompatibles
+  con el gestor de sesiones de Streamable HTTP de FastMCP. El app.py de Voicebox
+  combina ambos en un único context manager asíncrono.
+
+Para un recorrido completo orientado a desarrolladores por la estructura del código, consulta
+`backend/mcp_server/README.md` en el repositorio.
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Personalidades de Voz" href="/overview/voice-personalities">
+    El modo personaje (`personality: true`) para agentes que deben
+    transformar el texto en personaje antes de hablar.
+  </Card>
+  <Card title="Dictado" href="/overview/dictation">
+    El indicador que muestra el habla del agente es el mismo que muestra
+    tus dictados — un único modelo mental para ambas direcciones del bucle.
+  </Card>
+  <Card title="Capturas" href="/overview/captures">
+    Cada vez que un agente inicia el habla, aparece en la pestaña Capturas con su
+    audio generado — vuelve a reproducirlo, descárgalo, reutilízalo.
+  </Card>
+</Cards>
