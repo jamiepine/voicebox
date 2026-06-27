@@ -521,3 +521,19 @@ export interface MCPClientBindingUpsert {
 export interface MCPClientBindingListResponse {
   items: MCPClientBinding[];
 }
+
+/* ─── Custom HuggingFace Models ──────────────────────────────────────── */
+
+export interface CustomModelCreate {
+  hf_repo_id: string;
+  display_name?: string;
+  engine?: string;
+}
+
+export interface CustomModelResponse {
+  id: string;
+  hf_repo_id: string;
+  display_name: string;
+  engine?: string;
+  created_at: string;
+}

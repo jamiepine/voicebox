@@ -11,6 +11,7 @@ import {
   HardDrive,
   Heart,
   Loader2,
+  Plus,
   RotateCcw,
   Scale,
   Trash2,
@@ -38,6 +39,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
@@ -147,6 +149,11 @@ export function ModelManagement() {
   const [dismissedErrors, setDismissedErrors] = useState<Set<string>>(new Set());
   const [localErrors, setLocalErrors] = useState<Map<string, string>>(new Map());
 
+  // Custom models state
+  const [addCustomOpen, setAddCustomOpen] = useState(false);
+  const [customRepoId, setCustomRepoId] = useState('');
+  const [customDisplayName, setCustomDisplayName] = useState('');
+
   // Modal state
   const [selectedModel, setSelectedModel] = useState<ModelStatus | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -183,6 +190,40 @@ export function ModelManagement() {
     enabled: detailOpen && !!selectedModel?.hf_repo_id,
     staleTime: 1000 * 60 * 30, // Cache for 30 minutes
     retry: 1,
+  });
+
+  const { data: customModels, isLoading: customModelsLoading } = useQuery({
+    queryKey: ['customModels'],
+    queryFn: () => apiClient.listCustomModels(),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const addCustomModelMutation = useMutation({
+    mutationFn: (data: { hf_repo_id: string; display_name?: string }) =>
+      apiClient.addCustomModel(data),
+    onSuccess: () => {
+      toast({ title: 'Custom model added' });
+      setAddCustomOpen(false);
+      setCustomRepoId('');
+      setCustomDisplayName('');
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
+      queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to add custom model', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const deleteCustomModelMutation = useMutation({
+    mutationFn: (modelId: string) => apiClient.deleteCustomModel(modelId),
+    onSuccess: () => {
+      toast({ title: 'Custom model removed' });
+      queryClient.invalidateQueries({ queryKey: ['customModels'] });
+      queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to remove custom model', description: error.message, variant: 'destructive' });
+    },
   });
 
   // Build a map of errored downloads for quick lookup, excluding dismissed ones
@@ -608,6 +649,80 @@ export function ModelManagement() {
               </div>
             </div>
           ))}
+
+          {/* Custom Models */}
+          <div>
+            <div className="flex items-center justify-between mb-1 px-1">
+              <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Custom HuggingFace Models
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-xs"
+                onClick={() => setAddCustomOpen(true)}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add
+              </Button>
+            </div>
+            {customModelsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : customModels && customModels.length > 0 ? (
+              <div className="border rounded-lg divide-y overflow-hidden">
+                {customModels.map((cm) => {
+                  // Find matching status from model status list
+                  const cmStatus = modelStatus?.models.find(
+                    (m) => m.model_name === `custom:${cm.id}`,
+                  );
+                  return (
+                    <div
+                      key={cm.id}
+                      className="flex items-center gap-3 px-3 py-2.5 group"
+                    >
+                      <div className="shrink-0">
+                        {cmStatus?.downloaded ? (
+                          <CircleCheck className="h-4 w-4 text-emerald-500" />
+                        ) : (
+                          <Download className="h-4 w-4 text-muted-foreground/50" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium">{cm.display_name}</span>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {cm.hf_repo_id}
+                        </p>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-2">
+                        {cmStatus?.downloaded && cmStatus.size_mb && (
+                          <span className="text-xs text-muted-foreground">
+                            {cmStatus.size_mb < 1024
+                              ? `${cmStatus.size_mb.toFixed(1)} MB`
+                              : `${(cmStatus.size_mb / 1024).toFixed(2)} GB`}
+                          </span>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteCustomModelMutation.mutate(cm.id)}
+                          disabled={deleteCustomModelMutation.isPending}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="border rounded-lg px-3 py-4 text-center text-xs text-muted-foreground">
+                No custom models added. Click &quot;Add&quot; to import a HuggingFace TTS model.
+              </div>
+            )}
+          </div>
 
           {/* Error console */}
           {errorCount > 0 && (
@@ -1097,6 +1212,68 @@ export function ModelManagement() {
           </div>
         </div>
       )}
+
+      {/* Add Custom Model Dialog */}
+      <Dialog open={addCustomOpen} onOpenChange={setAddCustomOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Custom HuggingFace Model</DialogTitle>
+            <DialogDescription>
+              Add a TTS model from HuggingFace Hub. The model will appear in your model list for download tracking.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="hf-repo-id">
+                HuggingFace Repository ID
+              </label>
+              <Input
+                id="hf-repo-id"
+                placeholder="username/model-name"
+                value={customRepoId}
+                onChange={(e) => setCustomRepoId(e.target.value)}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                e.g., myorg/my-tts-model or username/custom-voice
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium" htmlFor="display-name">
+                Display Name (optional)
+              </label>
+              <Input
+                id="display-name"
+                placeholder="My Custom Model"
+                value={customDisplayName}
+                onChange={(e) => setCustomDisplayName(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAddCustomOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() =>
+                  addCustomModelMutation.mutate({
+                    hf_repo_id: customRepoId.trim(),
+                    display_name: customDisplayName.trim() || undefined,
+                  })
+                }
+                disabled={
+                  !customRepoId.trim() ||
+                  !/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._-]+$/.test(customRepoId.trim()) ||
+                  addCustomModelMutation.isPending
+                }
+              >
+                {addCustomModelMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Add Model
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
