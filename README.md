@@ -381,6 +381,29 @@ Full API documentation available at `http://127.0.0.1:17493/docs`.
 
 ---
 
+## Support Policy (Tier 1 vs Tier 2)
+
+To reduce regression risk and set clear expectations, Voicebox uses support tiers.
+
+### Tier 1 (must-pass release targets)
+- macOS (Apple Silicon)
+- Windows + NVIDIA CUDA
+
+Tier 1 targets are expected to pass release validation before shipping.
+
+### Tier 2 (best-effort / community-supported)
+- Intel macOS
+- Linux CPU
+- AMD ROCm
+- Intel Arc / XPU
+- Docker deployments
+
+Tier 2 targets are important, but may receive delayed fixes when regressions are specific to niche hardware/runtime combinations.
+
+### Practical Guidance
+- If you are filing a bug on a Tier 2 target, include full environment details and logs.
+- CI/release gating should prioritize Tier 1 first.
+- Platform-specific docs should call out experimental paths explicitly.
 ## Roadmap
 
 | Feature                            | Description                                                              |
