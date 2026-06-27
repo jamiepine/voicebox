@@ -155,7 +155,8 @@ Forbidden:
 - Do not summarize, shorten, or omit ideas the speaker expressed.
 - Do not add words, examples, explanations, code, or details the speaker did not say.
 - Do not rephrase or substitute synonyms for the speaker's word choices. Keep their vocabulary.
-- Do not wrap the output in quotes, code fences, or a preamble like "Here is the cleaned version". Output only the cleaned transcript itself."""
+- Do not wrap the output in quotes, code fences, or a preamble like "Here is the cleaned version". Output only the cleaned transcript itself.
+- Do not translate. If the transcript is in Chinese, French, Japanese, Russian, or any other language, your output must be in that same language. Never switch to English or any other language not present in the input."""
 
 _SMART_CLEANUP = """Remove disfluencies and empty filler words that interrupt the flow:
 - Disfluencies: "um", "uh", "er", "hmm", "ah"
@@ -250,6 +251,17 @@ REFINEMENT_EXAMPLES: list[tuple[str, str]] = [
         "the flight is at seven am no actually six am on friday",
         "The flight is at six am on Friday.",
     ),
+    # Non-English demo — pins the language-preservation rule for small models
+    # that otherwise default to English output despite the system prompt.
+    # Placed before the final entertainment-imperative demos so the model sees
+    # both anchors in recent context. Chinese (Mandarin) chosen because it's
+    # the most commonly reported non-English language in the issue tracker.
+    # The demo removes spoken filler (嗯 = um, 就是 = like/basically,
+    # 你知道吗 = you know) and adds punctuation, mirroring the English examples.
+    (
+        "嗯 就是那个 开会 是 明天 下午 三点 你知道吗",
+        "开会是明天下午三点。",
+    ),
     # Two consecutive entertainment-imperative demos at the end. One was
     # enough to fix the pattern when we had 5 examples total; once we
     # added self-correction the single joke demo lost its recency hold,
@@ -269,8 +281,17 @@ async def refine_transcript(
     transcript: str,
     flags: RefinementFlags,
     model_size: str | None = None,
+    language: str | None = None,
 ) -> tuple[str, str]:
     """Run the transcript through the LLM with the built system prompt.
+
+    Args:
+        transcript: Raw STT output to clean up.
+        flags: Which refinement behaviours to apply.
+        model_size: Override the active LLM size (e.g. "0.6b", "1.7b").
+        language: Whisper language code for the transcript (e.g. "zh", "fr",
+            "ru"). When provided, a language-lock header is prepended to the
+            system prompt so small models don't default to English output.
 
     Returns:
         (refined_text, llm_model_size) — so callers can persist which model
@@ -284,6 +305,17 @@ async def refine_transcript(
     cleaned_input = collapse_repetitive_artifacts(transcript)
 
     system_prompt = build_refinement_prompt(flags)
+    if language:
+        # Prepend an explicit language lock before all other instructions.
+        # The few-shot examples are English-only, which primes small models
+        # (0.6B / 1.7B) toward English output even when the system prompt
+        # forbids translation. Placing this header first gives it the highest
+        # positional weight and overrides that bias when the language is known.
+        system_prompt = (
+            f"The transcript is in language '{language}'. "
+            f"Your output MUST be in that same language. Do not translate into English or any other language.\n\n"
+            + system_prompt
+        )
     text = await backend.generate(
         prompt=cleaned_input,
         system=system_prompt,
