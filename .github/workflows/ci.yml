@@ -5,9 +5,12 @@ on:
   push:
     branches:
       - main
+      - improvements
 
 jobs:
-  frontend-quality:
+  # ── Frontend: lint, typecheck, test ────────────────────────────────────────
+  frontend-ci:
+    name: Frontend CI
     runs-on: ubuntu-latest
 
     steps:
@@ -15,12 +18,147 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Lint (Biome)
+        run: bun run lint
+
+      - name: Format check (Biome)
+        run: bun run format:check
+
       - name: Typecheck app + web
         run: bun run typecheck
 
+      - name: Run frontend tests (Vitest)
+        run: bun run test:ci
+
       - name: Build web smoke test
         run: bun run build:web
+
+  # ── Python backend: lint, format, typecheck, tests ─────────────────────────
+  backend-ci:
+    name: Backend CI
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Cache pip (dev tools)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-dev-${{ hashFiles('backend/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-dev-
+
+      - name: Install lightweight test dependencies
+        # Only install what's needed for the unit tests — skip heavy ML deps
+        # (torch, transformers, etc.) so CI stays fast.
+        run: |
+          pip install --upgrade pip
+          pip install \
+            fastapi \
+            httpx \
+            pyright \
+            pydantic \
+            pytest \
+            pytest-asyncio \
+            python-multipart \
+            ruff \
+            sqlalchemy \
+            starlette
+
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check .
+
+      - name: Format check (ruff)
+        working-directory: backend
+        run: ruff format --check .
+
+      - name: Typecheck (pyright)
+        working-directory: backend
+        run: pyright
+
+      - name: Run tests (pytest)
+        working-directory: backend
+        # Run only the unit tests that work without heavy ML deps.
+        # Tests that need torch / soundfile / fastmcp / a live server are
+        # intentionally excluded and run separately (e.g. on a GPU runner).
+        run: |
+          python -m pytest \
+            tests/test_cors.py \
+            tests/test_history.py \
+            tests/test_uploads.py \
+            tests/test_task_queue_cancellation.py \
+            -v -x
+
+  # ── Rust: check + clippy (no full build) ──────────────────────────────────
+  rust-check:
+    name: Rust Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            tauri/src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('tauri/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install system deps (Tauri on Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev
+
+      - name: Create stub external binaries (required by tauri_build)
+        run: |
+          mkdir -p tauri/src-tauri/binaries
+          touch tauri/src-tauri/binaries/voicebox-server-x86_64-unknown-linux-gnu
+          touch tauri/src-tauri/binaries/voicebox-mcp-x86_64-unknown-linux-gnu
+          chmod +x tauri/src-tauri/binaries/voicebox-server-x86_64-unknown-linux-gnu
+          chmod +x tauri/src-tauri/binaries/voicebox-mcp-x86_64-unknown-linux-gnu
+
+      - name: cargo check
+        working-directory: tauri/src-tauri
+        run: cargo check
+
+      - name: cargo clippy
+        working-directory: tauri/src-tauri
+        run: cargo clippy -- -D warnings

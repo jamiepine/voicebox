@@ -37,7 +37,7 @@ setup-python:
         PY_MINOR=$({{ system_python }} -c "import sys; print(sys.version_info[1])")
         if [ "$PY_MINOR" -gt 13 ]; then
             echo "Warning: Python 3.$PY_MINOR detected. ML packages may not be compatible."
-            echo "Recommended: brew install python@3.12"
+            echo "Recommended: python3.12 (brew install python@3.12 on macOS, apt-get install python3.12 on Debian/Ubuntu)"
         fi
         {{ system_python }} -m venv {{ venv }}
     fi
@@ -48,10 +48,20 @@ setup-python:
     {{ pip }} install --no-deps chatterbox-tts
     # HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
     {{ pip }} install --no-deps hume-tada
-    # Apple Silicon: install MLX backend
+    # Platform-specific backend deps
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
         {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        # mlx-lm and mlx-audio both declare transformers>=5.x which conflicts
+        # with the transformers<=4.57.6 cap in requirements.txt.  Install them
+        # --no-deps so our pinned transformers version is kept intact.
+        {{ pip }} install --no-deps mlx-lm==0.31.1
+        {{ pip }} install --no-deps mlx-audio==0.4.1
+    elif [ "$(uname)" = "Linux" ]; then
+        echo "Linux detected — installing CUDA/CPU backend deps if present..."
+        if [ -f "{{ backend_dir }}/requirements-linux.txt" ]; then
+            {{ pip }} install -r {{ backend_dir }}/requirements-linux.txt
+        fi
     fi
     {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
     {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
@@ -294,6 +304,13 @@ fix-python: _ensure-venv
 # Run Python tests
 test: _ensure-venv
     {{ venv_bin }}/python -m pytest {{ backend_dir }}/tests -v
+
+# Run frontend tests (Vitest)
+test-frontend:
+    bun run test
+
+# Run all tests — Python + frontend
+test-all: test test-frontend
 
 # E2E: generate with every TTS model against the frozen binary (pass extra flags like --only kokoro)
 [unix]

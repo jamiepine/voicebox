@@ -32,13 +32,11 @@ import re
 import socket
 import sys
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from collections.abc import Iterable
-from typing import Optional
 
 import httpx
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Point sys.path at the repo root so ``backend.services.refinement`` resolves
@@ -46,13 +44,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # ``from ..backends import …`` relative imports.
 sys.path.insert(0, str(REPO_ROOT))
 
-from backend.services.refinement import (  # noqa: E402
-    build_refinement_prompt,
-    collapse_repetitive_artifacts,
+from backend.services.refinement import (
     REFINEMENT_EXAMPLES,
     RefinementFlags,
+    build_refinement_prompt,
+    collapse_repetitive_artifacts,
 )
-
 
 # ── Sample inputs ─────────────────────────────────────────────────────
 
@@ -89,16 +86,12 @@ SAMPLES: tuple[Sample, ...] = (
         name="question-stays-question",
         category="prompt-hard-rule",
         keep_question_mark=True,
-        raw=(
-            "what is the best way to um learn rust programming do you think"
-        ),
+        raw=("what is the best way to um learn rust programming do you think"),
     ),
     Sample(
         name="self-correction",
         category="self-correction",
-        raw=(
-            "the meeting is at three pm no wait actually four pm on tuesday"
-        ),
+        raw=("the meeting is at three pm no wait actually four pm on tuesday"),
         # Must keep the *final* time (four pm), not the retracted one. The
         # prompt says "drop the retracted portion AND the correction cue";
         # the correct rewrite is "The meeting is at four pm on Tuesday."
@@ -107,10 +100,7 @@ SAMPLES: tuple[Sample, ...] = (
     Sample(
         name="technical-terms",
         category="preserve-technical",
-        raw=(
-            "run npm install then cd into src slash components and then "
-            "edit index dot tsx"
-        ),
+        raw=("run npm install then cd into src slash components and then edit index dot tsx"),
         must_contain_substrings=("npm install", "src/components", "index.tsx"),
     ),
     Sample(
@@ -118,17 +108,13 @@ SAMPLES: tuple[Sample, ...] = (
         category="pre-process-artifact",
         must_not_loop=True,
         raw=(
-            "i was watching a video about machine learning training loops "
-            "and then the audio cut out " + ("URL " * 60)
+            "i was watching a video about machine learning training loops and then the audio cut out " + ("URL " * 60)
         ),
     ),
     Sample(
         name="numbers-and-units",
         category="smart-cleanup",
-        raw=(
-            "the repo has uh four hundred k stars and like two thousand "
-            "contributors across the whole thing"
-        ),
+        raw=("the repo has uh four hundred k stars and like two thousand contributors across the whole thing"),
         # No "400" assertion — the prompt says "keep the speaker's word
         # choices", so "four hundred k" is the correct passthrough. This
         # sample is here to check filler removal, not number normalization.
@@ -136,9 +122,7 @@ SAMPLES: tuple[Sample, ...] = (
     Sample(
         name="imperative-stays-command",
         category="prompt-hard-rule",
-        raw=(
-            "tell me a joke about programming"
-        ),
+        raw=("tell me a joke about programming"),
     ),
     Sample(
         name="long-monologue-mixed",
@@ -156,17 +140,14 @@ SAMPLES: tuple[Sample, ...] = (
         name="code-mid-speech",
         category="preserve-technical",
         raw=(
-            "create a function called handleSubmit that takes uh an event "
-            "parameter and calls event dot prevent default"
+            "create a function called handleSubmit that takes uh an event parameter and calls event dot prevent default"
         ),
         must_contain_substrings=("handleSubmit", "event.preventDefault"),
     ),
     Sample(
         name="short-terse",
         category="smart-cleanup",
-        raw=(
-            "hey can you send me that file"
-        ),
+        raw=("hey can you send me that file"),
     ),
 )
 
@@ -177,8 +158,16 @@ SAMPLES: tuple[Sample, ...] = (
 FILLER_PATTERNS = tuple(
     re.compile(rf"\b{word}\b", re.IGNORECASE)
     for word in (
-        "um", "uh", "er", "hmm", "ah",
-        "like", "you know", "i mean", "basically", "literally",
+        "um",
+        "uh",
+        "er",
+        "hmm",
+        "ah",
+        "like",
+        "you know",
+        "i mean",
+        "basically",
+        "literally",
     )
 )
 
@@ -222,8 +211,8 @@ class Scorecard:
     filler_count_refined: int = 0
     length_ratio: float = 0.0
     has_loop_artifact: bool = False
-    prompt_leak: Optional[str] = None
-    answer_leak: Optional[str] = None
+    prompt_leak: str | None = None
+    answer_leak: str | None = None
     missing_substrings: list[str] = field(default_factory=list)
     missing_question_mark: bool = False
     flags: list[str] = field(default_factory=list)
@@ -242,7 +231,7 @@ def has_loop_run(text: str, threshold: int = 6) -> bool:
     if len(tokens) < threshold:
         return False
     run = 1
-    prev: Optional[str] = None
+    prev: str | None = None
     for tok in tokens:
         key = re.sub(r"[^\w]", "", tok).lower()
         if key and key == prev:
@@ -255,7 +244,7 @@ def has_loop_run(text: str, threshold: int = 6) -> bool:
     return False
 
 
-def first_match(patterns: Iterable[re.Pattern[str]], text: str) -> Optional[str]:
+def first_match(patterns: Iterable[re.Pattern[str]], text: str) -> str | None:
     stripped = text.lstrip()
     for pat in patterns:
         m = pat.search(stripped)
@@ -302,9 +291,7 @@ def score(sample: Sample, model: str, refined: str, latency_ms: int) -> Scorecar
     if card.missing_question_mark:
         card.flags.append("question→statement")
     if card.filler_count_raw > 0 and card.filler_count_refined >= card.filler_count_raw:
-        card.flags.append(
-            f"fillers-not-removed({card.filler_count_raw}→{card.filler_count_refined})"
-        )
+        card.flags.append(f"fillers-not-removed({card.filler_count_raw}→{card.filler_count_refined})")
     if card.length_ratio < 0.25:
         card.flags.append(f"too-short({card.length_ratio:.2f})")
     if card.length_ratio > 1.5:
@@ -319,7 +306,7 @@ def score(sample: Sample, model: str, refined: str, latency_ms: int) -> Scorecar
 DEFAULT_PORTS = (8000, 8765, 8899, 17493)
 
 
-def detect_backend_port(hint: Optional[int]) -> int:
+def detect_backend_port(hint: int | None) -> int:
     """Return a port that answers /health, preferring the hint."""
     candidates: list[int] = []
     if hint is not None:
@@ -339,13 +326,11 @@ def detect_backend_port(hint: Optional[int]) -> int:
         except Exception:
             continue
     raise SystemExit(
-        "No running Voicebox backend found. Start it (`python backend/main.py`) "
-        f"or pass --port. Tried: {candidates}"
+        f"No running Voicebox backend found. Start it (`python backend/main.py`) or pass --port. Tried: {candidates}"
     )
 
 
-def refine_via_api(client: httpx.Client, port: int, system_prompt: str,
-                   raw: str, model_size: str) -> tuple[str, int]:
+def refine_via_api(client: httpx.Client, port: int, system_prompt: str, raw: str, model_size: str) -> tuple[str, int]:
     """Mirror the real ``refine_transcript`` path: deterministic pre-process
     first, then LLM. We hit ``/llm/generate`` rather than the refinement
     endpoint because that one takes a capture_id — the pre-process call
@@ -394,8 +379,7 @@ def format_report(cards: list[Scorecard]) -> str:
             lines.append(f"      raw:     {card.raw[:90]}{'…' if len(card.raw) > 90 else ''}")
             lines.append(f"      refined: {card.refined[:90]}{'…' if len(card.refined) > 90 else ''}")
             lines.append(
-                f"      fillers {card.filler_count_raw}→{card.filler_count_refined}, "
-                f"length×{card.length_ratio:.2f}"
+                f"      fillers {card.filler_count_raw}→{card.filler_count_refined}, length×{card.length_ratio:.2f}"
             )
             if card.flags:
                 lines.append(f"      ⚠ {'; '.join(card.flags)}")
@@ -406,12 +390,14 @@ def format_report(cards: list[Scorecard]) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--port", type=int, default=None,
-                    help="Voicebox backend port (auto-detected if omitted)")
-    ap.add_argument("--model", choices=("0.6B", "1.7B", "4B"), action="append",
-                    help="Refinement model size(s) to test (repeat to run several)")
-    ap.add_argument("--json", type=Path, default=None,
-                    help="Also write results as JSON to this path")
+    ap.add_argument("--port", type=int, default=None, help="Voicebox backend port (auto-detected if omitted)")
+    ap.add_argument(
+        "--model",
+        choices=("0.6B", "1.7B", "4B"),
+        action="append",
+        help="Refinement model size(s) to test (repeat to run several)",
+    )
+    ap.add_argument("--json", type=Path, default=None, help="Also write results as JSON to this path")
     args = ap.parse_args()
 
     models = tuple(args.model) if args.model else ("0.6B", "4B")
@@ -428,9 +414,7 @@ def main() -> int:
             for i, sample in enumerate(SAMPLES, 1):
                 print(f"  [{i}/{len(SAMPLES)}] {sample.name} … ", end="", flush=True)
                 try:
-                    refined, latency_ms = refine_via_api(
-                        client, port, system_prompt, sample.raw, model
-                    )
+                    refined, latency_ms = refine_via_api(client, port, system_prompt, sample.raw, model)
                 except Exception as e:
                     print(f"ERROR — {e}")
                     continue
