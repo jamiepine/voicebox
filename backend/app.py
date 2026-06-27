@@ -36,9 +36,38 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# AMD GPU environment variables must be set before torch import
+# AMD GPU environment variables must be set before torch import.
+# If the user hasn't set HSA_OVERRIDE_GFX_VERSION, try to auto-detect
+# from rocminfo so newer cards (e.g. gfx1100 / RX 7000) work out of the box.
 if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
-    os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+    try:
+        import subprocess, re
+        result = subprocess.run(
+            ["rocminfo"], capture_output=True, text=True, timeout=5, check=False
+        )
+        match = re.search(r"Name:\s+(gfx\d+)", result.stdout)
+        if match:
+            gfx = match.group(1)
+            version_part = gfx[3:]
+            # AMD gfx string format: major(2) + minor(1) + patch(1), e.g. 1100 → 11.0.0
+            if len(version_part) >= 4:
+                major = version_part[0:2]
+                minor = version_part[2] if len(version_part) > 2 else "0"
+                patch = version_part[3] if len(version_part) > 3 else "0"
+            elif len(version_part) == 3:
+                major = version_part[0]
+                minor = version_part[1]
+                patch = version_part[2]
+            else:
+                major = version_part
+                minor = "0"
+                patch = "0"
+            version = f"{int(major)}.{int(minor)}.{int(patch)}"
+            os.environ["HSA_OVERRIDE_GFX_VERSION"] = version
+            logger.info("Auto-detected AMD GPU: %s → HSA_OVERRIDE_GFX_VERSION=%s", gfx, version)
+    except Exception:
+        pass  # rocminfo missing or failed; fall through to torch import
+
 if not os.environ.get("MIOPEN_LOG_LEVEL"):
     os.environ["MIOPEN_LOG_LEVEL"] = "4"
 
