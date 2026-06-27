@@ -24,6 +24,85 @@ pub const DICTATE_WINDOW_LABEL: &str = "dictate";
 const DICTATE_WINDOW_WIDTH: f64 = 420.0;
 const DICTATE_WINDOW_HEIGHT: f64 = 64.0;
 
+#[cfg(desktop)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DictatePreviewLocation {
+    TopLeft,
+    TopCenter,
+    TopRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
+}
+
+#[cfg(desktop)]
+impl Default for DictatePreviewLocation {
+    fn default() -> Self {
+        Self::TopLeft
+    }
+}
+
+#[cfg(desktop)]
+#[derive(Default)]
+pub struct DictatePreviewState {
+    location: Mutex<DictatePreviewLocation>,
+}
+
+#[cfg(desktop)]
+pub fn dictate_preview_location(app: &tauri::AppHandle) -> DictatePreviewLocation {
+    app.try_state::<DictatePreviewState>()
+        .and_then(|state| state.location.lock().ok().map(|location| *location))
+        .unwrap_or_default()
+}
+
+#[cfg(desktop)]
+fn monitor_containing_cursor(window: &tauri::WebviewWindow) -> Option<tauri::Monitor> {
+    let cursor = window.cursor_position().ok()?;
+    window.monitor_from_point(cursor.x, cursor.y).ok().flatten()
+}
+
+#[cfg(desktop)]
+pub fn position_dictate_window(
+    window: &tauri::WebviewWindow,
+    location: DictatePreviewLocation,
+) -> tauri::Result<()> {
+    let monitor = monitor_containing_cursor(window)
+        .or_else(|| window.current_monitor().ok().flatten())
+        .or_else(|| window.primary_monitor().ok().flatten());
+
+    let Some(monitor) = monitor else {
+        return Ok(());
+    };
+
+    let monitor_pos = monitor.position();
+    let monitor_size = monitor.size();
+    let win_size = window.outer_size()?;
+    let monitor_width = monitor_size.width as i32;
+    let monitor_height = monitor_size.height as i32;
+    let win_width = win_size.width as i32;
+    let win_height = win_size.height as i32;
+    let vertical_margin = (monitor_size.height as f64 * 0.04) as i32;
+    let horizontal_margin = (monitor_size.width as f64 * 0.04) as i32;
+
+    let centered_x = monitor_pos.x + (monitor_width - win_width) / 2;
+    let left_x = monitor_pos.x + horizontal_margin;
+    let right_x = monitor_pos.x + monitor_width - win_width - horizontal_margin;
+    let top_y = monitor_pos.y + vertical_margin;
+    let bottom_y = monitor_pos.y + monitor_height - win_height - vertical_margin;
+
+    let (x, y) = match location {
+        DictatePreviewLocation::TopLeft => (left_x, top_y),
+        DictatePreviewLocation::TopCenter => (centered_x, top_y),
+        DictatePreviewLocation::TopRight => (right_x, top_y),
+        DictatePreviewLocation::BottomLeft => (left_x, bottom_y),
+        DictatePreviewLocation::BottomCenter => (centered_x, bottom_y),
+        DictatePreviewLocation::BottomRight => (right_x, bottom_y),
+    };
+
+    window.set_position(PhysicalPosition::new(x, y))
+}
+
 /// Create the floating dictate webview hidden. The HotkeyMonitor shows it on
 /// chord-start; the frontend hides it when the capture pipeline finishes.
 /// Building it at setup avoids a race where the first chord or agent-speech
@@ -49,13 +128,7 @@ fn build_dictate_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewW
     .visible(false)
     .build()?;
 
-    if let Some(monitor) = window.current_monitor()? {
-        let monitor_size = monitor.size();
-        let win_size = window.outer_size()?;
-        let x = (monitor_size.width as i32 - win_size.width as i32) / 2;
-        let y = (monitor_size.height as f64 * 0.04) as i32;
-        window.set_position(PhysicalPosition::new(x, y))?;
-    }
+    position_dictate_window(&window, DictatePreviewLocation::default())?;
 
     Ok(window)
 }
@@ -95,23 +168,7 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
             }
         },
     };
-    // current_monitor() returns None when the window has been parked
-    // off any display by the hide path; fall back to the primary.
-    let monitor = window
-        .current_monitor()
-        .ok()
-        .flatten()
-        .or_else(|| window.primary_monitor().ok().flatten());
-    if let Some(monitor) = monitor {
-        let monitor_pos = monitor.position();
-        let monitor_size = monitor.size();
-        if let Ok(win_size) = window.outer_size() {
-            let x = monitor_pos.x
-                + (monitor_size.width as i32 - win_size.width as i32) / 2;
-            let y = monitor_pos.y + (monitor_size.height as f64 * 0.04) as i32;
-            let _ = window.set_position(PhysicalPosition::new(x, y));
-        }
-    }
+    let _ = position_dictate_window(&window, dictate_preview_location(app));
     let _ = window.set_ignore_cursor_events(false);
     let _ = window.show();
 }
@@ -874,6 +931,20 @@ pub struct HotkeyState {
 }
 
 #[cfg(desktop)]
+#[command]
+fn set_dictate_preview_location(
+    app: tauri::AppHandle,
+    state: State<'_, DictatePreviewState>,
+    location: DictatePreviewLocation,
+) -> Result<(), String> {
+    *state.location.lock().map_err(|e| e.to_string())? = location;
+    if let Some(window) = app.get_webview_window(DICTATE_WINDOW_LABEL) {
+        let _ = position_dictate_window(&window, location);
+    }
+    Ok(())
+}
+
+#[cfg(desktop)]
 fn build_chord_bindings(
     push_to_talk: &[String],
     toggle_to_talk: &[String],
@@ -917,9 +988,15 @@ fn build_chord_bindings(
 fn enable_hotkey(
     app: tauri::AppHandle,
     state: State<'_, HotkeyState>,
+    preview_state: State<'_, DictatePreviewState>,
     push_to_talk: Vec<String>,
     toggle_to_talk: Vec<String>,
+    preview_location: Option<DictatePreviewLocation>,
 ) -> Result<(), String> {
+    if let Some(location) = preview_location {
+        *preview_state.location.lock().map_err(|e| e.to_string())? = location;
+    }
+
     let bindings = build_chord_bindings(&push_to_talk, &toggle_to_talk)?;
 
     // Fire the Input Monitoring TCC prompt explicitly from the user's
@@ -1260,6 +1337,7 @@ pub fn run() {
                 // command — see HotkeyState. The hidden dictate webview is
                 // safe to build up front because it does not create the global
                 // keyboard tap or trigger the macOS Input Monitoring prompt.
+                app.manage(DictatePreviewState::default());
                 app.manage(HotkeyState::default());
 
                 // The frontend emits `dictate:hide` whenever the pill cycle
@@ -1372,6 +1450,7 @@ pub fn run() {
             open_accessibility_settings,
             open_input_monitoring_settings,
             paste_final_text,
+            set_dictate_preview_location,
             enable_hotkey,
             disable_hotkey,
             update_chord_bindings
