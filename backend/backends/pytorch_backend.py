@@ -342,27 +342,38 @@ class PyTorchSTTBackend:
             # state — forcing offline here (issue #462) broke online users
             # whose `get_decoder_prompt_ids` / tokenizer calls issue
             # legitimate metadata lookups.
-            # Process audio
+            # Process audio.
+            # truncation=False + padding="longest" + return_attention_mask=True
+            # are required for long-form transcription. Without them the
+            # feature extractor silently truncates to 30s (Whisper's native
+            # window) and audio past that point is dropped.
             inputs = self.processor(
                 audio,
                 sampling_rate=16000,
                 return_tensors="pt",
+                truncation=False,
+                padding="longest",
+                return_attention_mask=True,
             )
             inputs = inputs.to(self.device)
 
-            # Generate transcription
-            # If language is provided, force it; otherwise let Whisper auto-detect
+            # Generate transcription.
+            # If language is provided, force it; otherwise let Whisper
+            # auto-detect. Pass language/task directly to generate() instead
+            # of building forced_decoder_ids — get_decoder_prompt_ids defaults
+            # to no_timestamps=True, which injects <|notimestamps|> and
+            # disables the timestamp tokens that return_timestamps=True (and
+            # therefore long-form decoding) depend on.
             generate_kwargs = {}
             if language:
-                forced_decoder_ids = self.processor.get_decoder_prompt_ids(
-                    language=language,
-                    task="transcribe",
-                )
-                generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
+                generate_kwargs["language"] = language
+                generate_kwargs["task"] = "transcribe"
 
             with torch.no_grad():
                 predicted_ids = self.model.generate(
                     inputs["input_features"],
+                    attention_mask=inputs["attention_mask"],
+                    return_timestamps=True,
                     **generate_kwargs,
                 )
 
