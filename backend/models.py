@@ -474,6 +474,7 @@ class ModelStatus(BaseModel):
     downloading: bool = False  # True if download is in progress
     size_mb: Optional[float] = None
     loaded: bool = False
+    cuda_arch_warning: Optional[str] = None  # Set when GPU arch mismatches the CUDA binary
 
 
 class ModelStatusListResponse(BaseModel):

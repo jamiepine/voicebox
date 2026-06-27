@@ -3,17 +3,35 @@ Platform detection for backend selection.
 """
 
 import platform
-from typing import Literal
+from typing import Literal, Optional
 
 
 def is_apple_silicon() -> bool:
     """
     Check if running on Apple Silicon (arm64 macOS).
-    
+
     Returns:
         True if on Apple Silicon, False otherwise
     """
     return platform.system() == "Darwin" and platform.machine() == "arm64"
+
+
+def get_cuda_arch() -> Optional[str]:
+    """Return the SM architecture string for the primary CUDA GPU, or None.
+
+    Examples: ``"sm_90"`` for an RTX 4090, ``"sm_120"`` for an RTX 5090
+    (Blackwell).  Returns ``None`` when no CUDA GPU is present or torch is
+    not installed.
+    """
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return None
+        major, minor = torch.cuda.get_device_capability(0)
+        return f"sm_{major}{minor}"
+    except Exception:
+        return None
 
 
 def get_backend_type() -> Literal["mlx", "pytorch"]:
