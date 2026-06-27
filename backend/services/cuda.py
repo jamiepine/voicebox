@@ -21,15 +21,17 @@ import tarfile
 from pathlib import Path
 from typing import Optional
 
+from .. import __version__
 from ..config import get_data_dir
 from ..utils.progress import get_progress_manager
-from .. import __version__
 
 logger = logging.getLogger(__name__)
 
 GITHUB_RELEASES_URL = "https://github.com/jamiepine/voicebox/releases/download"
 
 PROGRESS_KEY = "cuda-backend"
+
+CUDA_DOWNLOAD_UNSUPPORTED_REASON = "Downloadable CUDA backend releases are currently only published for Windows."
 
 # The current expected CUDA libs version.  Bump this when we change the
 # CUDA toolkit version or torch's CUDA dependency changes (e.g. cu126 -> cu128).
@@ -61,6 +63,25 @@ def get_cuda_exe_name() -> str:
     if sys.platform == "win32":
         return "voicebox-server-cuda.exe"
     return "voicebox-server-cuda"
+
+
+def is_cuda_download_supported() -> bool:
+    """Return whether this platform has a matching CUDA release asset."""
+    return sys.platform == "win32"
+
+
+def get_cuda_download_unsupported_reason() -> str | None:
+    """Explain why this platform cannot use the release-download flow."""
+    if is_cuda_download_supported():
+        return None
+    return CUDA_DOWNLOAD_UNSUPPORTED_REASON
+
+
+def ensure_cuda_download_supported() -> None:
+    """Raise if downloading would fetch an asset built for another platform."""
+    reason = get_cuda_download_unsupported_reason()
+    if reason:
+        raise RuntimeError(reason)
 
 
 def get_cuda_binary_path() -> Optional[Path]:
@@ -103,12 +124,15 @@ def get_cuda_status() -> dict:
     cuda_path = get_cuda_binary_path()
     progress = progress_manager.get_progress(PROGRESS_KEY)
     cuda_libs_version = get_installed_cuda_libs_version()
+    unsupported_reason = get_cuda_download_unsupported_reason()
 
     return {
         "available": cuda_path is not None,
         "active": is_cuda_active(),
         "binary_path": str(cuda_path) if cuda_path else None,
         "cuda_libs_version": cuda_libs_version,
+        "download_supported": unsupported_reason is None,
+        "unsupported_reason": unsupported_reason,
         "downloading": progress is not None and progress.get("status") == "downloading",
         "download_progress": progress,
     }
@@ -257,6 +281,8 @@ async def download_cuda_binary(version: Optional[str] = None):
 
 async def _download_cuda_binary_locked(version: Optional[str] = None):
     """Inner implementation of download_cuda_binary, called under _download_lock."""
+    ensure_cuda_download_supported()
+
     import httpx
 
     if version is None:
@@ -386,6 +412,11 @@ async def check_and_update_cuda_binary():
     cuda_path = get_cuda_binary_path()
     if not cuda_path:
         return  # No CUDA binary installed, nothing to update
+
+    unsupported_reason = get_cuda_download_unsupported_reason()
+    if unsupported_reason:
+        logger.info("Skipping CUDA backend auto-update: %s", unsupported_reason)
+        return
 
     need_server = _needs_server_download()
     need_libs = _needs_cuda_libs_download()
