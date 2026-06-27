@@ -51,6 +51,7 @@ import {
 } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
+import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { convertToWav, formatAudioDuration, getAudioDuration } from '@/lib/utils/audio';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
@@ -146,6 +147,7 @@ export function ProfileForm() {
   const uploadAvatar = useUploadAvatar();
   const deleteAvatar = useDeleteAvatar();
   const transcribe = useTranscription();
+  const { settings: captureSettings } = useCaptureSettings();
   const { toast } = useToast();
   const [voiceSource, setVoiceSource] = useState<'clone' | 'builtin'>('clone');
   const [sampleMode, setSampleMode] = useState<'upload' | 'record' | 'system'>('record');
@@ -414,7 +416,7 @@ export function ProfileForm() {
 
     try {
       const language = form.getValues('language');
-      const result = await transcribe.mutateAsync({ file, language });
+      const result = await transcribe.mutateAsync({ file, language, model: captureSettings?.stt_model });
 
       form.setValue('referenceText', result.text, { shouldValidate: true });
     } catch (error) {

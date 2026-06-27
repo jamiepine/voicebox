@@ -44,6 +44,7 @@ def run_migrations(engine) -> None:
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
+    _migrate_stt_model_names(engine, inspector, tables)
 
 
 # -- helpers ---------------------------------------------------------------
@@ -334,3 +335,44 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         if total_fixed > 0:
             conn.commit()
             logger.info("Normalized %d stored file paths", total_fixed)
+
+
+# Map of legacy bare Whisper sizes → canonical model_name.
+_LEGACY_WHISPER_SIZE_MAP = {
+    "base": "whisper-base",
+    "small": "whisper-small",
+    "medium": "whisper-medium",
+    "large": "whisper-large",
+    "turbo": "whisper-turbo",
+}
+
+
+def _migrate_stt_model_names(engine, inspector, tables: set[str]) -> None:
+    """Rewrite legacy bare Whisper sizes (``turbo``, ``base``, …) in
+    ``capture_settings.stt_model`` to the canonical ``whisper-<size>`` form.
+
+    The ``captures.stt_model`` column (historical provenance) is deliberately
+    left untouched — old values are still meaningful as-is.
+    """
+    if "capture_settings" not in tables:
+        return
+
+    total_fixed = 0
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT id, stt_model FROM capture_settings")
+        ).fetchall()
+        for row_id, stt_model in rows:
+            canonical = _LEGACY_WHISPER_SIZE_MAP.get(stt_model)
+            if canonical:
+                conn.execute(
+                    text("UPDATE capture_settings SET stt_model = :val WHERE id = :id"),
+                    {"val": canonical, "id": row_id},
+                )
+                total_fixed += 1
+        if total_fixed > 0:
+            conn.commit()
+            logger.info(
+                "Migrated %d capture_settings.stt_model rows to whisper-<size> form",
+                total_fixed,
+            )

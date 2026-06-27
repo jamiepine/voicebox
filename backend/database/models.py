@@ -195,7 +195,7 @@ class CaptureSettings(Base):
     __tablename__ = "capture_settings"
 
     id = Column(Integer, primary_key=True, default=1)
-    stt_model = Column(String, nullable=False, default="turbo")
+    stt_model = Column(String, nullable=False, default="whisper-turbo")
     language = Column(String, nullable=False, default="auto")
     auto_refine = Column(Boolean, nullable=False, default=True)
     llm_model = Column(String, nullable=False, default="0.6B")

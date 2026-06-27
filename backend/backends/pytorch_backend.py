@@ -10,7 +10,15 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
+from . import (
+    TTSBackend,
+    STTBackend,
+    LANGUAGE_CODE_TO_NAME,
+    WHISPER_HF_REPOS,
+    STT_HF_REPOS,
+    stt_model_name_to_repo,
+    is_parakeet_model_name,
+)
 from .base import (
     is_model_cached,
     get_torch_device,
@@ -246,12 +254,23 @@ class PyTorchTTSBackend:
 
 
 class PyTorchSTTBackend:
-    """PyTorch-based STT backend using Whisper."""
+    """PyTorch-based STT backend supporting Whisper and NVIDIA Parakeet.
 
-    def __init__(self, model_size: str = "base"):
+    Both families load through ``transformers`` and share the same
+    process → generate → batch_decode shape. The backend branches on the
+    model family: Whisper uses its dedicated processor/model classes and
+    supports a forced language decoder prompt; Parakeet uses the generic
+    ``Auto*`` classes and performs its own language auto-detection.
+    """
+
+    def __init__(self, model_name: str = "whisper-base"):
         self.model = None
         self.processor = None
-        self.model_size = model_size
+        # ``model_name`` is the registry key (e.g. "whisper-turbo",
+        # "parakeet-tdt-0.6b-v2") and is what callers persist/compare.
+        self.model_name = model_name
+        # Kept for backwards compatibility with code reading ``model_size``.
+        self.model_size = model_name
         self.device = self._get_device()
 
     def _get_device(self) -> str:
@@ -262,45 +281,56 @@ class PyTorchSTTBackend:
         """Check if model is loaded."""
         return self.model is not None
 
-    def _is_model_cached(self, model_size: str) -> bool:
-        hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
+    def _is_model_cached(self, model_name: str) -> bool:
+        hf_repo = stt_model_name_to_repo(model_name)
         return is_model_cached(hf_repo)
 
-    async def load_model_async(self, model_size: Optional[str] = None):
+    async def load_model_async(self, model_name: Optional[str] = None):
         """
-        Lazy load the Whisper model.
+        Lazy load the STT model (Whisper or Parakeet).
 
         Args:
-            model_size: Model size (tiny, base, small, medium, large)
+            model_name: Model registry key (e.g. "whisper-turbo",
+                "parakeet-tdt-0.6b-v2"). Legacy bare Whisper sizes
+                ("turbo", "base", ...) are accepted for backwards compat.
         """
-        if model_size is None:
-            model_size = self.model_size
+        if model_name is None:
+            model_name = self.model_name
 
-        if self.model is not None and self.model_size == model_size:
+        if self.model is not None and self.model_name == model_name:
             return
 
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        await asyncio.to_thread(self._load_model_sync, model_name)
 
     # Alias for compatibility
     load_model = load_model_async
 
-    def _load_model_sync(self, model_size: str):
+    def _load_model_sync(self, model_name: str):
         """Synchronous model loading."""
-        progress_model_name = f"whisper-{model_size}"
-        is_cached = self._is_model_cached(model_size)
+        is_parakeet = is_parakeet_model_name(model_name)
+        is_cached = self._is_model_cached(model_name)
 
-        with model_load_progress(progress_model_name, is_cached):
-            from transformers import WhisperProcessor, WhisperForConditionalGeneration
+        with model_load_progress(model_name, is_cached):
+            model_repo = stt_model_name_to_repo(model_name)
+            logger.info("Loading STT model %s on %s...", model_name, self.device)
 
-            model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
-            logger.info("Loading Whisper model %s on %s...", model_size, self.device)
+            if is_parakeet:
+                # Parakeet (NVIDIA Fast-Conformer TDT) — dedicated TDT auto class.
+                from transformers import AutoProcessor, AutoModelForTDT
 
-            self.processor = WhisperProcessor.from_pretrained(model_name)
-            self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
+                self.processor = AutoProcessor.from_pretrained(model_repo)
+                self.model = AutoModelForTDT.from_pretrained(model_repo)
+            else:
+                # Whisper — dedicated classes + forced-decoder language support.
+                from transformers import WhisperProcessor, WhisperForConditionalGeneration
+
+                self.processor = WhisperProcessor.from_pretrained(model_repo)
+                self.model = WhisperForConditionalGeneration.from_pretrained(model_repo)
 
         self.model.to(self.device)
-        self.model_size = model_size
-        logger.info("Whisper model %s loaded successfully", model_size)
+        self.model_name = model_name
+        self.model_size = model_name
+        logger.info("STT model %s loaded successfully", model_name)
 
     def unload_model(self):
         """Unload the model to free memory."""
@@ -312,26 +342,29 @@ class PyTorchSTTBackend:
 
             empty_device_cache(self.device)
 
-            logger.info("Whisper model unloaded")
+            logger.info("STT model unloaded")
 
     async def transcribe(
         self,
         audio_path: str,
         language: Optional[str] = None,
-        model_size: Optional[str] = None,
+        model_name: Optional[str] = None,
     ) -> str:
         """
         Transcribe audio to text.
 
         Args:
             audio_path: Path to audio file
-            language: Optional language hint
-            model_size: Optional model size override
+            language: Optional language hint (ignored by Parakeet, which
+                auto-detects)
+            model_name: Optional model registry key override
 
         Returns:
             Transcribed text
         """
-        await self.load_model_async(model_size)
+        await self.load_model_async(model_name)
+
+        is_parakeet = is_parakeet_model_name(self.model_name)
 
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
@@ -351,9 +384,10 @@ class PyTorchSTTBackend:
             inputs = inputs.to(self.device)
 
             # Generate transcription
-            # If language is provided, force it; otherwise let Whisper auto-detect
             generate_kwargs = {}
-            if language:
+            if language and not is_parakeet:
+                # Whisper: force the language via the decoder prompt.
+                # Parakeet auto-detects and has no equivalent API.
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
                     language=language,
                     task="transcribe",
@@ -361,10 +395,20 @@ class PyTorchSTTBackend:
                 generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
 
             with torch.no_grad():
-                predicted_ids = self.model.generate(
-                    inputs["input_features"],
-                    **generate_kwargs,
-                )
+                if is_parakeet:
+                    # Parakeet's forward reads input features by keyword.
+                    output = self.model.generate(
+                        **inputs,
+                        **generate_kwargs,
+                    )
+                    # ParakeetForTDT.generate() returns ParakeetRNNTGenerateOutput
+                    # (a ModelOutput with .sequences + .durations), not raw IDs.
+                    predicted_ids = output.sequences if hasattr(output, "sequences") else output
+                else:
+                    predicted_ids = self.model.generate(
+                        inputs["input_features"],
+                        **generate_kwargs,
+                    )
 
             # Decode
             transcription = self.processor.batch_decode(

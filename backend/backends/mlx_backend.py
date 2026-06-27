@@ -17,7 +17,15 @@ from ..utils.hf_offline_patch import patch_huggingface_hub_offline, ensure_origi
 patch_huggingface_hub_offline()
 ensure_original_qwen_config_cached()
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
+from . import (
+    TTSBackend,
+    STTBackend,
+    LANGUAGE_CODE_TO_NAME,
+    WHISPER_HF_REPOS,
+    STT_HF_REPOS,
+    stt_model_name_to_repo,
+    is_parakeet_model_name,
+)
 from .base import is_model_cached, combine_voice_prompts as _combine_voice_prompts, model_load_progress
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 
@@ -265,87 +273,102 @@ class MLXTTSBackend:
 
 
 class MLXSTTBackend:
-    """MLX-based STT backend using mlx-audio Whisper."""
+    """MLX-based STT backend using mlx-audio (Whisper and Parakeet).
 
-    def __init__(self, model_size: str = "base"):
+    ``mlx_audio.stt.load`` accepts both Whisper and NVIDIA Parakeet repos,
+    so the only engine-specific behavior here is that Parakeet auto-detects
+    language and ignores the ``language`` hint.
+    """
+
+    def __init__(self, model_name: str = "whisper-base"):
         self.model = None
-        self.model_size = model_size
+        # ``model_name`` is the registry key (e.g. "whisper-turbo",
+        # "parakeet-tdt-0.6b-v2").
+        self.model_name = model_name
+        # Kept for backwards compatibility with code reading ``model_size``.
+        self.model_size = model_name
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None
 
-    def _is_model_cached(self, model_size: str) -> bool:
-        hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
+    def _is_model_cached(self, model_name: str) -> bool:
+        hf_repo = stt_model_name_to_repo(model_name)
         return is_model_cached(hf_repo, weight_extensions=(".safetensors", ".bin", ".npz"))
 
-    async def load_model_async(self, model_size: Optional[str] = None):
+    async def load_model_async(self, model_name: Optional[str] = None):
         """
-        Lazy load the MLX Whisper model.
+        Lazy load the MLX STT model (Whisper or Parakeet).
 
         Args:
-            model_size: Model size (tiny, base, small, medium, large)
+            model_name: Model registry key (e.g. "whisper-turbo",
+                "parakeet-tdt-0.6b-v2"). Legacy bare Whisper sizes
+                ("turbo", "base", ...) are accepted for backwards compat.
         """
-        if model_size is None:
-            model_size = self.model_size
+        if model_name is None:
+            model_name = self.model_name
 
-        if self.model is not None and self.model_size == model_size:
+        if self.model is not None and self.model_name == model_name:
             return
 
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        await asyncio.to_thread(self._load_model_sync, model_name)
 
     # Alias for compatibility
     load_model = load_model_async
 
-    def _load_model_sync(self, model_size: str):
+    def _load_model_sync(self, model_name: str):
         """Synchronous model loading."""
-        progress_model_name = f"whisper-{model_size}"
-        is_cached = self._is_model_cached(model_size)
+        is_cached = self._is_model_cached(model_name)
 
-        with model_load_progress(progress_model_name, is_cached):
+        with model_load_progress(model_name, is_cached):
             from mlx_audio.stt import load
 
-            model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
-            logger.info("Loading MLX Whisper model %s...", model_size)
+            model_repo = stt_model_name_to_repo(model_name)
+            logger.info("Loading MLX STT model %s...", model_name)
 
-            self.model = load(model_name)
+            self.model = load(model_repo)
 
-        self.model_size = model_size
-        logger.info("MLX Whisper model %s loaded successfully", model_size)
+        self.model_name = model_name
+        self.model_size = model_name
+        logger.info("MLX STT model %s loaded successfully", model_name)
 
     def unload_model(self):
         """Unload the model to free memory."""
         if self.model is not None:
             del self.model
             self.model = None
-            logger.info("MLX Whisper model unloaded")
+            logger.info("MLX STT model unloaded")
 
     async def transcribe(
         self,
         audio_path: str,
         language: Optional[str] = None,
-        model_size: Optional[str] = None,
+        model_name: Optional[str] = None,
     ) -> str:
         """
         Transcribe audio to text.
 
         Args:
             audio_path: Path to audio file
-            language: Optional language hint
-            model_size: Optional model size override
+            language: Optional language hint (ignored by Parakeet, which
+                auto-detects)
+            model_name: Optional model registry key override
 
         Returns:
             Transcribed text
         """
-        await self.load_model_async(model_size)
+        await self.load_model_async(model_name)
+
+        is_parakeet = is_parakeet_model_name(self.model_name)
 
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
-            # MLX Whisper transcription using generate method
+            # MLX STT transcription using generate method
             # The generate method accepts audio path directly
             decode_options = {}
-            if language:
+            if language and not is_parakeet:
+                # Whisper honors a language hint; Parakeet auto-detects.
                 decode_options["language"] = language
 
             # Inference runs with the process's default HF_HUB_OFFLINE

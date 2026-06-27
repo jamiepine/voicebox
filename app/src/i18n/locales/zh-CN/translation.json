@@ -916,18 +916,25 @@
         "description": "选择捕获时使用哪个语音转文本模型。",
         "model": {
           "title": "转录模型",
-          "description": "Whisper 随 Voicebox 一同发布,完全在您的设备上运行。",
-          "base": "Whisper Base · 74M · {{tail}}",
-          "small": "Whisper Small · 244M · {{tail}}",
-          "medium": "Whisper Medium · 769M · {{tail}}",
-          "large": "Whisper Large · 1.5B · {{tail}}",
-          "turbo": "Whisper Turbo · 精简版 Large v3 · {{tail}}",
+          "description": "Whisper 和 Parakeet 均随 Voicebox 一同发布,完全在您的设备上运行。",
+          "group": {
+            "whisper": "Whisper",
+            "parakeet": "NVIDIA Parakeet"
+          },
+          "whisper-base": "Whisper Base · 74M · {{tail}}",
+          "whisper-small": "Whisper Small · 244M · {{tail}}",
+          "whisper-medium": "Whisper Medium · 769M · {{tail}}",
+          "whisper-large": "Whisper Large · 1.5B · {{tail}}",
+          "whisper-turbo": "Whisper Turbo · 精简版 Large v3 · {{tail}}",
+          "parakeet-tdt-0.6b-v2": "Parakeet TDT 0.6B v2 · 600M · 英语 · {{tail}}",
+          "parakeet-tdt-0.6b-v3": "Parakeet TDT 0.6B v3 · 600M · 25种语言 · {{tail}}",
           "tail": {
             "fast": "快速",
             "balanced": "均衡",
             "higher": "更高准确度",
             "best": "最佳准确度",
-            "nearBest": "接近最佳,速度快"
+            "nearBest": "接近最佳,速度快",
+            "parakeet": "快速且准确"
           }
         },
         "language": {

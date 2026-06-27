@@ -11,6 +11,19 @@ from .utils.capture_chords import (
     default_toggle_to_talk_chord,
 )
 
+# Valid STT model identifiers — the registry ``model_name`` for each variant.
+# Accepts both the canonical form ("whisper-turbo", "parakeet-tdt-0.6b-v2")
+# and the legacy bare Whisper sizes ("turbo", "base", ...) so existing API
+# clients and un-migrated DB rows keep working. The service layer normalizes
+# the bare sizes to "whisper-<size>" before lookup.
+STT_MODEL_PATTERN = (
+    r"^("
+    r"whisper-base|whisper-small|whisper-medium|whisper-large|whisper-turbo"
+    r"|parakeet-tdt-0.6b-v2|parakeet-tdt-0.6b-v3"
+    r"|base|small|medium|large|turbo"  # legacy bare Whisper sizes
+    r")$"
+)
+
 
 class VoiceProfileCreate(BaseModel):
     """Request model for creating a voice profile."""
@@ -172,7 +185,7 @@ class TranscriptionRequest(BaseModel):
     """Request model for audio transcription."""
 
     language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
-    model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
+    model: Optional[str] = Field(None, pattern=STT_MODEL_PATTERN)
 
 
 class TranscriptionResponse(BaseModel):
@@ -241,14 +254,14 @@ class CaptureRefineRequest(BaseModel):
 class CaptureRetranscribeRequest(BaseModel):
     """Request to re-run STT on a capture's audio with a different model."""
 
-    model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
+    model: Optional[str] = Field(None, pattern=STT_MODEL_PATTERN)
     language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
 
 
 class CaptureSettingsResponse(BaseModel):
     """Server-persisted defaults for the capture / refine flow."""
 
-    stt_model: str = Field(default="turbo", pattern="^(base|small|medium|large|turbo)$")
+    stt_model: str = Field(default="whisper-turbo", pattern=STT_MODEL_PATTERN)
     language: str = Field(default="auto")
     auto_refine: bool = True
     llm_model: str = Field(default="0.6B", pattern="^(0\\.6B|1\\.7B|4B)$")
@@ -272,7 +285,7 @@ class CaptureSettingsResponse(BaseModel):
 class CaptureSettingsUpdate(BaseModel):
     """Partial update for capture settings — every field is optional."""
 
-    stt_model: Optional[str] = Field(default=None, pattern="^(base|small|medium|large|turbo)$")
+    stt_model: Optional[str] = Field(default=None, pattern=STT_MODEL_PATTERN)
     language: Optional[str] = None
     auto_refine: Optional[bool] = None
     llm_model: Optional[str] = Field(default=None, pattern="^(0\\.6B|1\\.7B|4B)$")

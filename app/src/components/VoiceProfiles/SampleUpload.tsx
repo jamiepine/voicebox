@@ -27,6 +27,7 @@ import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
 import { useAddSample, useProfile } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
+import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { usePlatform } from '@/platform/PlatformContext';
 import { AudioSampleRecording } from './AudioSampleRecording';
 import { AudioSampleSystem } from './AudioSampleSystem';
@@ -54,6 +55,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
   const transcribe = useTranscription();
   const { data: profile } = useProfile(profileId);
   const { toast } = useToast();
+  const { settings: captureSettings } = useCaptureSettings();
   const [mode, setMode] = useState<'upload' | 'record' | 'system'>('upload');
   const { isPlaying, playPause, cleanup: cleanupAudio } = useAudioPlayer();
 
@@ -154,7 +156,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
 
     try {
       const language = profile?.language as 'en' | 'zh' | undefined;
-      const result = await transcribe.mutateAsync({ file, language });
+      const result = await transcribe.mutateAsync({ file, language, model: captureSettings?.stt_model });
 
       form.setValue('referenceText', result.text, { shouldValidate: true });
     } catch (error) {

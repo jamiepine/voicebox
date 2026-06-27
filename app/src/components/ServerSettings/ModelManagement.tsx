@@ -83,6 +83,10 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
     'Whisper Large (1.5B parameters). Best accuracy for speech-to-text across multiple languages.',
   'whisper-turbo':
     'Whisper Large v3 Turbo. Pruned for significantly faster inference while maintaining near-large accuracy.',
+  'parakeet-tdt-0.6b-v2':
+    'NVIDIA Parakeet TDT 0.6B v2. Fast-Conformer with token-and-duration-prediction. 600M parameters, English-only. Strong accuracy at low latency.',
+  'parakeet-tdt-0.6b-v3':
+    'NVIDIA Parakeet TDT 0.6B v3. Multilingual variant supporting 25 European languages. Same 600M-parameter architecture as v2 with broader language coverage.',
   'qwen3-0.6b':
     'Qwen3 0.6B — smallest of the Qwen3 instruct family. Very fast on CPU, runs at ~400 MB quantized on Apple Silicon. Good for dictation refinement and short completions.',
   'qwen3-1.7b':
@@ -416,13 +420,15 @@ export function ModelManagement() {
         m.model_name.startsWith('tada') ||
         m.model_name.startsWith('kokoro'),
     ) ?? [];
-  const whisperModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper')) ?? [];
+  const sttModels = modelStatus?.models.filter(
+    (m) => m.model_name.startsWith('whisper') || m.model_name.startsWith('parakeet'),
+  ) ?? [];
   const llmModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen3-')) ?? [];
 
   // Build sections
   const sections: { label: string; models: ModelStatus[] }[] = [
     { label: t('models.sections.voiceGeneration'), models: voiceModels },
-    { label: t('models.sections.transcription'), models: whisperModels },
+    { label: t('models.sections.transcription'), models: sttModels },
     { label: t('models.sections.languageModels'), models: llmModels },
   ];
 

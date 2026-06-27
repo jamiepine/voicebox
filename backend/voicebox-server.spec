@@ -19,6 +19,9 @@ hiddenimports += collect_submodules('tada')
 hiddenimports += collect_submodules('mlx')
 hiddenimports += collect_submodules('mlx_audio')
 hiddenimports += collect_submodules('mlx_lm')
+# Parakeet STT modeling — AutoModelForSpeechSeq2Seq resolves this dynamically,
+# so collect it explicitly so the frozen build can load parakeet-tdt variants.
+hiddenimports += collect_submodules('transformers.models.parakeet')
 tmp_ret = collect_all('spacy_pkuseg')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('zipvoice')

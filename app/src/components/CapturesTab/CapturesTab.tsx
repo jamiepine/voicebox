@@ -131,6 +131,21 @@ function SourceBadge({ source }: { source: CaptureSource }) {
 
 type PlaybackState = 'idle' | 'generating' | 'playing';
 
+/** Render an STT model_name (e.g. "whisper-turbo", "parakeet-tdt-0.6b-v2")
+ *  as a compact human-readable label ("Whisper Turbo", "Parakeet TDT 0.6B v2"). */
+function formatSttModelName(modelName: string): string {
+  // Map known model_name prefixes to a clean brand label, then append the
+  // variant tail with sensible capitalization.
+  if (modelName.startsWith('whisper-')) {
+    const size = modelName.slice('whisper-'.length);
+    return `Whisper ${size.charAt(0).toUpperCase()}${size.slice(1)}`;
+  }
+  if (modelName === 'parakeet-tdt-0.6b-v2') return 'Parakeet TDT 0.6B v2';
+  if (modelName === 'parakeet-tdt-0.6b-v3') return 'Parakeet TDT 0.6B v3';
+  // Fallback: capitalize first letter.
+  return modelName.charAt(0).toUpperCase() + modelName.slice(1);
+}
+
 export function CapturesTab() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -160,7 +175,7 @@ export function CapturesTab() {
   const pendingGenerationIds = useGenerationStore((s) => s.pendingGenerationIds);
 
   const { settings: captureSettings, update: updateCaptureSettings } = useCaptureSettings();
-  const sttModel = captureSettings?.stt_model ?? 'turbo';
+  const sttModel = captureSettings?.stt_model ?? 'whisper-turbo';
   const llmModel = captureSettings?.llm_model ?? '0.6B';
   const hotkeyEnabled = captureSettings?.hotkey_enabled ?? false;
   const pushToTalkKeys = captureSettings?.chord_push_to_talk_keys ?? [];
@@ -544,7 +559,7 @@ export function CapturesTab() {
               <span className="w-1.5 h-1.5 rounded-full bg-accent" />
               <span>
                 {t('captures.header.modelSummary', {
-                  stt: sttModel.charAt(0).toUpperCase() + sttModel.slice(1),
+                  stt: formatSttModelName(sttModel),
                   llm: llmModel,
                 })}
               </span>

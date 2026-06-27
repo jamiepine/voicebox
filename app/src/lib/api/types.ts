@@ -136,7 +136,14 @@ export interface HistoryListResponse {
   total: number;
 }
 
+/** All Whisper model variants (bare sizes — legacy / backward-compat form). */
 export type WhisperModelSize = 'base' | 'small' | 'medium' | 'large' | 'turbo';
+
+/** Canonical STT model identifiers — registry model_name for each variant.
+ *  Includes both Whisper ("whisper-*") and NVIDIA Parakeet ("parakeet-*"). */
+export type SttModelId =
+  | 'whisper-base' | 'whisper-small' | 'whisper-medium' | 'whisper-large' | 'whisper-turbo'
+  | 'parakeet-tdt-0.6b-v2' | 'parakeet-tdt-0.6b-v3';
 
 export type Qwen3ModelSize = '0.6B' | '1.7B' | '4B';
 
@@ -196,12 +203,12 @@ export interface CaptureRefineRequest {
 }
 
 export interface CaptureRetranscribeRequest {
-  model?: WhisperModelSize;
+  model?: SttModelId;
   language?: LanguageCode;
 }
 
 export interface CaptureSettings {
-  stt_model: WhisperModelSize;
+  stt_model: SttModelId;
   language: string;
   auto_refine: boolean;
   llm_model: Qwen3ModelSize;
@@ -252,7 +259,7 @@ export type GenerationSettingsUpdate = Partial<GenerationSettings>;
 
 export interface TranscriptionRequest {
   language?: LanguageCode;
-  model?: WhisperModelSize;
+  model?: SttModelId;
 }
 
 export interface TranscriptionResponse {

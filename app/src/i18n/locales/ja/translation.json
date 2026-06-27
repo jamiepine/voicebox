@@ -916,18 +916,25 @@
         "description": "キャプチャに使う音声認識モデルを選びます。",
         "model": {
           "title": "文字起こしモデル",
-          "description": "Whisper は Voicebox に同梱されており、すべてマシン上で動作します。",
-          "base": "Whisper Base · 74M · {{tail}}",
-          "small": "Whisper Small · 244M · {{tail}}",
-          "medium": "Whisper Medium · 769M · {{tail}}",
-          "large": "Whisper Large · 1.5B · {{tail}}",
-          "turbo": "Whisper Turbo · Pruned Large v3 · {{tail}}",
+          "description": "Whisper と Parakeet はどちらも Voicebox に同梱され、すべてマシン上で動作します。",
+          "group": {
+            "whisper": "Whisper",
+            "parakeet": "NVIDIA Parakeet"
+          },
+          "whisper-base": "Whisper Base · 74M · {{tail}}",
+          "whisper-small": "Whisper Small · 244M · {{tail}}",
+          "whisper-medium": "Whisper Medium · 769M · {{tail}}",
+          "whisper-large": "Whisper Large · 1.5B · {{tail}}",
+          "whisper-turbo": "Whisper Turbo · Pruned Large v3 · {{tail}}",
+          "parakeet-tdt-0.6b-v2": "Parakeet TDT 0.6B v2 · 600M · 英語 · {{tail}}",
+          "parakeet-tdt-0.6b-v3": "Parakeet TDT 0.6B v3 · 600M · 25言語 · {{tail}}",
           "tail": {
             "fast": "高速",
             "balanced": "バランス",
             "higher": "高精度",
             "best": "最高精度",
-            "nearBest": "ほぼ最高精度かつ高速"
+            "nearBest": "ほぼ最高精度かつ高速",
+            "parakeet": "高速かつ高精度"
           }
         },
         "language": {

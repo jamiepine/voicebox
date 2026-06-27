@@ -7,7 +7,7 @@ from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..backends import get_llm_model_configs, get_stt_model_configs
+from ..backends import get_llm_model_configs, get_stt_model_configs, normalize_stt_model_name
 from ..backends.base import is_model_cached
 from ..database import Capture as DBCapture, get_db
 from ..services import captures as captures_service
@@ -165,8 +165,12 @@ async def capture_readiness_endpoint(db: Session = Depends(get_db)):
     """
     saved = settings_service.get_capture_settings(db)
 
+    # stt_model now stores the registry model_name (e.g. "whisper-turbo",
+    # "parakeet-tdt-0.6b-v2"). Normalize legacy bare sizes for robustness
+    # against pre-migration rows.
+    stt_model_name = normalize_stt_model_name(saved.stt_model)
     stt_cfg = next(
-        (c for c in get_stt_model_configs() if c.model_size == saved.stt_model),
+        (c for c in get_stt_model_configs() if c.model_name == stt_model_name),
         None,
     )
     llm_cfg = next(
@@ -176,10 +180,10 @@ async def capture_readiness_endpoint(db: Session = Depends(get_db)):
 
     if stt_cfg is None or llm_cfg is None:
         # Should be impossible — both fields are pattern-validated against
-        # known sizes — but bail loudly rather than return half a response.
+        # known models — but bail loudly rather than return half a response.
         raise HTTPException(
             status_code=500,
-            detail=f"No model config for stt={saved.stt_model} or llm={saved.llm_model}",
+            detail=f"No model config for stt={stt_model_name} or llm={saved.llm_model}",
         )
 
     return models.CaptureReadinessResponse(

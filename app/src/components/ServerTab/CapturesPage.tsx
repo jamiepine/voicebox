@@ -18,7 +18,10 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -31,7 +34,7 @@ import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
 import { cn } from '@/lib/utils/cn';
 import { defaultChordKeys, displayLabelForKey, modifierSideHint } from '@/lib/utils/keyCodes';
-import type { Qwen3ModelSize, VoiceProfileResponse, WhisperModelSize } from '@/lib/api/types';
+import type { Qwen3ModelSize, SttModelId, VoiceProfileResponse } from '@/lib/api/types';
 import { SettingRow, SettingSection } from './SettingRow';
 
 function ChordPreview({ keys }: { keys: string[] }) {
@@ -128,7 +131,7 @@ export function CapturesPage() {
   const { data: profiles } = useProfiles();
   const { toast } = useToast();
   const readiness = useDictationReadiness();
-  const sttModel = settings?.stt_model ?? 'turbo';
+  const sttModel = settings?.stt_model ?? 'whisper-turbo';
   const language = settings?.language ?? 'auto';
   const autoRefine = settings?.auto_refine ?? true;
   const llmModel = settings?.llm_model ?? '0.6B';
@@ -318,27 +321,40 @@ export function CapturesPage() {
           action={
             <Select
               value={sttModel}
-              onValueChange={(v) => update({ stt_model: v as WhisperModelSize })}
+              onValueChange={(v) => update({ stt_model: v as SttModelId })}
             >
               <SelectTrigger className="w-[300px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="base">
-                  {t('settings.captures.transcription.model.base', { tail: t('settings.captures.transcription.model.tail.fast') })}
-                </SelectItem>
-                <SelectItem value="small">
-                  {t('settings.captures.transcription.model.small', { tail: t('settings.captures.transcription.model.tail.balanced') })}
-                </SelectItem>
-                <SelectItem value="medium">
-                  {t('settings.captures.transcription.model.medium', { tail: t('settings.captures.transcription.model.tail.higher') })}
-                </SelectItem>
-                <SelectItem value="large">
-                  {t('settings.captures.transcription.model.large', { tail: t('settings.captures.transcription.model.tail.best') })}
-                </SelectItem>
-                <SelectItem value="turbo">
-                  {t('settings.captures.transcription.model.turbo', { tail: t('settings.captures.transcription.model.tail.nearBest') })}
-                </SelectItem>
+                <SelectGroup>
+                  <SelectLabel>{t('settings.captures.transcription.model.group.whisper')}</SelectLabel>
+                  <SelectItem value="whisper-base">
+                    {t('settings.captures.transcription.model.whisper-base', { tail: t('settings.captures.transcription.model.tail.fast') })}
+                  </SelectItem>
+                  <SelectItem value="whisper-small">
+                    {t('settings.captures.transcription.model.whisper-small', { tail: t('settings.captures.transcription.model.tail.balanced') })}
+                  </SelectItem>
+                  <SelectItem value="whisper-medium">
+                    {t('settings.captures.transcription.model.whisper-medium', { tail: t('settings.captures.transcription.model.tail.higher') })}
+                  </SelectItem>
+                  <SelectItem value="whisper-large">
+                    {t('settings.captures.transcription.model.whisper-large', { tail: t('settings.captures.transcription.model.tail.best') })}
+                  </SelectItem>
+                  <SelectItem value="whisper-turbo">
+                    {t('settings.captures.transcription.model.whisper-turbo', { tail: t('settings.captures.transcription.model.tail.nearBest') })}
+                  </SelectItem>
+                </SelectGroup>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>{t('settings.captures.transcription.model.group.parakeet')}</SelectLabel>
+                  <SelectItem value="parakeet-tdt-0.6b-v2">
+                    {t('settings.captures.transcription.model.parakeet-tdt-0.6b-v2', { tail: t('settings.captures.transcription.model.tail.parakeet') })}
+                  </SelectItem>
+                  <SelectItem value="parakeet-tdt-0.6b-v3">
+                    {t('settings.captures.transcription.model.parakeet-tdt-0.6b-v3', { tail: t('settings.captures.transcription.model.tail.parakeet') })}
+                  </SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           }

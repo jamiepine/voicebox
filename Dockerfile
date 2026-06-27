@@ -8,17 +8,42 @@ FROM oven/bun:1 AS frontend
 
 WORKDIR /build
 
-# Copy workspace config and frontend source
-COPY package.json bun.lock CHANGELOG.md ./
+# Copy all needed files for frontend build
 COPY app/ ./app/
 COPY web/ ./web/
+COPY bun.lock CHANGELOG.md ./
 
-# Strip workspaces not needed for web build, and fix trailing comma
-RUN sed -i '/"tauri"/d; /"landing"/d' package.json && \
-    sed -i -z 's/,\n  ]/\n  ]/' package.json
+# Create a temporary package.json for container (with all root deps needed)
+RUN cat > package-temp.json << 'EOFPKG' && mv package-temp.json package.json
+{
+  "name": "voicebox-container",
+  "version": "0.5.0",
+  "private": true,
+  "workspaces": [
+    "app",
+    "web"
+  ],
+  "scripts": {
+    "build:web": "cd web && bun run build"
+  },
+  "dependencies": {
+    "loaders.css": "^0.1.2",
+    "react-loaders": "^3.0.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.12",
+    "@types/node": "^20.0.0",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^5.6.0"
+  }
+}
+EOFPKG
+
+# Install workspace dependencies
 RUN bun install --no-save
-# Build frontend (skip tsc — upstream has pre-existing type errors)
-RUN cd web && bunx --bun vite build
+
+# Build frontend (skip tsc, upstream has type errors)
+RUN cd web && bunx vite build
 
 
 # === Stage 2: Build Python dependencies ===

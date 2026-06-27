@@ -44,6 +44,63 @@ WHISPER_HF_REPOS = {
     "turbo": "openai/whisper-large-v3-turbo",
 }
 
+# Parakeet ASR models (NVIDIA Fast-Conformer TDT). Loaded via the same
+# transformers / mlx_audio.stt stack as Whisper — no new dependencies.
+PARAKEET_HF_REPOS = {
+    "parakeet-tdt-0.6b-v2": "nvidia/parakeet-tdt-0.6b-v2",  # English-only
+    "parakeet-tdt-0.6b-v3": "nvidia/parakeet-tdt-0.6b-v3",  # 25 European languages
+}
+
+# Combined STT model registry keyed by model_name (the unique config key).
+# The STT backend classes import this to resolve any STT variant to its HF
+# repo without needing to know which family it belongs to.
+STT_HF_REPOS: dict[str, str] = {
+    f"whisper-{size}": repo for size, repo in WHISPER_HF_REPOS.items()
+}
+STT_HF_REPOS.update(PARAKEET_HF_REPOS)
+
+# Repo IDs that belong to the Parakeet family — the backend uses this to pick
+# the right loader (Whisper classes vs. generic Auto* classes).
+PARAKEET_REPO_IDS = set(PARAKEET_HF_REPOS.values())
+
+
+def stt_model_name_to_repo(model_name: str) -> str:
+    """Resolve a persisted STT ``model_name`` (e.g. ``whisper-turbo``) to its HF repo.
+
+    Also tolerates legacy bare Whisper sizes (``turbo``, ``base``, ...) so old
+    API clients and DB rows keep working after the model_name migration.
+    """
+    if model_name in STT_HF_REPOS:
+        return STT_HF_REPOS[model_name]
+    legacy = WHISPER_HF_REPOS.get(model_name)
+    if legacy:
+        return legacy
+    # Fall back to constructing a whisper repo id for unknown whisper-ish ids.
+    return f"openai/whisper-{model_name}"
+
+
+def is_parakeet_model_name(model_name: str) -> bool:
+    """Whether a persisted STT model_name is a Parakeet variant."""
+    repo = STT_HF_REPOS.get(model_name)
+    return repo in PARAKEET_REPO_IDS
+
+
+def normalize_stt_model_name(model_name: str) -> str:
+    """Normalize a persisted/requested STT identifier to its canonical model_name.
+
+    Accepts legacy bare Whisper sizes ("turbo", "base", ...) and returns the
+    canonical "whisper-<size>" form. Parakeet names and canonical Whisper
+    names pass through unchanged. Unknown values are returned as-is so the
+    caller can decide how to handle them (config lookup will miss → 500).
+    """
+    if not model_name:
+        return model_name
+    if model_name in PARAKEET_HF_REPOS or model_name.startswith("whisper-"):
+        return model_name
+    if model_name in WHISPER_HF_REPOS:
+        return f"whisper-{model_name}"
+    return model_name
+
 
 @dataclass
 class ModelConfig:
@@ -219,6 +276,13 @@ TTS_ENGINES = {
 
 LLM_ENGINES = {
     "qwen_llm": "Qwen3 LLM",
+}
+
+# Supported STT engines — Whisper and Parakeet. Both load through the same
+# PyTorch/MLX backend class; the class branches internally on the model family.
+STT_ENGINES = {
+    "whisper": "Whisper",
+    "parakeet": "Parakeet",
 }
 
 
@@ -408,6 +472,41 @@ def _get_whisper_configs() -> list[ModelConfig]:
     ]
 
 
+def _get_parakeet_configs() -> list[ModelConfig]:
+    """Return NVIDIA Parakeet STT model configs.
+
+    Parakeet is an alternative ASR engine to Whisper. Both variants are ~600M
+    parameters; v2 is English-only, v3 supports 25 European languages. They
+    load through the bundled ``transformers`` (PyTorch) / ``mlx_audio.stt``
+    (MLX) stack — no extra dependencies.
+    """
+    parakeet_v3_languages = [
+        "en", "de", "fr", "es", "it", "pt", "nl", "pl", "ru", "tr",
+        "uk", "cs", "el", "fi", "sv", "da", "no", "ro", "hu", "sk",
+        "bg", "hr", "sl", "lt", "lv",
+    ]
+    return [
+        ModelConfig(
+            model_name="parakeet-tdt-0.6b-v2",
+            display_name="Parakeet TDT 0.6B v2",
+            engine="parakeet",
+            hf_repo_id="nvidia/parakeet-tdt-0.6b-v2",
+            model_size="parakeet-tdt-0.6b-v2",
+            size_mb=2400,
+            languages=["en"],
+        ),
+        ModelConfig(
+            model_name="parakeet-tdt-0.6b-v3",
+            display_name="Parakeet TDT 0.6B v3",
+            engine="parakeet",
+            hf_repo_id="nvidia/parakeet-tdt-0.6b-v3",
+            model_size="parakeet-tdt-0.6b-v3",
+            size_mb=2400,
+            languages=parakeet_v3_languages,
+        ),
+    ]
+
+
 def _get_qwen_llm_configs() -> list[ModelConfig]:
     """Return Qwen3 LLM configs with backend-aware HF repo IDs.
 
@@ -466,6 +565,7 @@ def get_all_model_configs() -> list[ModelConfig]:
         + _get_qwen_custom_voice_configs()
         + _get_non_qwen_tts_configs()
         + _get_whisper_configs()
+        + _get_parakeet_configs()
         + _get_qwen_llm_configs()
     )
 
@@ -481,8 +581,8 @@ def get_llm_model_configs() -> list[ModelConfig]:
 
 
 def get_stt_model_configs() -> list[ModelConfig]:
-    """Return only STT (Whisper) model configs."""
-    return _get_whisper_configs()
+    """Return only STT (Whisper + Parakeet) model configs."""
+    return _get_whisper_configs() + _get_parakeet_configs()
 
 
 # Lookup helpers — these replace the if/elif chains in main.py
@@ -552,10 +652,10 @@ def unload_model_by_config(config: ModelConfig) -> bool:
     from . import get_tts_backend_for_engine
     from ..services import tts, transcribe, llm as llm_service
 
-    if config.engine == "whisper":
-        whisper_model = transcribe.get_whisper_model()
-        if whisper_model.is_loaded() and whisper_model.model_size == config.model_size:
-            transcribe.unload_whisper_model()
+    if config.engine in ("whisper", "parakeet"):
+        stt_model = transcribe.get_stt_model()
+        if stt_model.is_loaded() and getattr(stt_model, "model_name", None) == config.model_name:
+            transcribe.unload_stt_model()
             return True
         return False
 
@@ -597,9 +697,9 @@ def check_model_loaded(config: ModelConfig) -> bool:
     from ..services import tts, transcribe, llm as llm_service
 
     try:
-        if config.engine == "whisper":
-            whisper_model = transcribe.get_whisper_model()
-            return whisper_model.is_loaded() and getattr(whisper_model, "model_size", None) == config.model_size
+        if config.engine in ("whisper", "parakeet"):
+            stt_model = transcribe.get_stt_model()
+            return stt_model.is_loaded() and getattr(stt_model, "model_name", None) == config.model_name
 
         if config.engine == "qwen_llm":
             backend = llm_service.get_llm_model()
@@ -627,8 +727,8 @@ def get_model_load_func(config: ModelConfig):
     from . import get_tts_backend_for_engine
     from ..services import tts, transcribe, llm as llm_service
 
-    if config.engine == "whisper":
-        return lambda: transcribe.get_whisper_model().load_model(config.model_size)
+    if config.engine in ("whisper", "parakeet"):
+        return lambda: transcribe.get_stt_model().load_model(config.model_name)
 
     if config.engine == "qwen":
         return lambda: tts.get_tts_model().load_model(config.model_size)

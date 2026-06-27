@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import type { WhisperModelSize } from '@/lib/api/types';
+import type { SttModelId } from '@/lib/api/types';
 import type { LanguageCode } from '@/lib/constants/languages';
 
 export function useTranscription() {
@@ -12,7 +12,7 @@ export function useTranscription() {
     }: {
       file: File;
       language?: LanguageCode;
-      model?: WhisperModelSize;
+      model?: SttModelId;
     }) => apiClient.transcribeAudio(file, language, model),
   });
 }

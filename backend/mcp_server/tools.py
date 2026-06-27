@@ -284,16 +284,24 @@ def _speak_response(
 async def _transcribe_file(
     path: Path, language: str | None, model: str | None
 ) -> dict[str, Any]:
-    from ..backends import WHISPER_HF_REPOS
+    from ..backends import STT_HF_REPOS, normalize_stt_model_name
     from ..services import transcribe as transcribe_service
     from ..utils.audio import load_audio
 
-    whisper = transcribe_service.get_whisper_model()
-    model_size = model or whisper.model_size
-    valid = list(WHISPER_HF_REPOS.keys())
-    if model_size not in valid:
+    stt = transcribe_service.get_stt_model()
+
+    # Resolve model: explicit param > user's saved setting > backend default
+    if not model:
+        from ..services import settings as settings_service
+        from ..database import get_db
+        db = next(get_db())
+        saved = settings_service.get_capture_settings(db)
+        model = saved.stt_model if saved else None
+    model_name = normalize_stt_model_name(model or stt.model_name)
+    valid = list(STT_HF_REPOS.keys())
+    if model_name not in valid:
         raise ValueError(
-            f"Invalid STT model '{model_size}'. Must be one of: {', '.join(valid)}"
+            f"Invalid STT model '{model_name}'. Must be one of: {', '.join(valid)}"
         )
 
     # load_audio is sync; keep the event loop responsive.
@@ -301,14 +309,14 @@ async def _transcribe_file(
     duration = len(audio) / sr
 
     if (
-        not whisper.is_loaded() or whisper.model_size != model_size
-    ) and not whisper._is_model_cached(model_size):
+        not stt.is_loaded() or stt.model_name != model_name
+    ) and not stt._is_model_cached(model_name):
         raise ValueError(
-            f"Whisper model '{model_size}' is not yet downloaded. Open "
+            f"STT model '{model_name}' is not yet downloaded. Open "
             "Voicebox → Settings → Models to download it first."
         )
 
-    text = await whisper.transcribe(str(path), language, model_size)
+    text = await stt.transcribe(str(path), language, model_name)
     return {
         "text": text,
         "duration": duration,

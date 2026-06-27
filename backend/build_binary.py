@@ -157,6 +157,11 @@ def build_server(cuda=False):
             "torch",
             "--hidden-import",
             "transformers",
+            # Parakeet STT modeling — AutoModelForTDT resolves this
+            # dynamically, so collect it explicitly so the frozen build can
+            # load parakeet-tdt variants.
+            "--collect-submodules",
+            "transformers.models.parakeet",
             "--hidden-import",
             "fastapi",
             "--hidden-import",
