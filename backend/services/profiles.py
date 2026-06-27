@@ -24,7 +24,7 @@ from ..utils.images import process_avatar, validate_image
 
 logger = logging.getLogger(__name__)
 
-CLONING_ENGINES = {"qwen", "luxtts", "chatterbox", "chatterbox_turbo", "tada"}
+CLONING_ENGINES = {"qwen", "luxtts", "chatterbox_turbo"}
 
 
 def _profile_to_response(
@@ -54,7 +54,6 @@ def _profile_to_response(
         preset_voice_id=getattr(profile, "preset_voice_id", None),
         design_prompt=getattr(profile, "design_prompt", None),
         default_engine=getattr(profile, "default_engine", None),
-        personality=getattr(profile, "personality", None),
         generation_count=generation_count,
         sample_count=sample_count,
         created_at=profile.created_at,
@@ -120,9 +119,7 @@ def validate_profile_engine(profile, engine: str) -> None:
         if not preset_engine or not preset_voice_id:
             raise ValueError(f"Preset profile {profile.id} is missing preset engine metadata")
         if preset_engine != engine:
-            raise ValueError(
-                f"Preset profile {profile.id} only supports engine '{preset_engine}', not '{engine}'"
-            )
+            raise ValueError(f"Preset profile {profile.id} only supports engine '{preset_engine}', not '{engine}'")
         return
 
     if voice_type == "designed":
@@ -182,7 +179,6 @@ async def create_profile(
         preset_voice_id=data.preset_voice_id,
         design_prompt=data.design_prompt,
         default_engine=default_engine,
-        personality=data.personality,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -222,9 +218,7 @@ async def add_profile_sample(
         raise ValueError(f"Profile {profile_id} not found")
 
     # Validate and load audio in a single pass, off the event loop
-    is_valid, error_msg, audio, sr = await asyncio.to_thread(
-        validate_and_load_reference_audio, audio_path
-    )
+    is_valid, error_msg, audio, sr = await asyncio.to_thread(validate_and_load_reference_audio, audio_path)
     if not is_valid:
         raise ValueError(f"Invalid reference audio: {error_msg}")
 
@@ -275,27 +269,6 @@ async def get_profile(
         return None
 
     return _profile_to_response(profile)
-
-
-def get_profile_orm_by_name_or_id(
-    name_or_id: str,
-    db: Session,
-) -> DBVoiceProfile | None:
-    """Resolve a profile from a user-supplied string that may be either id or name.
-
-    Id is tried first (fast path, matches UUIDs). Name fallback is
-    case-insensitive so agents can say "Morgan" regardless of casing.
-    """
-    if not name_or_id:
-        return None
-    row = db.query(DBVoiceProfile).filter(DBVoiceProfile.id == name_or_id).first()
-    if row is not None:
-        return row
-    return (
-        db.query(DBVoiceProfile)
-        .filter(func.lower(DBVoiceProfile.name) == name_or_id.lower())
-        .first()
-    )
 
 
 async def get_profile_samples(
@@ -385,7 +358,9 @@ async def update_profile(
     preset_engine = getattr(profile, "preset_engine", None)
     preset_voice_id = getattr(profile, "preset_voice_id", None)
     design_prompt = getattr(profile, "design_prompt", None)
-    default_engine = data.default_engine if data.default_engine is not None else getattr(profile, "default_engine", None)
+    default_engine = (
+        data.default_engine if data.default_engine is not None else getattr(profile, "default_engine", None)
+    )
 
     validation_error = _validate_profile_fields(
         voice_type=voice_type,
@@ -400,7 +375,6 @@ async def update_profile(
     profile.name = data.name
     profile.description = data.description
     profile.language = data.language
-    profile.personality = data.personality
     if data.default_engine is not None:
         profile.default_engine = data.default_engine or None  # empty string → NULL
     profile.updated_at = datetime.utcnow()

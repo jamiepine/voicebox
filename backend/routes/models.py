@@ -48,7 +48,7 @@ def _copy_with_progress(src: Path, dst: Path, progress_manager, copied_so_far: i
 
 
 @router.post("/models/load")
-async def load_model(model_size: str = "1.7B"):
+async def load_model(model_size: str = "0.6B"):
     """Manually load TTS model."""
     from ..services import tts
 
@@ -135,14 +135,13 @@ async def migrate_models(request: models.ModelMigrateRequest):
     if destination.resolve().is_relative_to(source.resolve()):
         raise HTTPException(status_code=400, detail="Destination cannot be inside the current cache directory")
 
-    progress_manager = get_progress_manager()
     model_dirs = [d for d in source.iterdir() if d.name.startswith("models--") and d.is_dir()]
     if not model_dirs:
-        progress_manager.update_progress("migration", 1, 1, status="complete")
-        progress_manager.mark_complete("migration")
         return {"moved": 0, "errors": [], "source": str(source), "destination": str(destination)}
 
     destination.mkdir(parents=True, exist_ok=True)
+
+    progress_manager = get_progress_manager()
 
     same_fs = False
     try:

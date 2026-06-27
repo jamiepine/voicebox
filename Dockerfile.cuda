@@ -1,0 +1,83 @@
+# Voicebox GPU Docker image with CUDA support
+# Simplified single-stage build for reliability
+ARG CUDA_VERSION=12.8.1
+ARG UBUNTU_VERSION=22.04
+ARG PYTHON_VERSION=3.11
+
+# --- Frontend Build Stage ---
+FROM oven/bun:1 AS frontend
+WORKDIR /build
+COPY package.json bun.lock CHANGELOG.md ./
+COPY app/ ./app/
+COPY web/ ./web/
+RUN sed -i '/"tauri"/d; /"landing"/d' package.json && \
+    sed -i -z 's/,\n  ]/\n  ]/' package.json
+RUN bun install --no-save
+RUN cd web && bunx --bun vite build
+
+# --- Main GPU Stage ---
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZDATA=UTC
+
+WORKDIR /app
+
+# Install System Dependencies & Python 3.11 (Manual PPA addition to bypass add-apt-repository timeout)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git build-essential ca-certificates curl gnupg2 ffmpeg sox libsox-fmt-all libatomic1 \
+    && echo "deb https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu jammy main" > /etc/apt/sources.list.d/deadsnakes.list \
+    && apt-key adv --keyserver keyserver.ubuntu.com --recv-keys F23C5A6CF475977595C89F51BA6932366A755776 \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Setup Python Virtual Environment
+RUN python3.11 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir --upgrade pip
+
+# Install Core Python Dependencies
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" pydantic sqlalchemy alembic huggingface_hub python-multipart Pillow httpx fastmcp
+
+# Install PyTorch with CUDA support
+RUN pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+
+# Install Audio and TTS Libraries
+RUN pip install --no-cache-dir librosa soundfile "numba>=0.60.0,<0.61.0" "numpy>=1.24.0,<2.1" pedalboard \
+    conformer "diffusers>=0.29.0" omegaconf pykakasi resemble-perth s3tokenizer spacy-pkuseg pyloudnorm \
+    "kokoro>=0.9.4" "misaki[en,ja,zh]>=0.9.4"
+
+# Install NLP models
+RUN pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
+# Install specialized TTS engines
+RUN pip install --no-cache-dir --no-deps chatterbox-tts hume-tada && \
+    pip install --no-cache-dir --no-deps git+https://github.com/ysharma3501/LinaCodec.git && \
+    pip install --no-cache-dir "Zipvoice>=0.1.0" && \
+    pip install --no-cache-dir git+https://github.com/QwenLM/Qwen3-TTS.git
+
+# Setup User and Permissions
+RUN groupadd -r voicebox && useradd -r -g voicebox -m -s /bin/bash voicebox
+
+# Copy Application Code
+COPY backend/ /app/backend/
+COPY --from=frontend /build/web/dist /app/frontend/
+COPY docker-entrypoint.sh /scripts/docker-entrypoint.sh
+RUN chmod +x /scripts/docker-entrypoint.sh && chown -R voicebox:voicebox /app /scripts
+
+# Final Environment Setup
+ENV NUMBA_CACHE_DIR=/home/voicebox/.cache/numba
+ENV JOBLIB_CACHE_DIR=/home/voicebox/.cache/joblib
+ENV HF_HOME=/home/voicebox/.cache/huggingface
+ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+ENV CUDA_VISIBLE_DEVICES=0
+
+RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache \
+    /home/voicebox/.cache/numba /home/voicebox/.cache/joblib /home/voicebox/.cache/huggingface \
+    && chown -R voicebox:voicebox /app/data /home/voicebox/.cache
+
+USER voicebox
+EXPOSE 17493
+ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "17493"]

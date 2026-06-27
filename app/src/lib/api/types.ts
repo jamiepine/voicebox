@@ -12,8 +12,6 @@ export interface VoiceProfileCreate {
   preset_voice_id?: string;
   design_prompt?: string;
   default_engine?: string;
-  /** Free-form character prompt used by compose and the `/generate` personality-rewrite path. */
-  personality?: string;
 }
 
 export interface VoiceProfileResponse {
@@ -28,17 +26,10 @@ export interface VoiceProfileResponse {
   preset_voice_id?: string;
   design_prompt?: string;
   default_engine?: string;
-  personality?: string | null;
   generation_count: number;
   sample_count: number;
   created_at: string;
   updated_at: string;
-}
-
-/** Response returned by /profiles/{id}/compose. */
-export interface PersonalityTextResponse {
-  text: string;
-  model_size: string;
 }
 
 export interface PresetVoice {
@@ -70,18 +61,9 @@ export interface GenerationRequest {
   text: string;
   language: LanguageCode;
   seed?: number;
-  model_size?: '1.7B' | '0.6B' | '1B' | '3B';
-  engine?:
-    | 'qwen'
-    | 'qwen_custom_voice'
-    | 'luxtts'
-    | 'chatterbox'
-    | 'chatterbox_turbo'
-    | 'tada'
-    | 'kokoro';
+  model_size?: '0.6B';
+  engine?: 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox_turbo' | 'kokoro';
   instruct?: string;
-  /** When true and the profile has a personality prompt, input text is rewritten in-character before TTS. */
-  personality?: boolean;
   max_chunk_chars?: number;
   crossfade_ms?: number;
   normalize?: boolean;
@@ -137,118 +119,6 @@ export interface HistoryListResponse {
 }
 
 export type WhisperModelSize = 'base' | 'small' | 'medium' | 'large' | 'turbo';
-
-export type Qwen3ModelSize = '0.6B' | '1.7B' | '4B';
-
-export type CaptureSource = 'dictation' | 'recording' | 'file';
-
-/**
- * Snapshot of the accessibility-focused UI element at chord-start. Emitted
- * from Rust as part of the ``dictate:start`` payload so the frontend can
- * pass it back to ``paste_final_text`` once the final text is ready.
- */
-export interface FocusSnapshot {
-  pid: number;
-  bundle_id: string | null;
-  role: string | null;
-}
-
-export interface RefinementFlags {
-  smart_cleanup: boolean;
-  self_correction: boolean;
-  preserve_technical: boolean;
-}
-
-export interface CaptureResponse {
-  id: string;
-  audio_path: string;
-  source: CaptureSource;
-  language?: string | null;
-  duration_ms?: number | null;
-  transcript_raw: string;
-  transcript_refined?: string | null;
-  stt_model?: string | null;
-  llm_model?: string | null;
-  refinement_flags?: RefinementFlags | null;
-  created_at: string;
-}
-
-export interface CaptureListResponse {
-  items: CaptureResponse[];
-  total: number;
-}
-
-/**
- * Response of ``POST /captures``. Adds ``auto_refine`` and ``allow_auto_paste``
- * — the server's current settings captured at request time — so the client
- * can decide whether to chain a refine call and whether to fire the
- * synthetic-paste pipeline without relying on its own (possibly stale) copy
- * of capture_settings.
- */
-export interface CaptureCreateResponse extends CaptureResponse {
-  auto_refine: boolean;
-  allow_auto_paste: boolean;
-}
-
-export interface CaptureRefineRequest {
-  flags?: RefinementFlags;
-  model_size?: Qwen3ModelSize;
-}
-
-export interface CaptureRetranscribeRequest {
-  model?: WhisperModelSize;
-  language?: LanguageCode;
-}
-
-export interface CaptureSettings {
-  stt_model: WhisperModelSize;
-  language: string;
-  auto_refine: boolean;
-  llm_model: Qwen3ModelSize;
-  smart_cleanup: boolean;
-  self_correction: boolean;
-  preserve_technical: boolean;
-  allow_auto_paste: boolean;
-  default_playback_voice_id: string | null;
-  /** Whether the global keyboard hotkey is armed. Off by default — turning
-   *  this on triggers the macOS Input Monitoring TCC prompt. */
-  hotkey_enabled: boolean;
-  /** keytap key names. Defaults are platform-specific right-hand modifiers. */
-  chord_push_to_talk_keys: string[];
-  /** keytap key names. Toggle adds Space to the platform-specific PTT chord. */
-  chord_toggle_to_talk_keys: string[];
-}
-
-export type CaptureSettingsUpdate = Partial<CaptureSettings>;
-
-/**
- * One row in the dictation readiness checklist. ``model_name`` is the
- * canonical id understood by ``POST /models/download`` so the UI can wire a
- * one-click "Download" button without a second lookup.
- */
-export interface ModelReadiness {
-  ready: boolean;
-  model_name: string;
-  display_name: string;
-  size: string;
-  size_mb?: number | null;
-}
-
-/** Backend half of the dictation readiness check. The frontend combines this
- *  with TCC permission state into the full checklist used by useDictationReadiness. */
-export interface CaptureReadinessResponse {
-  stt: ModelReadiness;
-  llm: ModelReadiness;
-}
-
-export interface GenerationSettings {
-  max_chunk_chars: number;
-  crossfade_ms: number;
-  normalize_audio: boolean;
-  autoplay_on_generate: boolean;
-}
-
-export type GenerationSettingsUpdate = Partial<GenerationSettings>;
 
 export interface TranscriptionRequest {
   language?: LanguageCode;
@@ -391,15 +261,9 @@ export interface StoryItemDetail {
   duration: number;
   seed?: number;
   instruct?: string;
-  engine?: string;
-  volume: number;
   generation_created_at: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
-}
-
-export interface StoryItemVolumeUpdate {
-  volume: number;
 }
 
 export interface StoryItemVersionUpdate {
@@ -495,29 +359,4 @@ export interface ApplyEffectsRequest {
   source_version_id?: string;
   label?: string;
   set_as_default?: boolean;
-}
-
-/* ─── MCP ─────────────────────────────────────────────────────────────── */
-
-export interface MCPClientBinding {
-  client_id: string;
-  label: string | null;
-  profile_id: string | null;
-  default_engine: string | null;
-  default_personality: boolean;
-  last_seen_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface MCPClientBindingUpsert {
-  client_id: string;
-  label?: string | null;
-  profile_id?: string | null;
-  default_engine?: string | null;
-  default_personality?: boolean;
-}
-
-export interface MCPClientBindingListResponse {
-  items: MCPClientBinding[];
 }

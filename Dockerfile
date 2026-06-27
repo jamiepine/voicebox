@@ -1,83 +1,89 @@
-# ============================================================
-# Voicebox — Local TTS Server with Web UI (CPU)
-# 3-stage build: Frontend → Python deps → Runtime
-# ============================================================
+ARG CUDA_VERSION=12.8.1
+ARG UBUNTU_VERSION=22.04
 
-# === Stage 1: Build frontend ===
 FROM oven/bun:1 AS frontend
 
 WORKDIR /build
-
-# Copy workspace config and frontend source
 COPY package.json bun.lock CHANGELOG.md ./
 COPY app/ ./app/
 COPY web/ ./web/
-
-# Strip workspaces not needed for web build, and fix trailing comma
 RUN sed -i '/"tauri"/d; /"landing"/d' package.json && \
     sed -i -z 's/,\n  ]/\n  ]/' package.json
 RUN bun install --no-save
-# Build frontend (skip tsc — upstream has pre-existing type errors)
 RUN cd web && bunx --bun vite build
 
 
-# === Stage 2: Build Python dependencies ===
-FROM python:3.11-slim AS backend-builder
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION} AS backend-builder
 
 WORKDIR /build
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    build-essential \
+    git build-essential python3.11 python3.11-dev python3.11-venv \
     && rm -rf /var/lib/apt/lists/*
 
+RUN python3.11 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir --upgrade pip
 
-COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
-RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
-RUN pip install --no-cache-dir --prefix=/install \
-    git+https://github.com/QwenLM/Qwen3-TTS.git
+COPY backend/requirements.txt /build/requirements.txt
+
+RUN pip install --no-cache-dir fastapi "uvicorn[standard]" pydantic sqlalchemy alembic huggingface_hub python-multipart Pillow httpx
+RUN pip install --no-cache-dir "fastmcp>=0.4.0"
+RUN pip install --no-cache-dir librosa soundfile "numba>=0.60.0,<0.61.0" "numpy>=1.24.0,<2.1" pedalboard
+
+RUN pip install --no-cache-dir conformer "diffusers>=0.29.0" omegaconf pykakasi resemble-perth s3tokenizer spacy-pkuseg pyloudnorm
+
+RUN pip install --no-cache-dir "kokoro>=0.9.4" "misaki[en,ja,zh]>=0.9.4"
+RUN pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+
+RUN pip install --no-cache-dir "qwen-tts>=0.0.5" "modelscope>=1.18.0"
+
+RUN pip install --no-cache-dir --no-deps chatterbox-tts
+# Zipvoice (LuxTTS) needs explicit install — git deps fail under --prefix
+RUN pip install --no-cache-dir --no-deps \
+    git+https://github.com/ysharma3501/LinaCodec.git && \
+    pip install --no-cache-dir \
+    "Zipvoice @ git+https://github.com/ysharma3501/LuxTTS.git"
 
 
-# === Stage 3: Runtime ===
-FROM python:3.11-slim
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu${UBUNTU_VERSION}
 
-# Create non-root user for security
-RUN groupadd -r voicebox && \
-    useradd -r -g voicebox -m -s /bin/bash voicebox
-
-WORKDIR /app
-
-# Install only runtime system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    curl \
+    python3.11 python3.11-venv ffmpeg curl sox libsox-fmt-all libatomic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy installed Python packages from builder stage
-COPY --from=backend-builder /install /usr/local
+RUN python3.11 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy backend application code
+COPY --from=backend-builder /opt/venv /opt/venv
+
+RUN groupadd -r voicebox && useradd -r -g voicebox -m -s /bin/bash voicebox
+
+WORKDIR /app
 COPY --chown=voicebox:voicebox backend/ /app/backend/
-
-# Copy built frontend from frontend stage
 COPY --from=frontend --chown=voicebox:voicebox /build/web/dist /app/frontend/
 
-# Create data directories owned by non-root user
 RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache \
     && chown -R voicebox:voicebox /app/data
+RUN mkdir -p /home/voicebox/.cache/numba /home/voicebox/.cache/joblib /home/voicebox/.cache/huggingface \
+    && chown -R voicebox:voicebox /home/voicebox/.cache
+RUN mkdir -p /scripts && chown -R voicebox:voicebox /scripts
+COPY --chown=voicebox:voicebox docker-entrypoint.sh /scripts/docker-entrypoint.sh
+RUN chmod +x /scripts/docker-entrypoint.sh
 
-# Switch to non-root user
+ENV NUMBA_CACHE_DIR=/home/voicebox/.cache/numba
+ENV JOBLIB_CACHE_DIR=/home/voicebox/.cache/joblib
+ENV HF_HOME=/home/voicebox/.cache/huggingface
+
 USER voicebox
 
-# Expose the API port
+ENTRYPOINT ["/scripts/docker-entrypoint.sh"]
+
+# Pre-download TTS models so they exist at runtime with correct ownership
+RUN python3.11 -c "from qwen_tts import Qwen3TTS; m = Qwen3TTS.from_pretrained('Qwen/Qwen3-TTS-12Hz-1.7B-Base')" 2>/dev/null || true
+
 EXPOSE 17493
 
-# Health check — auto-restart if the server hangs
-HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=120s \
     CMD curl -f http://localhost:17493/health || exit 1
 
-# Start the FastAPI server
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "17493"]
