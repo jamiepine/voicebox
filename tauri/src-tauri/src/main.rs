@@ -1273,7 +1273,10 @@ pub fn run() {
                 let handle_for_hide = app.handle().clone();
                 app.handle().listen("dictate:hide", move |_event| {
                     if let Some(window) = handle_for_hide.get_webview_window(DICTATE_WINDOW_LABEL) {
-                        let _ = window.set_ignore_cursor_events(true);
+                        #[cfg(not(target_os = "linux"))]
+                        {
+                            let _ = window.set_ignore_cursor_events(true);
+                        }
                         let _ = window.set_position(PhysicalPosition::new(-10_000, -10_000));
                         let _ = window.hide();
                     }

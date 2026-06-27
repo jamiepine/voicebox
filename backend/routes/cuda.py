@@ -26,6 +26,10 @@ async def download_cuda_backend():
     """Download the CUDA backend binary."""
     from ..services import cuda
 
+    reason = cuda.get_cuda_download_unsupported_reason()
+    if reason:
+        raise HTTPException(status_code=409, detail=reason)
+
     if cuda.get_cuda_binary_path() is not None:
         raise HTTPException(status_code=409, detail="CUDA backend already downloaded")
 

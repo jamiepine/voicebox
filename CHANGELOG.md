@@ -5,6 +5,19 @@
 
 # Changelog
 
+## [Unreleased]
+
+A focused stability pass after the 0.5.0 Capture release — seven bug fixes targeting the most-reported regressions from the tracker. Personality LLM now actually uses the refinement model you picked instead of silently defaulting to Qwen3 0.6B, long-form Whisper transcription works on the PyTorch path (not just MLX), CUDA downloads no longer crash on unsupported platforms, model downloads fail fast on genuine errors instead of retrying infinitely, and avatar uploads enforce a 10MB size cap with extension validation. Two smaller quality-of-life fixes round out the batch: the dictate pill no longer aborts on Linux when hidden, and the deprecated `datetime.utcnow()` calls that were printing warnings on every request have been replaced with `datetime.now(UTC)`.
+
+### Bug Fixes
+- **Personality LLM refinement model** ([#7](https://github.com/voicebox-ai/voicebox/pull/7)) — Speak in character and Compose now respect the selected refinement model instead of always defaulting to Qwen3 0.6B.
+- **CUDA downloads on unsupported platforms** ([#1](https://github.com/voicebox-ai/voicebox/pull/1)) — CUDA binary download is now gracefully skipped on platforms where CUDA isn't available, instead of failing with an error.
+- **Model download fail-fast** ([#3](https://github.com/voicebox-ai/voicebox/pull/3)) — Model downloads now fail immediately when a genuine error occurs instead of retrying infinitely.
+- **Avatar upload size limit** ([#5](https://github.com/voicebox-ai/voicebox/pull/5)) — Enforces a 10MB size limit and validates file extensions for voice profile avatar uploads.
+- **Dictate pill Linux abort** ([#2](https://github.com/voicebox-ai/voicebox/pull/2)) — The dictate pill no longer crashes on Linux when the user hides it.
+- **Long-form Whisper on PyTorch** ([#4](https://github.com/voicebox-ai/voicebox/pull/4)) — Long-form Whisper transcription now works on the PyTorch backend path, not just MLX.
+- **`datetime.utcnow()` deprecation** ([#6](https://github.com/voicebox-ai/voicebox/pull/6)) — Replaced all deprecated `datetime.utcnow()` calls with `datetime.now(UTC)` to eliminate deprecation warnings.
+
 ## [0.5.0] - 2026-04-22
 
 **The Capture release.** Voicebox stops being just a voice-cloning studio and becomes a full AI voice studio. Hold a key anywhere on your machine, speak, release — the transcript lands in the focused text field. Flip the primitive around and any MCP-aware agent — Claude Code, Cursor, Spacebot — speaks back through an on-screen pill in one of your cloned voices. A local LLM sits between the two, so transcripts come out clean and voice profiles can carry a personality that reshapes what the agent says before it gets spoken.

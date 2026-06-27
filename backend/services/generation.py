@@ -58,6 +58,17 @@ async def run_generation(
     try:
         tts_model = get_tts_backend_for_engine(engine)
 
+        # Defensive check: if model is not cached, fail fast instead of infinite retry in offline mode.
+        # This prevents the server from spinning and consuming CPU when weights are missing.
+        try:
+            is_cached = tts_model._is_model_cached(model_size) if hasattr(tts_model, "_is_model_cached") else True
+            if not is_cached:
+                raise RuntimeError("Model not downloaded. Connect to the internet and download it from Settings → Models first.")
+        except Exception as e:
+            if isinstance(e, RuntimeError) and "Model not downloaded" in str(e):
+                raise e
+            # Fall back gracefully if the check itself raises or signature is unusual.
+
         if not tts_model.is_loaded():
             await history.update_generation_status(generation_id, "loading_model", bg_db)
 

@@ -4,7 +4,7 @@ import io
 import json as _json
 import logging
 import tempfile
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .. import config, models
 from ..app import safe_content_disposition
 from ..database import VoiceProfile as DBVoiceProfile, get_db
-from ..services import channels, export_import, personality, profiles
+from ..services import channels, export_import, personality, profiles, settings as settings_service
 from ..services.profiles import _profile_to_response
 
 logger = logging.getLogger(__name__)
@@ -148,6 +148,9 @@ async def delete_profile(
 
 SAMPLE_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 SAMPLE_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
+AVATAR_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+AVATAR_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
+_ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
 
 
 @router.post("/profiles/{profile_id}/samples", response_model=models.ProfileSampleResponse)
@@ -232,9 +235,22 @@ async def upload_profile_avatar(
     db: Session = Depends(get_db),
 ):
     """Upload or update avatar image for a profile."""
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
-        content = await file.read()
-        tmp.write(content)
+    _uploaded_ext = Path(file.filename or "").suffix.lower()
+    if _uploaded_ext not in _ALLOWED_IMAGE_EXTS:
+        raise HTTPException(status_code=400, detail=f"Unsupported file extension: {_uploaded_ext}")
+    file_suffix = _uploaded_ext
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file_suffix) as tmp:
+        total_size = 0
+        while chunk := await file.read(AVATAR_UPLOAD_CHUNK_SIZE):
+            total_size += len(chunk)
+            if total_size > AVATAR_MAX_FILE_SIZE:
+                Path(tmp.name).unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large (max {AVATAR_MAX_FILE_SIZE // (1024 * 1024)} MB)",
+                )
+            tmp.write(chunk)
         tmp_path = tmp.name
 
     try:
@@ -356,7 +372,7 @@ async def update_profile_effects(
     else:
         profile.effects_chain = None
 
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(profile)
 
@@ -384,7 +400,10 @@ async def compose_in_character(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
     try:
-        result = await personality.compose_as_profile(profile.personality)
+        saved = settings_service.get_capture_settings(db)
+        result = await personality.compose_as_profile(
+            profile.personality, model_size=saved.llm_model
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return models.PersonalityTextResponse(

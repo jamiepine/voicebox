@@ -3,7 +3,7 @@ Generation history management module.
 """
 
 from typing import List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 import shutil
 from pathlib import Path
@@ -104,7 +104,7 @@ async def create_generation(
         model_size=model_size,
         status=status,
         source=source,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
     db.add(db_generation)
