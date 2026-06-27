@@ -11,6 +11,7 @@ import {
   HardDrive,
   Heart,
   Loader2,
+  Lock,
   RotateCcw,
   Scale,
   Trash2,
@@ -552,6 +553,8 @@ export function ModelManagement() {
                           <CircleX className="h-4 w-4 text-destructive" />
                         ) : isDownloading ? (
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : !model.platform_compatible ? (
+                          <Lock className="h-4 w-4 text-muted-foreground/50" />
                         ) : model.loaded ? (
                           <CircleCheck className="h-4 w-4 text-accent" />
                         ) : model.downloaded ? (
@@ -587,6 +590,16 @@ export function ModelManagement() {
                         {hasError && (
                           <Badge variant="destructive" className="text-[10px] h-5">
                             {t('common.error')}
+                          </Badge>
+                        )}
+                        {!model.platform_compatible && model.requires.length > 0 && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] h-5 text-muted-foreground border-muted-foreground/30"
+                            title={`Requires: ${model.requires.join(', ')}`}
+                          >
+                            <Lock className="h-2.5 w-2.5 mr-1" />
+                            {model.requires.join('/')}
                           </Badge>
                         )}
                         {model.loaded && (

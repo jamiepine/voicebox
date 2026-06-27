@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import models
-from ..utils.platform_detect import get_backend_type
+from ..utils.platform_detect import get_backend_type, get_supported_platforms
 from ..services.task_queue import create_background_task
 from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
@@ -242,6 +242,7 @@ async def get_model_status():
 
     from ..backends import get_all_model_configs, check_model_loaded
 
+    supported_platforms = get_supported_platforms()
     registry_configs = get_all_model_configs()
     model_configs = [
         {
@@ -249,6 +250,10 @@ async def get_model_status():
             "display_name": cfg.display_name,
             "hf_repo_id": cfg.hf_repo_id,
             "model_size": cfg.model_size,
+            "requires": cfg.requires,
+            "platform_compatible": (
+                not cfg.requires or any(p in supported_platforms for p in cfg.requires)
+            ),
             "check_loaded": lambda c=cfg: check_model_loaded(c),
         }
         for cfg in registry_configs
@@ -359,6 +364,8 @@ async def get_model_status():
                     downloading=is_downloading,
                     size_mb=size_mb,
                     loaded=loaded,
+                    platform_compatible=config["platform_compatible"],
+                    requires=config["requires"],
                 )
             )
         except Exception:
@@ -378,6 +385,8 @@ async def get_model_status():
                     downloading=is_downloading,
                     size_mb=None,
                     loaded=loaded,
+                    platform_compatible=config["platform_compatible"],
+                    requires=config["requires"],
                 )
             )
 
