@@ -544,7 +544,7 @@ export function ModelManagement() {
                       key={model.model_name}
                       type="button"
                       onClick={() => openModelDetail(model)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/50 transition-colors group"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-start hover:bg-muted/50 transition-colors group"
                     >
                       {/* Status indicator */}
                       <div className="shrink-0">
@@ -635,7 +635,7 @@ export function ModelManagement() {
                   onClick={() => clearAllMutation.mutate()}
                   disabled={clearAllMutation.isPending}
                 >
-                  <RotateCcw className="h-3 w-3 mr-1" />
+                  <RotateCcw className="h-3 w-3 me-1" />
                   {t('models.problems.clearAll')}
                 </Button>
               </div>
@@ -701,13 +701,13 @@ export function ModelManagement() {
                 <div className="flex items-center gap-2 flex-wrap">
                   {freshSelectedModel.loaded && (
                     <Badge className="text-xs bg-accent/15 text-accent border-accent/30 hover:bg-accent/15">
-                      <CircleCheck className="h-3 w-3 mr-1" />
+                      <CircleCheck className="h-3 w-3 me-1" />
                       {t('models.status.loaded')}
                     </Badge>
                   )}
                   {selectedState?.hasError && (
                     <Badge variant="destructive" className="text-xs">
-                      <CircleX className="h-3 w-3 mr-1" />
+                      <CircleX className="h-3 w-3 me-1" />
                       {t('common.error')}
                     </Badge>
                   )}
@@ -817,7 +817,7 @@ export function ModelManagement() {
                         variant="outline"
                         className="flex-1"
                       >
-                        <Download className="h-4 w-4 mr-2" />
+                        <Download className="h-4 w-4 me-2" />
                         {t('models.actions.retry')}
                       </Button>
                       <Button
@@ -876,9 +876,9 @@ export function ModelManagement() {
                           className="flex-1"
                         >
                           {unloadMutation.isPending ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 me-2 animate-spin" />
                           ) : (
-                            <Unplug className="h-4 w-4 mr-2" />
+                            <Unplug className="h-4 w-4 me-2" />
                           )}
                           {unloadMutation.isPending
                             ? t('models.actions.unloading')
@@ -904,7 +904,7 @@ export function ModelManagement() {
                         }
                         className="flex-1"
                       >
-                        <Trash2 className="h-4 w-4 mr-2" />
+                        <Trash2 className="h-4 w-4 me-2" />
                         {t('models.actions.deleteModel')}
                       </Button>
                     </div>
@@ -914,7 +914,7 @@ export function ModelManagement() {
                       onClick={() => handleDownload(freshSelectedModel.model_name)}
                       className="flex-1"
                     >
-                      <Download className="h-4 w-4 mr-2" />
+                      <Download className="h-4 w-4 me-2" />
                       {t('models.actions.download')}
                     </Button>
                   )}
@@ -957,7 +957,7 @@ export function ModelManagement() {
             >
               {deleteMutation.isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   {t('models.deleteDialog.deleting')}
                 </>
               ) : (

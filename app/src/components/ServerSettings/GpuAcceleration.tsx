@@ -262,7 +262,7 @@ export function GpuAcceleration() {
                   re-download later).
                 </p>
                 <Button onClick={handleSwitchToCpu} variant="outline" className="w-full" size="sm">
-                  <RotateCw className="h-4 w-4 mr-2" />
+                  <RotateCw className="h-4 w-4 me-2" />
                   Switch to CPU Backend
                 </Button>
               </div>
@@ -341,7 +341,7 @@ export function GpuAcceleration() {
                       NVIDIA GPU with CUDA support.
                     </p>
                     <Button onClick={handleDownload} className="w-full" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
+                      <Download className="h-4 w-4 me-2" />
                       Download CUDA Backend
                     </Button>
                   </div>
@@ -355,7 +355,7 @@ export function GpuAcceleration() {
                       acceleration.
                     </p>
                     <Button onClick={handleRestart} className="w-full" size="sm">
-                      <RotateCw className="h-4 w-4 mr-2" />
+                      <RotateCw className="h-4 w-4 me-2" />
                       Switch to CUDA Backend
                     </Button>
                   </div>
@@ -369,7 +369,7 @@ export function GpuAcceleration() {
                     className="w-full text-muted-foreground "
                     size="sm"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="h-4 w-4 me-2" />
                     Remove CUDA Backend
                   </Button>
                 )}

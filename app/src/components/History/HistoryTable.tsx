@@ -448,13 +448,13 @@ export function HistoryTable() {
                 onClick={() => setClearFailedDialogOpen(true)}
                 disabled={clearFailed.isPending}
               >
-                <Trash2 className="h-3 w-3 mr-1.5" />
+                <Trash2 className="h-3 w-3 me-1.5" />
                 {clearFailed.isPending ? 'Clearing...' : 'Clear failed'}
               </Button>
             </div>
           )}
           {isScrolled && (
-            <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
+            <div className="absolute top-0 start-0 end-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
           )}
           <div
             ref={scrollRef}
@@ -477,7 +477,7 @@ export function HistoryTable() {
                 <div
                   key={gen.id}
                   className={cn(
-                    'border rounded-md bg-card transition-colors text-left w-full',
+                    'border rounded-md bg-card transition-colors text-start w-full',
                     isCurrentlyPlaying && 'bg-muted/70',
                   )}
                 >
@@ -653,36 +653,36 @@ export function HistoryTable() {
                             <DropdownMenuItem
                               onClick={() => handlePlay(gen.id, gen.text, gen.profile_id)}
                             >
-                              <Play className="mr-2 h-4 w-4" />
+                              <Play className="me-2 h-4 w-4" />
                               {t('history.actions.play')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDownloadAudio(gen.id, gen.text)}
                               disabled={exportGenerationAudio.isPending}
                             >
-                              <Download className="mr-2 h-4 w-4" />
+                              <Download className="me-2 h-4 w-4" />
                               {t('history.actions.exportAudio')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleExportPackage(gen.id, gen.text)}
                               disabled={exportGeneration.isPending}
                             >
-                              <FileArchive className="mr-2 h-4 w-4" />
+                              <FileArchive className="me-2 h-4 w-4" />
                               {t('history.actions.exportPackage')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleApplyEffects(gen.id)}>
-                              <Wand2 className="mr-2 h-4 w-4" />
+                              <Wand2 className="me-2 h-4 w-4" />
                               {t('history.actions.applyEffects')}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleRegenerate(gen.id)}>
-                              <RotateCcw className="mr-2 h-4 w-4" />
+                              <RotateCcw className="me-2 h-4 w-4" />
                               {t('history.actions.regenerate')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDeleteClick(gen.id, gen.profile_name)}
                               disabled={deleteGeneration.isPending}
                             >
-                              <Trash2 className="mr-2 h-4 w-4" />
+                              <Trash2 className="me-2 h-4 w-4" />
                               {t('common.delete')}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -717,7 +717,7 @@ export function HistoryTable() {
                                 <button
                                   key={v.id}
                                   type="button"
-                                  className="flex items-center gap-2 w-full h-9 px-3 text-left hover:bg-muted/50 transition-colors"
+                                  className="flex items-center gap-2 w-full h-9 px-3 text-start hover:bg-muted/50 transition-colors"
                                   onClick={() => {
                                     handlePlayVersion(gen.id, v.id, gen.text, gen.profile_id);
                                     if (!v.is_default) {
@@ -882,7 +882,7 @@ export function HistoryTable() {
                     <SelectItem key={v.id} value={v.id} className="text-xs">
                       {v.label}
                       {v.effects_chain && v.effects_chain.length > 0 && (
-                        <span className="text-muted-foreground ml-1.5">
+                        <span className="text-muted-foreground ms-1.5">
                           ({v.effects_chain.map((e) => e.type).join(' + ')})
                         </span>
                       )}

@@ -1,0 +1,1249 @@
+{
+  "common": {
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "delete": "حذف",
+    "edit": "تعديل",
+    "close": "إغلاق",
+    "confirm": "تأكيد",
+    "loading": "جاري التحميل…",
+    "error": "خطأ",
+    "unknown": "غير معروف",
+    "unknownError": "خطأ غير معروف"
+  },
+  "nav": {
+    "generate": "توليد",
+    "stories": "قصص",
+    "captures": "التقاطات",
+    "voices": "أصوات",
+    "effects": "تأثيرات",
+    "audio": "صوتيات",
+    "models": "نماذج",
+    "settings": "إعدادات",
+    "updateBadge": "تحديث"
+  },
+  "captures": {
+    "title": "التقاطات",
+    "beta": "تجريبي",
+    "searchPlaceholder": "البحث في التفريغات الصوتية…",
+    "snippetEmpty": "(لا يوجد تفريغ)",
+    "noTranscriptError": "لا يحتوي الالتقاط على تفريغ صوتي بعد",
+    "captureCardLabel": "التقاط · {{when}}",
+    "header": {
+      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+    },
+    "source": {
+      "dictation": "إملاء",
+      "recording": "تسجيل",
+      "file": "ملف"
+    },
+    "transcript": {
+      "refined": "مُنقّح",
+      "raw": "خام",
+      "refinedHint": "تم التنقيح بواسطة Qwen3 · {{model}}",
+      "rawHint": "تم التفريغ الصوتي بواسطة Whisper {{model}}"
+    },
+    "actions": {
+      "configure": "تكوين",
+      "import": "استيراد",
+      "importing": "جاري الرفع…",
+      "dictate": "إملاء",
+      "stop": "إيقاف",
+      "copy": "نسخ",
+      "refine": "تنقيح",
+      "reRefine": "إعادة التنقيح",
+      "export": "تصدير",
+      "exportDropdownLabel": "تصدير الالتقاط كـ",
+      "exportAudio": "صوت (WAV)",
+      "exportTranscript": "تفريغ صوتي (TXT)",
+      "exportMarkdown": "ماركداون (MD)",
+      "delete": "حذف",
+      "playAs": "تشغيل بصوت {{name}}",
+      "playAsFallback": "تشغيل بصوت…",
+      "playAsGenerating": "جاري التوليد…",
+      "playAsStop": "إيقاف · {{name}}",
+      "playAsStopFallback": "إيقاف · الصوت",
+      "playAsDropdownLabel": "تشغيل التفريغ الصوتي كـ"
+    },
+    "empty": {
+      "noMatches": "لا توجد التقاطات تطابق \"{{query}}\"",
+      "none": "لا توجد التقاطات بعد.",
+      "loading": "جاري تحميل الالتقاطات…",
+      "pickOne": "اختر التقاطاً لعرض التفريغ الصوتي.",
+      "holdToRecord": "اضغط مطولاً للتسجيل",
+      "toggleHandsFree": "تبديل وضع الاستخدام الحر",
+      "pressShortcut": "اضغط على الاختصار في أي مكان في جهازك لبدء أول التقاط لك.",
+      "turnOnShortcut": "قم بتشغيل الاختصار العام للإملاء من أي مكان — أو انقر على إملاء أعلاه للالتقاط داخل التطبيق.",
+      "openSettings": "فتح إعدادات الالتقاطات"
+    },
+    "deleteDialog": {
+      "title": "حذف الالتقاط",
+      "description": "سيؤدي هذا إلى الحذف النهائي للالتقاط وملفه الصوتي وتفريغه الصوتي. لا يمكن التراجع عن هذا الإجراء.",
+      "deleting": "جاري الحذف…"
+    },
+    "toast": {
+      "deleteFailed": "فشل الحذف",
+      "playAsFailed": "فشل التشغيل كـ",
+      "noVoice": "لا يوجد ملف تعريف صوت",
+      "noVoiceDescription": "قم بإنشاء ملف تعريف صوتي قبل استخدام ميزة التشغيل بصوت.",
+      "transcriptCopied": "تم نسخ التفريغ الصوتي",
+      "copyFailed": "فشل النسخ",
+      "exportSuccess": "تم التصدير إلى {{path}}",
+      "exportFailed": "فشل التصدير",
+      "exportEmpty": "لا يوجد شيء لتصديره",
+      "shortcutNotArmed": "الاختصار قيد التشغيل، ولكنه غير جاهز بعد",
+      "shortcutNotArmedDescription_zero": "النماذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
+      "shortcutNotArmedDescription_one": "لا يزال النموذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
+      "shortcutNotArmedDescription_two": "لا يزال النموذجان {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
+      "shortcutNotArmedDescription_few": "لا تزال النماذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
+      "shortcutNotArmedDescription_many": "لا تزال النماذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء.",
+      "shortcutNotArmedDescription_other": "لا تزال النماذج {{names}} بحاجة إلى التنزيل. افتح علامة التبويب \"التقاطات\" للبدء."
+    },
+    "pill": {
+      "recording": "جاري التسجيل",
+      "transcribing": "جاري التفريغ الصوتي",
+      "refining": "جاري التنقيح",
+      "speaking": "يتحدث",
+      "completed": "تم",
+      "stopAria": "إيقاف التسجيل",
+      "errorFallback": "حدث خطأ ما",
+      "errorCopyTooltip": "انقر لنسخ الخطأ"
+    },
+    "chord": {
+      "capturing": "جاري الالتقاط…",
+      "pressShortcut": "اضغط على الاختصار الخاص بك",
+      "noKeys": "لا توجد مفاتيح بعد",
+      "unsupported": "المفتاح \"{{key}}\" غير مدعوم في الاختصارات. جرّب مفتاح تعديل أو مفتاح حرف.",
+      "notSet": "لم يتم التعيين"
+    },
+    "readiness": {
+      "title": "بعض الأشياء قبل أن تتمكن من الإملاء",
+      "subheading": "يظل الاختصار متوقفاً حتى يصبح كل شيء أدناه جاهزاً.",
+      "downloadButton": "تنزيل",
+      "downloading": "جاري التنزيل…",
+      "downloadingPercent": "جاري التنزيل… {{pct}}%",
+      "downloadStarted": "بدأ التنزيل",
+      "downloadStartedDescription": "جاري تنزيل {{name}}. سيتم تفعيل الاختصار تلقائياً عند الانتهاء.",
+      "downloadFailed": "فشل التنزيل",
+      "stt": {
+        "label": "{{name}} (تحويل الكلام إلى نص)",
+        "ready": "تم تنزيل النموذج.",
+        "missing": "مطلوب لتفريغ مقاطعك الصوتية",
+        "missingWithSize": "مطلوب لتفريغ مقاطعك الصوتية · {{size}}"
+      },
+      "llm": {
+        "label": "{{name}} (التنقيح)",
+        "ready": "تم تنزيل النموذج.",
+        "missing": "ينظف التفريغ الصوتي الخام قبل اللصق",
+        "missingWithSize": "ينظف التفريغ الصوتي الخام قبل اللصق · {{size}}"
+      },
+      "inputMonitoring": {
+        "label": "إذن مراقبة الإدخال",
+        "ready": "يسمح نظام macOS لـ Voicebox باكتشاف الاختصار العام الخاص بك.",
+        "missing": "يحتاج نظام macOS إلى السماح لـ Voicebox باكتشاف الاختصار العام.",
+        "openSettings": "فتح الإعدادات"
+      },
+      "accessibility": {
+        "label": "إذن إمكانية الوصول",
+        "ready": "يمكن لـ Voicebox لصق التفريغات الصوتية في تطبيقات أخرى.",
+        "missing": "مطلوب ليتم لصق التفريغات الصوتية في التطبيق النشط.",
+        "openSettings": "فتح الإعدادات"
+      }
+    },
+    "permissions": {
+      "accessibility": {
+        "title": "منح إذن إمكانية الوصول لتمكين اللصق التلقائي",
+        "body": "يحتاج Voicebox إلى <path>إعدادات النظام ← الخصوصية والأمان ← إمكانية الوصول</path> للتمكن من لصق التفريغات الصوتية في التطبيقات الأخرى. ستستمر إملاءاتك في الهبوط في علامة التبويب التقاطات بدونه.",
+        "openSettings": "فتح الإعدادات",
+        "recheck": "لقد قمت بتمكينه",
+        "rechecking": "جاري التحقق…",
+        "stillMissing": "لم يتم الاكتشاف بعد. يتطلب macOS عادةً إنهاء Voicebox وإعادة فتحه بعد تبديل الإذن."
+      },
+      "inputMonitoring": {
+        "title": "منح إذن مراقبة الإدخال لتمكين الاختصار العام",
+        "body": "يحتاج Voicebox إلى <path>إعدادات النظام ← الخصوصية والأمان ← مراقبة الإدخال</path> لاكتشاف اختصار الإملاء الخاص بك. مفتاح التبديل قيد التشغيل، ولكن macOS يمنع أحداث لوحة المفاتيح حتى تسمح بذلك.",
+        "openSettings": "فتح الإعدادات",
+        "recheck": "لقد قمت بتمكينه",
+        "rechecking": "جاري التحقق…",
+        "stillMissing": "لم يتم الاكتشاف بعد. يتطلب macOS عادةً إنهاء Voicebox وإعادة فتحه بعد تبديل الإذن."
+      }
+    }
+  },
+  "voicesTab": {
+    "title": "الأصوات",
+    "loading": "جاري تحميل الأصوات…",
+    "searchPlaceholder": "البحث في الأصوات…",
+    "newVoice": "صوت جديد",
+    "avatarAlt": "صورة عرض {{name}}",
+    "selectChannels": "تحديد القنوات…",
+    "channelDefaultLabel": "{{name}} (الافتراضي)",
+    "columns": {
+      "name": "الاسم",
+      "language": "اللغة",
+      "generations": "التوليدات",
+      "samples": "العينات",
+      "effects": "التأثيرات",
+      "channels": "القنوات"
+    }
+  },
+  "voiceInspector": {
+    "loading": "جاري التحميل…",
+    "defaultEffectsHint": "يتم تطبيقها تلقائياً على التوليدات الجديدة باستخدام هذا الصوت.",
+    "fields": {
+      "description": "الوصف"
+    },
+    "toast": {
+      "invalidImageFormat": "يرجى تحديد صيغة PNG أو JPG أو WebP",
+      "avatarUpdated": "تم تحديث صورة العرض",
+      "savedDescription": "تم حفظ \"{{name}}\"."
+    }
+  },
+  "audioChannels": {
+    "title": "القنوات الصوتية",
+    "newChannel": "قناة جديدة",
+    "loading": "جاري التحميل…",
+    "confirmDelete": "هل تريد حذف هذه القناة؟",
+    "noVoicesAssigned": "لم يتم تعيين أي أصوات",
+    "selectDevice": "تحديد الجهاز",
+    "addDevice": "إضافة جهاز",
+    "addVoice": "إضافة صوت",
+    "defaultSuffix": "الافتراضي",
+    "empty": {
+      "message": "لا توجد قنوات صوتية بعد. قم بإنشاء قناتك الأولى لتوجيه الأصوات إلى أجهزة إخراج محددة.",
+      "action": "إنشاء قناة"
+    },
+    "labels": {
+      "outputDevices": "أجهزة الإخراج",
+      "assignedVoices": "الأصوات المعينة"
+    },
+    "devices": {
+      "title": "الأجهزة المتاحة",
+      "defaultNote": "تستخدم القناة الافتراضية جهاز النظام الافتراضي",
+      "toggleHint": "انقر على الأجهزة لإضافتها أو إزالتها من القناة المحددة",
+      "selectHint": "حدد قناة لتعيين الأجهزة",
+      "empty": "لم يتم العثور على أجهزة صوتية",
+      "requiresTauri": "اختيار جهاز الصوت يتطلب تشغيل Tauri"
+    },
+    "fields": {
+      "name": "اسم القناة",
+      "namePlaceholder": "مثال: Virtual Cable، Broadcast"
+    },
+    "createDialog": {
+      "title": "إنشاء قناة صوتية",
+      "description": "قم بإنشاء قناة صوتية جديدة لتوجيه الأصوات إلى أجهزة إخراج محددة.",
+      "action": "إنشاء"
+    },
+    "editDialog": {
+      "title": "تعديل القناة",
+      "description": "تحديث إعدادات القناة وتعيينات الصوت."
+    }
+  },
+  "profileForm": {
+    "createTitle": "إنشاء صوت",
+    "editTitle": "تعديل الصوت",
+    "createDescription": "قم بإنشاء ملف تعريف صوتي جديد من عينة صوتية أو صوت مدمج.",
+    "editDescription": "تحديث تفاصيل ملف تعريف الصوت الخاص بك وإدارة العينات.",
+    "draftRestored": "تمت استعادة المسودة",
+    "discard": "تجاهل",
+    "source": {
+      "clone": "استنساخ من ملف صوتي",
+      "builtin": "صوت مدمج"
+    },
+    "builtin": {
+      "hint": "اختر صوتاً مسبق الصنع. هذه لا تتطلب عينة صوتية.",
+      "badge": "صوت مدمج",
+      "note": "يستخدم هذا الملف التعريفي صوتاً مدمجاً. لا يمكن تغيير الصوت بعد الإنشاء."
+    },
+    "sampleTabs": {
+      "upload": "رفع",
+      "record": "تسجيل",
+      "system": "صوت النظام"
+    },
+    "fields": {
+      "engine": "المحرك",
+      "voice": "الصوت",
+      "name": "الاسم",
+      "namePlaceholder": "صوتي",
+      "descriptionLabel": "الوصف (اختياري)",
+      "descriptionPlaceholder": "صف هذا الصوت…",
+      "language": "اللغة",
+      "referenceText": "النص المرجعي",
+      "referenceTextPlaceholder": "أدخل النص الدقيق المنطوق في الملف الصوتي…",
+      "defaultEngine": "المحرك الافتراضي",
+      "noPreference": "بدون تفضيل",
+      "defaultEngineHint": "يختار هذا المحرك تلقائياً عند تحديد الملف التعريفي.",
+      "defaultEffects": "التأثيرات الافتراضية",
+      "defaultEffectsHint": "تأثيرات يتم تطبيقها تلقائياً على كافة التوليدات الجديدة باستخدام هذا الصوت.",
+      "personalityLabel": "الشخصية",
+      "personalityPlaceholder": "مثال: \"قرصان غاضب يتحدث فقط بالاستعارات البحرية\"",
+      "personalityHint": "من هو هذا الصوت وكيف يتحدث. يوجه زر الإنشاء ومفتاح تبديل إعادة الكتابة بتقمص الشخصية في صفحة التوليد. اتركه فارغاً لإخفاء كليهما."
+    },
+    "avatar": {
+      "alt": "معاينة صورة العرض"
+    },
+    "actions": {
+      "saving": "جاري الحفظ…",
+      "saveChanges": "حفظ التغييرات",
+      "createProfile": "إنشاء الملف التعريفي"
+    },
+    "validation": {
+      "nameRequired": "الاسم مطلوب",
+      "referenceRequired": "النص المرجعي مطلوب عند إضافة عينة",
+      "sampleRequired": "العينة الصوتية مطلوبة",
+      "referenceTextRequired": "النص المرجعي مطلوب",
+      "audioTooLong": "الملف الصوتي طويل جداً ({{duration}}). الحد الأقصى للمدة هو {{max}}.",
+      "audioFailed": "فشل التحقق من الملف الصوتي. يرجى تجربة ملف آخر."
+    },
+    "toast": {
+      "recordingComplete": "اكتمل التسجيل",
+      "recordingCompleteDescription": "تم تسجيل الصوت بنجاح.",
+      "recordingError": "خطأ في التسجيل",
+      "systemAudioCaptured": "تم التقاط صوت النظام",
+      "systemAudioCapturedDescription": "تم التقاط الصوت بنجاح.",
+      "systemAudioError": "خطأ في التقاط صوت النظام",
+      "transcribeFailed": "فشل التفريغ الصوتي",
+      "transcribeFailedFallback": "فشل في تفريغ الصوت",
+      "noFile": "لم يتم تحديد ملف",
+      "noFileDescription": "يرجى تحديد ملف صوتي أولاً.",
+      "invalidFile": "نوع الملف غير صالح",
+      "invalidImageFormat": "يرجى اختيار ملف صورة (PNG أو JPG أو WebP)",
+      "fileTooLarge": "الملف كبير جداً",
+      "imageTooLargeDescription": "يجب أن تكون الصورة أقل من 5 ميغابايت",
+      "avatarRemoved": "تمت إزالة صورة العرض",
+      "avatarRemovedDescription": "تمت إزالة صورة العرض بنجاح.",
+      "avatarRemoveFailed": "فشلت إزالة صورة العرض",
+      "avatarUploadFailed": "فشل رفع صورة العرض",
+      "avatarUploadFailedFallback": "فشل في رفع صورة العرض",
+      "effectsUpdateFailed": "فشل تحديث التأثيرات",
+      "effectsUpdateFailedFallback": "فشل في حفظ سلسلة التأثيرات",
+      "voiceUpdated": "تم تحديث الصوت",
+      "voiceUpdatedDescription": "تم تحديث \"{{name}}\" بنجاح.",
+      "noVoiceSelected": "لم يتم تحديد صوت",
+      "noVoiceSelectedDescription": "يرجى تحديد صوت مدمج.",
+      "profileCreated": "تم إنشاء الملف التعريفي",
+      "profileCreatedBuiltin": "تم إنشاء \"{{name}}\" باستخدام صوت مدمج.",
+      "profileCreatedSample": "تم إنشاء \"{{name}}\" باستخدام عينة.",
+      "sampleRequired": "العينة الصوتية مطلوبة",
+      "sampleRequiredDescription": "يرجى توفير عينة صوتية لإنشاء ملف تعريف الصوت.",
+      "referenceTextRequired": "النص المرجعي مطلوب",
+      "referenceTextRequiredDescription": "يرجى توفير النص المرجعي للعينة الصوتية.",
+      "invalidAudio": "ملف صوتي غير صالح",
+      "invalidAudioDescription": "مدة الصوت هي {{duration}}، ولكن الحد الأقصى هو {{max}}.",
+      "validationError": "خطأ في التحقق",
+      "rollbackFailed": "فشل التراجع",
+      "rollbackFailedDescription": "تعذر إزالة الملف التعريفي المُنشأ بعد فشل رفع العينة.",
+      "profileRolledBack": "تم التراجع عن إنشاء الملف التعريفي.",
+      "sampleFailed": "فشلت إضافة العينة",
+      "sampleFailedDescription": "فشل في إضافة العينة.",
+      "sampleFailedRolledBack": "فشلت إضافة العينة. تم التراجع عن إنشاء الملف التعريفي.",
+      "saveFailed": "فشل في حفظ الملف التعريفي"
+    }
+  },
+  "audioSample": {
+    "chooseFile": "اختيار ملف",
+    "uploadHint": "انقر لاختيار ملف أو قم بالسحب والإفلات. الحد الأقصى للمدة: 30 ثانية.",
+    "fileUploaded": "تم رفع الملف",
+    "fileLabel": "الملف: {{name}}",
+    "play": "تشغيل",
+    "pause": "إيقاف مؤقت",
+    "transcribe": "تفريغ صوتي",
+    "transcribing": "جاري التفريغ الصوتي…",
+    "remove": "إزالة",
+    "startRecording": "بدء التسجيل",
+    "recordHint": "انقر لبدء التسجيل. الحد الأقصى للمدة: 30 ثانية.",
+    "stopRecording": "إيقاف التسجيل",
+    "remaining": "متبقي {{time}}",
+    "recordingComplete": "اكتمل التسجيل",
+    "recordAgain": "تسجيل مرة أخرى",
+    "startCapture": "بدء الالتقاط",
+    "systemHint": "التقاط الصوت من نظامك. الحد الأقصى للمدة: 30 ثانية.",
+    "stopCapture": "إيقاف الالتقاط",
+    "captureComplete": "اكتمل الالتقاط",
+    "captureAgain": "الالتقاط مرة أخرى"
+  },
+  "sampleList": {
+    "loading": "جاري تحميل العينات…",
+    "empty": {
+      "title": "لا توجد عينات بعد",
+      "hint": "أضف عينتك الصوتية الأولى للبدء"
+    },
+    "editing": "تعديل التفريغ الصوتي",
+    "placeholder": "أدخل النص المرجعي…",
+    "saving": "جاري الحفظ…",
+    "editTranscription": "تعديل التفريغ الصوتي",
+    "deleteSample": "حذف العينة",
+    "addSample": "إضافة عينة",
+    "note": "ملاحظة: عينة واحدة مدتها 30 ثانية هي الخيار المثالي. قد تنخفض الجودة مع تعدد العينات. في التحديث المستقبلي، قد تكون العينات قابلة للتبديل ويتم تمييزها لأساليب متنوعة لنفس الصوت.",
+    "deleteDialog": {
+      "title": "حذف العينة",
+      "description": "هل أنت متأكد أنك تريد حذف هذه العينة الصوتية؟ لا يمكن التراجع عن هذا الإجراء.",
+      "deleting": "جاري الحذف…"
+    },
+    "player": {
+      "play": "تشغيل العينة",
+      "pause": "إيقاف العينة مؤقتاً",
+      "stop": "إيقاف",
+      "stopAria": "إيقاف التشغيل",
+      "position": "موضع تشغيل العينة",
+      "positionValue": "{{current}} من {{total}}"
+    },
+    "toast": {
+      "invalidText": "نص غير صالح",
+      "invalidTextDescription": "لا يمكن أن يكون النص المرجعي فارغاً.",
+      "updated": "تم تحديث العينة",
+      "updatedDescription": "تم تحديث النص المرجعي بنجاح.",
+      "updateFailed": "فشل التحديث",
+      "updateFailedFallback": "فشل في تحديث العينة"
+    }
+  },
+  "profiles": {
+    "card": {
+      "noDescription": "لا يوجد وصف",
+      "designed": "تصميم",
+      "export": "تصدير الملف التعريفي",
+      "edit": "تعديل الملف التعريفي",
+      "delete": "حذف الملف التعريفي",
+      "selectLabel": "{{name}}، {{language}}. اختَر كصوت للتوليد.",
+      "selectLabelSelected": "{{name}}، {{language}}. تم اختياره كصوت للتوليد."
+    },
+    "list": {
+      "errorLoading": "خطأ في تحميل الملفات التعريفية: {{message}}",
+      "empty": "لا توجد ملفات تعريفية للأصوات بعد. قم بإنشاء ملفك الأول للبدء.",
+      "createVoice": "إنشاء صوت",
+      "unsupportedNote": "يمكن فقط اختيار ملفات تعريف الصوت المدعومة للنموذج الحالي."
+    },
+    "deleteDialog": {
+      "title": "حذف الملف التعريفي",
+      "body": "هل أنت متأكد أنك تريد حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
+      "deleting": "جاري الحذف…"
+    }
+  },
+  "effects": {
+    "title": "التأثيرات",
+    "newPreset": "إعداد مسبق جديد",
+    "noDescription": "لا يوجد وصف",
+    "placeholder": "حدد إعداداً مسبقاً أو قم بإنشاء واحد جديد",
+    "effectCount_one": "{{count}} تأثير",
+    "effectCount_other": "{{count}} تأثيرات",
+    "sections": {
+      "builtin": "مدمج",
+      "custom": "مخصص",
+      "new": "جديد"
+    },
+    "badge": {
+      "builtin": "مدمج"
+    },
+    "unsaved": {
+      "title": "إعداد مسبق غير محفوظ",
+      "hint": "قم بتكوين التأثيرات في اللوحة الجانبية."
+    },
+    "detail": {
+      "newTitle": "إعداد مسبق جديد",
+      "editTitle": "تعديل الإعداد المسبق",
+      "savePreset": "حفظ الإعداد المسبق",
+      "saveAsCustom": "حفظ كمخصص",
+      "saving": "جاري الحفظ…",
+      "deleting": "جاري الحذف…"
+    },
+    "fields": {
+      "name": "الاسم",
+      "namePlaceholder": "الإعداد المسبق الخاص بي…",
+      "description": "الوصف",
+      "descriptionPlaceholder": "صف ما يفعله هذا الإعداد المسبق…"
+    },
+    "preview": {
+      "label": "معاينة",
+      "button": "معاينة",
+      "processing": "جاري المعالجة…",
+      "hint": "تطبق المعاينة التأثيرات على النسخة النظيفة دون حفظها."
+    },
+    "saveAs": {
+      "title": "حفظ كإعداد مسبق مخصص",
+      "description": "قم بإنشاء إعداد مسبق مخصص جديد بناءً على سلسلة التأثيرات الحالية.",
+      "suggestedName": "{{name}} (نسخة)"
+    },
+    "toast": {
+      "saved": "تم حفظ الإعداد المسبق",
+      "createdDescription": "تم إنشاء \"{{name}}\".",
+      "updated": "تم تحديث الإعداد المسبق",
+      "deleted": "تم حذف الإعداد المسبق",
+      "saveFailed": "فشل الحفظ",
+      "deleteFailed": "فشل الحذف",
+      "previewFailed": "فشلت المعاينة",
+      "nameRequired": "الاسم مطلوب"
+    },
+    "chain": {
+      "loadPreset": "تحميل إعداد مسبق…",
+      "addEffect": "إضافة تأثير…",
+      "clear": "مسح",
+      "enable": "تفعيل",
+      "disable": "تعطيل",
+      "remove": "إزالة"
+    },
+    "types": {
+      "chorus": {
+        "label": "كورس / فلانجر (Chorus / Flanger)",
+        "params": {
+          "rate_hz": "سرعة LFO (هرتز)",
+          "depth": "عمق التضمين (Modulation)",
+          "feedback": "مقدار التغذية الراجعة (Feedback)",
+          "centre_delay_ms": "التأخير المركزي (ملي ثانية)",
+          "mix": "مزيج التأثير (Wet/Dry)"
+        }
+      },
+      "reverb": {
+        "label": "صدى (Reverb)",
+        "params": {
+          "room_size": "حجم الغرفة",
+          "damping": "تخميد الترددات العالية",
+          "wet_level": "مستوى التأثير (Wet)",
+          "dry_level": "المستوى الجاف (Dry)",
+          "width": "عرض الستيريو"
+        }
+      },
+      "delay": {
+        "label": "تأخير (Delay)",
+        "params": {
+          "delay_seconds": "زمن التأخير (ثواني)",
+          "feedback": "مقدار التغذية الراجعة",
+          "mix": "مزيج التأثير (Wet/Dry)"
+        }
+      },
+      "compressor": {
+        "label": "ضاغط (Compressor)",
+        "params": {
+          "threshold_db": "الحد (ديسيبل)",
+          "ratio": "نسبة الضغط",
+          "attack_ms": "زمن البدء (ملي ثانية)",
+          "release_ms": "زمن التحرير (ملي ثانية)"
+        }
+      },
+      "gain": {
+        "label": "كسب (Gain)",
+        "params": {
+          "gain_db": "الكسب (ديسيبل)"
+        }
+      },
+      "highpass": {
+        "label": "مرشح الترددات العالية (High-Pass)",
+        "params": {
+          "cutoff_frequency_hz": "تردد القطع (هرتز)"
+        }
+      },
+      "lowpass": {
+        "label": "مرشح الترددات المنخفضة (Low-Pass)",
+        "params": {
+          "cutoff_frequency_hz": "تردد القطع (هرتز)"
+        }
+      },
+      "pitch_shift": {
+        "label": "تغيير الطبقة (Pitch Shift)",
+        "params": {
+          "semitones": "أنصاف النغمات للإزاحة"
+        }
+      }
+    },
+    "builtinPresets": {
+      "Robotic": {
+        "name": "آلي (Robotic)",
+        "description": "صوت آلي معدني (فلانجر مع LFO بطيء وتغذية راجعة عالية)"
+      },
+      "Radio": {
+        "name": "راديو (Radio)",
+        "description": "صوت راديو AM رفيع مع فلترة تمرير النطاق وضغط خفيف"
+      },
+      "Echo Chamber": {
+        "name": "غرفة الصدى (Echo Chamber)",
+        "description": "صدى واسع مع تأثير تتابعي"
+      },
+      "Deep Voice": {
+        "name": "صوت عميق (Deep Voice)",
+        "description": "طبقة صوتية منخفضة مع إضافة دفء"
+      }
+    }
+  },
+  "stories": {
+    "title": "القصص",
+    "newStory": "قصة جديدة",
+    "loading": "جاري تحميل القصص…",
+    "searchPlaceholder": "البحث في القصص…",
+    "empty": {
+      "title": "لا توجد قصص بعد",
+      "hint": "قم بإنشاء قصتك الأولى للبدء",
+      "noMatches": "لا توجد قصص تطابق \"{{query}}\""
+    },
+    "row": {
+      "itemCount_one": "{{count}} عنصر",
+      "itemCount_other": "{{count}} عناصر",
+      "ariaLabel": "القصة {{name}}، {{count}} عناصر، {{updated}}",
+      "actionsLabel": "إجراءات لـ {{name}}"
+    },
+    "createDialog": {
+      "title": "إنشاء قصة جديدة",
+      "description": "قم بإنشاء قصة جديدة لتنظيم التوليدات الصوتية الخاصة بك في محادثات.",
+      "action": "إنشاء",
+      "creating": "جاري الإنشاء…"
+    },
+    "editDialog": {
+      "title": "تعديل القصة",
+      "description": "قم بتحديث اسم القصة ووصفها.",
+      "saving": "جاري الحفظ…"
+    },
+    "deleteDialog": {
+      "title": "هل أنت متأكد؟",
+      "description": "سيؤدي هذا إلى الحذف النهائي للقصة وجميع عناصرها. لا يمكن التراجع عن هذا الإجراء.",
+      "deleting": "جاري الحذف…"
+    },
+    "fields": {
+      "name": "الاسم",
+      "namePlaceholder": "قصتي",
+      "descriptionLabel": "الوصف (اختياري)",
+      "descriptionPlaceholder": "محادثة بين…"
+    },
+    "toast": {
+      "nameRequired": "الاسم مطلوب",
+      "nameRequiredDescription": "يرجى إدخال اسم للقصة",
+      "created": "تم إنشاء القصة",
+      "createdDescription": "تم إنشاء \"{{name}}\"",
+      "createFailed": "فشل إنشاء القصة",
+      "updateFailed": "فشل تحديث القصة",
+      "deleteFailed": "فشل حذف القصة"
+    }
+  },
+  "storyContent": {
+    "selectStory": {
+      "title": "حدد قصة",
+      "hint": "اختر قصة من القائمة لعرض محتواها"
+    },
+    "loading": "جاري تحميل القصة…",
+    "notFound": {
+      "title": "القصة غير موجودة",
+      "hint": "تعذر تحميل القصة المحددة"
+    },
+    "generatingCount_one": "جاري توليد {{count}} مقطع صوتي",
+    "generatingCount_other": "جاري توليد {{count}} مقاطع صوتية",
+    "add": "إضافة",
+    "searchPlaceholder": "ابحث بالاسم أو التفريغ الصوتي…",
+    "searchNoMatches": "لم يتم العثور على توليدات مطابقة",
+    "searchNoAvailable": "لا توجد توليدات متاحة",
+    "exportAudio": "تصدير الصوت",
+    "empty": {
+      "title": "لا توجد عناصر في هذه القصة",
+      "hint": "قم بتوليد الكلام باستخدام المربع أدناه لإضافة عناصر"
+    },
+    "itemActions": {
+      "playFromHere": "التشغيل من هنا",
+      "regenerate": "إعادة التوليد",
+      "removeFromStory": "إزالة من القصة"
+    },
+    "importAudio": "استيراد ملف صوتي…",
+    "importing": "جاري الاستيراد…",
+    "dropToImport": "أفلت الصوت للاستيراد",
+    "toast": {
+      "removeFailed": "فشلت إزالة العنصر",
+      "reorderFailed": "فشلت إعادة ترتيب العناصر",
+      "exportFailed": "فشل تصدير الصوت",
+      "addFailed": "فشلت إضافة التوليد",
+      "regenerateFailed": "فشلت إعادة التوليد",
+      "importFailed": "فشل استيراد الصوت"
+    }
+  },
+  "history": {
+    "empty": "لا توجد توليدات صوتية بعد…",
+    "actions": {
+      "menu": "الإجراءات",
+      "play": "تشغيل",
+      "exportAudio": "تصدير الصوت",
+      "exportPackage": "تصدير الحزمة",
+      "applyEffects": "تطبيق التأثيرات",
+      "regenerate": "إعادة التوليد"
+    },
+    "deleteDialog": {
+      "title": "حذف التوليد",
+      "body": "هل أنت متأكد أنك تريد حذف هذا التوليد من \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
+      "deleting": "جاري الحذف…"
+    },
+    "clearFailedDialog": {
+      "title": "مسح التوليدات الفاشلة",
+      "body_one": "سيؤدي هذا إلى حذف {{count}} توليد فاشل بشكل دائم من السجل. لا يمكن التراجع عن هذا الإجراء.",
+      "body_other": "سيؤدي هذا إلى حذف {{count}} توليدات فاشلة بشكل دائم من السجل. لا يمكن التراجع عن هذا الإجراء.",
+      "clearing": "جاري المسح…",
+      "clearAll": "مسح الكل"
+    },
+    "importDialog": {
+      "title": "استيراد توليد",
+      "body": "استيراد التوليد من \"{{name}}\". سيؤدي هذا إلى إضافته إلى سجلك.",
+      "importing": "جاري الاستيراد…",
+      "action": "استيراد"
+    },
+    "effectsDialog": {
+      "title": "تطبيق التأثيرات",
+      "body": "قم بتهيئة تأثيرات ما بعد المعالجة لتطبيقها على هذا التوليد. سيتم إنشاء نسخة جديدة.",
+      "sourceLabel": "المصدر",
+      "sourcePlaceholder": "حدد نسخة المصدر",
+      "apply": "تطبيق",
+      "applying": "جاري التطبيق…"
+    }
+  },
+  "generation": {
+    "placeholder": {
+      "storyWithEffects": "توليد الكلام لـ \"{{name}}\"… (اكتب / للتأثيرات)",
+      "story": "توليد الكلام لـ \"{{name}}\"…",
+      "profile": "توليد الكلام باستخدام {{name}}…",
+      "effectsHint": "اكتب / للتأثيرات مثل [ضحك]، [تنهد]…",
+      "selectVoice": "حدد ملف تعريف صوتي أعلاه…"
+    },
+    "button": {
+      "generate": "توليد الكلام",
+      "generating": "جاري التوليد…",
+      "selectFirst": "حدد ملف تعريف صوتي أولاً"
+    },
+    "instruct": {
+      "show": "إظهار تعليمات الإلقاء",
+      "hide": "إخفاء تعليمات الإلقاء",
+      "tooltip": "تعليمات الإلقاء (النبرة، العاطفة، السرعة)",
+      "placeholder": "تعليمات الإلقاء — مثال: تحدث ببطء وبدفء، سلطة ووضوح…"
+    },
+    "voiceSelector": {
+      "placeholder": "تحديد صوت…"
+    },
+    "effects": {
+      "none": "لا توجد تأثيرات",
+      "profileDefault": "الافتراضي للملف التعريفي"
+    },
+    "compose": {
+      "tooltip": "إنشاء",
+      "ariaLabel": "إنشاء سطر بتقمص الشخصية",
+      "failedTitle": "فشل الإنشاء",
+      "failedDescription": "تعذر توليد نص من هذه الشخصية."
+    },
+    "persona": {
+      "tooltipActive": "يتحدث بتقمص الشخصية",
+      "tooltipInactive": "تحدث بتقمص الشخصية",
+      "ariaLabelActive": "يتحدث بتقمص الشخصية",
+      "ariaLabelInactive": "التحدث بتقمص الشخصية"
+    }
+  },
+  "main": {
+    "importVoice": "استيراد صوت",
+    "createVoice": "إنشاء صوت",
+    "import": {
+      "invalidTitle": "نوع الملف غير صالح",
+      "invalidDescription": "يرجى تحديد ملف .voicebox.zip صالح",
+      "successTitle": "تم استيراد الملف التعريفي",
+      "successDescription": "تم استيراد ملف تعريف الصوت بنجاح",
+      "failedTitle": "فشل استيراد الملف التعريفي",
+      "dialogTitle": "استيراد الملف التعريفي",
+      "dialogDescription": "استيراد الملف التعريفي من \"{{name}}\". سيؤدي هذا إلى إنشاء ملف تعريفي جديد بجميع العينات.",
+      "importing": "جاري الاستيراد…",
+      "action": "استيراد"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "general": "عام",
+      "generation": "توليد",
+      "captures": "التقاطات",
+      "mcp": "بروتوكول MCP",
+      "gpu": "معالج الرسومات (GPU)",
+      "logs": "سجلات",
+      "changelog": "سجل التغييرات",
+      "about": "حول"
+    },
+    "language": {
+      "label": "اللغة",
+      "description": "اختر لغة العرض لبرنامج Voicebox."
+    },
+    "theme": {
+      "label": "المظهر",
+      "description": "طابق نظامك، أو اختر مظهراً فاتحاً أو داكناً ثابتاً.",
+      "options": {
+        "system": "النظام",
+        "light": "فاتح",
+        "dark": "داكن"
+      }
+    },
+    "general": {
+      "docs": { "title": "قراءة الوثائق" },
+      "discord": { "title": "انضم إلى ديسكورد (Discord)", "subtitle": "احصل على المساعدة وشارك الأصوات" },
+      "serverUrl": {
+        "title": "رابط الخادم",
+        "description": "عنوان خادم الواجهة الخلفية لـ Voicebox الخاص بك.",
+        "invalidUrl": "يرجى إدخال رابط صالح",
+        "updatedTitle": "تم تحديث رابط الخادم",
+        "updatedDescription": "تم الاتصال بـ {{url}}"
+      },
+      "keepServerRunning": {
+        "title": "إبقاء الخادم قيد التشغيل عند إغلاق التطبيق",
+        "description": "سيستمر تشغيل الخادم في الخلفية بعد إغلاق التطبيق.",
+        "failedTitle": "فشل تحديث الإعداد",
+        "failedDescription": "تعذر مزامنة الإعداد مع الواجهة الخلفية.",
+        "updatedTitle": "تم تحديث الإعداد",
+        "runningDescription": "سيستمر تشغيل الخادم عند إغلاق التطبيق",
+        "stoppedDescription": "سيتوقف الخادم عند إغلاق التطبيق"
+      },
+      "networkAccess": {
+        "title": "السماح بالوصول عبر الشبكة",
+        "description": "يجعل الخادم متاحاً من الأجهزة الأخرى على شبكتك. أعد تشغيل التطبيق بعد التغيير.",
+        "updatedTitle": "تم تحديث الإعداد",
+        "enabled": "تم تمكين الوصول عبر الشبكة. أعد تشغيل التطبيق للتطبيق.",
+        "disabled": "تم تعطيل الوصول عبر الشبكة. أعد تشغيل التطبيق للتطبيق."
+      },
+      "connection": {
+        "connecting": "جاري الاتصال",
+        "offline": "غير متصل",
+        "online": "متصل"
+      },
+      "updates": {
+        "title": "تحديثات التطبيق",
+        "devSuffix": " (نسخة المطور)",
+        "devMode": {
+          "title": "وضع التطوير",
+          "description": "يتم تعطيل التحديثات التلقائية في وضع التطوير."
+        },
+        "check": {
+          "title": "التحقق من وجود تحديثات",
+          "available": "الإصدار {{version}} متاح",
+          "checking": "جاري التحقق…",
+          "upToDate": "تطبيقك محدّث",
+          "button": "تحقق"
+        },
+        "error": "خطأ في التحديث",
+        "download": {
+          "title": "تحديث إلى {{version}}",
+          "description": "تنزيل وتثبيت أحدث إصدار.",
+          "button": "تنزيل"
+        },
+        "downloading": "جاري تنزيل التحديث…",
+        "ready": {
+          "title": "التحديث جاهز للتثبيت",
+          "description": "تم تنزيل الإصدار {{version}}. أعد التشغيل للاكتمال.",
+          "button": "أعد التشغيل الآن"
+        }
+      },
+      "api": {
+        "title": "وصول API",
+        "description": "قم بدمج Voicebox في سير عملك عبر واجهة برمجة تطبيقات (REST API) على الرابط <code>{{url}}</code>",
+        "viewReference": "عرض مرجع API الكامل",
+        "endpoints": {
+          "generate": "توليد الكلام",
+          "health": "حالة الخادم",
+          "profiles": "قائمة الأصوات",
+          "history": "التوليدات السابقة"
+        }
+      }
+    },
+    "generation": {
+      "title": "التوليد",
+      "description": "عناصر التحكم في توليد النص الطويل. تنطبق هذه الإعدادات على جميع المحركات.",
+      "chunkLimit": {
+        "title": "حد التقسيم التلقائي",
+        "description": "يتم تقسيم النص الطويل إلى أجزاء عند حدود الجملة. القيم الأقل يمكن أن تحسن الجودة للمخرجات الطويلة.",
+        "value": "{{chars}} حرف"
+      },
+      "crossfade": {
+        "title": "التداخل الصوتي للأجزاء",
+        "description": "يمزج الصوت بين الأجزاء لجعل الانتقالات سلسة. قم بتعيينه إلى 0 للقطع الحاد.",
+        "cut": "قطع",
+        "ms": "{{ms}} ملي ثانية"
+      },
+      "normalize": {
+        "title": "تسوية الصوت (Normalize)",
+        "description": "يضبط حجم الإخراج إلى مستوى ثابت عبر كافة التوليدات."
+      },
+      "autoplay": {
+        "title": "التشغيل التلقائي عند التوليد",
+        "description": "تشغيل الصوت تلقائياً عند اكتمال التوليد."
+      },
+      "folder": {
+        "title": "مجلد التوليدات",
+        "description": "مكان تخزين الملفات الصوتية المُولدة على القرص.",
+        "open": "فتح"
+      },
+      "sidebar": {
+        "aboutTitle": "حول توليد الصوت",
+        "aboutBody": "استنسخ صوتاً من عينة قصيرة، ثم قم بتوليد الكلام بأي صوت عبر أي لغة. ادمج ميزة تحويل النص إلى كلام (TTS) في وكلاء الذكاء الاصطناعي، الألعاب، البودكاست، أو السرد الطويل.",
+        "differencesTitle": "ما هو المختلف",
+        "clone": {
+          "title": "استنسخ أي صوت في ثوانٍ.",
+          "body": "بضع ثوانٍ من الصوت المرجعي كافية. دعم للعينات المتعددة للحصول على جودة أعلى متى شئت."
+        },
+        "engines": {
+          "title": "سبعة محركات، 23 لغة.",
+          "body": "اختر الموازنة التي تناسبك — الجودة، أو السرعة، أو التغطية متعددة اللغات."
+        },
+        "agentReady": {
+          "title": "جاهز للوكلاء (Agents).",
+          "body": "واجهة برمجة تطبيقات REST مع تحكم لكل ملف تعريفي — امنح أي ذكاء اصطناعي صوتاً قمت باستنساخه."
+        }
+      }
+    },
+    "captures": {
+      "dictation": {
+        "title": "الإملاء",
+        "description": "التقط الصوت من أي مكان على جهازك عبر اختصار عام.",
+        "globalShortcut": {
+          "title": "الاختصار العام",
+          "description": "اضغط مع الاستمرار على الاختصار للتسجيل من أي مكان على جهازك. حرر للتفريغ الصوتي."
+        },
+        "pushToTalk": {
+          "title": "اختصار الضغط للتحدث",
+          "description": "اضغط مع الاستمرار على هذه المفاتيح في أي مكان على نظامك للتسجيل. حرر للإيقاف والتفريغ الصوتي.",
+          "change": "تغيير"
+        },
+        "toggle": {
+          "title": "اختصار التبديل",
+          "description": "اضغط مرة واحدة لبدء تسجيل حر اليدين. اضغط مرة أخرى للإيقاف. عادةً ما يكون الضغط للتحدث بالإضافة إلى مفتاح المسافة (Space).",
+          "change": "تغيير"
+        },
+        "chordPicker": {
+          "pttTitle": "تعيين اختصار الضغط للتحدث",
+          "pttDescription": "اضغط مع الاستمرار على المفاتيح التي تريد استخدامها، ثم حررها وانقر على حفظ. توضح شارة معدل المفتاح الأيمن ما إذا كان المفتاح هو المتغير الأيسر أو الأيمن.",
+          "toggleTitle": "تعيين اختصار التبديل",
+          "toggleDescription": "اضغط مع الاستمرار على المفاتيح التي تريد استخدامها، ثم حررها وانقر على حفظ. اختر شيئاً مختلفاً عن اختصار الضغط للتحدث الخاص بك."
+        },
+        "preview": {
+          "title": "معاينة",
+          "description": "ما يظهر على الشاشة أثناء الضغط على الاختصار."
+        },
+        "copyToClipboard": {
+          "title": "نسخ التفريغ الصوتي إلى الحافظة",
+          "description": "يهبط التفريغ الصوتي المُنقح في الحافظة الخاصة بك عند انتهاء الالتقاط."
+        },
+        "autoPaste": {
+          "title": "اللصق التلقائي في حقل النص النشط",
+          "description": "إذا كان هناك إدخال نص نشط في تطبيق آخر، قم باللصق فيه مباشرةً. يحفظ Voicebox ويستعيد كل ما كان في الحافظة الخاصة بك."
+        }
+      },
+      "transcription": {
+        "title": "التفريغ الصوتي",
+        "description": "اختر نموذج تحويل الكلام إلى نص الذي يعمل على التقاطاتك.",
+        "model": {
+          "title": "نموذج التفريغ الصوتي",
+          "description": "يأتي Whisper مع Voicebox ويعمل بالكامل على جهازك.",
+          "base": "Whisper Base · 74M · {{tail}}",
+          "small": "Whisper Small · 244M · {{tail}}",
+          "medium": "Whisper Medium · 769M · {{tail}}",
+          "large": "Whisper Large · 1.5B · {{tail}}",
+          "turbo": "Whisper Turbo · Pruned Large v3 · {{tail}}",
+          "tail": {
+            "fast": "سريع",
+            "balanced": "متوازن",
+            "higher": "دقة أعلى",
+            "best": "أفضل دقة",
+            "nearBest": "دقة شبه مثالية، سريع"
+          }
+        },
+        "language": {
+          "title": "اللغة",
+          "description": "يعمل الاكتشاف التلقائي لمعظم الالتقاطات. قم بتثبيتها إذا كنت تتحدث نفس اللغة دائماً.",
+          "auto": "اكتشاف تلقائي",
+          "en": "الإنجليزية",
+          "es": "الإسبانية",
+          "fr": "الفرنسية",
+          "de": "الألمانية",
+          "ja": "اليابانية",
+          "zh": "الصينية",
+          "hi": "الهندية"
+        },
+        "archive": {
+          "title": "أرشفة الصوت",
+          "description": "الاحتفاظ بالتسجيل الأصلي جنباً إلى جنب مع كل تفريغ صوتي."
+        }
+      },
+      "refinement": {
+        "title": "التنقيح",
+        "description": "تشغيل نموذج لغوي (LLM) محلي اختيارياً على التفريغات الصوتية لتنظيف الكلمات المحشوة، وعلامات الترقيم، والتصحيحات الذاتية.",
+        "auto": {
+          "title": "تنقيح التفريغات الصوتية تلقائياً",
+          "description": "يعمل بعد كل التقاط. لا يزال بإمكانك التبديل بين الخام والمنقح في علامة التبويب التقاطات."
+        },
+        "model": {
+          "title": "نموذج التنقيح",
+          "description": "النماذج الأكبر حجماً أبطأ ولكنها تتعامل مع التصحيحات الذاتية الدقيقة والمفردات التقنية بشكل أفضل.",
+          "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
+          "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "tail": {
+            "veryFast": "سريع جداً",
+            "fast": "سريع",
+            "fullQuality": "جودة كاملة"
+          }
+        },
+        "smartCleanup": {
+          "title": "التنظيف الذكي",
+          "description": "إزالة الكلمات المحشوة (مثل، آآ، إم)، استعادة علامات الترقيم، وتصحيح الأحرف الكبيرة دون إعادة صياغة."
+        },
+        "selfCorrection": {
+          "title": "إزالة التصحيحات الذاتية",
+          "description": "عندما تغير رأيك في منتصف الجملة (\"في الواقع، لا...\"، \"انتظر، كنت أقصد...\")، قم بإسقاط الجزء المتراجع عنه واحتفظ بالقصد النهائي."
+        },
+        "preserveTechnical": {
+          "title": "الحفاظ على المصطلحات التقنية",
+          "description": "احتفظ بالمعرفات البرمجية، وأسماء الأوامر، والمختصرات تماماً كما تم نطقها. قم بتشغيله عند الإملاء في موجه برمجي."
+        }
+      },
+      "playback": {
+        "title": "التشغيل",
+        "description": "الصوت الافتراضي لإجراء \"التشغيل بصوت\" في علامة التبويب التقاطات.",
+        "defaultVoice": {
+          "title": "الصوت الافتراضي",
+          "description": "يُستخدم عند النقر على التشغيل كـ دون اختيار صوت أولاً. يمكنك تغييره لكل التقاط.",
+          "noClonedVoices": "لا توجد أصوات مستنسخة بعد",
+          "noneSelected": "لم يتم تحديد أي منها",
+          "clonedVoices": "الأصوات المستنسخة"
+        }
+      },
+      "storage": {
+        "title": "التخزين",
+        "description": "يتم حفظ الالتقاطات كملفات صوت وتفريغ صوتي مقترنة في دليل بيانات Voicebox الخاص بك.",
+        "retention": {
+          "title": "الاحتفاظ",
+          "description": "مدة الاحتفاظ بالالتقاطات. ينطبق على كل من الصوت والتفريغات الصوتية.",
+          "forever": "الاحتفاظ للأبد",
+          "d90": "90 يوماً",
+          "d30": "30 يوماً",
+          "d7": "7 أيام"
+        },
+        "folder": {
+          "title": "مجلد الالتقاطات",
+          "description": "مكان تخزين صوت الالتقاطات والتفريغات الصوتية على القرص.",
+          "open": "فتح"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "حول الالتقاطات",
+        "aboutBody": "اضغط مع الاستمرار على الاختصار في أي مكان على جهازك، وتحدث، وسيحول Voicebox صوتك إلى نص. أعد تشغيله بأي صوت مستنسخ، ألصقه في أي تطبيق، أو مرره إلى عميل البرمجة الخاص بك.",
+        "differencesTitle": "ما هو المختلف",
+        "local": {
+          "title": "محلي بالكامل.",
+          "body": "يعمل Whisper ونموذج التنقيح (LLM) على عتادك الخاص. لا توجد سحابة، لا حسابات، وصوتك لا يغادر الجهاز أبداً."
+        },
+        "playAs": {
+          "title": "التشغيل بأي صوت.",
+          "body": "يمكن قراءة التفريغات الصوتية مرة أخرى باستخدام أي ملف تعريفي قمت باستنساخه."
+        },
+        "crossPlatform": {
+          "title": "متعدد المنصات.",
+          "body": "نفس الاختصار، ونفس سير العمل على macOS و Windows و Linux."
+        },
+        "windowsCaveat": {
+          "title": "ملاحظة هامة لنظام Windows",
+          "body": "لن يعمل الاختصار أثناء التركيز على Voicebox نفسه أو أي تطبيق يعمل كمسؤول. نحن نعمل على حل ذلك."
+        }
+      }
+    },
+    "mcp": {
+      "install": {
+        "title": "التثبيت في عميلك الذكي",
+        "description": "يعرض Voicebox خادم MCP محلياً كلما كان التطبيق مفتوحاً. الصق إحدى هذه المقتطفات في إعداد MCP لعميلك.",
+        "http": {
+          "title": "HTTP (موصى به)",
+          "description": "للعملاء الذين يستخدمون HTTP MCP — مثل Claude Code، Cursor، Windsurf، VS Code."
+        },
+        "claudeCode": {
+          "title": "أمر تسجيل سطر واحد لـ Claude Code",
+          "description": "يُسجل عبر واجهة سطر أوامر Claude Code."
+        },
+        "stdio": {
+          "title": "Stdio (احتياطي)",
+          "description": "للعملاء الذين ينشئون عمليات stdio فقط. يأتي ملف التشغيل الثنائي (shim) مع التطبيق."
+        },
+        "copy": "نسخ",
+        "copied": "تم النسخ"
+      },
+      "defaultVoice": {
+        "title": "الصوت الافتراضي",
+        "description": "يُستخدم عندما يستدعي العميل voicebox.speak بدون ملف تعريفي محدد ولا يوجد لديه ارتباط خاص بالعميل.",
+        "label": "الصوت الافتراضي للتشغيل",
+        "labelHint": "مشترك مع القائمة المنسدلة 'التشغيل بصوت' في علامة التبويب التقاطات — صوت افتراضي واحد للتشغيل السلبي.",
+        "none": "(لا شيء)"
+      },
+      "bindings": {
+        "title": "صوت خاص بكل عميل",
+        "description": "قم بربط عملاء محددين بأصوات محددة حتى تتمكن من معرفة من يتحدث دون النظر. يعرّف العميل عن نفسه بواسطة ترويسة X-Voicebox-Client-Id (أو متغير البيئة VOICEBOX_CLIENT_ID لـ stdio).",
+        "empty": "لا توجد ارتباطات بعد. أضف واحداً أدناه، ثم قم بتكوين عميل MCP الخاص بك لإرسال <code>X-Voicebox-Client-Id</code> المطابق.",
+        "lastSeen": "شوهد آخر مرة {{when}}",
+        "lastSeenTitle": "شوهد آخر مرة {{when}}",
+        "neverConnected": "لم يتصل أبداً",
+        "defaultOption": "(الافتراضي)",
+        "removeAria": "إزالة الارتباط لـ {{client}}",
+        "add": {
+          "title": "إضافة ارتباط",
+          "clientIdPlaceholder": "معرف العميل (مثال: claude-code)",
+          "labelPlaceholder": "التسمية (اختياري)",
+          "action": "إضافة ارتباط"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "حول MCP",
+        "aboutBody": "يتيح بروتوكول سياق النموذج (MCP) لعميل الذكاء الاصطناعي البرمجي الخاص بك — Claude Code، Cursor، Windsurf — استدعاء أدوات Voicebox. التحدث بصوت مستنسخ، تفريغ الصوت، تصفح الالتقاطات.",
+        "toolsTitle": "الأدوات المتاحة",
+        "tools": {
+          "speak": "التحدث بالنص بملف تعريف صوتي.",
+          "transcribe": "تحويل الصوت إلى نص (Whisper STT) لمقطع صوتي.",
+          "listCaptures": "الإملاءات / التسجيلات الأخيرة.",
+          "listProfiles": "ملفات تعريف الصوت المتاحة."
+        },
+        "postSpeak": "معروض أيضاً كـ <code>POST /speak</code> للنصوص البرمجية، ACP، A2A."
+      }
+    },
+    "gpu": {
+      "cpuOnly": "المعالج (CPU) فقط",
+      "vramUsed": "مُستهلك {{mb}} ميغابايت من VRAM",
+      "noAcceleration": "لم يتم اكتشاف تسريع GPU",
+      "active": "نشط",
+      "cuda": {
+        "title": "المحرك الخلفي لـ CUDA",
+        "description": "تسريع عبر وحدة معالجة الرسومات NVIDIA بواسطة محرك خلفي لـ CUDA قابل للتنزيل.",
+        "downloading": "جاري تنزيل المحرك الخلفي لـ CUDA…",
+        "downloadingShort": "جاري التنزيل…",
+        "updating": "جاري التحديث…"
+      },
+      "restart": {
+        "ready": "تمت إعادة تشغيل الخادم بنجاح",
+        "waiting": "جاري إعادة تشغيل الخادم…",
+        "stopping": "جاري إيقاف الخادم…"
+      },
+      "download": {
+        "title": "تنزيل المحرك الخلفي لـ CUDA",
+        "description": "حجم التنزيل حوالي 2.4 غيغابايت. يتطلب وحدة معالجة رسومات NVIDIA مع دعم CUDA.",
+        "button": "تنزيل"
+      },
+      "switchToCuda": {
+        "title": "التبديل إلى المحرك الخلفي لـ CUDA",
+        "description": "تم تنزيل المحرك الخلفي لـ CUDA وهو جاهز. أعد التشغيل للتمكين.",
+        "button": "أعد التشغيل"
+      },
+      "switchToCpu": {
+        "title": "التبديل إلى المحرك الخلفي لـ CPU",
+        "description": "تعطيل تسريع GPU. يمكنك إعادة تنزيل CUDA لاحقاً.",
+        "button": "تبديل"
+      },
+      "remove": {
+        "title": "إزالة المحرك الخلفي لـ CUDA",
+        "description": "حذف ملف CUDA الثنائي الذي تم تنزيله لتحرير مساحة على القرص.",
+        "button": "إزالة"
+      },
+      "errors": {
+        "downloadFailed": "فشل التنزيل",
+        "downloadStart": "فشل بدء التنزيل",
+        "restartFailed": "فشلت إعادة التشغيل",
+        "switchCpu": "فشل التبديل إلى CPU",
+        "deleteCuda": "فشل حذف المحرك الخلفي لـ CUDA"
+      },
+      "footer": "يكتشف Voicebox أفضل وحدة معالجة رسومات (GPU) متاحة على نظامك ويستخدمها تلقائياً. على أجهزة Apple Silicon Mac، يعمل المحرك الخلفي MLX بشكل أصلي على المحرك العصبي ووحدة معالجة الرسومات عبر Metal Performance Shaders (MPS)، دون الحاجة إلى إعداد إضافي. في أنظمة Windows وLinux المزودة بوحدات معالجة رسومات NVIDIA، يمكنك تنزيل محرك خلفي اختياري لـ CUDA لتسريع الاستدلال عبر العتاد. كما يتم دعم AMD ROCm و Intel XPU و DirectML حيثما أمكن ذلك من خلال PyTorch. عندما لا يتم اكتشاف أي وحدة معالجة رسومات، يلجأ Voicebox إلى وحدة المعالجة المركزية (CPU) — لا تزال جميع المحركات تعمل، ولكن بشكل أبطأ."
+    },
+    "logs": {
+      "title": "سجلات الخادم",
+      "lineCount_zero": "لا توجد أسطر",
+      "lineCount_one": "سطر واحد",
+      "lineCount_two": "سطران",
+      "lineCount_few": "{{count}} أسطر",
+      "lineCount_many": "{{count}} سطراً",
+      "lineCount_other": "{{count}} سطر",
+      "scrollToBottom": "التمرير إلى الأسفل",
+      "clear": "مسح",
+      "empty": "لا توجد مخرجات في السجل بعد.",
+      "devHint": "يتم التقاط سجلات الخادم فقط عندما يدير التطبيق عملية الخادم (في إصدارات الإنتاج)."
+    },
+    "changelog": {
+      "devBadge": "نسخة المطور",
+      "showLess": "إظهار أقل",
+      "showMore": "إظهار المزيد"
+    },
+    "about": {
+      "tagline": "استوديو توليد الصوت مفتوح المصدر. استنسخ الأصوات، وولد الكلام، وطبق التأثيرات، وابنِ تطبيقات مدعومة بالصوت — كل ذلك يعمل محلياً على جهازك.",
+      "createdBy": "تم إنشاؤه بواسطة",
+      "buyCoffee": "ادعمني بقهوة",
+      "license": "مرخص بموجب <link>MIT</link>"
+    }
+  },
+  "models": {
+    "title": "النماذج",
+    "subtitle": "تنزيل وإدارة نماذج الذكاء الاصطناعي لتوليد الصوت والتفريغ الصوتي",
+    "defaultName": "النموذج",
+    "unknownSize": "حجم غير معروف",
+    "sections": {
+      "voiceGeneration": "توليد الصوت",
+      "transcription": "التفريغ الصوتي",
+      "languageModels": "النماذج اللغوية"
+    },
+    "status": {
+      "loaded": "مُحمّل"
+    },
+    "storage": {
+      "location": "موقع التخزين",
+      "open": "فتح",
+      "change": "تغيير",
+      "migrating": "جاري النقل…",
+      "reset": "إعادة تعيين",
+      "pickerTitle": "اختر مجلد تخزين النماذج"
+    },
+    "progress": {
+      "connecting": "جاري الاتصال…",
+      "connectingHf": "جاري الاتصال بـ HuggingFace…"
+    },
+    "problems": {
+      "title": "المشاكل",
+      "clearAll": "مسح الكل",
+      "noDetails": "لا تتوفر تفاصيل عن الخطأ. حاول التنزيل مرة أخرى.",
+      "startedAt": "بدأ في {{time}}"
+    },
+    "detail": {
+      "loadingInfo": "جاري تحميل معلومات النموذج…",
+      "byAuthor": "بواسطة {{author}}",
+      "downloads": "التنزيلات",
+      "likes": "الإعجابات",
+      "license": "الترخيص",
+      "languagesCount": "يدعم {{count}} لغة",
+      "languagesList": "اللغات: {{list}}",
+      "onDisk": "{{size}} على القرص"
+    },
+    "actions": {
+      "download": "تنزيل",
+      "retry": "إعادة المحاولة",
+      "unload": "إلغاء التحميل",
+      "unloading": "جاري إلغاء التحميل…",
+      "unloadFirst": "قم بإلغاء تحميل النموذج قبل حذفه",
+      "deleteModel": "حذف النموذج"
+    },
+    "deleteDialog": {
+      "title": "حذف النموذج",
+      "body": "هل أنت متأكد أنك تريد حذف <strong>{{name}}</strong>؟",
+      "sizeNote": "سيؤدي هذا إلى تحرير {{size}} من مساحة القرص. سيحتاج النموذج إلى إعادة التنزيل إذا كنت تريد استخدامه مرة أخرى.",
+      "deleting": "جاري الحذف…"
+    },
+    "migrateDialog": {
+      "title": "هل تريد نقل النماذج إلى موقع جديد؟",
+      "description": "سيتم إيقاف تشغيل الخادم أثناء نقل النماذج إلى المجلد الجديد. ستتم إعادة تشغيله تلقائياً بمجرد اكتمال النقل.",
+      "action": "نقل النماذج",
+      "preparing": "جاري التحضير…",
+      "restartingServer": "جاري إعادة تشغيل الخادم…"
+    },
+    "migrate": {
+      "title": "جاري نقل النماذج",
+      "offline": "الخادم غير متصل أثناء نقل النماذج."
+    },
+    "toast": {
+      "downloadFailed": "فشل التنزيل",
+      "cancelFailed": "فشل الإلغاء",
+      "cancelFailedDescription": "تعذر إلغاء مهمة التنزيل.",
+      "deleted": "تم حذف النموذج",
+      "deletedDescription": "تم حذف {{name}} بنجاح.",
+      "deleteFailed": "فشل الحذف",
+      "unloaded": "تم إلغاء تحميل النموذج",
+      "unloadedDescription": "تم إلغاء تحميل {{name}} من الذاكرة.",
+      "unloadFailed": "فشل إلغاء التحميل",
+      "openFolderFailed": "فشل فتح مجلد النماذج",
+      "pickerFailed": "فشل فتح منتقي المجلدات",
+      "resetToDefault": "تمت إعادة التعيين إلى الموقع الافتراضي. جاري إعادة تشغيل الخادم…",
+      "noModelsToMigrate": "لا توجد نماذج لنقلها",
+      "noModelsToMigrateDescription": "قم بتنزيل نموذج واحد على الأقل قبل تغيير موقع التخزين.",
+      "migrated": "تم نقل النماذج بنجاح",
+      "migrationFailed": "فشل النقل",
+      "migrationFailedGeneric": "فشل نقل النماذج",
+      "migrationConnectionLost": "فقدان الاتصال أثناء النقل"
+    }
+  }
+}

@@ -247,7 +247,7 @@ export function VoiceInspector({ profileId }: VoiceInspectorProps) {
                     type="button"
                     onClick={handleRemoveAvatar}
                     disabled={deleteAvatar.isPending}
-                    className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-background/60 backdrop-blur-sm text-muted-foreground flex items-center justify-center hover:bg-background/80 hover:text-foreground transition-colors shadow-sm border border-border/50"
+                    className="absolute bottom-0 end-0 h-5 w-5 rounded-full bg-background/60 backdrop-blur-sm text-muted-foreground flex items-center justify-center hover:bg-background/80 hover:text-foreground transition-colors shadow-sm border border-border/50"
                   >
                     <X className="h-3 w-3" />
                   </button>

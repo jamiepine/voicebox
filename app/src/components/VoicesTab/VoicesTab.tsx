@@ -107,24 +107,24 @@ export function VoicesTab() {
       {/* Left: Table */}
       <div className="flex-1 min-w-0 flex flex-col relative overflow-hidden">
         {/* Scroll Mask */}
-        <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
+        <div className="absolute top-0 start-0 end-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
 
         {/* Fixed Header */}
-        <div className="absolute top-0 left-0 right-0 z-20 pl-8 pr-8">
+        <div className="absolute top-0 start-0 end-0 z-20 px-8">
           <div className="flex items-center gap-3 mb-6">
             <h1 className="text-2xl font-bold">{t('voicesTab.title')}</h1>
             <div className="flex-1" />
             <div className="relative w-[240px]">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 placeholder={t('voicesTab.searchPlaceholder')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="h-10 pl-8 text-sm rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="h-10 ps-8 text-sm rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
             <Button onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
+              <Plus className="h-4 w-4 me-2" />
               {t('voicesTab.newVoice')}
             </Button>
           </div>
@@ -138,7 +138,7 @@ export function VoicesTab() {
             isPlayerVisible && BOTTOM_SAFE_AREA_PADDING,
           )}
         >
-          <Table className="table-fixed [&_td:first-child]:pl-8 [&_th:first-child]:pl-8">
+          <Table className="table-fixed [&_td:first-child]:ps-8 [&_th:first-child]:ps-8">
             <TableHeader>
               <TableRow>
                 <TableHead className="w-[30%]">{t('voicesTab.columns.name')}</TableHead>
@@ -169,7 +169,7 @@ export function VoicesTab() {
 
       {/* Right: Inspector */}
       {selectedVoiceId && (
-        <div className="w-[340px] shrink-0 border-l border-t rounded-tl-xl bg-muted/30">
+        <div className="w-[340px] shrink-0 border-s border-t rounded-ss-xl bg-muted/30">
           <VoiceInspector key={selectedVoiceId} profileId={selectedVoiceId} />
         </div>
       )}

@@ -259,7 +259,7 @@ export function SampleList({ profileId }: SampleListProps) {
                         onClick={handleCancelEdit}
                         disabled={updateSample.isPending}
                       >
-                        <X className="h-4 w-4 mr-1" />
+                        <X className="h-4 w-4 me-1" />
                         {t('common.cancel')}
                       </Button>
                       <Button
@@ -268,7 +268,7 @@ export function SampleList({ profileId }: SampleListProps) {
                         onClick={() => handleSaveEdit(sample.id)}
                         disabled={updateSample.isPending}
                       >
-                        <Check className="h-4 w-4 mr-1" />
+                        <Check className="h-4 w-4 me-1" />
                         {updateSample.isPending ? t('sampleList.saving') : t('common.save')}
                       </Button>
                     </div>
@@ -300,7 +300,7 @@ export function SampleList({ profileId }: SampleListProps) {
                       </div>
 
                       {/* Sample Number Badge */}
-                      <div className="absolute top-1 right-2 text-[10px] text-muted-foreground/50 font-medium">
+                      <div className="absolute top-1 end-2 text-[10px] text-muted-foreground/50 font-medium">
                         #{index + 1}
                       </div>
                     </div>
@@ -321,7 +321,7 @@ export function SampleList({ profileId }: SampleListProps) {
         className="w-full"
         onClick={() => setUploadOpen(true)}
       >
-        <Plus className="mr-2 h-4 w-4" />
+        <Plus className="me-2 h-4 w-4" />
         {t('sampleList.addSample')}
       </Button>
 

@@ -79,7 +79,7 @@ export function ProfileList() {
               <Mic className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-muted-foreground mb-4">{t('profiles.list.empty')}</p>
               <Button onClick={() => setDialogOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
+                <Sparkles className="me-2 h-4 w-4" />
                 {t('profiles.list.createVoice')}
               </Button>
             </CardContent>

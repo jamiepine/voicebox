@@ -45,7 +45,7 @@ export function GenerationPicker({ selectedId, onSelect, className }: Generation
           {selectedGeneration ? (
             <span className="truncate">
               <span className="font-medium">{selectedGeneration.profile_name}</span>
-              <span className="text-muted-foreground ml-1.5">
+              <span className="text-muted-foreground ms-1.5">
                 {selectedGeneration.text.length > 30
                   ? `${selectedGeneration.text.substring(0, 30)}...`
                   : selectedGeneration.text}
@@ -60,12 +60,12 @@ export function GenerationPicker({ selectedId, onSelect, className }: Generation
       <PopoverContent className="w-80 p-0" align="start">
         <div className="p-2 border-b">
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute start-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               placeholder="Search by voice or text..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-7 text-xs"
+              className="h-8 ps-7 text-xs"
             />
           </div>
         </div>
@@ -80,7 +80,7 @@ export function GenerationPicker({ selectedId, onSelect, className }: Generation
                 key={gen.id}
                 type="button"
                 className={cn(
-                  'w-full text-left px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border/30 last:border-0',
+                  'w-full text-start px-3 py-2 hover:bg-muted/50 transition-colors border-b border-border/30 last:border-0',
                   gen.id === selectedId && 'bg-accent/10',
                 )}
                 onClick={() => {

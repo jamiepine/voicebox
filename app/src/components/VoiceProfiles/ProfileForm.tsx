@@ -801,7 +801,7 @@ export function ProfileForm() {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-none w-screen h-screen left-0 top-0 translate-x-0 translate-y-0 rounded-none p-6 overflow-hidden">
+      <DialogContent className="max-w-none w-screen h-screen start-0 top-0 translate-x-0 translate-y-0 rounded-none p-6 overflow-hidden">
         <div className="max-w-5xl h-[85vh] mx-auto my-auto w-full flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle className="text-2xl">
@@ -836,7 +836,7 @@ export function ProfileForm() {
                     setSampleMode('record');
                   }}
                 >
-                  <X className="h-3 w-3 mr-1" />
+                  <X className="h-3 w-3 me-1" />
                   {t('profileForm.discard')}
                 </Button>
               </div>
@@ -847,7 +847,7 @@ export function ProfileForm() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 min-h-0 flex flex-col">
               <div className="grid gap-6 grid-cols-2 flex-1 min-h-0 overflow-hidden">
                 {/* Left column: Sample management */}
-                <div className="space-y-4 border-r pr-6 overflow-y-auto min-h-0">
+                <div className="space-y-4 border-e pe-6 overflow-y-auto min-h-0">
                   {isCreating ? (
                     <>
                       {/* Voice source selector */}
@@ -905,7 +905,7 @@ export function ProfileForm() {
                           {/* Voice picker */}
                           <FormItem>
                             <FormLabel>{t('profileForm.fields.voice')}</FormLabel>
-                            <div className="grid grid-cols-2 gap-1.5 max-h-[340px] overflow-y-auto pr-1">
+                            <div className="grid grid-cols-2 gap-1.5 max-h-[340px] overflow-y-auto pe-1">
                               {presetVoices.map((voice: PresetVoice) => (
                                 <button
                                   key={voice.voice_id}
@@ -917,7 +917,7 @@ export function ProfileForm() {
                                       form.setValue('language', voice.language as LanguageCode);
                                     }
                                   }}
-                                  className={`text-left px-3 py-2 rounded-md border text-sm transition-colors ${
+                                  className={`text-start px-3 py-2 rounded-md border text-sm transition-colors ${
                                     selectedPresetVoiceId === voice.voice_id
                                       ? 'border-accent bg-accent/10 text-accent-foreground'
                                       : 'border-border hover:bg-muted'
@@ -1143,7 +1143,7 @@ export function ProfileForm() {
                                   type="button"
                                   onClick={handleRemoveAvatar}
                                   disabled={deleteAvatar.isPending}
-                                  className="absolute bottom-0 right-0 h-6 w-6 rounded-full bg-background/60 backdrop-blur-sm text-muted-foreground flex items-center justify-center hover:bg-background/80 hover:text-foreground transition-colors shadow-sm border border-border/50"
+                                  className="absolute bottom-0 end-0 h-6 w-6 rounded-full bg-background/60 backdrop-blur-sm text-muted-foreground flex items-center justify-center hover:bg-background/80 hover:text-foreground transition-colors shadow-sm border border-border/50"
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </button>

@@ -80,14 +80,14 @@ export function MainEditor() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 lg:gap-6 h-full min-h-0 overflow-hidden relative">
       <div className="flex flex-col min-h-0 overflow-hidden relative lg:overflow-hidden">
-        <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent z-0 pointer-events-none" />
+        <div className="absolute top-0 start-0 end-0 h-16 bg-gradient-to-b from-background to-transparent z-0 pointer-events-none" />
 
-        <div className="absolute top-0 left-0 right-0 z-10">
+        <div className="absolute top-0 start-0 end-0 z-10">
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-2xl font-bold">Voicebox</h2>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleImportClick}>
-                <Upload className="mr-2 h-4 w-4" />
+                <Upload className="me-2 h-4 w-4" />
                 {t('main.importVoice')}
               </Button>
               <input
@@ -98,7 +98,7 @@ export function MainEditor() {
                 className="hidden"
               />
               <Button onClick={() => setDialogOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
+                <Sparkles className="me-2 h-4 w-4" />
                 {t('main.createVoice')}
               </Button>
             </div>

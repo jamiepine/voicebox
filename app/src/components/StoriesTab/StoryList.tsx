@@ -217,7 +217,7 @@ export function StoryList() {
           <ListPaneTitle>{t('stories.title')}</ListPaneTitle>
           <ListPaneActions>
             <Button onClick={() => setCreateDialogOpen(true)} size="sm">
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="me-2 h-4 w-4" />
               {t('stories.newStory')}
             </Button>
           </ListPaneActions>
@@ -258,7 +258,7 @@ export function StoryList() {
                     })}
                     aria-pressed={isActive}
                     className={cn(
-                      'w-full text-left p-3 rounded-lg transition-colors block',
+                      'w-full text-start p-3 rounded-lg transition-colors block',
                       isActive
                         ? 'bg-muted/70 border border-border'
                         : 'border border-transparent hover:bg-muted/30',
@@ -293,7 +293,7 @@ export function StoryList() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-2 end-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={(e) => e.stopPropagation()}
                         aria-label={t('stories.row.actionsLabel', { name: story.name })}
                       >
@@ -302,14 +302,14 @@ export function StoryList() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => handleEditClick(story)}>
-                        <Pencil className="mr-2 h-4 w-4" />
+                        <Pencil className="me-2 h-4 w-4" />
                         {t('common.edit')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleDeleteClick(story.id)}
                         className="text-destructive focus:text-destructive"
                       >
-                        <Trash2 className="mr-2 h-4 w-4" />
+                        <Trash2 className="me-2 h-4 w-4" />
                         {t('common.delete')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>

@@ -335,12 +335,12 @@ function SnippetRow({
         <Button size="sm" variant="outline" onClick={copy}>
           {copied ? (
             <>
-              <Check className="h-3.5 w-3.5 mr-1.5" />
+              <Check className="h-3.5 w-3.5 me-1.5" />
               {t('settings.mcp.install.copied')}
             </>
           ) : (
             <>
-              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              <Copy className="h-3.5 w-3.5 me-1.5" />
               {t('settings.mcp.install.copy')}
             </>
           )}

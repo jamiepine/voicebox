@@ -41,7 +41,7 @@ export function Sidebar({ isMacOS }: SidebarProps) {
   return (
     <div
       className={cn(
-        'fixed left-0 top-0 h-full w-20 bg-sidebar border-r border-border flex flex-col items-center py-6 gap-6',
+        'fixed start-0 top-0 h-full w-20 bg-sidebar border-e border-border flex flex-col items-center py-6 gap-6',
         isMacOS && 'pt-14',
       )}
     >

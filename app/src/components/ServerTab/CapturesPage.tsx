@@ -233,7 +233,7 @@ export function CapturesPage() {
                 disabled={!hotkeyEnabled}
                 onClick={() => setChordEditor('push')}
               >
-                <Keyboard className="h-3.5 w-3.5 mr-1.5" />
+                <Keyboard className="h-3.5 w-3.5 me-1.5" />
                 {t('settings.captures.dictation.pushToTalk.change')}
               </Button>
             </div>
@@ -252,7 +252,7 @@ export function CapturesPage() {
                 disabled={!hotkeyEnabled}
                 onClick={() => setChordEditor('toggle')}
               >
-                <Keyboard className="h-3.5 w-3.5 mr-1.5" />
+                <Keyboard className="h-3.5 w-3.5 me-1.5" />
                 {t('settings.captures.dictation.toggle.change')}
               </Button>
             </div>
@@ -527,7 +527,7 @@ export function CapturesPage() {
               onClick={openCapturesFolder}
               disabled={opening || !capturesPath}
             >
-              <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
+              <FolderOpen className="h-3.5 w-3.5 me-1.5" />
               {t('settings.captures.storage.folder.open')}
             </Button>
           }
