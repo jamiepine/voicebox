@@ -52,6 +52,14 @@ setup-python:
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
         {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        # mlx-audio / mlx-lm declare transformers>=5.x, which conflicts with the
+        # transformers<=4.57.6 cap in requirements.txt. The runtime APIs Voicebox
+        # uses work on transformers 4.57.x, so install them --no-deps. Mirrors the
+        # install step in .github/workflows/release.yml; without this a fresh
+        # Apple Silicon `just setup` ships a venv with no mlx_audio module and
+        # MLX model loads fail with "ModuleNotFoundError: No module named 'mlx_audio'".
+        {{ pip }} install --no-deps mlx-lm==0.31.1
+        {{ pip }} install --no-deps mlx-audio==0.4.1
     fi
     {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
     {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
