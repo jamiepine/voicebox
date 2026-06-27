@@ -5,6 +5,12 @@
 
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **Personality LLM now respects the selected refinement model.** The "Speak in character" rewrite (`POST /generate` with `personality=true`) and Compose (`POST /profiles/{id}/compose`) both bypassed the user's `llm_model` selection from capture settings, always loading Qwen3 0.6B instead of the chosen 1.7B/4B model. Both now read `saved.llm_model` from capture settings and pass it through to the LLM backend.
+
 ## [0.5.0] - 2026-04-22
 
 **The Capture release.** Voicebox stops being just a voice-cloning studio and becomes a full AI voice studio. Hold a key anywhere on your machine, speak, release — the transcript lands in the focused text field. Flip the primitive around and any MCP-aware agent — Claude Code, Cursor, Spacebot — speaks back through an on-screen pill in one of your cloned voices. A local LLM sits between the two, so transcripts come out clean and voice profiles can carry a personality that reshapes what the agent says before it gets spoken.
