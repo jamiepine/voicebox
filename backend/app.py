@@ -282,6 +282,12 @@ async def _run_startup(application: FastAPI) -> None:
     except Exception as e:
         logger.warning("Could not initialize progress manager event loop: %s", e)
 
+    fallback_cache_dir = config.get_cache_dir() / "huggingface" / "hub"
+    if not os.environ.get("HF_HUB_CACHE"):
+        # Default to /app/data/cache in containers (and data/cache in dev)
+        # to avoid permission issues under $HOME/.cache for non-root users.
+        os.environ["HF_HUB_CACHE"] = str(fallback_cache_dir)
+
     try:
         from huggingface_hub import constants as hf_constants
 
@@ -290,6 +296,15 @@ async def _run_startup(application: FastAPI) -> None:
         logger.info("Model cache: %s", cache_dir)
     except Exception as e:
         logger.warning("Could not create HuggingFace cache directory: %s", e)
+        try:
+            os.environ["HF_HUB_CACHE"] = str(fallback_cache_dir)
+            fallback_cache_dir.mkdir(parents=True, exist_ok=True)
+            logger.info("Model cache fallback: %s", fallback_cache_dir)
+        except Exception as fallback_error:
+            logger.warning(
+                "Could not create HuggingFace fallback cache directory: %s",
+                fallback_error,
+            )
 
     logger.info("Ready")
 
