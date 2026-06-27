@@ -5,6 +5,15 @@
 
 # Changelog
 
+## [Unreleased]
+
+Voicebox now treats Cantonese as a distinct language choice instead of folding every Chinese workflow into a single `zh` option.
+
+### Language Support
+
+- **Cantonese language selection.** Adds `yue` / Cantonese to capture transcription settings and to Qwen/Qwen CustomVoice TTS language options, with backend mapping to the Cantonese language name used by the engine ([#776](https://github.com/jamiepine/voicebox/pull/776)).
+- **Clearer Chinese labels.** Updates English, Traditional Chinese, and Simplified Chinese UI strings so Mandarin/Chinese and Cantonese are shown as separate choices.
+
 ## [0.5.0] - 2026-04-22
 
 **The Capture release.** Voicebox stops being just a voice-cloning studio and becomes a full AI voice studio. Hold a key anywhere on your machine, speak, release — the transcript lands in the focused text field. Flip the primitive around and any MCP-aware agent — Claude Code, Cursor, Spacebot — speaks back through an on-screen pill in one of your cloned voices. A local LLM sits between the two, so transcripts come out clean and voice profiles can carry a personality that reshapes what the agent says before it gets spoken.
