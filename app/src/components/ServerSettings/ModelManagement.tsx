@@ -63,6 +63,8 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
     'Production-grade open source TTS by Resemble AI. Supports 23 languages with voice cloning and emotion exaggeration control.',
   'chatterbox-turbo':
     'Streamlined 350M parameter TTS by Resemble AI. High-quality English speech with less compute and VRAM than larger models.',
+  'cosyvoice3-0.5B':
+    'Fun-CosyVoice3 0.5B by FunAudioLLM. Zero-shot multilingual TTS with Cantonese support via instruction prompting. Requires a local CosyVoice repo path in dev mode.',
   'tada-1b':
     'HumeAI TADA 1B — English speech-language model built on Llama 3.2 1B. Generates 700s+ of coherent audio with synchronized text-acoustic alignment.',
   'tada-3b-ml':
@@ -413,6 +415,7 @@ export function ModelManagement() {
         m.model_name.startsWith('qwen-custom-voice') ||
         m.model_name.startsWith('luxtts') ||
         m.model_name.startsWith('chatterbox') ||
+        m.model_name.startsWith('cosyvoice3') ||
         m.model_name.startsWith('tada') ||
         m.model_name.startsWith('kokoro'),
     ) ?? [];

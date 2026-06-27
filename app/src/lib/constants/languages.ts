@@ -5,6 +5,7 @@
  * LuxTTS is English-only.
  * Chatterbox Multilingual supports 23 languages.
  * Chatterbox Turbo is English-only.
+ * Fun-CosyVoice3 supports major languages plus Cantonese via instruction.
  * Kokoro supports 8 languages.
  */
 
@@ -32,6 +33,7 @@ export const ALL_LANGUAGES = {
   sv: 'Swedish',
   sw: 'Swahili',
   tr: 'Turkish',
+  yue: 'Cantonese',
   zh: 'Chinese',
 } as const;
 
@@ -67,6 +69,7 @@ export const ENGINE_LANGUAGES: Record<string, readonly LanguageCode[]> = {
     'zh',
   ],
   chatterbox_turbo: ['en'],
+  cosyvoice3: ['zh', 'yue', 'en', 'ja', 'ko'],
   tada: ['en', 'ar', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'pl', 'pt'],
   kokoro: ['en', 'es', 'fr', 'hi', 'it', 'pt', 'ja', 'zh'],
   qwen_custom_voice: ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'ru', 'pt', 'es', 'it'],
