@@ -69,10 +69,9 @@ fn find_monitor_source_via_pactl() -> Option<String> {
 /// Start capturing system audio on Linux using PulseAudio monitor sources.
 ///
 /// On modern Linux with PulseAudio or PipeWire, we first try to detect the
-/// monitor source via `pactl` and set the `PULSE_SOURCE` environment variable.
-/// This tells PulseAudio's ALSA plugin to use the monitor as the default input
-/// source for this process. If `pactl` is unavailable, we fall back to searching
-/// cpal device names for "monitor".
+/// monitor source via `pactl` and match it against cpal's input device names.
+/// If `pactl` is unavailable, we fall back to searching cpal device names for
+/// "monitor".
 pub async fn start_capture(
     state: &AudioCaptureState,
     max_duration_secs: u32,
@@ -101,71 +100,77 @@ pub async fn start_capture(
 
     // Spawn capture on a dedicated thread
     thread::spawn(move || {
-        // Try to set PULSE_SOURCE to a monitor before initializing cpal.
-        // This tells PulseAudio/PipeWire's ALSA plugin to use the monitor
-        // as the default input source for this process.
+        // Try to find a monitor source before selecting a cpal device.
         let monitor_source = find_monitor_source_via_pactl();
-        if let Some(ref source_name) = monitor_source {
-            eprintln!(
-                "Linux audio capture: Setting PULSE_SOURCE={}",
-                source_name
-            );
-            std::env::set_var("PULSE_SOURCE", source_name);
-        }
 
         let host = cpal::default_host();
 
         // Select the capture device.
-        // If PULSE_SOURCE was set, the default input device IS the monitor.
-        // Otherwise, fall back to searching device names for "monitor".
-        let device = if monitor_source.is_some() {
-            // PULSE_SOURCE was set — default input IS the monitor now
-            match host.default_input_device() {
-                Some(d) => {
-                    let name = d.name().unwrap_or_default();
-                    eprintln!(
-                        "Linux audio capture: Using PULSE_SOURCE monitor device: {}",
-                        name
-                    );
-                    d
-                }
-                None => {
-                    let error_msg = "No audio input device available".to_string();
-                    eprintln!("{}", error_msg);
-                    *error_arc.lock().unwrap() = Some(error_msg);
-                    return;
-                }
-            }
-        } else {
-            // pactl not available — try to find monitor by name (original approach)
-            let mut monitor_device = None;
-            if let Ok(devices) = host.input_devices() {
-                for d in devices {
-                    if let Ok(name) = d.name() {
-                        let name_lower = name.to_lowercase();
-                        if name_lower.contains("monitor") {
-                            eprintln!(
-                                "Linux audio capture: Found monitor device by name: {}",
-                                name
-                            );
-                            monitor_device = Some(d);
+        // Prefer an exact pactl source-name match, then a suffix match, then
+        // the original fuzzy "monitor" name search, then default input.
+        let mut exact_monitor_device = None;
+        let mut suffix_monitor_device = None;
+        let mut fuzzy_monitor_device = None;
+
+        if let Ok(devices) = host.input_devices() {
+            for d in devices {
+                if let Ok(name) = d.name() {
+                    if let Some(source_name) = monitor_source.as_deref() {
+                        if name == source_name {
+                            exact_monitor_device = Some((d, name));
                             break;
                         }
+
+                        if suffix_monitor_device.is_none() && name.ends_with(source_name) {
+                            suffix_monitor_device = Some((d, name));
+                            continue;
+                        }
+                    }
+
+                    if fuzzy_monitor_device.is_none() && name.to_lowercase().contains("monitor") {
+                        fuzzy_monitor_device = Some((d, name));
                     }
                 }
             }
-            match monitor_device {
-                Some(d) => d,
-                None => {
-                    eprintln!("Linux audio capture: No monitor device found, falling back to default input");
-                    match host.default_input_device() {
-                        Some(d) => d,
-                        None => {
-                            let error_msg = "No audio input device available".to_string();
-                            eprintln!("{}", error_msg);
-                            *error_arc.lock().unwrap() = Some(error_msg);
-                            return;
-                        }
+        }
+
+        let device = match (
+            exact_monitor_device,
+            suffix_monitor_device,
+            fuzzy_monitor_device,
+        ) {
+            (Some((d, name)), _, _) => {
+                eprintln!(
+                    "Linux audio capture: Matched pactl monitor source by exact device name: {}",
+                    name
+                );
+                d
+            }
+            (None, Some((d, name)), _) => {
+                eprintln!(
+                    "Linux audio capture: Matched pactl monitor source by device name suffix: {}",
+                    name
+                );
+                d
+            }
+            (None, None, Some((d, name))) => {
+                eprintln!(
+                    "Linux audio capture: Found monitor device by fuzzy name match: {}",
+                    name
+                );
+                d
+            }
+            (None, None, None) => {
+                eprintln!(
+                    "Linux audio capture: No monitor device found, falling back to default input"
+                );
+                match host.default_input_device() {
+                    Some(d) => d,
+                    None => {
+                        let error_msg = "No audio input device available".to_string();
+                        eprintln!("{}", error_msg);
+                        *error_arc.lock().unwrap() = Some(error_msg);
+                        return;
                     }
                 }
             }
