@@ -96,11 +96,16 @@ KOKORO_VOICES = [
     ("pf_dora", "Dora", "female", "pt"),
     ("pm_alex", "Alex", "male", "pt"),
     ("pm_santa", "Santa", "male", "pt"),
-    # Chinese
+    # Chinese female
     ("zf_xiaobei", "Xiaobei", "female", "zh"),
     ("zf_xiaoni", "Xiaoni", "female", "zh"),
     ("zf_xiaoxiao", "Xiaoxiao", "female", "zh"),
     ("zf_xiaoyi", "Xiaoyi", "female", "zh"),
+    # Chinese male
+    ("zm_yunjian", "Yunjian", "male", "zh"),
+    ("zm_yunxi", "Yunxi", "male", "zh"),
+    ("zm_yunxia", "Yunxia", "male", "zh"),
+    ("zm_yunyang", "Yunyang", "male", "zh"),
 ]
 
 # Map our ISO language codes to Kokoro lang_code characters
