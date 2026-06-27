@@ -36,9 +36,6 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# AMD GPU environment variables must be set before torch import
-if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
-    os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
 if not os.environ.get("MIOPEN_LOG_LEVEL"):
     os.environ["MIOPEN_LOG_LEVEL"] = "4"
 
