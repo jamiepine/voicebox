@@ -1,0 +1,834 @@
+{
+  "common": {
+    "cancel": "Cancelar",
+    "save": "Salvar",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "close": "Fechar",
+    "confirm": "Confirmar",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "unknown": "Desconhecido",
+    "unknownError": "Erro desconhecido"
+  },
+  "nav": {
+    "generate": "Gerar",
+    "stories": "Histórias",
+    "voices": "Vozes",
+    "effects": "Efeitos",
+    "audio": "Áudio",
+    "models": "Modelos",
+    "settings": "Configurações",
+    "updateBadge": "Atualização"
+  },
+  "voicesTab": {
+    "title": "Vozes",
+    "loading": "Carregando vozes...",
+    "searchPlaceholder": "Buscar vozes...",
+    "newVoice": "Nova Voz",
+    "avatarAlt": "Avatar de {{name}}",
+    "selectChannels": "Selecionar canais...",
+    "channelDefaultLabel": "{{name}} (Padrão)",
+    "columns": {
+      "name": "Nome",
+      "language": "Idioma",
+      "generations": "Gerações",
+      "samples": "Amostras",
+      "effects": "Efeitos",
+      "channels": "Canais"
+    }
+  },
+  "voiceInspector": {
+    "loading": "Carregando...",
+    "defaultEffectsHint": "Aplicado automaticamente a novas gerações com esta voz.",
+    "fields": {
+      "description": "Descrição"
+    },
+    "toast": {
+      "invalidImageFormat": "Selecione PNG, JPG ou WebP",
+      "avatarUpdated": "Avatar atualizado",
+      "savedDescription": "\"{{name}}\" salvo."
+    }
+  },
+  "audioChannels": {
+    "title": "Canais de Áudio",
+    "newChannel": "Novo Canal",
+    "loading": "Carregando...",
+    "confirmDelete": "Excluir este canal?",
+    "noVoicesAssigned": "Nenhuma voz atribuída",
+    "selectDevice": "Selecionar dispositivo",
+    "addDevice": "Adicionar dispositivo",
+    "addVoice": "Adicionar voz",
+    "defaultSuffix": "padrão",
+    "empty": {
+      "message": "Ainda não há canais de áudio. Crie seu primeiro canal para direcionar vozes para dispositivos específicos.",
+      "action": "Criar Canal"
+    },
+    "labels": {
+      "outputDevices": "Dispositivos de saída",
+      "assignedVoices": "Vozes atribuídas"
+    },
+    "devices": {
+      "title": "Dispositivos Disponíveis",
+      "defaultNote": "O canal padrão usa o dispositivo padrão do sistema",
+      "toggleHint": "Clique nos dispositivos para adicioná-los ou removê-los do canal selecionado",
+      "selectHint": "Selecione um canal para atribuir dispositivos",
+      "empty": "Nenhum dispositivo de áudio encontrado",
+      "requiresTauri": "A seleção de dispositivo de áudio requer Tauri"
+    },
+    "fields": {
+      "name": "Nome do canal",
+      "namePlaceholder": "ex.: Cabo Virtual, Transmissão"
+    },
+    "createDialog": {
+      "title": "Criar Canal de Áudio",
+      "description": "Crie um novo canal de áudio (bus) para direcionar vozes para dispositivos de saída específicos.",
+      "action": "Criar"
+    },
+    "editDialog": {
+      "title": "Editar Canal",
+      "description": "Atualize as configurações do canal e as atribuições de voz."
+    }
+  },
+  "profileForm": {
+    "createTitle": "Criar Voz",
+    "editTitle": "Editar Voz",
+    "createDescription": "Crie um novo perfil de voz a partir de uma amostra de áudio ou de uma voz integrada.",
+    "editDescription": "Atualize os detalhes do seu perfil de voz e gerencie amostras.",
+    "draftRestored": "Rascunho restaurado",
+    "discard": "Descartar",
+    "source": {
+      "clone": "Clonar do áudio",
+      "builtin": "Voz integrada"
+    },
+    "builtin": {
+      "hint": "Escolha uma voz pré-construída. Elas não exigem uma amostra de áudio.",
+      "badge": "Voz Integrada",
+      "note": "Este perfil usa uma voz integrada. A voz não pode ser alterada após a criação."
+    },
+    "sampleTabs": {
+      "upload": "Enviar",
+      "record": "Gravar",
+      "system": "Áudio do Sistema"
+    },
+    "fields": {
+      "engine": "Motor",
+      "voice": "Voz",
+      "name": "Nome",
+      "namePlaceholder": "Minha Voz",
+      "descriptionLabel": "Descrição (Opcional)",
+      "descriptionPlaceholder": "Descreva esta voz...",
+      "language": "Idioma",
+      "referenceText": "Texto de referência",
+      "referenceTextPlaceholder": "Digite o texto exato falado no áudio...",
+      "defaultEngine": "Motor padrão",
+      "noPreference": "Sem preferência",
+      "defaultEngineHint": "Seleciona automaticamente este motor quando o perfil é escolhido.",
+      "defaultEffects": "Efeitos padrão",
+      "defaultEffectsHint": "Efeitos aplicados automaticamente a todas as novas gerações com esta voz."
+    },
+    "avatar": {
+      "alt": "Pré-visualização do avatar"
+    },
+    "actions": {
+      "saving": "Salvando...",
+      "saveChanges": "Salvar Alterações",
+      "createProfile": "Criar Perfil"
+    },
+    "validation": {
+      "nameRequired": "O nome é obrigatório",
+      "referenceRequired": "O texto de referência é obrigatório ao adicionar uma amostra",
+      "sampleRequired": "A amostra de áudio é obrigatória",
+      "referenceTextRequired": "O texto de referência é obrigatório",
+      "audioTooLong": "O áudio é muito longo ({{duration}}). A duração máxima é {{max}}.",
+      "audioFailed": "Falha ao validar o arquivo de áudio. Tente outro arquivo."
+    },
+    "toast": {
+      "recordingComplete": "Gravação concluída",
+      "recordingCompleteDescription": "O áudio foi gravado com sucesso.",
+      "recordingError": "Erro de gravação",
+      "systemAudioCaptured": "Áudio do sistema capturado",
+      "systemAudioCapturedDescription": "O áudio foi capturado com sucesso.",
+      "systemAudioError": "Erro na captura do áudio do sistema",
+      "transcribeFailed": "Falha na transcrição",
+      "transcribeFailedFallback": "Falha ao transcrever o áudio",
+      "noFile": "Nenhum arquivo selecionado",
+      "noFileDescription": "Selecione primeiro um arquivo de áudio.",
+      "invalidFile": "Tipo de arquivo inválido",
+      "invalidImageFormat": "Selecione um arquivo de imagem (PNG, JPG ou WebP)",
+      "fileTooLarge": "Arquivo muito grande",
+      "imageTooLargeDescription": "A imagem deve ter menos de 5 MB",
+      "avatarRemoved": "Avatar removido",
+      "avatarRemovedDescription": "A imagem do avatar foi removida com sucesso.",
+      "avatarRemoveFailed": "Falha ao remover o avatar",
+      "avatarUploadFailed": "Falha no envio do avatar",
+      "avatarUploadFailedFallback": "Falha ao enviar o avatar",
+      "effectsUpdateFailed": "Falha ao atualizar efeitos",
+      "effectsUpdateFailedFallback": "Falha ao salvar a cadeia de efeitos",
+      "voiceUpdated": "Voz atualizada",
+      "voiceUpdatedDescription": "\"{{name}}\" foi atualizada com sucesso.",
+      "noVoiceSelected": "Nenhuma voz selecionada",
+      "noVoiceSelectedDescription": "Selecione uma voz integrada.",
+      "profileCreated": "Perfil criado",
+      "profileCreatedBuiltin": "\"{{name}}\" foi criado com uma voz integrada.",
+      "profileCreatedSample": "\"{{name}}\" foi criado com uma amostra.",
+      "sampleRequired": "Amostra de áudio obrigatória",
+      "sampleRequiredDescription": "Forneça uma amostra de áudio para criar o perfil de voz.",
+      "referenceTextRequired": "Texto de referência obrigatório",
+      "referenceTextRequiredDescription": "Forneça o texto de referência para a amostra de áudio.",
+      "invalidAudio": "Arquivo de áudio inválido",
+      "invalidAudioDescription": "A duração do áudio é {{duration}}, mas o máximo é {{max}}.",
+      "validationError": "Erro de validação",
+      "rollbackFailed": "Falha no rollback",
+      "rollbackFailedDescription": "O perfil criado não pôde ser removido após a falha no envio da amostra.",
+      "profileRolledBack": "O perfil foi revertido.",
+      "sampleFailed": "Falha ao adicionar a amostra",
+      "sampleFailedDescription": "Falha ao adicionar a amostra.",
+      "sampleFailedRolledBack": "Falha ao adicionar a amostra. O perfil foi revertido.",
+      "saveFailed": "Falha ao salvar o perfil"
+    }
+  },
+  "audioSample": {
+    "chooseFile": "Escolher Arquivo",
+    "uploadHint": "Clique para escolher um arquivo ou arraste e solte. Duração máxima: 30 segundos.",
+    "fileUploaded": "Arquivo enviado",
+    "fileLabel": "Arquivo: {{name}}",
+    "play": "Reproduzir",
+    "pause": "Pausar",
+    "transcribe": "Transcrever",
+    "transcribing": "Transcrevendo...",
+    "remove": "Remover",
+    "startRecording": "Iniciar Gravação",
+    "recordHint": "Clique para iniciar a gravação. Duração máxima: 30 segundos.",
+    "stopRecording": "Parar Gravação",
+    "remaining": "{{time}} restantes",
+    "recordingComplete": "Gravação concluída",
+    "recordAgain": "Gravar Novamente",
+    "startCapture": "Iniciar Captura",
+    "systemHint": "Capture áudio do seu sistema. Duração máxima: 30 segundos.",
+    "stopCapture": "Parar Captura",
+    "captureComplete": "Captura concluída",
+    "captureAgain": "Capturar Novamente"
+  },
+  "sampleList": {
+    "loading": "Carregando amostras...",
+    "empty": {
+      "title": "Ainda não há amostras",
+      "hint": "Adicione sua primeira amostra de áudio para começar"
+    },
+    "editing": "Editando transcrição",
+    "placeholder": "Digite o texto de referência...",
+    "saving": "Salvando...",
+    "editTranscription": "Editar transcrição",
+    "deleteSample": "Excluir amostra",
+    "addSample": "Adicionar Amostra",
+    "note": "Observação: uma única amostra de 30 segundos é o ideal. A qualidade pode diminuir com várias amostras. Em uma atualização futura, as amostras poderão ser intercambiáveis e marcadas para estilos diferentes da mesma voz.",
+    "deleteDialog": {
+      "title": "Excluir Amostra",
+      "description": "Tem certeza de que deseja excluir esta amostra de áudio? Esta ação não pode ser desfeita.",
+      "deleting": "Excluindo..."
+    },
+    "player": {
+      "play": "Reproduzir amostra",
+      "pause": "Pausar amostra",
+      "stop": "Parar",
+      "stopAria": "Parar reprodução",
+      "position": "Posição de reprodução da amostra",
+      "positionValue": "{{current}} de {{total}}"
+    },
+    "toast": {
+      "invalidText": "Texto inválido",
+      "invalidTextDescription": "O texto de referência não pode estar vazio.",
+      "updated": "Amostra atualizada",
+      "updatedDescription": "O texto de referência foi atualizado com sucesso.",
+      "updateFailed": "Falha na atualização",
+      "updateFailedFallback": "Falha ao atualizar a amostra"
+    }
+  },
+  "profiles": {
+    "card": {
+      "noDescription": "Sem descrição",
+      "designed": "projetada",
+      "export": "Exportar perfil",
+      "edit": "Editar perfil",
+      "delete": "Excluir perfil",
+      "selectLabel": "{{name}}, {{language}}. Selecionar como voz para geração.",
+      "selectLabelSelected": "{{name}}, {{language}}. Selecionada como voz para geração."
+    },
+    "list": {
+      "errorLoading": "Erro ao carregar perfis: {{message}}",
+      "empty": "Ainda não há perfis de voz. Crie seu primeiro perfil para começar.",
+      "createVoice": "Criar Voz",
+      "unsupportedNote": "Apenas perfis de voz compatíveis podem ser selecionados para o modelo atual."
+    },
+    "deleteDialog": {
+      "title": "Excluir Perfil",
+      "body": "Tem certeza de que deseja excluir \"{{name}}\"? Esta ação não pode ser desfeita.",
+      "deleting": "Excluindo..."
+    }
+  },
+  "effects": {
+    "title": "Efeitos",
+    "newPreset": "Nova Predefinição",
+    "noDescription": "Sem descrição",
+    "placeholder": "Selecione uma predefinição ou crie uma nova",
+    "effectCount_one": "{{count}} efeito",
+    "effectCount_other": "{{count}} efeitos",
+    "sections": {
+      "builtin": "Integradas",
+      "custom": "Personalizadas",
+      "new": "Nova"
+    },
+    "badge": {
+      "builtin": "integrada"
+    },
+    "unsaved": {
+      "title": "Predefinição Não Salva",
+      "hint": "Configure os efeitos no painel à direita."
+    },
+    "detail": {
+      "newTitle": "Nova Predefinição",
+      "editTitle": "Editar Predefinição",
+      "savePreset": "Salvar Predefinição",
+      "saveAsCustom": "Salvar como Personalizada",
+      "saving": "Salvando...",
+      "deleting": "Excluindo..."
+    },
+    "fields": {
+      "name": "Nome",
+      "namePlaceholder": "Minha predefinição...",
+      "description": "Descrição",
+      "descriptionPlaceholder": "Descreva o que esta predefinição faz..."
+    },
+    "preview": {
+      "label": "Pré-visualização",
+      "button": "Pré-visualizar",
+      "processing": "Processando...",
+      "hint": "A pré-visualização aplica os efeitos à versão limpa sem salvar."
+    },
+    "saveAs": {
+      "title": "Salvar como Predefinição Personalizada",
+      "description": "Crie uma nova predefinição personalizada com base na cadeia de efeitos atual.",
+      "suggestedName": "{{name}} (Cópia)"
+    },
+    "toast": {
+      "saved": "Predefinição salva",
+      "createdDescription": "\"{{name}}\" foi criada.",
+      "updated": "Predefinição atualizada",
+      "deleted": "Predefinição excluída",
+      "saveFailed": "Falha ao salvar",
+      "deleteFailed": "Falha ao excluir",
+      "previewFailed": "Falha na pré-visualização",
+      "nameRequired": "Nome obrigatório"
+    },
+    "chain": {
+      "loadPreset": "Carregar predefinição...",
+      "addEffect": "Adicionar efeito...",
+      "clear": "Limpar",
+      "enable": "Ativar",
+      "disable": "Desativar",
+      "remove": "Remover"
+    },
+    "types": {
+      "chorus": {
+        "label": "Chorus / Flanger",
+        "params": {
+          "rate_hz": "Velocidade do LFO (Hz)",
+          "depth": "Profundidade da modulação",
+          "feedback": "Quantidade de feedback",
+          "centre_delay_ms": "Atraso central (ms)",
+          "mix": "Mistura wet/dry"
+        }
+      },
+      "reverb": {
+        "label": "Reverb",
+        "params": {
+          "room_size": "Tamanho da sala",
+          "damping": "Atenuação de altas frequências",
+          "wet_level": "Nível wet",
+          "dry_level": "Nível dry",
+          "width": "Largura estéreo"
+        }
+      },
+      "delay": {
+        "label": "Delay",
+        "params": {
+          "delay_seconds": "Tempo de atraso (segundos)",
+          "feedback": "Quantidade de feedback",
+          "mix": "Mistura wet/dry"
+        }
+      },
+      "compressor": {
+        "label": "Compressor",
+        "params": {
+          "threshold_db": "Limiar (dB)",
+          "ratio": "Taxa de compressão",
+          "attack_ms": "Tempo de ataque (ms)",
+          "release_ms": "Tempo de release (ms)"
+        }
+      },
+      "gain": {
+        "label": "Ganho",
+        "params": {
+          "gain_db": "Ganho (dB)"
+        }
+      },
+      "highpass": {
+        "label": "Filtro Passa-Alta",
+        "params": {
+          "cutoff_frequency_hz": "Frequência de corte (Hz)"
+        }
+      },
+      "lowpass": {
+        "label": "Filtro Passa-Baixa",
+        "params": {
+          "cutoff_frequency_hz": "Frequência de corte (Hz)"
+        }
+      },
+      "pitch_shift": {
+        "label": "Mudança de Tom",
+        "params": {
+          "semitones": "Semitons para deslocar"
+        }
+      }
+    },
+    "builtinPresets": {
+      "Robotic": {
+        "name": "Robótico",
+        "description": "Voz robótica metálica (flanger com LFO lento e alto feedback)"
+      },
+      "Radio": {
+        "name": "Rádio",
+        "description": "Voz fina de rádio AM com filtragem passa-faixa e compressão leve"
+      },
+      "Echo Chamber": {
+        "name": "Câmara de Eco",
+        "description": "Reverb espaçoso com eco prolongado"
+      },
+      "Deep Voice": {
+        "name": "Voz Grave",
+        "description": "Tom mais baixo com calor adicional"
+      }
+    }
+  },
+  "stories": {
+    "title": "Histórias",
+    "newStory": "Nova História",
+    "loading": "Carregando histórias...",
+    "empty": {
+      "title": "Ainda não há histórias",
+      "hint": "Crie sua primeira história para começar"
+    },
+    "row": {
+      "itemCount_one": "{{count}} item",
+      "itemCount_other": "{{count}} itens",
+      "ariaLabel": "História {{name}}, {{count}} itens, {{updated}}",
+      "actionsLabel": "Ações para {{name}}"
+    },
+    "createDialog": {
+      "title": "Criar Nova História",
+      "description": "Crie uma nova história para organizar suas gerações de voz em conversas.",
+      "action": "Criar",
+      "creating": "Criando..."
+    },
+    "editDialog": {
+      "title": "Editar História",
+      "description": "Atualize o nome e a descrição da história.",
+      "saving": "Salvando..."
+    },
+    "deleteDialog": {
+      "title": "Tem certeza?",
+      "description": "Isso excluirá permanentemente a história e todos os seus itens. Esta ação não pode ser desfeita.",
+      "deleting": "Excluindo..."
+    },
+    "fields": {
+      "name": "Nome",
+      "namePlaceholder": "Minha História",
+      "descriptionLabel": "Descrição (opcional)",
+      "descriptionPlaceholder": "Uma conversa entre..."
+    },
+    "toast": {
+      "nameRequired": "Nome obrigatório",
+      "nameRequiredDescription": "Digite um nome para a história",
+      "created": "História criada",
+      "createdDescription": "\"{{name}}\" foi criada",
+      "createFailed": "Falha ao criar a história",
+      "updateFailed": "Falha ao atualizar a história",
+      "deleteFailed": "Falha ao excluir a história"
+    }
+  },
+  "storyContent": {
+    "selectStory": {
+      "title": "Selecione uma história",
+      "hint": "Escolha uma história da lista para ver seu conteúdo"
+    },
+    "loading": "Carregando história...",
+    "notFound": {
+      "title": "História não encontrada",
+      "hint": "A história selecionada não pôde ser carregada"
+    },
+    "generatingCount_one": "Gerando {{count}} áudio",
+    "generatingCount_other": "Gerando {{count}} áudios",
+    "add": "Adicionar",
+    "searchPlaceholder": "Buscar por nome ou transcrição...",
+    "searchNoMatches": "Nenhuma geração correspondente encontrada",
+    "searchNoAvailable": "Nenhuma geração disponível",
+    "exportAudio": "Exportar Áudio",
+    "empty": {
+      "title": "Não há itens nesta história",
+      "hint": "Gere fala usando a caixa abaixo para adicionar itens"
+    },
+    "itemActions": {
+      "playFromHere": "Reproduzir a partir daqui",
+      "removeFromStory": "Remover da História"
+    },
+    "toast": {
+      "removeFailed": "Falha ao remover item",
+      "reorderFailed": "Falha ao reordenar itens",
+      "exportFailed": "Falha ao exportar áudio",
+      "addFailed": "Falha ao adicionar geração"
+    }
+  },
+  "history": {
+    "actions": {
+      "menu": "Ações",
+      "play": "Reproduzir",
+      "exportAudio": "Exportar Áudio",
+      "exportPackage": "Exportar Pacote",
+      "applyEffects": "Aplicar Efeitos",
+      "regenerate": "Gerar Novamente"
+    },
+    "deleteDialog": {
+      "title": "Excluir Geração",
+      "body": "Tem certeza de que deseja excluir esta geração de \"{{name}}\"? Esta ação não pode ser desfeita.",
+      "deleting": "Excluindo..."
+    },
+    "clearFailedDialog": {
+      "title": "Limpar gerações com falha",
+      "body_one": "Isso excluirá permanentemente {{count}} geração com falha do seu histórico. Isso não pode ser desfeito.",
+      "body_other": "Isso excluirá permanentemente {{count}} gerações com falha do seu histórico. Isso não pode ser desfeito.",
+      "clearing": "Limpando...",
+      "clearAll": "Limpar tudo"
+    },
+    "importDialog": {
+      "title": "Importar Geração",
+      "body": "Importe a geração de \"{{name}}\". Isso a adicionará ao seu histórico.",
+      "importing": "Importando...",
+      "action": "Importar"
+    },
+    "effectsDialog": {
+      "title": "Aplicar Efeitos",
+      "body": "Configure efeitos de pós-processamento para aplicar a esta geração. Uma nova versão será criada.",
+      "sourceLabel": "Origem",
+      "sourcePlaceholder": "Selecione a versão de origem",
+      "apply": "Aplicar",
+      "applying": "Aplicando..."
+    }
+  },
+  "generation": {
+    "placeholder": {
+      "storyWithEffects": "Gerar fala para \"{{name}}\"... (digite / para efeitos)",
+      "story": "Gerar fala para \"{{name}}\"...",
+      "profile": "Gerar fala usando {{name}}...",
+      "effectsHint": "Digite / para efeitos como [laugh], [sigh]...",
+      "selectVoice": "Selecione um perfil de voz acima..."
+    },
+    "button": {
+      "generate": "Gerar fala",
+      "generating": "Gerando...",
+      "selectFirst": "Selecione primeiro um perfil de voz"
+    },
+    "instruct": {
+      "show": "Mostrar instruções de entrega",
+      "hide": "Ocultar instruções de entrega",
+      "tooltip": "Instruções de entrega (tom, emoção, ritmo)",
+      "placeholder": "Instruções de entrega — ex.: Fale devagar com acolhimento, Autoritativo e claro..."
+    },
+    "voiceSelector": {
+      "placeholder": "Selecione uma voz..."
+    },
+    "effects": {
+      "none": "Sem efeitos",
+      "profileDefault": "Padrão do perfil"
+    }
+  },
+  "main": {
+    "importVoice": "Importar Voz",
+    "createVoice": "Criar Voz",
+    "import": {
+      "invalidTitle": "Tipo de arquivo inválido",
+      "invalidDescription": "Selecione um arquivo `.voicebox.zip` válido",
+      "successTitle": "Perfil importado",
+      "successDescription": "Perfil de voz importado com sucesso",
+      "failedTitle": "Falha ao importar perfil",
+      "dialogTitle": "Importar Perfil",
+      "dialogDescription": "Importe o perfil de \"{{name}}\". Isso criará um novo perfil com todas as amostras.",
+      "importing": "Importando...",
+      "action": "Importar"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "general": "Geral",
+      "generation": "Geração",
+      "gpu": "GPU",
+      "logs": "Logs",
+      "changelog": "Registro de alterações",
+      "about": "Sobre"
+    },
+    "language": {
+      "label": "Idioma",
+      "description": "Escolha o idioma de exibição do Voicebox."
+    },
+    "general": {
+      "docs": { "title": "Ler a Documentação" },
+      "discord": { "title": "Entrar no Discord", "subtitle": "Receba ajuda e compartilhe vozes" },
+      "serverUrl": {
+        "title": "URL do Servidor",
+        "description": "O endereço do seu servidor backend do Voicebox.",
+        "invalidUrl": "Digite uma URL válida",
+        "updatedTitle": "URL do servidor atualizada",
+        "updatedDescription": "Conectado a {{url}}"
+      },
+      "keepServerRunning": {
+        "title": "Manter o servidor em execução ao fechar o app",
+        "description": "O servidor continuará em execução em segundo plano após fechar o aplicativo.",
+        "failedTitle": "Falha ao atualizar configuração",
+        "failedDescription": "Não foi possível sincronizar a configuração com o backend.",
+        "updatedTitle": "Configuração atualizada",
+        "runningDescription": "O servidor continuará em execução ao fechar o app",
+        "stoppedDescription": "O servidor será interrompido ao fechar o app"
+      },
+      "networkAccess": {
+        "title": "Permitir acesso à rede",
+        "description": "Torna o servidor acessível para outros dispositivos da sua rede. Reinicie o app após alterar.",
+        "updatedTitle": "Configuração atualizada",
+        "enabled": "Acesso à rede ativado. Reinicie o app para aplicar.",
+        "disabled": "Acesso à rede desativado. Reinicie o app para aplicar."
+      },
+      "connection": {
+        "connecting": "Conectando",
+        "offline": "Offline",
+        "online": "Online"
+      },
+      "updates": {
+        "title": "Atualizações do App",
+        "devSuffix": " (dev)",
+        "devMode": {
+          "title": "Modo de desenvolvimento",
+          "description": "As atualizações automáticas ficam desativadas no modo de desenvolvimento."
+        },
+        "check": {
+          "title": "Verificar atualizações",
+          "available": "Versão {{version}} disponível",
+          "checking": "Verificando...",
+          "upToDate": "Você está atualizado",
+          "button": "Verificar"
+        },
+        "error": "Erro de atualização",
+        "download": {
+          "title": "Atualizar para {{version}}",
+          "description": "Baixe e instale a versão mais recente.",
+          "button": "Baixar"
+        },
+        "downloading": "Baixando atualização...",
+        "ready": {
+          "title": "Atualização pronta para instalar",
+          "description": "A versão {{version}} foi baixada. Reinicie para concluir.",
+          "button": "Reiniciar Agora"
+        }
+      },
+      "api": {
+        "title": "Acesso à API",
+        "description": "Integre o Voicebox ao seu fluxo de trabalho pela API REST em <code>{{url}}</code>",
+        "viewReference": "Ver a referência completa da API",
+        "endpoints": {
+          "generate": "Gerar fala",
+          "health": "Status do servidor",
+          "profiles": "Listar vozes",
+          "history": "Gerações anteriores"
+        }
+      }
+    },
+    "generation": {
+      "title": "Geração",
+      "description": "Controles para geração de textos longos. Essas configurações se aplicam a todos os motores.",
+      "chunkLimit": {
+        "title": "Limite de fragmentação automática",
+        "description": "Textos longos são divididos em partes nos limites das frases. Valores menores podem melhorar a qualidade em saídas longas.",
+        "value": "{{chars}} caracteres"
+      },
+      "crossfade": {
+        "title": "Crossfade entre partes",
+        "description": "Mistura o áudio entre partes para suavizar transições. Defina como 0 para um corte seco.",
+        "cut": "Corte",
+        "ms": "{{ms}} ms"
+      },
+      "normalize": {
+        "title": "Normalizar áudio",
+        "description": "Ajusta o volume de saída para um nível consistente entre gerações."
+      },
+      "autoplay": {
+        "title": "Reproduzir automaticamente ao gerar",
+        "description": "Reproduz automaticamente o áudio quando uma geração for concluída."
+      },
+      "folder": {
+        "title": "Pasta de gerações",
+        "description": "Onde os arquivos de áudio gerados são armazenados no disco.",
+        "open": "Abrir"
+      }
+    },
+    "gpu": {
+      "cpuOnly": "Somente CPU",
+      "vramUsed": "{{mb}} MB de VRAM",
+      "noAcceleration": "Nenhuma aceleração por GPU detectada",
+      "active": "Ativa",
+      "cuda": {
+        "title": "Backend CUDA",
+        "description": "Aceleração com GPU NVIDIA via um backend CUDA baixável.",
+        "downloading": "Baixando backend CUDA...",
+        "downloadingShort": "Baixando...",
+        "updating": "Atualizando..."
+      },
+      "restart": {
+        "ready": "Servidor reiniciado com sucesso",
+        "waiting": "Reiniciando servidor...",
+        "stopping": "Parando servidor..."
+      },
+      "download": {
+        "title": "Baixar backend CUDA",
+        "description": "~2,4 GB de download. Requer uma GPU NVIDIA com suporte a CUDA.",
+        "button": "Baixar"
+      },
+      "switchToCuda": {
+        "title": "Alternar para backend CUDA",
+        "description": "O backend CUDA foi baixado e está pronto. Reinicie para ativar.",
+        "button": "Reiniciar"
+      },
+      "switchToCpu": {
+        "title": "Alternar para backend CPU",
+        "description": "Desative a aceleração por GPU. Você poderá baixar o CUDA novamente depois.",
+        "button": "Alternar"
+      },
+      "remove": {
+        "title": "Remover backend CUDA",
+        "description": "Exclua o binário CUDA baixado para liberar espaço em disco.",
+        "button": "Remover"
+      },
+      "errors": {
+        "downloadFailed": "Falha no download",
+        "downloadStart": "Falha ao iniciar o download",
+        "restartFailed": "Falha ao reiniciar",
+        "switchCpu": "Falha ao alternar para CPU",
+        "deleteCuda": "Falha ao excluir o backend CUDA"
+      },
+      "footer": "O Voicebox detecta e usa automaticamente a melhor GPU disponível no seu sistema. Em Macs com Apple Silicon, o backend MLX roda nativamente no Neural Engine e na GPU via Metal Performance Shaders (MPS), sem configuração adicional. No Windows e Linux com GPUs NVIDIA, você pode baixar um backend CUDA opcional para inferência acelerada por hardware. AMD ROCm, Intel XPU e DirectML também são compatíveis quando disponíveis via PyTorch. Quando nenhuma GPU é detectada, o Voicebox usa a CPU como alternativa — todos os motores continuam funcionando, apenas mais lentamente."
+    },
+    "logs": {
+      "title": "Logs do Servidor",
+      "lineCount_one": "{{count}} linha",
+      "lineCount_other": "{{count}} linhas",
+      "scrollToBottom": "Rolar até o fim",
+      "clear": "Limpar",
+      "empty": "Ainda não há saída de log.",
+      "devHint": "Os logs do servidor só são capturados quando o app gerencia o processo do servidor (builds de produção)."
+    },
+    "changelog": {
+      "devBadge": "dev",
+      "showLess": "Mostrar menos",
+      "showMore": "Mostrar mais"
+    },
+    "about": {
+      "tagline": "O estúdio open-source de síntese de voz. Clone vozes, gere fala, aplique efeitos e crie apps com voz — tudo rodando localmente na sua máquina.",
+      "createdBy": "Criado por",
+      "buyCoffee": "Me pague um café",
+      "license": "Licenciado sob <link>MIT</link>"
+    }
+  },
+  "models": {
+    "title": "Modelos",
+    "subtitle": "Baixe e gerencie modelos de IA para geração de voz e transcrição",
+    "defaultName": "Modelo",
+    "unknownSize": "Tamanho desconhecido",
+    "sections": {
+      "voiceGeneration": "Geração de Voz",
+      "transcription": "Transcrição"
+    },
+    "status": {
+      "loaded": "Carregado"
+    },
+    "storage": {
+      "location": "Local de armazenamento",
+      "open": "Abrir",
+      "change": "Alterar",
+      "migrating": "Migrando...",
+      "reset": "Redefinir",
+      "pickerTitle": "Escolha a pasta de armazenamento dos modelos"
+    },
+    "progress": {
+      "connecting": "Conectando...",
+      "connectingHf": "Conectando ao HuggingFace..."
+    },
+    "problems": {
+      "title": "Problemas",
+      "clearAll": "Limpar Tudo",
+      "noDetails": "Nenhum detalhe de erro disponível. Tente baixar novamente.",
+      "startedAt": "iniciado em {{time}}"
+    },
+    "detail": {
+      "loadingInfo": "Carregando informações do modelo...",
+      "byAuthor": "por {{author}}",
+      "downloads": "Downloads",
+      "likes": "Curtidas",
+      "license": "Licença",
+      "languagesCount": "{{count}} idiomas compatíveis",
+      "languagesList": "Idiomas: {{list}}",
+      "onDisk": "{{size}} em disco"
+    },
+    "actions": {
+      "download": "Baixar",
+      "retry": "Tentar Download Novamente",
+      "unload": "Descarregar",
+      "unloading": "Descarregando...",
+      "unloadFirst": "Descarregue o modelo antes de excluir",
+      "deleteModel": "Excluir Modelo"
+    },
+    "deleteDialog": {
+      "title": "Excluir Modelo",
+      "body": "Tem certeza de que deseja excluir <strong>{{name}}</strong>?",
+      "sizeNote": "Isso liberará {{size}} de espaço em disco. O modelo precisará ser baixado novamente se você quiser usá-lo no futuro.",
+      "deleting": "Excluindo..."
+    },
+    "migrateDialog": {
+      "title": "Mover modelos para o novo local?",
+      "description": "O servidor será desligado enquanto os modelos são movidos para a nova pasta. Ele será reiniciado automaticamente assim que a migração for concluída.",
+      "action": "Mover Modelos",
+      "preparing": "Preparando...",
+      "restartingServer": "Reiniciando servidor..."
+    },
+    "migrate": {
+      "title": "Movendo modelos",
+      "offline": "O servidor está offline enquanto os modelos são movidos."
+    },
+    "toast": {
+      "downloadFailed": "Falha no download",
+      "cancelFailed": "Falha ao cancelar",
+      "cancelFailedDescription": "Não foi possível cancelar a tarefa de download.",
+      "deleted": "Modelo excluído",
+      "deletedDescription": "{{name}} foi excluído com sucesso.",
+      "deleteFailed": "Falha ao excluir",
+      "unloaded": "Modelo descarregado",
+      "unloadedDescription": "{{name}} foi descarregado da memória.",
+      "unloadFailed": "Falha ao descarregar",
+      "openFolderFailed": "Falha ao abrir a pasta do modelo",
+      "pickerFailed": "Falha ao abrir o seletor de pasta",
+      "resetToDefault": "Redefinido para o local padrão. Reiniciando servidor...",
+      "noModelsToMigrate": "Não há modelos para migrar",
+      "noModelsToMigrateDescription": "Baixe pelo menos um modelo antes de alterar o local de armazenamento.",
+      "migrated": "Modelos movidos com sucesso",
+      "migrationFailed": "Falha na migração",
+      "migrationFailedGeneric": "Falha ao migrar modelos",
+      "migrationConnectionLost": "Conexão perdida durante a migração"
+    }
+  }
+}
