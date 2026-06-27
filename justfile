@@ -206,12 +206,16 @@ build-server: _ensure-venv
 build-server: _ensure-venv
     $ErrorActionPreference = "Stop"; \
     $env:PATH = "{{ venv_bin }};$env:PATH"; \
-    & "{{ python }}" backend/build_binary.py; \
-    if ($LASTEXITCODE -ne 0) { throw "build_binary.py failed with exit code $LASTEXITCODE" }; \
     $triple = (rustc --print host-tuple); \
     New-Item -ItemType Directory -Path "{{ tauri_dir }}/src-tauri/binaries" -Force | Out-Null; \
+    & "{{ python }}" backend/build_binary.py; \
+    if ($LASTEXITCODE -ne 0) { throw "build_binary.py failed with exit code $LASTEXITCODE" }; \
     Copy-Item "backend/dist/voicebox-server.exe" "{{ tauri_dir }}/src-tauri/binaries/voicebox-server-$triple.exe" -Force; \
-    Write-Host "Copied sidecar: voicebox-server-$triple.exe"
+    Write-Host "Copied sidecar: voicebox-server-$triple.exe"; \
+    & "{{ python }}" backend/build_binary.py --shim; \
+    if ($LASTEXITCODE -ne 0) { throw "build_binary.py --shim failed with exit code $LASTEXITCODE" }; \
+    Copy-Item "backend/dist/voicebox-mcp.exe" "{{ tauri_dir }}/src-tauri/binaries/voicebox-mcp-$triple.exe" -Force; \
+    Write-Host "Copied sidecar: voicebox-mcp-$triple.exe"
 
 # Build CUDA server binary and place in app data dir for local testing
 [windows]
