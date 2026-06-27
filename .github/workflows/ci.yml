@@ -7,6 +7,19 @@ on:
       - main
 
 jobs:
+  python-version-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Check Python version is consistent across the repo
+        run: bash scripts/check-python-version.sh
+
   frontend-quality:
     runs-on: ubuntu-latest
 

@@ -3,6 +3,10 @@
 # 3-stage build: Frontend → Python deps → Runtime
 # ============================================================
 
+# Single source for the Python version. Keep equal to /.python-version —
+# this is enforced in CI by scripts/check-python-version.sh.
+ARG PYTHON_VERSION=3.12
+
 # === Stage 1: Build frontend ===
 FROM oven/bun:1 AS frontend
 
@@ -22,7 +26,11 @@ RUN cd web && bunx --bun vite build
 
 
 # === Stage 2: Build Python dependencies ===
-FROM python:3.11-slim AS backend-builder
+FROM python:${PYTHON_VERSION}-slim AS backend-builder
+ARG PYTHON_VERSION
+# Pin external sources so image rebuilds are deterministic.
+ARG UV_VERSION=0.11.23
+ARG QWEN3_TTS_REF=022e286b98fbec7e1e916cb940cdf532cd9f488e
 
 WORKDIR /build
 
@@ -31,18 +39,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir --upgrade pip
+# Install uv (self-contained binary, shipped as a PyPI wheel) for fast,
+# parallel dependency resolution. Installs into an isolated --prefix that the
+# runtime stage copies onto the system path.
+RUN pip install --no-cache-dir "uv==${UV_VERSION}"
 
 COPY backend/requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
-RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
-RUN pip install --no-cache-dir --prefix=/install \
-    git+https://github.com/QwenLM/Qwen3-TTS.git
+RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} -r requirements.txt
+# chatterbox-tts pins numpy<1.26 / torch==2.6 — install without its deps
+RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} --no-deps chatterbox-tts
+# hume-tada pins torch>=2.7,<2.8 — install without its deps
+RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} --no-deps hume-tada
+RUN uv pip install --no-cache --prefix=/install --python python${PYTHON_VERSION} \
+    git+https://github.com/QwenLM/Qwen3-TTS.git@${QWEN3_TTS_REF}
 
 
 # === Stage 3: Runtime ===
-FROM python:3.11-slim
+FROM python:${PYTHON_VERSION}-slim
 
 # Create non-root user for security
 RUN groupadd -r voicebox && \
@@ -50,10 +63,12 @@ RUN groupadd -r voicebox && \
 
 WORKDIR /app
 
-# Install only runtime system dependencies
+# Install only runtime system dependencies.
+# gosu drops privileges from the root entrypoint to the voicebox user.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder stage
@@ -65,12 +80,17 @@ COPY --chown=voicebox:voicebox backend/ /app/backend/
 # Copy built frontend from frontend stage
 COPY --from=frontend --chown=voicebox:voicebox /build/web/dist /app/frontend/
 
-# Create data directories owned by non-root user
+# Create data directories owned by non-root user. At runtime the entrypoint
+# re-applies ownership to whatever bind mounts / named volumes get mounted here.
 RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache \
-    && chown -R voicebox:voicebox /app/data
+        /home/voicebox/.cache/huggingface \
+    && chown -R voicebox:voicebox /app/data /home/voicebox/.cache
 
-# Switch to non-root user
-USER voicebox
+# Entrypoint fixes mount ownership as root, then drops to the voicebox user.
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# NOTE: the container intentionally starts as root so the entrypoint can chown
+# the mounts; it immediately drops to the unprivileged voicebox user via gosu.
 
 # Expose the API port
 EXPOSE 17493
@@ -80,4 +100,5 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
     CMD curl -f http://localhost:17493/health || exit 1
 
 # Start the FastAPI server
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "17493"]

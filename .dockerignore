@@ -11,14 +11,21 @@ mlx-test/
 scripts/
 
 # Dependencies & build artifacts (rebuilt in Docker)
+# NOTE: .dockerignore patterns are not recursive, so nested build dirs must be
+# listed explicitly — otherwise backend/venv (~8GB) + backend/dist (~3GB) get
+# streamed into the build context and cripple every build.
 node_modules/
 __pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 *.egg-info/
 dist/
 build/
 *.spec
+backend/venv/
+backend/dist/
+backend/build/
 
 # Data (will be bind-mounted)
 data/
