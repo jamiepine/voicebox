@@ -115,7 +115,8 @@ def save_audio(
 def audio_to_pcm16_bytes(audio: np.ndarray) -> bytes:
     """Convert float audio samples to little-endian signed PCM16 bytes."""
     clipped = np.clip(np.asarray(audio, dtype=np.float32), -1.0, 1.0)
-    pcm = (clipped * 32767.0).astype("<i2", copy=False)
+    scaled = np.where(clipped < 0, clipped * 32768.0, clipped * 32767.0)
+    pcm = scaled.astype("<i2", copy=False)
     return pcm.tobytes()
 
 

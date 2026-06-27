@@ -89,4 +89,4 @@ def test_streaming_wav_header_uses_unknown_lengths():
 def test_audio_to_pcm16_bytes_clips_and_packs_little_endian():
     pcm = audio_to_pcm16_bytes(np.array([-2.0, -1.0, 0.0, 1.0, 2.0], dtype=np.float32))
 
-    assert pcm == struct.pack("<hhhhh", -32767, -32767, 0, 32767, 32767)
+    assert pcm == struct.pack("<hhhhh", -32768, -32768, 0, 32767, 32767)

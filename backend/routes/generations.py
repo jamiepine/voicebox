@@ -408,6 +408,7 @@ async def stream_speech(
                 "Content-Disposition": 'attachment; filename="speech.wav"',
                 "Cache-Control": "no-cache",
                 "X-Accel-Buffering": "no",
+                "X-Content-Type-Options": "nosniff",
                 "X-Voicebox-Stream-Mode": "live",
             },
         )
@@ -449,6 +450,7 @@ async def stream_speech(
         media_type="audio/wav",
         headers={
             "Content-Disposition": 'attachment; filename="speech.wav"',
+            "X-Content-Type-Options": "nosniff",
             "X-Voicebox-Stream-Mode": "buffered",
         },
     )
