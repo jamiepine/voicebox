@@ -58,7 +58,7 @@ export function FloatingGenerateBox({
   const composeMutation = useMutation({
     mutationFn: async () => {
       if (!selectedProfileId) throw new Error('No profile selected');
-      return apiClient.composeWithPersonality(selectedProfileId);
+      return apiClient.composeWithPersonality(selectedProfileId, form.getValues('language'));
     },
     onError: (err: Error) => {
       toast({

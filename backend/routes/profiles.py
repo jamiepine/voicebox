@@ -377,6 +377,7 @@ async def update_profile_effects(
 )
 async def compose_in_character(
     profile_id: str,
+    data: models.ComposeRequest,
     db: Session = Depends(get_db),
 ):
     """Produce a fresh utterance in the profile's character voice."""
@@ -384,7 +385,7 @@ async def compose_in_character(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
     try:
-        result = await personality.compose_as_profile(profile.personality)
+        result = await personality.compose_as_profile(profile.personality, data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return models.PersonalityTextResponse(
