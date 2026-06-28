@@ -23,6 +23,8 @@ from dataclasses import dataclass
 
 from . import llm as llm_service
 from .refinement import collapse_repetitive_artifacts
+from ..backends import LANGUAGE_CODE_TO_NAME
+from .. import models
 
 
 # Shared rules block embedded in every mode-specific system prompt. Kept
@@ -71,6 +73,7 @@ def _require_personality(personality: str | None) -> str:
 
 async def compose_as_profile(
     personality: str | None,
+    data: models.ComposeRequest | None = models.ComposeRequest(language="en"),
     model_size: str | None = None,
 ) -> PersonalityResult:
     """Produce a fresh utterance in the character's voice.
@@ -84,7 +87,7 @@ async def compose_as_profile(
     backend = llm_service.get_llm_model()
     resolved_size = model_size or backend.model_size
 
-    system_prompt = _build_system_prompt(text, _COMPOSE_TASK)
+    system_prompt = f"{_build_system_prompt(text, _COMPOSE_TASK)}. Output language: {LANGUAGE_CODE_TO_NAME.get(data.language if data.language else 'en')}"
     output = await backend.generate(
         prompt="Speak.",
         system=system_prompt,

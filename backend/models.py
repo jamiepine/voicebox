@@ -793,3 +793,11 @@ class AvailableEffectsResponse(BaseModel):
     """Response listing all available effect types."""
 
     effects: List[AvailableEffect]
+
+
+class ComposeRequest(BaseModel):
+    """Body for POST /profiles/{id}/compose."""
+    language: str = Field(
+        default="en",
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+    )

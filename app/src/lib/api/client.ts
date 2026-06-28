@@ -136,9 +136,10 @@ class ApiClient {
   // the generate textarea. Rewrite now happens server-side inside
   // `/generate` when `personality: true` is passed in the request body.
 
-  async composeWithPersonality(profileId: string): Promise<PersonalityTextResponse> {
+  async composeWithPersonality(profileId: string, language: LanguageCode): Promise<PersonalityTextResponse> {
     return this.request<PersonalityTextResponse>(`/profiles/${profileId}/compose`, {
       method: 'POST',
+      body: JSON.stringify({ language: language }),
     });
   }
 
