@@ -4,6 +4,7 @@ MLX backend implementation for TTS and STT using mlx-audio.
 
 from typing import Optional, List, Tuple
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import numpy as np
 from pathlib import Path
@@ -29,6 +30,16 @@ class MLXTTSBackend:
         self.model = None
         self.model_size = model_size
         self._current_model_size = None
+        # MLX/Metal streams are thread-local. Loading the model in one
+        # asyncio worker thread and generating in another can produce errors
+        # such as "There is no Stream(gpu) in current thread" or flaky second
+        # generations. Keep all MLX TTS work on a dedicated single thread.
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voicebox-mlx-tts")
+        self._supports_ref_audio = False
+
+    async def _run_on_worker(self, func, *args):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, lambda: func(*args))
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
@@ -81,8 +92,8 @@ class MLXTTSBackend:
         if self.model is not None and self._current_model_size != model_size:
             self.unload_model()
 
-        # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        # Run blocking load on the dedicated MLX worker thread.
+        await self._run_on_worker(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -100,16 +111,24 @@ class MLXTTSBackend:
 
             self.model = load(model_path)
 
+        import inspect
+
+        self._supports_ref_audio = "ref_audio" in inspect.signature(self.model.generate).parameters
         self._current_model_size = model_size
         self.model_size = model_size
         logger.info("MLX TTS model %s loaded successfully", model_size)
 
     def unload_model(self):
+        """Unload the model to free memory on the MLX worker thread."""
+        self._executor.submit(self._unload_model_sync).result()
+
+    def _unload_model_sync(self):
         """Unload the model to free memory."""
         if self.model is not None:
             del self.model
             self.model = None
             self._current_model_size = None
+            self._supports_ref_audio = False
             logger.info("MLX TTS model unloaded")
 
     async def create_voice_prompt(
@@ -223,11 +242,7 @@ class MLXTTSBackend:
             # legitimate metadata calls during generation.
             try:
                 if ref_audio:
-                    # Check if generate accepts ref_audio parameter
-                    import inspect
-
-                    sig = inspect.signature(self.model.generate)
-                    if "ref_audio" in sig.parameters:
+                    if self._supports_ref_audio:
                         # Generate with voice cloning
                         for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
                             audio_chunks.append(np.array(result.audio))
@@ -243,8 +258,10 @@ class MLXTTSBackend:
                         audio_chunks.append(np.array(result.audio))
                         sample_rate = result.sample_rate
             except Exception as e:
-                # If voice cloning fails, try without it
-                logger.warning("Voice cloning failed, generating without voice prompt: %s", e)
+                # If voice cloning fails, try without it. Include traceback so
+                # MLX/Metal thread errors are visible in logs instead of being
+                # reduced to a generic UI failure.
+                logger.warning("Voice cloning failed, generating without voice prompt: %s", e, exc_info=True)
                 for result in self.model.generate(text, lang_code=lang):
                     audio_chunks.append(np.array(result.audio))
                     sample_rate = result.sample_rate
@@ -258,8 +275,8 @@ class MLXTTSBackend:
 
             return audio, sample_rate
 
-        # Run blocking inference in thread pool
-        audio, sample_rate = await asyncio.to_thread(_generate_sync)
+        # Run blocking inference on the dedicated MLX worker thread.
+        audio, sample_rate = await self._run_on_worker(_generate_sync)
 
         return audio, sample_rate
 
@@ -270,6 +287,13 @@ class MLXSTTBackend:
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.model_size = model_size
+        # Keep MLX STT load/inference on one thread for the same thread-local
+        # Metal stream reason as MLXTTSBackend.
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="voicebox-mlx-stt")
+
+    async def _run_on_worker(self, func, *args):
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(self._executor, lambda: func(*args))
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
@@ -292,8 +316,8 @@ class MLXSTTBackend:
         if self.model is not None and self.model_size == model_size:
             return
 
-        # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        # Run blocking load on the dedicated MLX worker thread.
+        await self._run_on_worker(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -315,6 +339,10 @@ class MLXSTTBackend:
         logger.info("MLX Whisper model %s loaded successfully", model_size)
 
     def unload_model(self):
+        """Unload the model to free memory on the MLX worker thread."""
+        self._executor.submit(self._unload_model_sync).result()
+
+    def _unload_model_sync(self):
         """Unload the model to free memory."""
         if self.model is not None:
             del self.model
@@ -363,5 +391,5 @@ class MLXSTTBackend:
             else:
                 return str(result).strip()
 
-        # Run blocking transcription in thread pool
-        return await asyncio.to_thread(_transcribe_sync)
+        # Run blocking transcription on the dedicated MLX worker thread.
+        return await self._run_on_worker(_transcribe_sync)

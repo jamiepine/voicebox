@@ -175,7 +175,9 @@ async def health():
         backend_type=backend_type,
         backend_variant=os.environ.get(
             "VOICEBOX_BACKEND_VARIANT",
-            "cuda" if torch.cuda.is_available() else ("xpu" if has_xpu else "cpu"),
+            "cuda"
+            if torch.cuda.is_available()
+            else ("xpu" if has_xpu else ("metal" if backend_type == "mlx" else "cpu")),
         ),
         gpu_compatibility_warning=gpu_compat_warning,
     )
