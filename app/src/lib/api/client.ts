@@ -50,6 +50,8 @@ import type {
   MCPClientBinding,
   MCPClientBindingListResponse,
   MCPClientBindingUpsert,
+  CloudLoginStartResponse,
+  CloudStatus,
 } from './types';
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
@@ -919,6 +921,21 @@ class ApiClient {
     }
 
     return response.blob();
+  }
+
+  // Cloud (backup & sync) — browser-based device login. startCloudLogin opens
+  // the system browser server-side; the UI then polls getCloudStatus until the
+  // backend completes the exchange and the link goes live.
+  async getCloudStatus(): Promise<CloudStatus> {
+    return this.request<CloudStatus>('/cloud/status');
+  }
+
+  async startCloudLogin(): Promise<CloudLoginStartResponse> {
+    return this.request<CloudLoginStartResponse>('/cloud/login/start', { method: 'POST' });
+  }
+
+  async disconnectCloud(): Promise<CloudStatus> {
+    return this.request<CloudStatus>('/cloud/disconnect', { method: 'POST' });
   }
 }
 

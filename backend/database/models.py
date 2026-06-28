@@ -234,6 +234,28 @@ class GenerationSettings(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class CloudSettings(Base):
+    """Singleton row holding the link to a Voicebox Cloud account.
+
+    Populated by the "Log in with browser" pairing flow (see services/cloud.py):
+    the browser hands back a one-time code, which the backend exchanges for an
+    ``api_key`` it stores here. The key is a bearer credential for
+    api.voicebox.sh — auth only, never an encryption key (E2E key material lives
+    elsewhere). Stored in the local app database alongside the user's other data;
+    moving it to the OS keychain is a future hardening step. The ``id`` is
+    always 1; a null ``api_key`` means "not connected".
+    """
+
+    __tablename__ = "cloud_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    api_key = Column(String, nullable=True)
+    device_name = Column(String, nullable=True)
+    account_user_id = Column(String, nullable=True)
+    connected_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class MCPClientBinding(Base):
     """Per-MCP-client settings (voice profile, engine, personality default).
 

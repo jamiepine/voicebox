@@ -793,3 +793,23 @@ class AvailableEffectsResponse(BaseModel):
     """Response listing all available effect types."""
 
     effects: List[AvailableEffect]
+
+
+# ─── Cloud (backup & sync) ──────────────────────────────────────────────
+
+
+class CloudLoginStartResponse(BaseModel):
+    """Returned when the desktop kicks off browser login. The backend has
+    already opened the browser; the URL is included for fallback/debugging."""
+
+    authorize_url: str
+
+
+class CloudStatusResponse(BaseModel):
+    """Current link between this device and a Voicebox Cloud account."""
+
+    connected: bool
+    device_name: Optional[str] = None
+    account_user_id: Optional[str] = None
+    key_prefix: Optional[str] = None
+    connected_at: Optional[datetime] = None
