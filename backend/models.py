@@ -474,6 +474,8 @@ class ModelStatus(BaseModel):
     downloading: bool = False  # True if download is in progress
     size_mb: Optional[float] = None
     loaded: bool = False
+    platform_compatible: bool = True  # False when requires != [] and current platform not in requires
+    requires: List[str] = []  # Hardware platform requirements (mirrors ModelConfig.requires)
 
 
 class ModelStatusListResponse(BaseModel):
