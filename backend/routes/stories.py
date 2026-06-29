@@ -2,7 +2,7 @@
 
 import io
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -206,29 +206,61 @@ async def set_story_item_version(
     return item
 
 
+_EXPORT_MIME = {
+    "wav": "audio/wav",
+    "m4b": "audio/mp4",
+    "mp3": "audio/mpeg",
+}
+
+
 @router.get("/stories/{story_id}/export-audio")
 async def export_story_audio(
     story_id: str,
+    # ``format_`` shadows the builtin ``format`` if exposed directly (Ruff
+    # A002), so the local identifier is renamed while the public query-param
+    # name stays ``format`` via the Query alias.
+    format_: str = Query("wav", alias="format"),
+    chapters: str = "none",
     db: Session = Depends(get_db),
 ):
-    """Export story as single mixed audio file."""
+    """Export story as a single mixed audio file.
+
+    Query params:
+        format: ``wav`` (default), ``m4b``, or ``mp3``.
+        chapters: ``none`` (default) or ``auto``. ``auto`` emits one chapter
+            per story item, titled from its generation text. WAV ignores this.
+    """
+    fmt = (format_ or "wav").lower()
+    if fmt not in _EXPORT_MIME:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {format_}")
+    chapters_mode = (chapters or "none").lower()
+    if chapters_mode not in ("none", "auto"):
+        raise HTTPException(status_code=400, detail=f"Unsupported chapters mode: {chapters}")
+
     try:
         story = db.query(database.Story).filter_by(id=story_id).first()
         if not story:
             raise HTTPException(status_code=404, detail="Story not found")
 
-        audio_bytes = await stories.export_story_audio(story_id, db)
+        try:
+            audio_bytes = await stories.export_story_audio(
+                story_id, db, fmt=fmt, chapters_mode=chapters_mode
+            )
+        except RuntimeError as e:
+            # Most likely: ffmpeg missing, timed out, or returned non-zero.
+            raise HTTPException(status_code=503, detail=str(e)) from e
+
         if not audio_bytes:
             raise HTTPException(status_code=400, detail="Story has no audio items")
 
         safe_name = "".join(c for c in story.name if c.isalnum() or c in (" ", "-", "_")).strip()
         if not safe_name:
             safe_name = "story"
-        filename = f"{safe_name}.wav"
+        filename = f"{safe_name}.{fmt}"
 
         return StreamingResponse(
             io.BytesIO(audio_bytes),
-            media_type="audio/wav",
+            media_type=_EXPORT_MIME[fmt],
             headers={"Content-Disposition": safe_content_disposition("attachment", filename)},
         )
     except HTTPException:
