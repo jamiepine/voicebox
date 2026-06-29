@@ -25,6 +25,7 @@ from ..utils.platform_detect import get_backend_type
 
 LANGUAGE_CODE_TO_NAME = {
     "zh": "chinese",
+    "yue": "cantonese",
     "en": "english",
     "ja": "japanese",
     "ko": "korean",
@@ -241,7 +242,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             model_size="1.7B",
             size_mb=3500,
             supports_instruct=False,  # Base model drops instruct silently
-            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+            languages=["zh", "yue", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
         ModelConfig(
             model_name="qwen-tts-0.6B",
@@ -251,7 +252,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             model_size="0.6B",
             size_mb=1200,
             supports_instruct=False,
-            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+            languages=["zh", "yue", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
     ]
 
@@ -267,7 +268,7 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             model_size="1.7B",
             size_mb=3500,
             supports_instruct=True,
-            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+            languages=["zh", "yue", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
         ModelConfig(
             model_name="qwen-custom-voice-0.6B",
@@ -277,7 +278,7 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             model_size="0.6B",
             size_mb=1200,
             supports_instruct=True,
-            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+            languages=["zh", "yue", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
     ]
 

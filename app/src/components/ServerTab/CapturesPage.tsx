@@ -360,6 +360,7 @@ export function CapturesPage() {
                 <SelectItem value="de">{t('settings.captures.transcription.language.de')}</SelectItem>
                 <SelectItem value="ja">{t('settings.captures.transcription.language.ja')}</SelectItem>
                 <SelectItem value="zh">{t('settings.captures.transcription.language.zh')}</SelectItem>
+                <SelectItem value="yue">{t('settings.captures.transcription.language.yue')}</SelectItem>
                 <SelectItem value="hi">{t('settings.captures.transcription.language.hi')}</SelectItem>
               </SelectContent>
             </Select>

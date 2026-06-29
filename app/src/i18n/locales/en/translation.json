@@ -939,7 +939,8 @@
           "fr": "French",
           "de": "German",
           "ja": "Japanese",
-          "zh": "Chinese",
+          "zh": "Mandarin / Chinese",
+          "yue": "Cantonese",
           "hi": "Hindi"
         },
         "archive": {
