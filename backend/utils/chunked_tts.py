@@ -11,6 +11,7 @@ overhead.
 
 import logging
 import re
+import inspect
 from typing import List, Tuple
 
 import numpy as np
@@ -20,6 +21,18 @@ logger = logging.getLogger("voicebox.chunked-tts")
 # Default chunk size in characters.  Can be overridden per-request via
 # the ``max_chunk_chars`` field on GenerationRequest.
 DEFAULT_MAX_CHUNK_CHARS = 800
+
+
+def _temperature_kwargs(backend, temperature: float | None) -> dict:
+    if temperature is None:
+        return {}
+    try:
+        signature = inspect.signature(backend.generate)
+    except (TypeError, ValueError):
+        return {}
+    if "temperature" in signature.parameters:
+        return {"temperature": temperature}
+    return {}
 
 # Common abbreviations that should NOT be treated as sentence endings.
 # Lowercase for case-insensitive matching.
@@ -208,6 +221,7 @@ async def generate_chunked(
     language: str = "en",
     seed: int | None = None,
     instruct: str | None = None,
+    temperature: float | None = None,
     max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
     crossfade_ms: int = 50,
     trim_fn=None,
@@ -228,7 +242,7 @@ async def generate_chunked(
         Any backend implementing the ``generate()`` protocol.
     text : str
         Input text (may be arbitrarily long).
-    voice_prompt, language, seed, instruct
+    voice_prompt, language, seed, instruct, temperature
         Forwarded to ``backend.generate()`` verbatim.
     max_chunk_chars : int
         Maximum characters per chunk (default 800).
@@ -248,12 +262,14 @@ async def generate_chunked(
 
     if len(chunks) <= 1:
         # Short text — single-shot fast path
+        extra_kwargs = _temperature_kwargs(backend, temperature)
         audio, sample_rate = await backend.generate(
             text,
             voice_prompt,
             language,
             seed,
             instruct,
+            **extra_kwargs,
         )
         if trim_fn is not None:
             audio = trim_fn(audio, sample_rate)
@@ -281,12 +297,14 @@ async def generate_chunked(
         # always produces the same output.
         chunk_seed = (seed + i) if seed is not None else None
 
+        extra_kwargs = _temperature_kwargs(backend, temperature)
         chunk_audio, chunk_sr = await backend.generate(
             chunk_text,
             voice_prompt,
             language,
             chunk_seed,
             instruct,
+            **extra_kwargs,
         )
         if trim_fn is not None:
             chunk_audio = trim_fn(chunk_audio, chunk_sr)

@@ -166,6 +166,7 @@ class QwenCustomVoiceBackend:
         language: str = "en",
         seed: Optional[int] = None,
         instruct: Optional[str] = None,
+        temperature: Optional[float] = None,
     ) -> tuple[np.ndarray, int]:
         """
         Generate audio using Qwen CustomVoice.
@@ -202,6 +203,8 @@ class QwenCustomVoiceBackend:
             # Only pass instruct if non-empty
             if instruct:
                 kwargs["instruct"] = instruct
+            if temperature is not None:
+                kwargs["temperature"] = temperature
 
             # Inference runs with the process's default HF_HUB_OFFLINE
             # state. Forcing offline here (issue #462) regressed online

@@ -183,6 +183,13 @@ async def list_generations(
         DBVoiceProfile,
         DBGeneration.profile_id == DBVoiceProfile.id
     )
+
+    q = q.filter(
+        or_(
+            DBGeneration.source.is_(None),
+            DBGeneration.source != "dubbing_segment",
+        )
+    )
     
     # Apply profile filter
     if query.profile_id:

@@ -71,12 +71,13 @@ export interface GenerationRequest {
   language: LanguageCode;
   seed?: number;
   model_size?: '1.7B' | '0.6B' | '1B' | '3B';
-  engine?:
-    | 'qwen'
-    | 'qwen_custom_voice'
-    | 'luxtts'
-    | 'chatterbox'
-    | 'chatterbox_turbo'
+    engine?:
+      | 'qwen'
+      | 'qwen_custom_voice'
+      | 'qwen_voice_design'
+      | 'luxtts'
+      | 'chatterbox'
+      | 'chatterbox_turbo'
     | 'tada'
     | 'kokoro';
   instruct?: string;
@@ -357,6 +358,199 @@ export interface ActiveGenerationTask {
 export interface ActiveTasksResponse {
   downloads: ActiveDownloadTask[];
   generations: ActiveGenerationTask[];
+}
+
+export interface DubbingSegmentResponse {
+  id: string;
+  project_id: string;
+  segment_order: number;
+  srt_index: number;
+  start_tc: string;
+  end_tc: string;
+  start_ms: number;
+  end_ms: number;
+  target_duration_ms: number;
+  text_lines: string[];
+  text: string;
+  pace_group_id?: string | null;
+  speaker?: string | null;
+  generation_id?: string | null;
+  generation_audio_path?: string | null;
+  generation_audio_absolute_path?: string | null;
+  generation_error?: string | null;
+  cut_generation_id?: string | null;
+  cut_audio_path?: string | null;
+  cut_audio_absolute_path?: string | null;
+  cut_duration_ms?: number | null;
+  cut_source_start_ms?: number | null;
+  cut_source_end_ms?: number | null;
+  cut_source_type?: 'manual' | 'auto' | null;
+  actual_duration_ms?: number | null;
+  delta_ms?: number | null;
+  fit_status: 'unknown' | 'exact' | 'acceptable' | 'warning' | 'failed';
+  status: 'pending' | 'generating' | 'generated' | 'warning' | 'failed' | 'approved';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DubbingPaceGroupResponse {
+  id: string;
+  label: string;
+  segment_ids: string[];
+  segment_orders: number[];
+  start_ms: number;
+  end_ms: number;
+  target_duration_ms: number;
+  pace_override?: number | null;
+  effective_pace: number;
+}
+
+export interface DubbingProjectResponse {
+  id: string;
+  name: string;
+  source_type: 'srt';
+  source_path?: string | null;
+  engine:
+    | 'qwen'
+    | 'qwen_custom_voice'
+    | 'qwen_voice_design'
+    | 'luxtts'
+    | 'chatterbox'
+    | 'chatterbox_turbo'
+    | 'tada'
+    | 'kokoro';
+  language: string;
+  profile_id?: string | null;
+  style_prompt?: string | null;
+  pace_override?: number | null;
+  temperature?: number | null;
+  group_pace_overrides: Record<string, number>;
+  full_narration_generation_id?: string | null;
+  full_narration_status?: 'loading_model' | 'generating' | 'completed' | 'failed' | string | null;
+  full_narration_audio_path?: string | null;
+  full_narration_duration_ms?: number | null;
+  full_narration_revision_ms?: number | null;
+  full_narration_generation_elapsed_ms?: number | null;
+  full_narration_error?: string | null;
+  post_processed_segment_count: number;
+  status: 'draft' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  updated_at: string;
+  pace_groups: DubbingPaceGroupResponse[];
+  segments: DubbingSegmentResponse[];
+}
+
+export interface DubbingProjectListItemResponse {
+  id: string;
+  name: string;
+  source_type: 'srt';
+  language: string;
+  profile_id?: string | null;
+  status: 'draft' | 'processing' | 'completed' | 'failed';
+  segment_count: number;
+  exact_count: number;
+  warning_count: number;
+  failed_count: number;
+  pending_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DubbingSegmentGenerateRequest {
+  profile_id: string;
+  language: LanguageCode;
+  engine?: 'qwen' | 'qwen_custom_voice' | 'qwen_voice_design' | 'luxtts' | 'chatterbox' | 'chatterbox_turbo' | 'tada' | 'kokoro';
+  model_size?: '1.7B' | '0.6B' | '1B' | '3B' | 'default';
+  instruct?: string;
+  style_prompt?: string;
+  temperature?: number | null;
+}
+
+export interface DubbingAutoFitRequest extends DubbingSegmentGenerateRequest {
+  max_attempts?: number;
+}
+
+export interface DubbingFullNarrationRequest extends DubbingSegmentGenerateRequest {}
+
+export interface DubbingSegmentUpdateRequest {
+  text: string;
+}
+
+export interface DubbingSegmentTimingUpdateRequest {
+  start_ms: number;
+  end_ms: number;
+  preserve_audio?: boolean;
+}
+
+export interface DubbingManualCutRequest {
+  cut_start_ms: number;
+  cut_end_ms: number;
+  use_previous_cut_end?: boolean;
+}
+
+export interface DubbingTimelineClipExportRequest {
+  id: string;
+  generation_id: string;
+  start_ms: number;
+  duration_ms: number;
+  trim_start_ms?: number;
+  trim_end_ms?: number;
+  volume?: number;
+}
+
+export interface DubbingTimelineExportRequest {
+  clips: DubbingTimelineClipExportRequest[];
+}
+
+export interface DubbingAutoCutClipResponse {
+  id: string;
+  generation_id: string;
+  segment_id: string;
+  srt_index: number;
+  start_ms: number;
+  duration_ms: number;
+  trim_start_ms: number;
+  trim_end_ms: number;
+  track: number;
+  volume: number;
+  confidence: string;
+  cut_source: string;
+}
+
+export interface DubbingAutoCutResponse {
+  clips: DubbingAutoCutClipResponse[];
+  debug_path?: string | null;
+}
+
+export interface DubbingTempoSuggestionResponse {
+  multiplier: number;
+  target_duration_ms: number;
+  projected_duration_ms: number;
+  delta_ms: number;
+  range: 'safe' | 'warning' | 'critical' | string;
+  message: string;
+  from_cached_alignment: boolean;
+  debug_path?: string | null;
+}
+
+export interface DubbingApplyTempoRequest {
+  multiplier?: number | null;
+}
+
+export interface DubbingApplyTempoResponse {
+  suggestion: DubbingTempoSuggestionResponse;
+  clips: DubbingAutoCutClipResponse[];
+  debug_path?: string | null;
+}
+
+export interface DubbingProjectSettingsUpdateRequest {
+  name?: string;
+  pace_override?: number | null;
+  temperature?: number | null;
+}
+
+export interface DubbingGroupPaceUpdateRequest {
+  pace_override?: number | null;
 }
 
 export interface StoryCreate {

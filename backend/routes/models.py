@@ -15,6 +15,8 @@ from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
 
 router = APIRouter()
+TADA_REPOS = {"HumeAI/tada-1b", "HumeAI/tada-3b-ml"}
+TADA_CACHE_WEIGHT_EXTENSIONS = (".safetensors", ".bin")
 
 
 def _get_dir_size(path: Path) -> int:
@@ -24,6 +26,53 @@ def _get_dir_size(path: Path) -> int:
         if f.is_file():
             total += f.stat().st_size
     return total
+
+
+def _hf_repo_cache_dir(repo_id: str) -> Path | None:
+    """Return the local Hugging Face cache directory for a model repo."""
+    try:
+        from huggingface_hub import constants as hf_constants
+
+        return Path(hf_constants.HF_HUB_CACHE) / ("models--" + repo_id.replace("/", "--"))
+    except Exception:
+        return None
+
+
+def _repo_has_cached_weights(repo_id: str, *, allow_incomplete: bool = False) -> bool:
+    """Check cached model weights without relying on scan_cache_dir metadata.
+
+    TADA downloads through hf-xet may not emit granular progress events, but
+    once the actual weight files are present, the model must be considered
+    available so generation does not stay blocked by stale progress state.
+    """
+    repo_cache = _hf_repo_cache_dir(repo_id)
+    if repo_cache is None or not repo_cache.exists():
+        return False
+
+    if not allow_incomplete:
+        blobs_dir = repo_cache / "blobs"
+        if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
+            return False
+
+    for ext in TADA_CACHE_WEIGHT_EXTENSIONS:
+        if any(f.is_file() and f.stat().st_size > 0 for f in repo_cache.rglob(f"*{ext}")):
+            return True
+    return False
+
+
+def _repo_cached_size_mb(repo_id: str) -> float | None:
+    repo_cache = _hf_repo_cache_dir(repo_id)
+    if repo_cache is None or not repo_cache.exists():
+        return None
+    try:
+        total_size = sum(
+            f.stat().st_size
+            for f in repo_cache.rglob("*")
+            if f.is_file() and not f.name.endswith(".incomplete")
+        )
+        return total_size / (1024 * 1024)
+    except Exception:
+        return None
 
 
 def _copy_with_progress(src: Path, dst: Path, progress_manager, copied_so_far: int, total_bytes: int) -> int:
@@ -271,9 +320,13 @@ async def get_model_status():
             downloaded = False
             size_mb = None
             loaded = False
+            repo_id = config["hf_repo_id"]
 
-            if cache_info:
-                repo_id = config["hf_repo_id"]
+            if repo_id in TADA_REPOS and _repo_has_cached_weights(repo_id, allow_incomplete=True):
+                downloaded = True
+                size_mb = _repo_cached_size_mb(repo_id)
+
+            if cache_info and not downloaded:
                 for repo in cache_info.repos:
                     if repo.repo_id == repo_id:
                         has_model_weights = False
@@ -307,7 +360,7 @@ async def get_model_status():
             if not downloaded:
                 try:
                     cache_dir = hf_constants.HF_HUB_CACHE
-                    repo_cache = Path(cache_dir) / ("models--" + config["hf_repo_id"].replace("/", "--"))
+                    repo_cache = Path(cache_dir) / ("models--" + repo_id.replace("/", "--"))
 
                     if repo_cache.exists():
                         blobs_dir = repo_cache / "blobs"
@@ -344,9 +397,16 @@ async def get_model_status():
             except Exception:
                 loaded = False
 
-            is_downloading = config["hf_repo_id"] in active_download_repos
+            is_downloading = repo_id in active_download_repos
 
-            if is_downloading:
+            if repo_id in TADA_REPOS and downloaded:
+                # hf-xet can leave the background task/progress layer in a
+                # stale "downloading" state even after completed snapshot
+                # weights are usable. Prefer the cache truth here so the UI
+                # stops spinning and generation is not blocked.
+                is_downloading = False
+
+            if is_downloading and not (repo_id in TADA_REPOS and downloaded):
                 downloaded = False
                 size_mb = None
 
@@ -399,13 +459,54 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     load_func = get_model_load_func(config)
 
     async def download_in_background():
+        async def tada_cache_watchdog():
+            if config.hf_repo_id not in TADA_REPOS:
+                return
+            for _ in range(720):
+                await asyncio.sleep(1)
+                if _repo_has_cached_weights(config.hf_repo_id, allow_incomplete=True):
+                    progress_manager.update_progress(
+                        model_name=request.model_name,
+                        current=1,
+                        total=1,
+                        filename="Weights cached locally",
+                        status="complete",
+                    )
+                    progress_manager.mark_complete(request.model_name)
+                    task_manager.complete_download(request.model_name)
+                    return
+
+        watchdog_task = create_background_task(tada_cache_watchdog()) if config.hf_repo_id in TADA_REPOS else None
         try:
             result = load_func()
             if asyncio.iscoroutine(result):
                 await result
+            if config.hf_repo_id in TADA_REPOS and _repo_has_cached_weights(config.hf_repo_id, allow_incomplete=True):
+                progress_manager.update_progress(
+                    model_name=request.model_name,
+                    current=1,
+                    total=1,
+                    filename="Weights cached locally",
+                    status="complete",
+                )
+                progress_manager.mark_complete(request.model_name)
             task_manager.complete_download(request.model_name)
         except Exception as e:
-            task_manager.error_download(request.model_name, str(e))
+            if config.hf_repo_id in TADA_REPOS and _repo_has_cached_weights(config.hf_repo_id, allow_incomplete=True):
+                progress_manager.update_progress(
+                    model_name=request.model_name,
+                    current=1,
+                    total=1,
+                    filename="Weights cached locally",
+                    status="complete",
+                )
+                progress_manager.mark_complete(request.model_name)
+                task_manager.complete_download(request.model_name)
+            else:
+                task_manager.error_download(request.model_name, str(e))
+        finally:
+            if watchdog_task is not None and not watchdog_task.done():
+                watchdog_task.cancel()
 
     task_manager.start_download(request.model_name)
 

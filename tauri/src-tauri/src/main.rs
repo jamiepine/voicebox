@@ -200,6 +200,17 @@ struct ServerState {
     server_pid: Mutex<Option<u32>>,
     keep_running_on_close: Mutex<bool>,
     models_dir: Mutex<Option<String>>,
+    starting: Mutex<bool>,
+}
+
+struct StartupFlagGuard<'a> {
+    flag: &'a Mutex<bool>,
+}
+
+impl Drop for StartupFlagGuard<'_> {
+    fn drop(&mut self) {
+        *self.flag.lock().unwrap() = false;
+    }
 }
 
 #[command]
@@ -217,6 +228,37 @@ async fn start_server(
             *state.models_dir.lock().unwrap() = Some(dir.clone());
         }
     }
+    let startup_guard = {
+        let mut starting = state.starting.lock().unwrap();
+        if *starting {
+            None
+        } else {
+            *starting = true;
+            Some(StartupFlagGuard {
+                flag: &state.starting,
+            })
+        }
+    };
+
+    if startup_guard.is_none() {
+        let timeout = tokio::time::Duration::from_secs(120);
+        let start_time = tokio::time::Instant::now();
+
+        loop {
+            if check_health(SERVER_PORT) || state.child.lock().unwrap().is_some() {
+                return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
+            }
+
+            if start_time.elapsed() > timeout {
+                return Err("Server startup already in progress but did not complete in time".to_string());
+            }
+
+            tokio::time::sleep(tokio::time::Duration::from_millis(250)).await;
+        }
+    }
+
+    let _startup_guard = startup_guard;
+
     // Check if server is already running (managed by this app instance)
     if state.child.lock().unwrap().is_some() {
         return Ok(format!("http://127.0.0.1:{}", SERVER_PORT));
@@ -1239,6 +1281,7 @@ pub fn run() {
             server_pid: Mutex::new(None),
             keep_running_on_close: Mutex::new(false),
             models_dir: Mutex::new(None),
+            starting: Mutex::new(false),
         })
         .manage(audio_capture::AudioCaptureState::new())
         .manage(audio_output::AudioOutputState::new())

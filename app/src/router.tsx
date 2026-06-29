@@ -7,6 +7,7 @@ import {
 } from '@tanstack/react-router';
 import { AppFrame } from '@/components/AppFrame/AppFrame';
 import { CapturesTab } from '@/components/CapturesTab/CapturesTab';
+import { DubbingTab } from '@/components/DubbingTab/DubbingTab';
 import { EffectsTab } from '@/components/EffectsTab/EffectsTab';
 import { MainEditor } from '@/components/MainEditor/MainEditor';
 import { ModelsTab } from '@/components/ModelsTab/ModelsTab';
@@ -106,6 +107,12 @@ const storiesRoute = createRoute({
   component: StoriesTab,
 });
 
+const dubbingRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dubbing',
+  component: DubbingTab,
+});
+
 // Voices route
 const voicesRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -203,6 +210,7 @@ const serverRedirectRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   storiesRoute,
+  dubbingRoute,
   capturesRoute,
   voicesRoute,
   effectsRoute,
