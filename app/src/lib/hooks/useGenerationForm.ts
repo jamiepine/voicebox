@@ -16,7 +16,7 @@ const generationSchema = z.object({
   text: z.string().min(1, '').max(50000),
   language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
   seed: z.number().int().optional(),
-  modelSize: z.enum(['1.7B', '0.6B', '1B', '3B']).optional(),
+  modelSize: z.enum(['1.7B', '0.6B', '0.5B', '1B', '3B']).optional(),
   instruct: z.string().max(500).optional(),
   engine: z
     .enum([
@@ -25,6 +25,7 @@ const generationSchema = z.object({
       'luxtts',
       'chatterbox',
       'chatterbox_turbo',
+      'cosyvoice3',
       'tada',
       'kokoro',
     ])
@@ -92,8 +93,10 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
           ? 'luxtts'
           : engine === 'chatterbox'
             ? 'chatterbox-tts'
-            : engine === 'chatterbox_turbo'
-              ? 'chatterbox-turbo'
+          : engine === 'chatterbox_turbo'
+            ? 'chatterbox-turbo'
+            : engine === 'cosyvoice3'
+              ? 'cosyvoice3-0.5B'
               : engine === 'tada'
                 ? data.modelSize === '3B'
                   ? 'tada-3b-ml'
@@ -108,8 +111,10 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
           ? 'LuxTTS'
           : engine === 'chatterbox'
             ? 'Chatterbox TTS'
-            : engine === 'chatterbox_turbo'
-              ? 'Chatterbox Turbo'
+          : engine === 'chatterbox_turbo'
+            ? 'Chatterbox Turbo'
+            : engine === 'cosyvoice3'
+              ? 'Fun-CosyVoice3 0.5B'
               : engine === 'tada'
                 ? data.modelSize === '3B'
                   ? 'TADA 3B Multilingual'
@@ -138,10 +143,10 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       }
 
       const hasModelSizes =
-        engine === 'qwen' || engine === 'qwen_custom_voice' || engine === 'tada';
+        engine === 'qwen' || engine === 'qwen_custom_voice' || engine === 'tada' || engine === 'cosyvoice3';
       // Only Qwen CustomVoice actually honors the instruct kwarg at model level.
       // Base Qwen3-TTS accepts the kwarg but ignores it.
-      const supportsInstruct = engine === 'qwen_custom_voice';
+      const supportsInstruct = engine === 'qwen_custom_voice' || engine === 'cosyvoice3';
       const effectsChain = options.getEffectsChain?.();
       // This now returns immediately with status="generating"
       const result = await generation.mutateAsync({

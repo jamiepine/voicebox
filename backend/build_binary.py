@@ -138,6 +138,8 @@ def build_server(cuda=False):
             "backend.backends.chatterbox_backend",
             "--hidden-import",
             "backend.backends.chatterbox_turbo_backend",
+            "--hidden-import",
+            "backend.backends.cosyvoice3_backend",
             # chatterbox multilingual uses spacy_pkuseg for Chinese word
             # segmentation, which ships pickled dict files (dicts/default.pkl)
             # and native .so extensions that --hidden-import alone won't bundle.

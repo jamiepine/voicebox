@@ -85,6 +85,7 @@ jobs:
           pip install -r backend/requirements.txt
           pip install --no-deps chatterbox-tts
           pip install --no-deps hume-tada
+          pip install --no-build-isolation openai-whisper==20231117
 
       - name: Install MLX dependencies (Apple Silicon only)
         if: matrix.backend == 'mlx'
@@ -290,6 +291,7 @@ jobs:
           pip install -r backend/requirements.txt
           pip install --no-deps chatterbox-tts
           pip install --no-deps hume-tada
+          pip install --no-build-isolation openai-whisper==20231117
 
       - name: Install PyTorch with CUDA 12.8
         run: |
