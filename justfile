@@ -43,7 +43,26 @@ setup-python:
     fi
     echo "Installing Python dependencies..."
     {{ pip }} install --upgrade pip -q
-    {{ pip }} install -r {{ backend_dir }}/requirements.txt
+
+    # Detect NVIDIA GPU on Linux and pin torch to CUDA 12.8 (cu128).
+    # cu130 (CUDA 13.0) requires driver >= 576; most systems top out at 570 (CUDA 12.8).
+    if [ "$(uname)" = "Linux" ] && command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null; then
+        echo "NVIDIA GPU detected — installing PyTorch with CUDA 12.8 (cu128)..."
+        _constraints=$(mktemp)
+        printf 'torch==2.7.0+cu128\ntorchaudio==2.7.0+cu128\n' > "$_constraints"
+        {{ pip }} install \
+            --extra-index-url https://download.pytorch.org/whl/cu128 \
+            -r {{ backend_dir }}/requirements.txt \
+            -c "$_constraints"
+        rm -f "$_constraints"
+    elif [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
+        echo "Apple Silicon detected — using default PyTorch (MLX path)..."
+        {{ pip }} install -r {{ backend_dir }}/requirements.txt
+    else
+        echo "No NVIDIA GPU detected — using CPU-only PyTorch."
+        {{ pip }} install -r {{ backend_dir }}/requirements.txt
+    fi
+
     # Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
     {{ pip }} install --no-deps chatterbox-tts
     # HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
@@ -53,7 +72,8 @@ setup-python:
         echo "Detected Apple Silicon — installing MLX dependencies..."
         {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
     fi
-    {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
+    # --no-deps prevents Qwen3-TTS from overriding the pinned torch version
+    {{ pip }} install --no-deps git+https://github.com/QwenLM/Qwen3-TTS.git
     {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
     echo "Python environment ready."
 
