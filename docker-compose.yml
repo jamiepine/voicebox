@@ -30,6 +30,15 @@ services:
 
     deploy:
       resources:
+
+        # GPU passthrough
+        #reservations:
+        #  devices:
+        #   - driver: nvidia
+        #     count: all
+        #     capabilities: [gpu]
+
+        # Resource limits
         limits:
           cpus: '4'
           memory: 8G
