@@ -64,6 +64,7 @@ async def create_capture_endpoint(
         **capture.model_dump(),
         auto_refine=bool(saved.auto_refine),
         allow_auto_paste=bool(saved.allow_auto_paste),
+        copy_transcript_to_clipboard=bool(saved.copy_transcript_to_clipboard),
     )
 
 

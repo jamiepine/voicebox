@@ -179,15 +179,15 @@ export interface CaptureListResponse {
 }
 
 /**
- * Response of ``POST /captures``. Adds ``auto_refine`` and ``allow_auto_paste``
- * — the server's current settings captured at request time — so the client
- * can decide whether to chain a refine call and whether to fire the
- * synthetic-paste pipeline without relying on its own (possibly stale) copy
- * of capture_settings.
+ * Response of ``POST /captures``. Adds delivery settings captured at request
+ * time so the client can decide whether to chain a refine call, fire the
+ * synthetic-paste pipeline, and/or keep the transcript on the clipboard
+ * without relying on its own (possibly stale) copy of capture_settings.
  */
 export interface CaptureCreateResponse extends CaptureResponse {
   auto_refine: boolean;
   allow_auto_paste: boolean;
+  copy_transcript_to_clipboard: boolean;
 }
 
 export interface CaptureRefineRequest {
@@ -209,6 +209,7 @@ export interface CaptureSettings {
   self_correction: boolean;
   preserve_technical: boolean;
   allow_auto_paste: boolean;
+  copy_transcript_to_clipboard: boolean;
   default_playback_voice_id: string | null;
   /** Whether the global keyboard hotkey is armed. Off by default — turning
    *  this on triggers the macOS Input Monitoring TCC prompt. */
