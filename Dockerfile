@@ -51,6 +51,9 @@ ARG ROCM_VERSION=6.3
 # For ROCm, make the PyTorch ROCm index primary so every install below resolves
 # torch to ROCm wheels instead of the default CUDA build.
 RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
+      pip install --no-cache-dir --prefix=/install \
+        --index-url "https://download.pytorch.org/whl/rocm${ROCM_VERSION}" \
+        torch torchaudio && \
       printf '[global]\nindex-url = https://download.pytorch.org/whl/rocm%s\nextra-index-url = https://pypi.org/simple\n' "$ROCM_VERSION" > /etc/pip.conf; \
     fi
 
