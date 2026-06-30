@@ -5,6 +5,17 @@
 
 # Changelog
 
+## [Unreleased]
+
+### Linux
+
+- **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch
+  on the ROCm wheel index during dependency installation, so later installs do
+  not replace it with CUDA wheels. The ROCm compose overlay no longer assumes
+  Ubuntu render/video group IDs; the container joins the groups that own the GPU
+  device nodes at startup. Native Linux setup now picks ROCm wheels for AMD GPUs
+  and CUDA wheels for NVIDIA GPUs before installing backend dependencies.
+
 ## [0.5.0] - 2026-04-22
 
 **The Capture release.** Voicebox stops being just a voice-cloning studio and becomes a full AI voice studio. Hold a key anywhere on your machine, speak, release — the transcript lands in the focused text field. Flip the primitive around and any MCP-aware agent — Claude Code, Cursor, Spacebot — speaks back through an on-screen pill in one of your cloned voices. A local LLM sits between the two, so transcripts come out clean and voice profiles can carry a personality that reshapes what the agent says before it gets spoken.
