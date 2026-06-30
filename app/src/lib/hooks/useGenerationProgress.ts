@@ -2,16 +2,21 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
+import { useGenerationSettings } from '@/lib/hooks/useSettings';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
-import { useServerStore } from '@/stores/serverStore';
 
 interface GenerationStatusEvent {
   id: string;
   status: 'loading_model' | 'generating' | 'completed' | 'failed' | 'not_found';
   duration?: number;
   error?: string;
+  source?: string;
 }
+
+// Agent-initiated generations are played by the floating pill, not the
+// main-window AudioPlayer. Skip autoplay here to avoid double-playback.
+const AGENT_SOURCES = new Set(['mcp', 'rest']);
 
 /**
  * Subscribes to SSE for all pending generations. When a generation completes,
@@ -26,7 +31,8 @@ export function useGenerationProgress() {
   const removePendingStoryAdd = useGenerationStore((s) => s.removePendingStoryAdd);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const setAudioWithAutoPlay = usePlayerStore((s) => s.setAudioWithAutoPlay);
-  const autoplayOnGenerate = useServerStore((s) => s.autoplayOnGenerate);
+  const { settings: genSettings } = useGenerationSettings();
+  const autoplayOnGenerate = genSettings?.autoplay_on_generate ?? true;
 
   // Keep refs to avoid stale closures in EventSource handlers
   const isPlayingRef = useRef(isPlaying);
@@ -109,8 +115,11 @@ export function useGenerationProgress() {
               // });
             }
 
-            // Auto-play if enabled and nothing is currently playing
-            if (autoplayRef.current && !isPlayingRef.current) {
+            // Auto-play if enabled and nothing is currently playing.
+            // Skip agent-initiated sources — the floating pill window
+            // plays those itself.
+            const isAgentSpeak = data.source ? AGENT_SOURCES.has(data.source) : false;
+            if (autoplayRef.current && !isPlayingRef.current && !isAgentSpeak) {
               const genAudioUrl = apiClient.getAudioUrl(id);
               setAudioWithAutoPlay(genAudioUrl, id, '', '');
             }

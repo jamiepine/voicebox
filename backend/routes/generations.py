@@ -3,21 +3,50 @@
 import asyncio
 import logging
 import uuid
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-logger = logging.getLogger(__name__)
-
-from .. import models
-from ..services import history, profiles, tts
+from .. import config, models
+from ..services import history, personality, profiles, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
+from ..utils.audio import load_audio
 from ..utils.tasks import get_task_manager
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+
+IMPORTED_AUDIO_PROFILE_NAME = "Imported Audio"
+IMPORT_AUDIO_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac", ".webm"}
+IMPORT_AUDIO_MAX_BYTES = 200 * 1024 * 1024  # 200 MB
+
+
+def _get_or_create_import_profile(db: Session) -> DBVoiceProfile:
+    """Singleton profile every imported audio clip points at — keeps the
+    Generation FK happy without making profile_id nullable across the schema."""
+    row = (
+        db.query(DBVoiceProfile)
+        .filter(DBVoiceProfile.name == IMPORTED_AUDIO_PROFILE_NAME)
+        .first()
+    )
+    if row is not None:
+        return row
+    row = DBVoiceProfile(
+        id=str(uuid.uuid4()),
+        name=IMPORTED_AUDIO_PROFILE_NAME,
+        description="External audio imported into a story timeline.",
+        language="en",
+        voice_type="import",
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
@@ -47,9 +76,21 @@ async def generate_speech(
 
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
+    text = data.text
+    source = "manual"
+    if data.personality and getattr(profile, "personality", None):
+        try:
+            llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        text = llm_result.text.strip()
+        if not text:
+            raise HTTPException(status_code=500, detail="LLM produced empty output; nothing to speak.")
+        source = "personality_speak"
+
     generation = await history.create_generation(
         profile_id=data.profile_id,
-        text=data.text,
+        text=text,
         language=data.language,
         audio_path="",
         duration=0,
@@ -60,12 +101,13 @@ async def generate_speech(
         status="generating",
         engine=engine,
         model_size=model_size if engine_has_model_sizes(engine) else None,
+        source=source,
     )
 
     task_manager.start_generation(
         task_id=generation_id,
         profile_id=data.profile_id,
-        text=data.text,
+        text=text,
     )
 
     effects_chain_config = None
@@ -86,7 +128,7 @@ async def generate_speech(
         run_generation(
             generation_id=generation_id,
             profile_id=data.profile_id,
-            text=data.text,
+            text=text,
             language=data.language,
             engine=engine,
             model_size=model_size,
@@ -202,7 +244,19 @@ async def cancel_generation(generation_id: str, db: Session = Depends(get_db)):
 
     cancellation_state = cancel_generation_job(generation_id)
     if cancellation_state is None:
-        raise HTTPException(status_code=409, detail="Generation is no longer cancellable")
+        # Row says active but the worker is no longer tracking it — the gen
+        # coroutine exited without writing a terminal status (most often a
+        # SQLite lock racing with the failed-status write inside the worker's
+        # exception handler). Fail the row here so the user can move on.
+        task_manager = get_task_manager()
+        task_manager.complete_generation(generation_id)
+        await history.update_generation_status(
+            generation_id=generation_id,
+            status="failed",
+            db=db,
+            error="Generation orphaned by worker",
+        )
+        return {"message": "Orphaned generation cleared"}
 
     if cancellation_state == "queued":
         task_manager = get_task_manager()
@@ -237,6 +291,9 @@ async def get_generation_status(generation_id: str, db: Session = Depends(get_db
                     "status": gen.status or "completed",
                     "duration": gen.duration,
                     "error": gen.error,
+                    # Agent-originated sources ("mcp", "rest") skip main-window
+                    # autoplay — the floating pill plays those directly.
+                    "source": gen.source,
                 }
                 yield f"data: {json.dumps(payload)}\n\n"
 
@@ -342,4 +399,74 @@ async def stream_speech(
         _wav_stream(),
         media_type="audio/wav",
         headers={"Content-Disposition": 'attachment; filename="speech.wav"'},
+    )
+
+
+@router.post("/generate/import", response_model=models.GenerationResponse)
+async def import_audio(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+):
+    """Register an external audio file as a generation row.
+
+    Designed for the story timeline so users can drop in music or other
+    non-TTS audio. The row points at a singleton "Imported Audio" profile
+    so the existing generation/story plumbing keeps working unchanged."""
+    suffix = Path(file.filename or "").suffix.lower()
+    if suffix not in IMPORT_AUDIO_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported audio format '{suffix}'. Allowed: {sorted(IMPORT_AUDIO_EXTENSIONS)}",
+        )
+
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > IMPORT_AUDIO_MAX_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds {IMPORT_AUDIO_MAX_BYTES // (1024 * 1024)} MB limit.",
+            )
+        chunks.append(chunk)
+    audio_bytes = b"".join(chunks)
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio file.")
+
+    generation_id = str(uuid.uuid4())
+    target = config.get_generations_dir() / f"{generation_id}{suffix}"
+    target.write_bytes(audio_bytes)
+
+    try:
+        audio, sr = load_audio(str(target))
+        duration = float(len(audio) / sr) if sr else 0.0
+    except Exception as decode_err:
+        try:
+            target.unlink()
+        except OSError:
+            pass
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not decode audio: {decode_err}",
+        ) from decode_err
+
+    profile = _get_or_create_import_profile(db)
+    display_name = Path(file.filename or "Imported audio").stem or "Imported audio"
+
+    return await history.create_generation(
+        profile_id=profile.id,
+        text=display_name,
+        language="en",
+        audio_path=config.to_storage_path(target),
+        duration=duration,
+        seed=None,
+        db=db,
+        generation_id=generation_id,
+        status="completed",
+        engine="import",
+        model_size=None,
+        source="import",
     )

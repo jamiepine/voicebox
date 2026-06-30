@@ -1,23 +1,48 @@
 ---
 title: "Introduction"
-description: "Voicebox is a local-first voice cloning studio -- a free and open-source alternative to ElevenLabs."
+description: "Voicebox is the open-source, local-first AI voice studio — a free alternative to ElevenLabs and WisprFlow, running entirely on your machine."
 ---
 
 ## What is Voicebox?
 
-Voicebox is a **local-first voice cloning studio** -- a free and open-source alternative to ElevenLabs. Clone voices from a few seconds of audio or pick from 50+ preset voices, generate speech in 23 languages across 7 TTS engines, apply post-processing effects, and compose multi-voice projects with a timeline editor.
+Voicebox is the **open-source, local-first AI voice studio**. It closes the
+voice I/O loop in both directions on one machine, with no cloud and no
+accounts:
 
-- **Complete privacy** -- models and voice data stay on your machine
-- **7 TTS engines** -- Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, and Kokoro
-- **Cloning and preset voices** -- zero-shot cloning from a reference sample, or curated preset voices via Kokoro (50 voices) and Qwen CustomVoice (9 voices)
-- **23 languages** -- from English to Arabic, Japanese, Hindi, Swahili, and more
-- **Post-processing effects** -- pitch shift, reverb, delay, chorus, compression, and filters
-- **Expressive speech** -- paralinguistic tags like `[laugh]`, `[sigh]`, `[gasp]` via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice
-- **Unlimited length** -- auto-chunking with crossfade for scripts, articles, and chapters
-- **Stories editor** -- multi-track timeline for conversations, podcasts, and narratives
-- **API-first** -- REST API for integrating voice synthesis into your own projects
-- **Native performance** -- built with Tauri (Rust), not Electron
-- **Runs everywhere** -- macOS (MLX/Metal), Windows (CUDA), Linux, AMD ROCm, Intel Arc, Docker
+- **Humans talk** — hold a chord anywhere on your machine and your
+  dictation lands as clean text in whatever text field you had focused
+- **Agents talk back** — any MCP-aware agent can call Voicebox to speak in
+  one of your cloned voices
+- **Voices speak for themselves** — voice profiles can carry a personality
+  that composes fresh lines or rewrites text before it's spoken
+
+It's the free, local alternative to both ElevenLabs (voice cloning and TTS)
+and WisprFlow (voice dictation for agents and power users) — covering both
+sides of the same loop in one app, with a single model directory and LLM
+shared between input and output.
+
+## What's in the app
+
+- **Dictation** — global hotkey, push-to-talk and toggle modes, auto-paste
+  into the focused field on macOS and Windows (see [Dictation](/overview/dictation))
+- **Captures tab** — paired audio + transcript archive, retranscribe,
+  refine, play-as-voice, promote-to-sample (see [Captures](/overview/captures))
+- **Voice cloning** — 5 cloning engines covering 23 languages. Zero-shot
+  cloning from a reference sample (see [Voice Cloning](/overview/voice-cloning))
+- **Preset voices** — 50+ curated voices via Kokoro and Qwen CustomVoice
+  for when you don't want to clone (see [Preset Voices](/overview/preset-voices))
+- **Voice personalities** — optional free-form personality on any profile
+  plus a compose button and persona-rewrite toggle powered by a local LLM (see
+  [Voice Personalities](/overview/voice-personalities))
+- **Post-processing effects** — pitch shift, reverb, delay, chorus,
+  compression, filters (Spotify's Pedalboard)
+- **Expressive speech** — paralinguistic tags like `[laugh]` and `[sigh]`
+  via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice
+- **Unlimited length** — auto-chunking with crossfade for long scripts
+- **Stories editor** — multi-track timeline for conversations and podcasts
+- **API-first** — REST + WebSocket API; MCP server for agent integrations
+- **Runs everywhere** — macOS (MLX/Metal), Windows (CUDA / DirectML), Linux
+  (ROCm / CPU), Intel Arc, Docker
 
 ## TTS Engines
 
@@ -30,8 +55,20 @@ Seven engines with different strengths, switchable per-generation:
 | **LuxTTS** | Cloned | English | Lightweight (~1GB VRAM), 48kHz output, 150x realtime on CPU |
 | **Chatterbox Multilingual** | Cloned | 23 | Broadest language coverage |
 | **Chatterbox Turbo** | Cloned | English | Fast 350M model with paralinguistic emotion/sound tags |
-| **TADA** (1B / 3B) | Cloned | 10 | HumeAI speech-language model -- 700s+ coherent audio |
+| **TADA** (1B / 3B) | Cloned | 10 | HumeAI speech-language model — 700s+ coherent audio |
 | **Kokoro** | Preset (50 voices) | 9 | 82M parameters, CPU realtime, lowest VRAM of any engine |
+
+## STT and local LLM
+
+Voicebox also runs a full speech recognition and local LLM stack, shared
+between dictation, the Captures tab, and per-profile personality modes:
+
+| Layer | Models |
+|---|---|
+| **STT** | Whisper Base / Small / Medium / Large / Turbo (PyTorch or MLX) |
+| **LLM** | Qwen3 0.6B / 1.7B / 4B (refinement + per-profile compose / persona-rewrite) |
+
+No cloud fallback, no bring-your-own-API-key. Local is the product.
 
 ## GPU Support
 
@@ -46,11 +83,13 @@ Seven engines with different strengths, switchable per-generation:
 
 ## Use Cases
 
-- **Game development** -- generate dynamic dialogue for characters
-- **Content creation** -- produce podcasts and video voiceovers
-- **Accessibility** -- build text-to-speech tools for users who need them
-- **Voice assistants** -- create custom voice interfaces
-- **Production pipelines** -- automate voiceover workflows via the REST API
+- **Dictation for humans and agents** — speak instead of type, in any app
+- **Agent voice output** — any MCP-aware agent can speak in a cloned voice
+- **Game development** — generate dynamic dialogue for characters
+- **Content creation** — podcasts, video voiceovers, audiobooks
+- **Accessibility** — speech-to-text for any field, TTS with a voice you own
+- **Voice assistants** — custom voice interfaces without a cloud bill
+- **Production pipelines** — automate voice workflows via the REST API
 
 ## Tech Stack
 
@@ -61,8 +100,9 @@ Seven engines with different strengths, switchable per-generation:
 | State | Zustand, React Query |
 | Backend | FastAPI (Python) |
 | TTS Engines | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
+| STT | Whisper / Whisper Turbo (PyTorch or MLX) |
+| Local LLM | Qwen3 0.6B / 1.7B / 4B (MLX or PyTorch) |
 | Effects | Pedalboard (Spotify) |
-| Transcription | Whisper / Whisper Turbo (PyTorch or MLX) |
 | Inference | MLX (Apple Silicon) / PyTorch (CUDA/ROCm/XPU/CPU) |
 | Database | SQLite |
 | Audio | WaveSurfer.js, librosa |

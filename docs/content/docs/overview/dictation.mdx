@@ -1,0 +1,208 @@
+---
+title: "Dictation"
+description: "Hold a key anywhere on your machine, speak, release — the transcript lands in whatever text field you had focused."
+---
+
+## Overview
+
+Dictation lets you turn speech into clean text anywhere on your computer. Hold
+a chord, talk, release — Voicebox transcribes what you said with Whisper,
+optionally cleans it up with a local LLM, and pastes the result into the text
+field you had focused when you started.
+
+Everything happens on your hardware. No cloud, no accounts, no audio leaving
+the machine.
+
+<Callout type="info">
+  Dictation was introduced in **0.5.0** alongside the Captures tab and the
+  per-profile personality modes. It's the "input" half of Voicebox's voice I/O
+  loop — cloning and TTS are still the "output" half.
+</Callout>
+
+## The flow
+
+<Steps>
+  <Step title="Hold the chord">
+    Hold the push-to-talk chord anywhere on your machine. A small pill fades
+    in over your current app.
+  </Step>
+  <Step title="Speak">
+    The pill shows `Recording` with a live waveform and an elapsed-time
+    counter. Speak naturally — you don't have to wait for anything.
+  </Step>
+  <Step title="Release">
+    On release, the pill flips to `Transcribing`, then `Refining` if
+    auto-refine is on, then disappears.
+  </Step>
+  <Step title="Text lands in your app">
+    If auto-paste is enabled and Voicebox has Accessibility permission, the
+    transcript pastes into the text field you had focused when you started
+    talking — not wherever focus drifted while you were speaking.
+  </Step>
+</Steps>
+
+Either way, every capture also appears in the **Captures tab** with the
+original audio and the transcript paired together. See
+[Captures](/overview/captures) for what you can do with them after the fact.
+
+## Push-to-talk and toggle modes
+
+Voicebox ships two chord behaviors out of the box:
+
+| Mode | Default (macOS) | Default (Windows) | Behavior |
+|---|---|---|---|
+| **Push-to-talk** | Right `⌘` + Right `⌥` | Right `Ctrl` + Right `Shift` | Recording stops when you release the chord. |
+| **Toggle-to-talk** | Push-to-talk + `Space` | Push-to-talk + `Space` | Recording keeps going until you tap the chord again. |
+
+**Holding PTT and tapping `Space` mid-hold upgrades a hold into a toggled
+session** without a gap in the audio. This is the single most useful detail of
+the chord system — short bursts feel fast, long-form narration feels
+hands-free, and there's no decision up front about which mode you wanted.
+
+## The on-screen pill
+
+While you're dictating, a floating pill appears over the current app. It walks
+through the states of the capture cycle and shows live signals for each:
+
+| State | What it shows |
+|---|---|
+| `Recording` | Live waveform + elapsed time. |
+| `Transcribing` | Thinking waveform while Whisper runs. |
+| `Refining` | Same thinking waveform while the LLM cleans up the transcript (only if auto-refine is on). |
+| Error | Red tint. Click the pill to copy the error to your clipboard. Auto-dismisses. |
+
+The pill is transparent, always-on-top, and pre-created hidden at app start —
+so it appears instantly when you hit the chord, with no window flash.
+
+## Customizing the chord
+
+Open **Settings → Captures → Dictation** to change either chord.
+
+- **Left vs right modifier badges.** When you hold keys into the chord
+  picker, Voicebox records whether each modifier is the left or right variant.
+  That means you can bind to just the right `⌥` while leaving the left `⌥`
+  alone — useful if you want dictation on one hand and keep your
+  other-hand shortcuts intact.
+- **Chord defaults are picked to stay out of your way.** On macOS, the
+  defaults deliberately avoid left-hand `Cmd+Option` chords so
+  `Cmd+Option+I` (devtools), `Cmd+Option+Esc` (force quit), and
+  `Cmd+Option+Space` (Spotlight) all remain yours. On Windows, the defaults
+  route around AltGr collisions on German / French / Spanish layouts where
+  `Ctrl+Alt` synthesizes AltGr.
+- **Live reload.** Changing a chord in Settings takes effect immediately —
+  no restart, no tab reload.
+
+## Auto-paste into the focused app
+
+Once transcription finishes, Voicebox can synthesize a native paste into
+whatever text field had focus when you started the chord. Your clipboard is
+saved before and restored after, so nothing you had copied goes missing.
+
+| Platform | Mechanism |
+|---|---|
+| macOS | `CGEventPost` at the HID tap with a full `⌘V` key sequence, preceded by reactivating the original app via `NSRunningApplication`. |
+| Windows | `SendInput` with correct scan codes, plus a `SetForegroundWindow` + `AttachThreadInput` handshake to defeat foreground-lock when pasting into a window that wasn't frontmost at chord-start. |
+
+**Focus is snapshotted at chord-start.** The paste targets the original field
+even if focus drifts during transcribe / refine — that's the "pastes where you
+were talking *from*, not where you're looking *now*" behavior.
+
+<Callout type="info">
+  Auto-paste is optional. If Accessibility permission isn't granted (macOS),
+  or you prefer to keep synthetic input off, dictation still runs — transcripts
+  land in the Captures tab and you can copy them manually. The setting lives
+  inline next to the Accessibility prompt in Settings → Captures → Dictation,
+  not as a global banner.
+</Callout>
+
+## Refinement
+
+If auto-refine is on, a local LLM cleans up the raw Whisper transcript
+before it's pasted. The goal is to remove verbal clutter without rewriting
+what you actually said.
+
+What refinement typically fixes:
+
+- Filler words (`um`, `uh`, `like` used as pauses, `you know`)
+- Self-corrections — the LLM keeps the final version and drops earlier
+  attempts (`could you uh run the migration real quick, and then, yeah,
+  check the logs` → `Could you run the migration, then check the logs?`)
+- Basic punctuation and capitalization
+- Whisper loop hallucinations — Voicebox strips repeated tokens (six or
+  more identical tokens in a row, case-insensitive) *before* the LLM
+  sees the transcript, so a small refinement model can't echo them back
+
+What refinement deliberately preserves:
+
+- Technical terms and code identifiers (`npm install`, `handleSubmit`)
+- Legitimate repetition (`no, no, no, no, no` has fewer than six identical
+  tokens, so it survives)
+- Your intent — refinement is cleanup, not rewriting
+
+Flags are snapshotted per capture, so you can re-refine the same raw
+transcript later with different flags without losing the original. The
+refinement model picker (**Settings → Captures → Refinement**) offers three
+bundled Qwen3 sizes:
+
+| Model | Size | Best for |
+|---|---|---|
+| Qwen3 0.6B | ~400 MB | Default. Very fast, good for casual dictation. |
+| Qwen3 1.7B | ~1.1 GB | Sweet spot when transcripts contain code identifiers. |
+| Qwen3 4B | ~2.5 GB | Full quality, slowest. |
+
+This is the same local LLM used by the per-profile personality modes — one
+LLM in the app, not two. See [Voice Personalities](/overview/voice-personalities).
+
+## Platform notes
+
+### macOS
+
+- **Accessibility permission** is required for auto-paste. The prompt lives
+  inline next to the toggle in **Settings → Captures → Dictation**, with a
+  deep link to **System Settings → Privacy & Security → Accessibility**.
+- **TSM crash mitigation.** The global hotkey listener runs on a background
+  thread with `set_is_main_thread(false)` to sidestep a known
+  macOS 14+ crash in the `rdev` library. If you hit an unexpected dictation
+  failure on macOS, check the logs for TSM-related messages.
+
+### Windows
+
+- **UAC / UIPI caveat.** Synthetic paste into an *elevated* window from a
+  non-elevated Voicebox is blocked by Windows itself. Run Voicebox elevated
+  if you regularly dictate into elevated apps (e.g. an elevated terminal or
+  Task Manager).
+- **Right-hand default chord** (`Ctrl+Shift`) avoids AltGr collisions on
+  keyboard layouts where `Ctrl+Alt` is the compose key (German, French,
+  Spanish, some others).
+
+### Linux
+
+- **Not yet in this release.** The Rust shim ships the macOS and Windows
+  paths in 0.5.0. Linux `uinput` / AT-SPI support and the Wayland paste
+  story are tracked in `docs/plans/VOICE_IO.md`.
+
+## When auto-paste skips itself
+
+A few cases where Voicebox deliberately does *not* synthesize a paste:
+
+- **Focus was inside Voicebox** when the chord started. The transcript goes
+  to the Captures tab so a dictation-into-Voicebox round-trip doesn't
+  accidentally paste into the generate box.
+- **No text focus detected.** The transcript still lands in the Captures
+  tab; copy it from there with one click.
+- **Accessibility permission not granted** on macOS. Same — Captures tab
+  only.
+
+## Next steps
+
+<Cards>
+  <Card title="Captures" href="/overview/captures">
+    The paired audio + transcript archive every dictation lands in.
+  </Card>
+  <Card title="Voice Personalities" href="/overview/voice-personalities">
+    The same local LLM powers per-profile compose and persona rewrite.
+  </Card>
+  <Card title="Transcription" href="/developer/transcription">
+    Developer-level details on Whisper, Whisper Turbo, and the STT backend.
+  </Card>
+</Cards>

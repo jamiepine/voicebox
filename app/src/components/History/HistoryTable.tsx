@@ -16,6 +16,7 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { AudioBars } from '@/components/AudioBars';
 import { EffectsChainEditor } from '@/components/Effects/EffectsChainEditor';
 import { Button } from '@/components/ui/button';
 import {
@@ -57,37 +58,6 @@ import { formatDate, formatDuration, formatEngineName } from '@/lib/utils/format
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
 
-// ─── Audio Bars ─────────────────────────────────────────────────────────────
-
-function AudioBars({ mode }: { mode: 'idle' | 'generating' | 'playing' }) {
-  const barColor = mode !== 'idle' ? 'bg-accent' : 'bg-muted-foreground/40';
-  return (
-    <div className="flex items-center gap-[2px] h-5">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <motion.div
-          key={`${mode}-${i}`}
-          className={`w-[3px] rounded-full ${barColor}`}
-          animate={
-            mode === 'generating'
-              ? { height: ['6px', '16px', '6px'] }
-              : mode === 'playing'
-                ? { height: ['8px', '14px', '4px', '12px', '8px'] }
-                : { height: '8px' }
-          }
-          transition={
-            mode === 'generating'
-              ? { duration: 0.6, repeat: Infinity, delay: i * 0.08, ease: 'easeInOut' }
-              : mode === 'playing'
-                ? { duration: 1.2, repeat: Infinity, delay: i * 0.15, ease: 'easeInOut' }
-                : { duration: 0.4, ease: 'easeOut' }
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-// NEW ALTERNATE HISTORY VIEW - FIXED HEIGHT ROWS WITH INFINITE SCROLL
 export function HistoryTable() {
   const { t } = useTranslation();
   const [page, setPage] = useState(0);
@@ -462,7 +432,7 @@ export function HistoryTable() {
     <div className="flex flex-col h-full min-h-0 relative">
       {history.length === 0 ? (
         <div className="text-center py-12 px-5 border-2 border-dashed mb-5 border-muted rounded-md text-muted-foreground flex-1 flex items-center justify-center">
-          No voice generations, yet...
+          {t('history.empty')}
         </div>
       ) : (
         <>
@@ -474,7 +444,7 @@ export function HistoryTable() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-7 text-xs text-muted-foreground hover:text-destructive"
+                className="h-7 text-xs text-muted-foreground"
                 onClick={() => setClearFailedDialogOpen(true)}
                 disabled={clearFailed.isPending}
               >

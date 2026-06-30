@@ -3,7 +3,10 @@
 import asyncio
 import logging
 import os
+import re
+import subprocess
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 
@@ -35,24 +38,62 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# HSA_OVERRIDE_GFX_VERSION=10.3.0 is an RDNA2 compatibility shim for older
-# PyTorch ROCm builds. Only set it on the ROCm binary variant — applying it
-# globally breaks CUDA and CPU builds, and is unnecessary on RDNA3/4 hardware.
-if os.environ.get("VOICEBOX_BACKEND_VARIANT") == "rocm":
-    import platform
+# AMD GPU environment variables must be set before torch import
+# Only set HSA_OVERRIDE_GFX_VERSION for older GPUs that need it.
+# RDNA 3+ (gfx1100+) and RDNA 4 (gfx1200+) are natively supported by ROCm
+# and the override can cause suboptimal performance or errors.
+if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
+    try:
+        result = subprocess.run(
+            ["rocminfo"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            # Collect all GPUs found in rocminfo output
+            gfx_versions = []
+            for line in result.stdout.splitlines():
+                line_lower = line.lower()
+                if "gfx" in line_lower:
+                    match = re.search(r"(gfx\d+)", line_lower)
+                    if match:
+                        gfx_versions.append(match.group(1))
 
-    if (
-        os.environ.get("VOICEBOX_ROCM_FORCE_GFX1030") == "1"
-        and platform.system() == "Linux"
-        and not os.environ.get("HSA_OVERRIDE_GFX_VERSION")
-    ):
-        os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
-
-    if (
-        os.environ.get("VOICEBOX_ROCM_ENABLE_MIOPEN_LOG") == "1"
-        and not os.environ.get("MIOPEN_LOG_LEVEL")
-    ):
-        os.environ["MIOPEN_LOG_LEVEL"] = "4"
+            if gfx_versions:
+                # Check if any GPU needs the override (RDNA 2 and older)
+                # Use the oldest GPU (lowest gfx number) for the decision
+                try:
+                    gfx_nums = []
+                    for v in gfx_versions:
+                        m = re.search(r"\d+", v)
+                        if m:
+                            gfx_nums.append(int(m.group()))
+                    if gfx_nums:
+                        oldest_num = min(gfx_nums)
+                        oldest_gfx = gfx_versions[gfx_nums.index(oldest_num)]
+                        if oldest_num < 1100:
+                            os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+                            logger.info(
+                                "AMD GPU detected (%s), setting HSA_OVERRIDE_GFX_VERSION=10.3.0 for compatibility. All GPUs: %s",
+                                oldest_gfx,
+                                ", ".join(gfx_versions),
+                            )
+                        else:
+                            logger.info(
+                                "AMD GPU detected (%s), native ROCm support available, skipping HSA_OVERRIDE_GFX_VERSION. All GPUs: %s",
+                                oldest_gfx,
+                                ", ".join(gfx_versions),
+                            )
+                except (ValueError, AttributeError) as e:
+                    logger.info("Could not parse GPU version from rocminfo output: %s", e)
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
+        logger.info(
+            "Could not detect AMD GPU via rocminfo, skipping automatic HSA_OVERRIDE_GFX_VERSION configuration: %s",
+            e,
+        )
+if not os.environ.get("MIOPEN_LOG_LEVEL"):
+    os.environ["MIOPEN_LOG_LEVEL"] = "4"
 
 import torch
 from fastapi import FastAPI
@@ -60,7 +101,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from urllib.parse import quote
 
 from . import __version__, config, database
-from .services import tts, transcribe
+from .services import tts, transcribe, llm
 from .database import get_db
 from .utils.platform_detect import get_backend_type
 from .utils.progress import get_progress_manager
@@ -81,15 +122,46 @@ def safe_content_disposition(disposition_type: str, filename: str) -> str:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    from .mcp_server.server import build_mcp_server, compose_lifespan
+    from .mcp_server.context import ClientIdMiddleware
+
+    # Build the MCP app up-front so we can wire its lifespan into FastAPI's —
+    # FastMCP's Streamable HTTP transport only works if its session manager
+    # runs inside the parent ASGI lifespan.
+    mcp = build_mcp_server()
+    mcp_app = mcp.http_app(path="/", transport="http")
+
+    @asynccontextmanager
+    async def voicebox_lifespan(app: FastAPI):
+        await _run_startup(app)
+        try:
+            yield
+        finally:
+            # Paired with _run_startup via try/finally: runs whether or
+            # not the nested MCP lifespan entered cleanly, so a partial
+            # startup still unloads whatever models were loaded.
+            await _run_shutdown()
+
+    # compose_lifespan enters factories in order (voicebox startup →
+    # MCP startup) and exits in LIFO (MCP teardown first → models
+    # unload last). That ordering matters on shutdown: FastMCP's
+    # __aexit__ cancels in-flight session tasks, and we want that to
+    # happen *before* _run_shutdown yanks the TTS / Whisper / LLM
+    # models out from under any MCP request that was still generating.
+    lifespan = compose_lifespan(voicebox_lifespan, mcp_app.router.lifespan_context)
+
     application = FastAPI(
         title="voicebox API",
         description="Production-quality Qwen3-TTS voice cloning API",
         version=__version__,
+        lifespan=lifespan,
     )
 
     _configure_cors(application)
+    application.add_middleware(ClientIdMiddleware)
     register_routers(application)
-    _register_lifecycle(application)
+    application.mount("/mcp", mcp_app)
+    logger.info("MCP: mounted at /mcp")
     _mount_frontend(application)
 
     return application
@@ -192,105 +264,106 @@ def _get_gpu_status() -> str:
     return "None (CPU only)"
 
 
-def _register_lifecycle(application: FastAPI) -> None:
-    """Attach startup and shutdown event handlers."""
+async def _run_startup(application: FastAPI) -> None:
+    """Database init, warnings, model-cache prep. Runs on lifespan entry."""
+    import platform
+    import sys
 
-    @application.on_event("startup")
-    async def startup_event():
-        import platform
-        import sys
+    logger.info("Voicebox v%s starting up", __version__)
+    logger.info(
+        "Python %s on %s %s (%s)",
+        sys.version.split()[0],
+        platform.system(),
+        platform.release(),
+        platform.machine(),
+    )
 
-        logger.info("Voicebox v%s starting up", __version__)
-        logger.info(
-            "Python %s on %s %s (%s)",
-            sys.version.split()[0],
-            platform.system(),
-            platform.release(),
-            platform.machine(),
-        )
+    database.init_db()
 
-        database.init_db()
+    from .database.session import _db_path
 
-        from .database.session import _db_path
+    logger.info("Database: %s", _db_path)
+    logger.info("Data directory: %s", config.get_data_dir())
 
-        logger.info("Database: %s", _db_path)
-        logger.info("Data directory: %s", config.get_data_dir())
+    init_queue()
 
-        init_queue()
+    # Mark stale "generating" records as failed -- leftovers from a killed process
+    from sqlalchemy import text as sa_text
 
-        # Mark stale "generating" records as failed -- leftovers from a killed process
-        from sqlalchemy import text as sa_text
-
-        db = next(get_db())
-        try:
-            result = db.execute(
-                sa_text(
-                    "UPDATE generations SET status = 'failed', "
-                    "error = 'Server was shut down during generation' "
-                    "WHERE status IN ('generating', 'loading_model')"
-                )
+    db = next(get_db())
+    try:
+        result = db.execute(
+            sa_text(
+                "UPDATE generations SET status = 'failed', "
+                "error = 'Server was shut down during generation' "
+                "WHERE status IN ('generating', 'loading_model')"
             )
-            if result.rowcount > 0:
-                logger.info("Marked %d stale generation(s) as failed", result.rowcount)
+        )
+        if result.rowcount > 0:
+            logger.info("Marked %d stale generation(s) as failed", result.rowcount)
 
-            from .database import VoiceProfile as DBVoiceProfile, Generation as DBGeneration
+        from .database import VoiceProfile as DBVoiceProfile, Generation as DBGeneration
 
-            profile_count = db.query(DBVoiceProfile).count()
-            generation_count = db.query(DBGeneration).count()
-            logger.info("Profiles: %d, Generations: %d", profile_count, generation_count)
+        profile_count = db.query(DBVoiceProfile).count()
+        generation_count = db.query(DBGeneration).count()
+        logger.info("Profiles: %d, Generations: %d", profile_count, generation_count)
 
-            db.commit()
-        except Exception as e:
-            db.rollback()
-            logger.warning("Could not clean up stale generations: %s", e)
-        finally:
-            db.close()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logger.warning("Could not clean up stale generations: %s", e)
+    finally:
+        db.close()
 
-        backend_type = get_backend_type()
-        logger.info("Backend: %s", backend_type.upper())
-        logger.info("GPU: %s", _get_gpu_status())
+    backend_type = get_backend_type()
+    logger.info("Backend: %s", backend_type.upper())
+    logger.info("GPU: %s", _get_gpu_status())
 
-        # Warn if GPU architecture is not supported by this PyTorch build
-        from .backends.base import check_cuda_compatibility
+    from .backends.base import check_cuda_compatibility
 
-        _compatible, _cuda_warning = check_cuda_compatibility()
-        if not _compatible:
-            logger.warning("GPU COMPATIBILITY: %s", _cuda_warning)
+    _compatible, _cuda_warning = check_cuda_compatibility()
+    if not _compatible:
+        logger.warning("GPU COMPATIBILITY: %s", _cuda_warning)
 
-        from .services.cuda import check_and_update_cuda_binary
-        from .services.rocm import check_and_update_rocm_binary
+    from .services.cuda import check_and_update_cuda_binary
+    from .services.rocm import check_and_update_rocm_binary
 
-        create_background_task(check_and_update_cuda_binary())
-        create_background_task(check_and_update_rocm_binary())
+    create_background_task(check_and_update_cuda_binary())
+    create_background_task(check_and_update_rocm_binary())
 
-        try:
-            progress_manager = get_progress_manager()
-            progress_manager._set_main_loop(asyncio.get_running_loop())
-        except Exception as e:
-            logger.warning("Could not initialize progress manager event loop: %s", e)
+    try:
+        progress_manager = get_progress_manager()
+        progress_manager._set_main_loop(asyncio.get_running_loop())
+    except Exception as e:
+        logger.warning("Could not initialize progress manager event loop: %s", e)
 
-        try:
-            from huggingface_hub import constants as hf_constants
+    try:
+        from huggingface_hub import constants as hf_constants
 
-            cache_dir = Path(hf_constants.HF_HUB_CACHE)
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            logger.info("Model cache: %s", cache_dir)
-        except Exception as e:
-            logger.warning("Could not create HuggingFace cache directory: %s", e)
+        cache_dir = Path(hf_constants.HF_HUB_CACHE)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        logger.info("Model cache: %s", cache_dir)
+    except Exception as e:
+        logger.warning("Could not create HuggingFace cache directory: %s", e)
 
-        logger.info("Ready")
+    logger.info("Ready")
 
-    @application.on_event("shutdown")
-    async def shutdown_event():
-        logger.info("Voicebox server shutting down...")
-        try:
-            tts.unload_tts_model()
-        except Exception:
-            logger.exception("Failed to unload TTS model")
-        try:
-            transcribe.unload_whisper_model()
-        except Exception:
-            logger.exception("Failed to unload Whisper model")
+
+async def _run_shutdown() -> None:
+    """Unload models on lifespan exit."""
+    logger.info("Voicebox server shutting down...")
+    try:
+        tts.unload_tts_model()
+    except Exception:
+        logger.exception("Failed to unload TTS model")
+    try:
+        transcribe.unload_whisper_model()
+    except Exception:
+        logger.exception("Failed to unload Whisper model")
+    try:
+        llm.unload_llm_model()
+    except Exception:
+        logger.exception("Failed to unload LLM model")
 
 
 app = create_app()

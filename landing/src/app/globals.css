@@ -142,6 +142,99 @@
   will-change: transform;
 } */
 
+/* Blog post typography (rendered markdown via marked) */
+.blog-prose {
+  color: hsl(var(--muted-foreground));
+  font-size: 1.0625rem;
+  line-height: 1.75;
+}
+.blog-prose > * + * {
+  margin-top: 1.25em;
+}
+.blog-prose h2 {
+  margin-top: 2.25em;
+  margin-bottom: 0.75em;
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: hsl(var(--foreground));
+}
+.blog-prose h3 {
+  margin-top: 1.75em;
+  margin-bottom: 0.5em;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+.blog-prose p,
+.blog-prose ul,
+.blog-prose ol,
+.blog-prose blockquote {
+  color: hsl(var(--muted-foreground));
+}
+.blog-prose strong {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+.blog-prose a {
+  color: hsl(var(--foreground));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: hsl(var(--accent) / 0.5);
+  transition: color 0.15s;
+}
+.blog-prose a:hover {
+  color: hsl(var(--accent));
+}
+.blog-prose ul,
+.blog-prose ol {
+  padding-left: 1.4em;
+}
+.blog-prose ul {
+  list-style: disc;
+}
+.blog-prose ol {
+  list-style: decimal;
+}
+.blog-prose li + li {
+  margin-top: 0.4em;
+}
+.blog-prose blockquote {
+  border-left: 2px solid hsl(var(--accent) / 0.5);
+  padding-left: 1.25em;
+  font-style: italic;
+}
+.blog-prose code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.875em;
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+  padding: 0.15em 0.4em;
+  border-radius: 0.3rem;
+}
+.blog-prose pre {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 1.1em 1.25em;
+  overflow-x: auto;
+}
+.blog-prose pre code {
+  background: transparent;
+  padding: 0;
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+}
+.blog-prose hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 2.5em 0;
+}
+.blog-prose img {
+  border-radius: 0.75rem;
+  border: 1px solid hsl(var(--border));
+}
+
 /* Scrollbar hiding */
 ::-webkit-scrollbar {
   display: none;

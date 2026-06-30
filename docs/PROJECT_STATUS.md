@@ -1,6 +1,6 @@
 # Voicebox Project Status & Roadmap
 
-> Last updated: 2026-04-18 | Current version: **v0.4.1** | 232 open issues | 12 open PRs
+> Last updated: 2026-06-27 | Current version: **v0.5.0** | 402 open issues | 88 open PRs | 1.3M downloads · 34.8k stars
 
 ---
 
@@ -85,6 +85,46 @@ POST /generate
 ---
 
 ## Current State
+
+### Since v0.5.0 — Two-Month Pulse (2026-04-25 → 2026-06-27)
+
+**The repo went quiet while demand kept climbing.** 0.5.0 (the Capture release) shipped 2026-04-25. In the two months since, only **2 PRs merged** (#544 the release itself, #550 a remote-URL fix) while **150 new issues** were opened and the open-PR queue more than tripled to **88**. The community kept contributing — translations, new engines, GPU fixes — but nothing's been reviewed or merged. This is a review-and-merge backlog, not a build backlog.
+
+| Metric | At v0.4.1 (2026-04-18) | Now (2026-06-27) | Δ |
+|--------|------------------------|------------------|---|
+| Open issues | 232 | 402 | +170 |
+| Open PRs | 12 | 88 | +76 |
+| GitHub stars | ~28k | 34.8k | +~7k |
+| Downloads | — | 1.3M | — |
+
+**What the two months actually produced (all unmerged):**
+- **A flood of community translations** — pt-BR, de-DE, Russian (+docs), Arabic+RTL, Spanish (+docs site), French, Cantonese. ~12 i18n PRs sitting on the i18next foundation that landed in 0.5.0.
+- **GPU coverage PRs** — AMD ROCm on Windows (#538), Intel XPU (#539), DirectML for Intel iGPU (#674), Blackwell diagnostic (#653), MLX threading fix (#789).
+- **A 17-PR hardening dump** from one contributor (@neuron-tech-ai, all 2026-05-14): CI pipeline, Biome, OpenAI-compatible `/v1/audio/speech`, SQLite WAL + indexes, LIKE-injection / upload-limit / N+1 fixes, platform gating. High value, entirely unreviewed.
+- **New engine PRs** — MiniMax cloud, MOSS-TTS-Nano, Fun-CosyVoice3, Parakeet STT.
+- **Two giant Linux PRs** — vendored `tao` patch for the Wayland startup panic (#748), and an SRT2Voice workflow (#673).
+
+**0.5.0 regressions worth triaging first:**
+- macOS Apple Silicon — all TTS models crash the server on load (#606, #615), MLX falls back to CPU on M4/M5 (#706, #650).
+- Capture cutoffs at 30s for imported audio (#609, #626); paste broken in 0.5.0 (#762).
+- MCP rough edges — dotted tool names violate Claude Desktop's name pattern (#790), audio scrambled over MCP (#780).
+- Refinement silently translates non-English transcripts to English (#603).
+
+**Funding model — `$VOICEBOX` token (#806):** the two-month gap was a solo-dev decision about long-term sustainability, not neglect or a compromise. `$VOICEBOX` (Solana) is the **official, dev-controlled** token and the chosen revenue path — donations/sponsors didn't cover full-time work. The app stays 100% free, open-source, local-first, no subscriptions. Dev supply is being bought back and burned (done twice), liquidity locked. It has funded ~2–3 months of full-time work, so the cadence resumes this week. The #806 thread was a community concern, addressed transparently and resolved amicably; keep an eye out for actual impersonator/community tokens, which are a separate thing.
+
+**Other trust/security signals:** macOS malware-flag reports continue (#369); a DNS-rebinding / Host-header exposure on the local API+MCP server was reported with fixes attached (#778).
+
+---
+
+### What's Shipped (v0.5.0 — the Capture release)
+
+Shipped 2026-04-25 (PR #544). Voicebox went from a voice-cloning studio to a full voice studio — dictation in, agent speech out, a local LLM in the middle.
+
+- **Dictation** — global hotkey capture (push-to-talk + toggle chords), on-screen pill with live state, auto-paste into the focused field with clipboard save/restore, chord-picker UI. Scoped Accessibility permission (transcripts still land if paste is denied).
+- **MCP server** at `http://127.0.0.1:17493/mcp` — `voicebox.speak` / `.transcribe` / `.list_captures` / `.list_profiles`. Streamable HTTP primary transport, stdio sidecar shim, per-client voice binding via `X-Voicebox-Client-Id`. Speaking pill always shows agent-initiated output.
+- **Personality** — voice profiles carry an optional ≤2000-char persona. Compose (shuffle an in-character line) and Speak-in-character (rewrite input before TTS), both on a local Qwen3 LLM that doubles as the refinement model.
+- **Refinement** — on-device Qwen3 strips fillers, fixes punctuation, optional self-correction rewrites; Whisper hallucination-loop stripping at a 6-token threshold; per-capture flag snapshots; model picker (0.6B / 1.7B / 4B).
+- **`POST /speak` REST wrapper** and **i18next foundation** (English + zh-CN) also landed.
 
 ### What's Shipped (v0.4.x)
 
@@ -178,6 +218,19 @@ POST /generate
 
 **Integration shape if we revive it:** Zero-shot cloning maps naturally to the Chatterbox-style backend (store `ref_audio` + `ref_text` paths in the voice prompt dict, process at generate time). Est. ~250 lines for `voxcpm_backend.py` + one `ModelConfig` entry + engine registration in `backends/__init__.py`. Frontend UI gating is the bigger lift.
 
+### Funded Roadmap (2026-H2)
+
+`$VOICEBOX` funded ~2–3 months of full-time work; cadence resumes the week of 2026-06-27. Direction committed publicly in #806:
+
+| Item | Notes |
+|------|-------|
+| **Resume merge/release cadence** | Clear the 88-PR backlog, regular commits + releases — this is the immediate focus (see Tier 1) |
+| **Mobile companion app** | New surface; already drawing issues (#773 iPhone logout) |
+| **Encrypted cloud backup/sync** | For voice profiles + generations — first cloud feature; stays opt-in, local-first remains default |
+| **More TTS models** | Engine candidates in the Landscape section below; community PRs #507/#766/#777 in queue |
+| **Better GPU support** | Blackwell/sm_120, ROCm, DirectML, Intel — incl. paying testers for hardware the dev lacks |
+| **Bug fixes** | 0.5.0 regression cluster first (macOS load crash, capture cutoffs, MCP, refinement) |
+
 ### What's In-Flight
 
 | Feature | Branch/PR | Status |
@@ -231,63 +284,143 @@ POST /generate
 
 ## Open PRs — Triage & Analysis
 
-### Recently Merged (Since Last Update — 2026-03-18 → 2026-04-18)
+**88 open PRs, only 2 merged since 0.5.0.** The queue is the single biggest lever right now — a lot of finished community work is waiting on review. Clustered below by theme. Counts are approximate; a PR can span clusters.
+
+### Merged since 0.5.0
 
 | PR | Title | Merged |
 |----|-------|--------|
-| **#481** | fix(build): pin transformers in MLX requirements to prevent 5.x upgrade | 2026-04-19 |
-| **#470** | fix(api-client): declare moved + errors on migrateModels response type | 2026-04-18 |
-| **#457** | fix(linux): use pactl to detect PipeWire/PulseAudio monitor | 2026-04-18 |
-| **#450** | docs: clarify paralinguistic tag support in quick start | 2026-04-18 |
-| **#447** | fix: delete version rows and files in delete_generations_by_profile | 2026-04-18 |
-| **#444** | Fix generation cancellation flow | 2026-04-18 |
-| **#440** | fix(paths): strip legacy "data/" prefix when resolving stored paths | 2026-04-18 |
-| **#439** | Fix migration dialog hanging when no models are present | 2026-04-18 |
-| **#438** | fix(build): repair frozen-binary imports for kokoro/chatterbox-multilingual/scipy/transformers | 2026-04-18 |
-| **#433** | fix: warn user when no models to migrate during storage change | 2026-04-18 |
-| **#425** | Add NUMBA_CACHE_DIR environment variable | 2026-04-16 |
-| **#424** | fix: avoid ScreenCaptureKit launch crash on macOS 11 | 2026-04-16 |
-| **#418** | Frontend quality gates + TypeScript hardening | 2026-04-18 |
-| **#416** | fix(deps): relax PyTorch requirement for macOS Intel (x86_64) | 2026-04-16 |
-| **#412** | feat(history): add "Clear failed" button | 2026-04-16 |
-| **#405** | fix: keep cpal Stream alive until playback completes | 2026-04-16 |
-| **#403** | fix: prevent intermittent clip splitting failures | 2026-04-16 |
-| **#402** | fix: reliably keep server alive after GUI close on Windows | 2026-04-16 |
-| **#401** | feat: add Blackwell GPU (sm_120) CUDA support | 2026-04-16 |
-| **#394** | fix(history): populate status/error/engine fields from DB row | 2026-04-16 |
-| **#384** | Fix: Resolve ModuleNotFoundError in effects service | 2026-04-16 |
-| **#361** | fix: torch.from_numpy crash with numpy 2.x in frozen binary | 2026-04-16 |
-| **#345** | Fix: "Failed to Save" preset error by resolving backend import path | 2026-03-22 |
-| **#344** | fix: include changelog in docker web build | 2026-03-27 |
-| **#332** | Fix links in Get Started section of index.mdx | 2026-03-21 |
-| **#328** | feat: add Qwen CustomVoice preset engine | 2026-03-27 |
-| **#325** | feat: Kokoro 82M TTS engine + voice profile type system | 2026-03-20 |
-| **#321** | fix: allows deletion of failed generations | 2026-03-19 |
-| **#320** | feat: Intel Arc (XPU) GPU support | 2026-03-21 |
-| **#319** | fix: GUI startup with external server + data refresh on server switch | 2026-03-27 |
-| **#318** | fix: force offline mode when loading cached models (Qwen TTS & Whisper) | 2026-03-21 |
-| **#316** | Upgrade CUDA backend from cu126 to cu128, fix GPU settings UI | 2026-03-18 |
+| **#550** | Fix web API URL for remote access | 2026-04-25 |
+| **#544** | feat: 0.5.0 Capture release — dictation, MCP, personalities | 2026-04-25 |
 
-### Currently Open (12 PRs)
+### i18n / translations (~12) — easy wins, unblock a large user segment
 
-| PR | Title | Status | Notes |
-|----|-------|--------|-------|
-| **#465** | docs: define tier-1 and tier-2 platform support targets | Community PR | Pairs with issue #420. Important for scoping. |
-| **#463** | feat(actions): add docker-registry.yml for automatic ghcr.io publishing | Community PR | Pairs with issue #453. Low risk. |
-| **#443** | fix: prevent infinite retry loop in offline mode (#434) | Community PR | Fixes reported bug. |
-| **#430** | feat: add MiniMax TTS provider support | Community PR | Cloud TTS provider — new direction (external API). Superset of #331? |
-| **#331** | feat: add MiniMax Cloud TTS as a built-in engine | Community PR | Likely superseded by #430. Dedupe. |
-| **#311** | feat: add CosyVoice2/3 TTS engine | **Close** | Abandoned — output quality too poor. |
-| **#253** | Enhance speech tokenizer with 48kHz version | Community PR | Qwen tokenizer upgrade. Still worth reviewing. |
-| **#227** | fix: harden input validation & file safety | Community PR | Coupled to #225 (custom models). |
-| **#225** | feat: custom HuggingFace voice model support | Community PR | Needs rework for multi-engine arch. |
-| **#195** | feat: per-profile LoRA fine-tuning | Draft | Complex. 15 new endpoints. |
-| **#154** | feat: Audiobook tab | Community PR | Chunked generation now shipped (#266). |
-| **#91** | fix: CoreAudio device enumeration | Draft | macOS audio device handling. |
+The i18next + zh-CN foundation shipped in 0.5.0; these stack on it. Triage as a batch.
+
+| PR | Locale / scope |
+|----|----------------|
+| #528 | pt-BR translation |
+| #571 | de-DE translation |
+| #599 / #600 / #601 | Russian — app, landing routes, docs |
+| #569 | Arabic + RTL layout fixes |
+| #798 / #799 / #801 | Spanish — locale, README/CONTRIBUTING/SECURITY, docs site (see #800 for approach alignment) |
+| #802 | French translation |
+| #776 | Cantonese language option |
+| #688 | Compose follows the selected language |
+
+### New engines / models (~7)
+
+| PR | Engine | Notes |
+|----|--------|-------|
+| #507 | MOSS-TTS-Nano (0.1B, 20 langs, CPU realtime) | Matches our cross-platform criteria — top engine candidate |
+| #331 / #430 | MiniMax Cloud TTS | Two PRs, same provider — **dedupe**. External-API direction. |
+| #777 | Fun-CosyVoice3 (draft) | We abandoned CosyVoice2/3 once on quality — re-evaluate output before reviving |
+| #766 | Parakeet as STT model | Whisper alternative |
+| #563 | 4-bit quantized Qwen + Russian abbreviations | Smaller/faster Qwen |
+| #225 | Custom HuggingFace voice models | Long-lived; needs rework for multi-engine arch |
+| #195 | Per-profile LoRA fine-tuning (draft, +6.2k) | Complex, 15 endpoints — addresses #185/#224 demand |
+
+### GPU / hardware (~9)
+
+| PR | Scope |
+|----|-------|
+| #538 | Native AMD ROCm on Windows (+2.8k, resolves #531) |
+| #539 | Optional IPEX + native Intel XPU detection for PyTorch 2.9+ |
+| #674 | DirectML for Intel iGPU (Iris/UHD/Arc) — pairs with demand in #676, #759 |
+| #653 | Blackwell GPU arch-mismatch diagnostic — directly targets the sm_120 cluster |
+| #789 | Run MLX load+inference on one thread (fixes #699) — likely fixes the M-series load crashes |
+| #560 / #561 | Linux NVIDIA auto-detect + Linux CUDA backend build |
+| #736 / #785 / #769 | ROCm `HSA_OVERRIDE_GFX_VERSION` cleanup (resolves #469) |
+| #770 | Fix CUDA downloads on unsupported platforms |
+
+### Capture / transcription / refinement (~6) — fixes 0.5.0 regressions
+
+| PR | Fix |
+|----|-----|
+| #602 | Re-encode uploaded audio as PCM WAV before Whisper — likely fixes the 30s import cutoff (#609/#626) |
+| #616 | Enable long-form Whisper on the PyTorch path |
+| #629 | Preserve source language in refinement (fixes #603 English translation) |
+| #637 | MCP/REST generations incorrectly trigger autoplay |
+| #712 | Personality LLM respects the selected refinement model |
+| #796 | Capture preview placement setting (#698) |
+
+### Long-form / stories / streaming (~5)
+
+| PR | Scope |
+|----|-------|
+| #154 | Audiobook tab with chunked generation (predates shipped chunking — reconcile) |
+| #673 | SRT2Voice workflow (+14k) — large, subtitle-driven generation |
+| #787 | m4b/mp3 story export with auto chapter markers |
+| #642 | `stream=true` immediate-audio mode for `GET /tts` |
+| #804 | Stream MLX TTS audio chunks (draft) |
+
+### Linux / Wayland (~5)
+
+| PR | Scope |
+|----|-------|
+| #748 | Vendor-patch tao 0.34.8 for Wayland startup panic (+39k — large vendored diff, verify approach) |
+| #624 | Linux tauri schema + build deps (+6.2k) |
+| #747 | Avoid abort when hiding the dictate pill |
+| #622 / #768 | Linux audio monitor selection / thread-unsafe `PULSE_SOURCE` |
+| #677 | HF cache permissions + startup fallback |
+
+### Hardening / CI / perf — the @neuron-tech-ai batch (all 2026-05-14, ~17 PRs)
+
+One contributor opened a large, coherent quality suite in a single day. Review as a group; #662 is the headline.
+
+| PR | Scope |
+|----|-------|
+| #662 | LIKE injection, upload-size enforcement, N+1 queries, SSE reconnect, memory leaks, model display names (+6.8k) |
+| #654 | CI pipeline + pre-commit hooks + Biome config + test suite |
+| #656 | OpenAI-compatible `/v1/audio/speech` + `/v1/models` (addresses #10) |
+| #657 | Platform gating on `ModelConfig` + UI (addresses bottleneck #6 / issue #419) |
+| #666 / #667 | DB indexes on hot FKs + SQLite WAL + busy timeout |
+| #659 / #660 / #661 / #663 / #665 / #668 | datetime.utcnow→UTC, MediaRecorder crash + sample reorder, fail-fast on missing model, batch story counts, Metal warmup, drop debug logs |
+| #652 / #655 / #658 / #664 | AGENTS.md, docs GitHub Pages, avatar size limit, non-fatal actool |
+
+### Build / dev tooling / docker (~6)
+
+#764 uv for backend env · #632 docker GPU build + cache + fastmcp (+7.9k) · #630 ROCm docker overlay · #463 ghcr.io auto-publish · #543 / #681 setup-script fixes · #584 docker permission fix
+
+### Smaller fixes worth grabbing
+
+#786 remove 50k char limit (#464) · #621 broken-pipe crashes on model load · #743 harden mac generation status + MLX threading · #788 missing male Mandarin Kokoro voices · #794 build mcp shim on Windows · #527 Chatterbox exaggeration + CFG sliders · #253 48kHz speech tokenizer
+
+### Stale / low-signal — close or request changes
+
+#91 (draft, Feb, CoreAudio, +6.2k unrebased) · #649 ("fix this errors") · #623 / #782 (badges / package tweaks) · #311-style abandoned engines — verify before merging anything older than ~April against the 0.5.0 codebase.
 
 ---
 
 ## Open Issues — Categorized
+
+**402 open, +150 in the two months since 0.5.0.** Demand snapshot from a keyword sweep over all open titles (buckets overlap):
+
+| Theme | ~Open | Signal |
+|-------|-------|--------|
+| New model / engine requests | ~79 | Largest category. Voxtral, OmniVoice, VibeVoice, VoxCPM2, CosyVoice3, Dramabox, Parakeet, GGUF, ONNX/Piper export |
+| CUDA / GPU / Blackwell | ~53 | Still the #1 *bug* driver — sm_120 "no kernel image", ROCm, DirectML, Intel Arc, VRAM/load times |
+| Model download / server startup | ~42 | Stuck downloads, "server process ended unexpectedly", `loading_model` hangs |
+| Capture / dictation / transcribe | ~31 | New surface from 0.5.0 — 30s cutoffs, paste, mic permission, refinement translation |
+| Language / locale requests | ~27 | Bengali, Ukrainian, Filipino, Indonesian, Cantonese, zh-TW; plus UI localization |
+| Fine-tune / clone quality | ~22 | #185 (top-engagement issue), accent leakage, "finetunes not working" |
+| Long-form / chunking / export | ~16 | Pause control, speed control, audiobook export, >50k chars |
+| Linux / Wayland | ~11 | Build failures, Wayland panics, CUDA-on-Linux packaging |
+| MCP / agent / API | ~9 | Dotted tool names (#790), scrambled audio (#780), OpenAI compat (#10) |
+| Security / trust | ~4 | DNS-rebinding (#778), malware flag (#369); funding via official $VOICEBOX token (#806) |
+
+**Highest-engagement open issues:** #185 Fine-tune instructions (32c) · #98 Connecting to Download (16c) · #301 CUDA generation failure (18c) · #20 Model download failed (13c) · #364 Voxtral-TTS FR (11r) · #341 Arch Linux build · #513 server startup failed (12c) · #138 ONNX/Piper export (9r) · #10 OpenAI API compat.
+
+### New since 0.5.0 — clusters to triage first
+
+- **macOS Apple Silicon load crashes (regression):** #606, #615 — all TTS models crash the server on load; #706, #650 — MLX falls back to CPU / 7-min VRAM load on M4/M5. PR #789 (single-thread MLX, fixes #699) and #743 are the candidate fixes. **Highest priority — breaks the primary platform.**
+- **Capture cutoffs & paste:** #609, #626 — transcription stops at 30s for imported audio (PR #602 re-encodes WAV); #762 — paste broken in 0.5.0; #698, #577 — capture/output folder locations.
+- **MCP integration:** #790 — dotted tool names violate Claude Desktop's `^[a-zA-Z0-9_-]{1,64}$`; #780 — audio scrambled over MCP; #728 — CUDA re-downloads on cold start.
+- **Refinement:** #603 — silently translates non-English transcripts to English (PR #629 preserves source language).
+- **GPU expansion requests:** #676 DirectML (AMD/Intel), #759 Intel Arc, #684 RTX 5060 Ti CUDA 13, #774 CUDA 11.x for older cards, #767 Linux CUDA installs Windows `.exe`.
+- **New engines/langs:** #791 OmniVoice, #633 VoxCPM2, #690 Dramabox, #638 Bengali, #754 zh-TW, #761 Filipino.
+- **Open plugin interface (#771):** request for a community engine/provider plugin API — ties into engine-sprawl (#419) and platform-gating work.
+- **Trust/security:** #806 — `$VOICEBOX` is the official dev-backed funding token (concern raised and resolved on-thread; see funding note above); #778 DNS-rebinding/Host-header exposure on local API+MCP (fixes attached) — genuine security item; #369 macOS malware flag (ongoing).
 
 ### GPU / Hardware Detection — still the top category
 
@@ -523,19 +656,21 @@ Seven TTS engines shipped, more candidates queued. Issue #419 asks for a first-c
 
 ## Recommended Priorities
 
-### Tier 1 — Ship Now
+### Tier 1 — Ship Now (the next release is mostly a merge-and-fix pass)
+
+The two-month gap means the highest-leverage work isn't new code — it's reviewing the 88-PR queue and shipping the 0.5.0 regression fixes that are already written.
 
 | Priority | PR/Item | Impact | Effort |
 |----------|---------|--------|--------|
-| 1 | **RTX 50-series / Blackwell diagnostic** — detect stale CUDA binary vs GPU arch, prompt re-download (#417, #400, #396, #395, #390, #362) | Large cluster of user-blocking errors | Medium |
-| 2 | **CustomVoice download failures** (#475, #445) | New engine blocked on MAC/Win — regression triage | Medium |
-| 3 | **50k char limit on GPU** (#464) | Regression — chunking should handle this | Medium |
-| 4 | Close PR #311 (CosyVoice) and dedupe #331/#430 (MiniMax) | Housekeeping | None |
-| 5 | **PR #443** — infinite offline retry loop | Bug fix, reviewable | Low |
-| 6 | **PR #465** — define tier-1 / tier-2 platforms | Unblocks engine-sprawl decision (#419) | Low |
-| 7 | **PR #463** — docker registry auto-publish | Community PR, low risk | Low |
-| 8 | **#253** — 48kHz speech tokenizer | Quality improvement for Qwen | Medium |
-| 9 | **Kokoro profile UX** (#360) — partially addressed by auto-switch | Polish | Low |
+| 1 | **macOS Apple Silicon load crash** (#606, #615, #706, #650) — review/merge PR #789 (single-thread MLX) + #743 | Breaks the primary platform on 0.5.0 | Low (PRs exist) |
+| 2 | **Capture 30s import cutoff** (#609, #626) — review PR #602; paste-broken #762 | Core 0.5.0 feature degraded | Low–Medium |
+| 3 | **Refinement translates to English** (#603) — merge PR #629 | Silent data loss for non-English users | Low |
+| 4 | **MCP dotted tool names** (#790) — breaks Claude Desktop; scrambled audio #780 | Flagship integration broken for some clients | Low–Medium |
+| 5 | **Blackwell / sm_120 diagnostic** — review PR #653; stale-binary re-download path | Largest GPU bug cluster | Medium |
+| 6 | **Drain the i18n batch** (#528, #571, #599–601, #569, #798–801, #802, #776) | ~12 finished PRs, large user segment | Low (review-bound) |
+| 7 | **Review the @neuron-tech-ai hardening batch** — start with #662, #657 (platform gating), #656 (OpenAI API), #654 (CI) | Security + perf + bottleneck #6 in one sweep | Medium (review-bound) |
+| 8 | **Remove 50k char limit** (#464) — merge PR #786; tune chunk boundaries | Long-standing regression | Low |
+| 9 | Housekeeping — dedupe MiniMax #331/#430, re-evaluate CosyVoice #777, close spam/empty issues (#805, #775) | Triage hygiene | Low |
 
 ### Tier 2 — Feature Work
 

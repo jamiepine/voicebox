@@ -14,12 +14,156 @@
   "nav": {
     "generate": "生成",
     "stories": "ストーリー",
+    "captures": "キャプチャ",
     "voices": "ボイス",
     "effects": "エフェクト",
     "audio": "オーディオ",
     "models": "モデル",
     "settings": "設定",
     "updateBadge": "更新"
+  },
+  "captures": {
+    "title": "キャプチャ",
+    "beta": "ベータ",
+    "searchPlaceholder": "文字起こしを検索…",
+    "snippetEmpty": "(文字起こしなし)",
+    "noTranscriptError": "このキャプチャにはまだ文字起こしがありません",
+    "captureCardLabel": "キャプチャ · {{when}}",
+    "header": {
+      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+    },
+    "source": {
+      "dictation": "ディクテーション",
+      "recording": "録音",
+      "file": "ファイル"
+    },
+    "transcript": {
+      "refined": "整形済み",
+      "raw": "生テキスト",
+      "refinedHint": "Qwen3 · {{model}} で整形",
+      "rawHint": "Whisper {{model}} で文字起こし"
+    },
+    "actions": {
+      "configure": "設定",
+      "import": "インポート",
+      "importing": "アップロード中…",
+      "dictate": "ディクテーション",
+      "stop": "停止",
+      "copy": "コピー",
+      "refine": "整形",
+      "reRefine": "再整形",
+      "export": "エクスポート",
+      "exportDropdownLabel": "形式を選択",
+      "exportAudio": "音声 (WAV)",
+      "exportTranscript": "文字起こし (TXT)",
+      "exportMarkdown": "Markdown (MD)",
+      "delete": "削除",
+      "playAs": "{{name}} で再生",
+      "playAsFallback": "ボイスで再生…",
+      "playAsGenerating": "生成中…",
+      "playAsStop": "停止 · {{name}}",
+      "playAsStopFallback": "停止 · ボイス",
+      "playAsDropdownLabel": "文字起こしを次のボイスで再生"
+    },
+    "empty": {
+      "noMatches": "「{{query}}」に一致するキャプチャはありません",
+      "none": "キャプチャはまだありません。",
+      "loading": "キャプチャを読み込み中…",
+      "pickOne": "キャプチャを選択して文字起こしを表示します。",
+      "holdToRecord": "押し続けて録音",
+      "toggleHandsFree": "ハンズフリーを切り替え",
+      "pressShortcut": "マシン上のどこからでもショートカットを押すと、最初のキャプチャを開始できます。",
+      "turnOnShortcut": "グローバルショートカットを有効にしてどこからでもディクテーション — または上の「ディクテーション」をクリックしてアプリ内でキャプチャします。",
+      "openSettings": "キャプチャ設定を開く"
+    },
+    "deleteDialog": {
+      "title": "キャプチャを削除",
+      "description": "このキャプチャと、その音声・文字起こしを完全に削除します。元に戻せません。",
+      "deleting": "削除中…"
+    },
+    "toast": {
+      "deleteFailed": "削除に失敗しました",
+      "playAsFailed": "ボイスでの再生に失敗しました",
+      "noVoice": "ボイスプロファイルがありません",
+      "noVoiceDescription": "「ボイスで再生」を使う前にボイスプロファイルを作成してください。",
+      "transcriptCopied": "文字起こしをコピーしました",
+      "copyFailed": "コピーに失敗しました",
+      "exportSuccess": "{{path}} に書き出しました",
+      "exportFailed": "書き出しに失敗しました",
+      "exportEmpty": "書き出す内容がありません",
+      "shortcutNotArmed": "ショートカットは有効ですが、まだ準備が完了していません",
+      "shortcutNotArmedDescription_one": "{{names}} のダウンロードがまだ必要です。キャプチャタブを開いて開始してください。",
+      "shortcutNotArmedDescription_other": "{{names}} のダウンロードがまだ必要です。キャプチャタブを開いて開始してください。"
+    },
+    "pill": {
+      "recording": "録音中",
+      "transcribing": "文字起こし中",
+      "refining": "整形中",
+      "speaking": "発話中",
+      "completed": "完了",
+      "stopAria": "録音を停止",
+      "errorFallback": "問題が発生しました",
+      "errorCopyTooltip": "クリックでエラーをコピー"
+    },
+    "chord": {
+      "capturing": "取得中…",
+      "pressShortcut": "ショートカットを押してください",
+      "noKeys": "まだキーがありません",
+      "unsupported": "「{{key}}」はコードに対応していません。修飾キーまたは文字キーを試してください。",
+      "notSet": "未設定"
+    },
+    "readiness": {
+      "title": "ディクテーションを使う前にいくつか準備があります",
+      "subheading": "下の項目がすべて整うまでショートカットは無効のままです。",
+      "downloadButton": "ダウンロード",
+      "downloading": "ダウンロード中…",
+      "downloadingPercent": "ダウンロード中… {{pct}}%",
+      "downloadStarted": "ダウンロードを開始しました",
+      "downloadStartedDescription": "{{name}} をダウンロード中です。完了するとショートカットが自動的に有効になります。",
+      "downloadFailed": "ダウンロードに失敗しました",
+      "stt": {
+        "label": "{{name}}(音声認識)",
+        "ready": "モデルをダウンロード済みです。",
+        "missing": "音声を文字起こしするために必要です",
+        "missingWithSize": "音声を文字起こしするために必要です · {{size}}"
+      },
+      "llm": {
+        "label": "{{name}}(整形)",
+        "ready": "モデルをダウンロード済みです。",
+        "missing": "貼り付け前に生の文字起こしを整形します",
+        "missingWithSize": "貼り付け前に生の文字起こしを整形します · {{size}}"
+      },
+      "inputMonitoring": {
+        "label": "入力監視の権限",
+        "ready": "macOS が Voicebox にグローバルショートカットの検出を許可しています。",
+        "missing": "macOS で Voicebox にグローバルショートカットの検出を許可する必要があります。",
+        "openSettings": "設定を開く"
+      },
+      "accessibility": {
+        "label": "アクセシビリティの権限",
+        "ready": "Voicebox が他のアプリに文字起こしを貼り付けできます。",
+        "missing": "フォーカス中のアプリに文字起こしを貼り付けるために必要です。",
+        "openSettings": "設定を開く"
+      }
+    },
+    "permissions": {
+      "accessibility": {
+        "title": "自動貼り付けを有効にするためアクセシビリティの権限を付与してください",
+        "body": "他のアプリに文字起こしを貼り付けるには、Voicebox に <path>「システム設定」→「プライバシーとセキュリティ」→「アクセシビリティ」</path> の許可が必要です。許可がなくてもディクテーションはキャプチャタブに保存されます。",
+        "openSettings": "設定を開く",
+        "recheck": "有効にしました",
+        "rechecking": "確認中…",
+        "stillMissing": "まだ検出されません。macOS では権限を切り替えた後、Voicebox を終了して再起動する必要があります。"
+      },
+      "inputMonitoring": {
+        "title": "グローバルショートカットを有効にするため入力監視の権限を付与してください",
+        "body": "ディクテーションのコードを検出するには、Voicebox に <path>「システム設定」→「プライバシーとセキュリティ」→「入力監視」</path> の許可が必要です。トグルは有効ですが、許可されるまで macOS がキーイベントをブロックしています。",
+        "openSettings": "設定を開く",
+        "recheck": "有効にしました",
+        "rechecking": "確認中…",
+        "stillMissing": "まだ検出されません。macOS では権限を切り替えた後、Voicebox を終了して再起動する必要があります。"
+      }
+    }
   },
   "voicesTab": {
     "title": "ボイス",
@@ -125,7 +269,10 @@
       "noPreference": "指定なし",
       "defaultEngineHint": "このプロファイルが選ばれたとき、このエンジンを自動で選択します。",
       "defaultEffects": "デフォルトエフェクト",
-      "defaultEffectsHint": "このボイスで新しく生成するすべてのものに自動適用されるエフェクトです。"
+      "defaultEffectsHint": "このボイスで新しく生成するすべてのものに自動適用されるエフェクトです。",
+      "personalityLabel": "パーソナリティ",
+      "personalityPlaceholder": "例:「航海の比喩でしか話さない不機嫌な海賊」",
+      "personalityHint": "このボイスがどんな人物で、どのように話すか。生成ページの「Compose」ボタンとキャラクター書き換えトグルに反映されます。空欄にすると両方とも表示されません。"
     },
     "avatar": {
       "alt": "アバタープレビュー"
@@ -415,9 +562,11 @@
     "title": "ストーリー",
     "newStory": "新しいストーリー",
     "loading": "ストーリーを読み込み中…",
+    "searchPlaceholder": "ストーリーを検索…",
     "empty": {
       "title": "ストーリーがまだありません",
-      "hint": "最初のストーリーを作成して始めましょう"
+      "hint": "最初のストーリーを作成して始めましょう",
+      "noMatches": "「{{query}}」に一致するストーリーはありません"
     },
     "row": {
       "itemCount_one": "{{count}} 項目",
@@ -480,16 +629,23 @@
     },
     "itemActions": {
       "playFromHere": "ここから再生",
+      "regenerate": "再生成",
       "removeFromStory": "ストーリーから削除"
     },
+    "importAudio": "オーディオをインポート…",
+    "importing": "インポート中…",
+    "dropToImport": "ドロップしてオーディオをインポート",
     "toast": {
       "removeFailed": "項目の削除に失敗しました",
       "reorderFailed": "項目の並び替えに失敗しました",
       "exportFailed": "オーディオのエクスポートに失敗しました",
-      "addFailed": "生成の追加に失敗しました"
+      "addFailed": "生成の追加に失敗しました",
+      "regenerateFailed": "再生成に失敗しました",
+      "importFailed": "オーディオのインポートに失敗しました"
     }
   },
   "history": {
+    "empty": "音声生成はまだありません…",
     "actions": {
       "menu": "操作",
       "play": "再生",
@@ -550,6 +706,18 @@
     "effects": {
       "none": "エフェクトなし",
       "profileDefault": "プロファイルのデフォルト"
+    },
+    "compose": {
+      "tooltip": "Compose",
+      "ariaLabel": "キャラクターになりきって一文を生成",
+      "failedTitle": "Compose に失敗しました",
+      "failedDescription": "このパーソナリティからテキストを生成できませんでした。"
+    },
+    "persona": {
+      "tooltipActive": "キャラクターとして発話中",
+      "tooltipInactive": "キャラクターとして発話",
+      "ariaLabelActive": "キャラクターとして発話中",
+      "ariaLabelInactive": "キャラクターとして発話"
     }
   },
   "main": {
@@ -571,6 +739,8 @@
     "tabs": {
       "general": "一般",
       "generation": "生成",
+      "captures": "キャプチャ",
+      "mcp": "MCP",
       "gpu": "GPU",
       "logs": "ログ",
       "changelog": "変更履歴",
@@ -579,6 +749,15 @@
     "language": {
       "label": "言語",
       "description": "Voicebox の表示言語を選択します。"
+    },
+    "theme": {
+      "label": "テーマ",
+      "description": "システム設定に合わせるか、ライト / ダークを固定します。",
+      "options": {
+        "system": "システム",
+        "light": "ライト",
+        "dark": "ダーク"
+      }
     },
     "general": {
       "docs": { "title": "ドキュメントを読む" },
@@ -676,6 +855,233 @@
         "title": "生成物の保存先フォルダ",
         "description": "生成されたオーディオファイルをディスク上に保存する場所。",
         "open": "開く"
+      },
+      "sidebar": {
+        "aboutTitle": "音声生成について",
+        "aboutBody": "短いサンプルからボイスをクローンし、あらゆる言語のあらゆるボイスで音声を生成できます。TTS を AI エージェント、ゲーム、ポッドキャスト、長尺ナレーションに組み込めます。",
+        "differencesTitle": "ここが違います",
+        "clone": {
+          "title": "数秒でどのボイスでもクローン。",
+          "body": "数秒のリファレンス音声があれば十分です。より高い品質を求めるときは複数サンプルにも対応します。"
+        },
+        "engines": {
+          "title": "7 つのエンジン、23 言語。",
+          "body": "品質、速度、多言語対応 — 用途に合ったトレードオフを選べます。"
+        },
+        "agentReady": {
+          "title": "エージェント対応。",
+          "body": "プロファイル単位で制御できる REST API — クローンしたボイスをどの AI にも渡せます。"
+        }
+      }
+    },
+    "captures": {
+      "dictation": {
+        "title": "ディクテーション",
+        "description": "グローバルショートカットでマシン上のどこからでもキャプチャできます。",
+        "globalShortcut": {
+          "title": "グローバルショートカット",
+          "description": "ショートカットを押し続けるとマシン上のどこからでも録音できます。離すと文字起こしが行われます。"
+        },
+        "pushToTalk": {
+          "title": "プッシュトゥトーク用ショートカット",
+          "description": "システム上のどこからでもこれらのキーを押し続けると録音します。離すと録音を停止し、文字起こしが行われます。",
+          "change": "変更"
+        },
+        "toggle": {
+          "title": "トグル用ショートカット",
+          "description": "一度押すとハンズフリー録音を開始します。もう一度押すと停止します。通常はプッシュトゥトーク + Space を使います。",
+          "change": "変更"
+        },
+        "chordPicker": {
+          "pttTitle": "プッシュトゥトーク用ショートカットを設定",
+          "pttDescription": "使いたいキーを押し続け、離してから「保存」をクリックします。右側の修飾キーバッジは、左右どちらの変種かを示します。",
+          "toggleTitle": "トグル用ショートカットを設定",
+          "toggleDescription": "使いたいキーを押し続け、離してから「保存」をクリックします。プッシュトゥトークのコードと区別できるものを選んでください。"
+        },
+        "preview": {
+          "title": "プレビュー",
+          "description": "ショートカットを押している間、画面に表示される内容です。"
+        },
+        "copyToClipboard": {
+          "title": "文字起こしをクリップボードにコピー",
+          "description": "キャプチャが終わると、整形済みの文字起こしがクリップボードに保存されます。"
+        },
+        "autoPaste": {
+          "title": "フォーカス中のテキストフィールドに自動貼り付け",
+          "description": "他のアプリでテキスト入力欄がフォーカスされている場合、直接そこに貼り付けます。Voicebox はクリップボードの内容を一旦保存し、後で復元します。"
+        }
+      },
+      "transcription": {
+        "title": "文字起こし",
+        "description": "キャプチャに使う音声認識モデルを選びます。",
+        "model": {
+          "title": "文字起こしモデル",
+          "description": "Whisper は Voicebox に同梱されており、すべてマシン上で動作します。",
+          "base": "Whisper Base · 74M · {{tail}}",
+          "small": "Whisper Small · 244M · {{tail}}",
+          "medium": "Whisper Medium · 769M · {{tail}}",
+          "large": "Whisper Large · 1.5B · {{tail}}",
+          "turbo": "Whisper Turbo · Pruned Large v3 · {{tail}}",
+          "tail": {
+            "fast": "高速",
+            "balanced": "バランス",
+            "higher": "高精度",
+            "best": "最高精度",
+            "nearBest": "ほぼ最高精度かつ高速"
+          }
+        },
+        "language": {
+          "title": "言語",
+          "description": "ほとんどのキャプチャでは自動検出が機能します。常に同じ言語で話すなら固定してください。",
+          "auto": "自動検出",
+          "en": "英語",
+          "es": "スペイン語",
+          "fr": "フランス語",
+          "de": "ドイツ語",
+          "ja": "日本語",
+          "zh": "中国語",
+          "hi": "ヒンディー語"
+        },
+        "archive": {
+          "title": "音声をアーカイブ",
+          "description": "文字起こしと一緒に元の録音も保持します。"
+        }
+      },
+      "refinement": {
+        "title": "整形",
+        "description": "ローカル LLM を任意で実行し、フィラー語、句読点、自己修正を文字起こしから整理します。",
+        "auto": {
+          "title": "文字起こしを自動で整形",
+          "description": "キャプチャごとに実行されます。キャプチャタブで生テキストと整形済みを切り替えることもできます。"
+        },
+        "model": {
+          "title": "整形モデル",
+          "description": "大きなモデルは遅くなりますが、微妙な自己修正や専門用語をより適切に処理します。",
+          "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
+          "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "tail": {
+            "veryFast": "超高速",
+            "fast": "高速",
+            "fullQuality": "高品質"
+          }
+        },
+        "smartCleanup": {
+          "title": "スマートクリーンアップ",
+          "description": "言い回しを変えずに、フィラー語(えーと、あの、みたいな)を削除し、句読点を補い、大文字小文字を整えます。"
+        },
+        "selfCorrection": {
+          "title": "自己修正を削除",
+          "description": "途中で言い直したとき(「やっぱり違う…」「いや、こうじゃなくて…」)、撤回した部分を削除して最終的な意図のみを残します。"
+        },
+        "preserveTechnical": {
+          "title": "専門用語を保持",
+          "description": "コードの識別子、コマンド名、頭字語を発話どおりに保持します。コード入力欄にディクテーションするときに有効にしてください。"
+        }
+      },
+      "playback": {
+        "title": "再生",
+        "description": "キャプチャタブの「ボイスで再生」アクションで使うデフォルトのボイス。",
+        "defaultVoice": {
+          "title": "デフォルトボイス",
+          "description": "ボイスを選ばずに「ボイスで再生」をクリックしたときに使われます。キャプチャごとに変更できます。",
+          "noClonedVoices": "クローンしたボイスはまだありません",
+          "noneSelected": "未選択",
+          "clonedVoices": "クローンしたボイス"
+        }
+      },
+      "storage": {
+        "title": "ストレージ",
+        "description": "キャプチャは Voicebox のデータディレクトリに、音声と文字起こしのペアファイルとして保存されます。",
+        "retention": {
+          "title": "保持期間",
+          "description": "キャプチャを保持する期間です。音声と文字起こしの両方に適用されます。",
+          "forever": "永久に保持",
+          "d90": "90 日",
+          "d30": "30 日",
+          "d7": "7 日"
+        },
+        "folder": {
+          "title": "キャプチャフォルダ",
+          "description": "キャプチャの音声と文字起こしをディスクに保存する場所。",
+          "open": "開く"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "キャプチャについて",
+        "aboutBody": "マシン上のどこからでもショートカットを押し続けて話すと、Voicebox があなたの声をテキストに変換します。クローンしたどのボイスでも再生でき、任意のアプリに貼り付けたり、コーディングエージェントに渡したりできます。",
+        "differencesTitle": "ここが違います",
+        "local": {
+          "title": "完全にローカル。",
+          "body": "Whisper と整形用 LLM はあなたのハードウェア上で動作します。クラウドもアカウントも不要で、声がマシンの外に出ることはありません。"
+        },
+        "playAs": {
+          "title": "どのボイスでも再生。",
+          "body": "クローンしたどのプロファイルでも文字起こしを読み上げできます。"
+        },
+        "crossPlatform": {
+          "title": "クロスプラットフォーム。",
+          "body": "macOS、Windows、Linux で同じショートカットと同じフローを利用できます。"
+        },
+        "windowsCaveat": {
+          "title": "Windows での注意点",
+          "body": "Voicebox 自体や管理者として実行中のアプリにフォーカスがあるあいだは、ショートカットが反応しません。現在対応中です。"
+        }
+      }
+    },
+    "mcp": {
+      "install": {
+        "title": "エージェントにインストール",
+        "description": "アプリが開いている間、Voicebox はローカルで MCP サーバーを公開します。以下のスニペットを、お使いのエージェントの MCP 設定に貼り付けてください。",
+        "http": {
+          "title": "HTTP(推奨)",
+          "description": "HTTP MCP に対応するクライアント向け — Claude Code、Cursor、Windsurf、VS Code。"
+        },
+        "claudeCode": {
+          "title": "Claude Code 用ワンライナー",
+          "description": "Claude Code CLI 経由で登録します。"
+        },
+        "stdio": {
+          "title": "Stdio(フォールバック)",
+          "description": "stdio プロセスのみを起動するクライアント向け。シムバイナリはアプリに同梱されています。"
+        },
+        "copy": "コピー",
+        "copied": "コピーしました"
+      },
+      "defaultVoice": {
+        "title": "デフォルトボイス",
+        "description": "エージェントが特定のプロファイルを指定せず、クライアントごとのバインディングもない状態で voicebox.speak を呼び出したときに使われます。",
+        "label": "デフォルトの再生ボイス",
+        "labelHint": "キャプチャタブの「ボイスで再生」ドロップダウンと共有 — パッシブ再生用に 1 つのデフォルトボイスを設定します。",
+        "none": "(なし)"
+      },
+      "bindings": {
+        "title": "エージェントごとのボイス",
+        "description": "特定のエージェントに特定のボイスを割り当てて、見なくても誰が話しているか分かるようにします。エージェントは X-Voicebox-Client-Id ヘッダー(stdio の場合は VOICEBOX_CLIENT_ID 環境変数)で自身を識別します。",
+        "empty": "バインディングはまだありません。下から追加し、対応する <code>X-Voicebox-Client-Id</code> を送信するように MCP クライアントを設定してください。",
+        "lastSeen": "最終接続 {{when}}",
+        "lastSeenTitle": "最終接続 {{when}}",
+        "neverConnected": "未接続",
+        "defaultOption": "(デフォルト)",
+        "removeAria": "{{client}} のバインディングを削除",
+        "add": {
+          "title": "バインディングを追加",
+          "clientIdPlaceholder": "クライアント ID(例:claude-code)",
+          "labelPlaceholder": "ラベル(任意)",
+          "action": "バインディングを追加"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "MCP について",
+        "aboutBody": "Model Context Protocol を使うと、Claude Code、Cursor、Windsurf などの AI コーディングエージェントから Voicebox のツールを呼び出せます。クローンしたボイスで発話したり、音声を文字起こししたり、キャプチャを参照したりできます。",
+        "toolsTitle": "利用可能なツール",
+        "tools": {
+          "speak": "ボイスプロファイルでテキストを発話します。",
+          "transcribe": "クリップに対して Whisper STT を実行します。",
+          "listCaptures": "最近のディクテーション/録音。",
+          "listProfiles": "利用可能なボイスプロファイル。"
+        },
+        "postSpeak": "シェルスクリプト、ACP、A2A 用に <code>POST /speak</code> としても公開されています。"
       }
     },
     "gpu": {
@@ -752,7 +1158,8 @@
     "unknownSize": "サイズ不明",
     "sections": {
       "voiceGeneration": "音声生成",
-      "transcription": "文字起こし"
+      "transcription": "文字起こし",
+      "languageModels": "言語モデル"
     },
     "status": {
       "loaded": "読み込み済み"

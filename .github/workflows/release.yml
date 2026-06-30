@@ -114,6 +114,7 @@ jobs:
         run: |
           cd backend
           python build_binary.py
+          python build_binary.py --shim
 
           # Get platform tuple
           PLATFORM=$(rustc --print host-tuple)
@@ -123,7 +124,9 @@ jobs:
 
           # Copy with platform suffix
           cp dist/voicebox-server.exe ../tauri/src-tauri/binaries/voicebox-server-${PLATFORM}.exe
+          cp dist/voicebox-mcp.exe ../tauri/src-tauri/binaries/voicebox-mcp-${PLATFORM}.exe
           echo "Built voicebox-server-${PLATFORM}.exe"
+          echo "Built voicebox-mcp-${PLATFORM}.exe"
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2

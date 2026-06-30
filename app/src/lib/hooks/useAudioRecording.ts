@@ -8,7 +8,7 @@ interface UseAudioRecordingOptions {
 }
 
 export function useAudioRecording({
-  maxDurationSeconds = 29,
+  maxDurationSeconds,
   onRecordingComplete,
 }: UseAudioRecordingOptions = {}) {
   const platform = usePlatform();
@@ -124,8 +124,11 @@ export function useAudioRecording({
         console.error('MediaRecorder error:', event);
       };
 
-      // Start recording
-      mediaRecorder.start(100); // Collect data every 100ms
+      // WebKit's MediaRecorder drops the WebM EBML header from chunks when
+      // started with a timeslice, so concatenated blobs fail to parse in
+      // both AudioContext and ffmpeg. Starting with no timeslice produces
+      // exactly one dataavailable on stop() with a valid container.
+      mediaRecorder.start();
       setIsRecording(true);
       startTimeRef.current = Date.now();
 
@@ -135,8 +138,11 @@ export function useAudioRecording({
           const elapsed = (Date.now() - startTimeRef.current) / 1000;
           setDuration(elapsed);
 
-          // Auto-stop at max duration
-          if (elapsed >= maxDurationSeconds) {
+          // Auto-stop at max duration when the caller opts in — dictation
+          // sessions pass undefined and run until the user releases the
+          // chord or hits stop; voice-clone sample recorders pass 29s to
+          // keep reference clips short.
+          if (maxDurationSeconds !== undefined && elapsed >= maxDurationSeconds) {
             if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
               mediaRecorderRef.current.stop();
               setIsRecording(false);

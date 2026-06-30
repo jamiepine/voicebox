@@ -1,0 +1,189 @@
+---
+title: "Captures"
+description: "The paired audio + transcript archive — every dictation, recording, and uploaded audio file shows up here, replayable and retranscribable."
+---
+
+## Overview
+
+A **capture** is an audio clip paired with its transcript. The Captures tab
+is where every dictation, manual recording, and uploaded audio file lands,
+with the original audio kept alongside the text so you can replay, re-run
+transcription with a different model, refine the transcript, or send the
+content somewhere else — including generating it back as speech in any of
+your voice profiles.
+
+<Callout type="info">
+  The Captures tab shipped in **0.5.0**, alongside global dictation and the
+  per-profile personality modes. If you've used earlier versions, note that
+  the Audio tab moved into **Settings → Audio Channels** to make room for
+  this one.
+</Callout>
+
+## Where captures come from
+
+| Source | How it shows up | Badge |
+|---|---|---|
+| **Dictation** | Triggered by the global hotkey (see [Dictation](/overview/dictation)). Auto-refined by default. | `dictation` |
+| **In-app recording** | Recorded directly in the Captures tab using the built-in mic. | `recording` |
+| **File upload** | Any audio file dropped into the Captures tab — `.wav`, `.mp3`, `.m4a`, `.webm`, `.opus`, `.flac`. | `file` |
+
+All three paths share the same backend pipeline, the same model picker, and
+the same refinement flags. The source badge is there so you can visually
+scan a long list.
+
+## List view
+
+The main Captures view is a chronological list. Each row shows:
+
+- The transcript (raw or refined — the refined version wins if present)
+- Duration + timestamp
+- Source badge
+- A play button for the original audio
+- A meatballs menu with per-row actions
+
+Filtering and search are a Tier-2 ask — ping if you need them.
+
+## Detail view
+
+Clicking into a capture opens the detail view:
+
+- **Waveform player** for the original audio
+- **Transcript editor** — click in and edit. Changes save on blur.
+- **Refined vs. raw toggle** if refinement ran on this capture
+- **Per-capture action bar** — retranscribe, refine, play as voice, delete
+- **Settings snapshot** — STT model used, refinement flags at the time
+  this capture was processed, and the voice model if any was played
+
+## Retranscribe
+
+Runs the capture's original audio through a different Whisper model without
+re-uploading or re-refining anything. Useful when:
+
+- The default model mis-heard something and you want to try a larger model
+- You used Base for a noisy clip and want to rerun with Turbo
+- A non-English clip needs an explicit language hint
+
+**Settings → Captures → Transcription** controls the default model and
+language lock for new captures. Retranscribe uses those defaults unless you
+override them per capture.
+
+## Refine
+
+Runs the raw transcript through the local LLM to produce a cleaned-up
+version. The flags on the capture are snapshotted when refinement first
+runs, so you can re-refine later with different flags without losing the raw
+transcript:
+
+| Flag | Effect |
+|---|---|
+| **Smart cleanup** | Remove fillers (`um`, `uh`, `like`), tidy punctuation and capitalization. |
+| **Remove self-corrections** | Keep the final version when the speaker backtracks ("actually, no, on Tuesday"). |
+| **Preserve technical terms** | Leave identifiers (`handleSubmit`, `npm install`) untouched. |
+
+See the Refinement section of [Dictation](/overview/dictation#refinement) for
+how Voicebox strips Whisper loop hallucinations *before* the LLM sees the
+transcript — a capture can be re-refined any number of times without
+re-introducing "thanks for watching thanks for watching" echoes.
+
+The refinement model picker (three bundled Qwen3 sizes) lives in
+**Settings → Captures → Refinement**.
+
+## Play as voice
+
+This is the capability no one else in the dictation category ships: take any
+capture and play it back as speech in any of your voice profiles. One
+dropdown over every profile, one click, and the capture's text runs through
+`/generate` with the selected voice.
+
+Use cases:
+
+- Hear your own dictation back in a cloned voice of someone you like
+- Send a message you dictated as an audio reply in a specific character
+- Quickly prototype a line for a story without retyping
+
+Playback uses whatever engine the selected profile is bound to — the same
+rules as the Generate tab. There's no LLM in this path; the transcript goes
+through unchanged. If you want the agent-style "transform the content before
+speaking" flow, that's what the
+[personality modes](/overview/voice-personalities) do — and the same
+primitive is exposed to MCP-aware agents via the
+[MCP Server](/overview/mcp-server) so Claude Code, Cursor, or Cline can speak
+in one of your voices on their own.
+
+<Callout type="info">
+  The default voice for the Captures tab's Play-as action is set in
+  **Settings → Captures → Playback → Default voice**. You can still override
+  it per capture.
+</Callout>
+
+## Send-to menu
+
+Each capture has a Send-to menu for moving its content into other parts of
+Voicebox:
+
+- **Copy transcript** — to clipboard
+- **Use as voice sample…** — promote this capture to a sample on a voice
+  profile of your choice. Opens a profile picker (with "+ New voice" for
+  cold starts) and a reference-text confirm dialog, because cloning needs
+  the `reference_text` to match the audio verbatim. Edit as needed and
+  save — the capture stays in the Captures tab untouched; the sample is a
+  copy, not a move.
+
+## Storage
+
+The original audio is kept alongside the transcript in your Voicebox data
+directory. **Settings → Captures → Storage** shows the captures folder and can
+open it directly in your file manager.
+
+Every capture's audio file and metadata row can be re-processed (retranscribe,
+refine, Play-as) as long as the audio file still exists.
+
+## Short-recording guard
+
+Audio clips under **300 ms** are short-circuited client-side and never
+uploaded. This prevents a fumbled chord tap from landing an empty capture.
+The threshold is tuned to filter accidents without cutting off intentional
+short dictations.
+
+## Keyboard shortcuts
+
+Inside the Captures tab:
+
+| Keys | Action |
+|---|---|
+| `Space` | Play / pause the selected capture |
+| `↑` / `↓` | Previous / next capture in the list |
+| `Enter` | Open the selected capture in detail view |
+| `⌘ / Ctrl` + `C` (in detail view) | Copy the transcript |
+
+## API surface
+
+The Captures tab is backed by a small set of REST endpoints:
+
+| Method | Endpoint | Use |
+|---|---|---|
+| `POST` | `/captures` | Upload audio + start the pipeline (STT, optional refinement, archival). |
+| `GET` | `/captures` | List captures. |
+| `GET` | `/captures/{id}` | Fetch one capture. |
+| `POST` | `/captures/{id}/retranscribe` | Rerun STT with a chosen model. |
+| `POST` | `/captures/{id}/refine` | Rerun refinement with chosen flags. |
+| `POST` | `/profiles/{id}/samples/from-capture/{capture_id}` | Promote a capture to a voice profile sample. |
+
+These endpoints are stable and usable from your own scripts — see
+[Remote Mode](/overview/remote-mode) for running Voicebox as a server the rest
+of your machine can talk to.
+
+## Next steps
+
+<Cards>
+  <Card title="Dictation" href="/overview/dictation">
+    The global hotkey flow that feeds most captures.
+  </Card>
+  <Card title="Voice Personalities" href="/overview/voice-personalities">
+    Per-profile compose button and persona rewrite toggle for captures you
+    want to transform, not just transcribe.
+  </Card>
+  <Card title="Creating Voice Profiles" href="/overview/creating-voice-profiles">
+    Promote a capture into a voice sample on a profile.
+  </Card>
+</Cards>

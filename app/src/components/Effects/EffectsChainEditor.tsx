@@ -350,7 +350,7 @@ function SortableEffectItem({
 
         <button
           type="button"
-          className="p-0.5 text-muted-foreground hover:text-destructive"
+          className="p-0.5 text-muted-foreground "
           onClick={onRemove}
           title={t('effects.chain.remove')}
         >

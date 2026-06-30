@@ -1,0 +1,299 @@
+---
+title: "MCP Server"
+description: "Let Claude Code, Cursor, Cline, or any MCP-aware agent speak in one of your cloned voices — locally, with no cloud."
+---
+
+## Overview
+
+Voicebox ships a built-in **Model Context Protocol** server so local AI
+agents can call your Voicebox install directly: speak text in a voice
+profile, transcribe audio, and list captures or profiles. The server runs
+inside the same process as the rest of Voicebox and is mounted at `/mcp`
+over Streamable HTTP.
+
+Agent asks to speak → Voicebox plays audio on your speakers → an on-screen
+pill surfaces the voice name for the whole duration so you always see what's
+coming out of your machine.
+
+<Callout type="info">
+  MCP shipped in **0.5.0** alongside [Dictation](/overview/dictation) and
+  [Voice Personalities](/overview/voice-personalities). The design goal is
+  "local voice layer for every agent on your machine" — the same app that
+  captures your voice can generate a response in any voice profile you've
+  cloned.
+</Callout>
+
+## Quick install
+
+### Claude Code
+
+```
+claude mcp add voicebox \
+  --transport http \
+  --url http://127.0.0.1:17493/mcp \
+  --header "X-Voicebox-Client-Id: claude-code"
+```
+
+### Cursor / Windsurf / VS Code MCP / any HTTP MCP client
+
+Drop this into the client's MCP config (usually `.mcp.json` or a Settings UI):
+
+```json
+{
+  "mcpServers": {
+    "voicebox": {
+      "url": "http://127.0.0.1:17493/mcp",
+      "headers": { "X-Voicebox-Client-Id": "cursor" }
+    }
+  }
+}
+```
+
+Change `cursor` to whatever name you want the binding to show up as in
+Voicebox → Settings → MCP. The value is just an identifier for the
+per-client voice binding — not a secret, not a credential.
+
+### Clients that only speak stdio
+
+A stdio shim binary `voicebox-mcp` is bundled with the desktop app. Point
+the client at that binary's absolute path:
+
+<Tabs items={["macOS", "Windows", "Linux"]}>
+  <Tab value="macOS">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "/Applications/Voicebox.app/Contents/MacOS/voicebox-mcp",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+  <Tab value="Windows">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "C:\\Program Files\\Voicebox\\voicebox-mcp.exe",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+  <Tab value="Linux">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "/opt/voicebox/voicebox-mcp",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+</Tabs>
+
+The shim waits up to 30 seconds for the Voicebox backend to come up, then
+proxies JSON-RPC from stdio over Streamable HTTP. Voicebox must be running
+for the shim to connect.
+
+## Tools
+
+| Tool | Use |
+|---|---|
+| `voicebox.speak` | Speak text in a voice profile. Returns a `generation_id` to poll. |
+| `voicebox.transcribe` | Whisper transcription of base64 audio or an absolute local path. |
+| `voicebox.list_captures` | Recent captures with transcripts, paginated. |
+| `voicebox.list_profiles` | Available voice profiles (cloned + preset). |
+
+### `voicebox.speak`
+
+```ts
+voicebox.speak({
+  text: "Deploy complete.",
+  profile?: "Morgan",            // name or id; falls back to per-client binding, then default
+  engine?: "qwen",               // qwen | qwen_custom_voice | luxtts | chatterbox | chatterbox_turbo | tada | kokoro
+  personality?: true,            // rewrite via the profile's personality LLM before TTS; default comes from the per-client binding
+  language?: "en",
+})
+```
+
+Returns:
+
+```json
+{
+  "generation_id": "…",
+  "status": "generating",
+  "profile": "Morgan",
+  "source": "mcp",
+  "poll_url": "/generate/<id>/status"
+}
+```
+
+- **Plain TTS** — `personality: false` (or omitted + binding default is false). Text is spoken as-is.
+- **Persona mode** — `personality: true` and the profile must have a personality prompt set.
+  The LLM rewrites the text in character before TTS. See [Voice Personalities](/overview/voice-personalities).
+
+### `voicebox.transcribe`
+
+```ts
+voicebox.transcribe({
+  audio_base64?: "<base64>",    // exactly one of these two
+  audio_path?: "/absolute/path/to/file.wav",
+  language?: "en",
+  model?: "turbo",              // base | small | medium | large | turbo
+})
+```
+
+Returns `{ text, duration, language, model }`. 200 MB ceiling on either path.
+
+### `voicebox.list_captures`
+
+`{ limit?: 20, offset?: 0 }` → `{ captures: [...], total }`. `limit` is
+clamped to `1..=200`.
+
+### `voicebox.list_profiles`
+
+No args → `{ profiles: [{ id, name, voice_type, language, has_personality }] }`.
+
+## Voice resolution
+
+Every call to `voicebox.speak` (and `POST /speak`) resolves the voice profile
+in this order:
+
+<Steps>
+  <Step title="Explicit `profile` arg">
+    Passed as a name (case-insensitive) or id. If the name/id doesn't match,
+    the call errors — the server doesn't silently fall back.
+  </Step>
+  <Step title="Per-client binding">
+    Looked up by the `X-Voicebox-Client-Id` header. Managed in
+    **Voicebox → Settings → MCP**. Lets you pin Claude Code to Morgan,
+    Cursor to Scarlett, etc.
+  </Step>
+  <Step title="Global default">
+    `capture_settings.default_playback_voice_id` — same default voice the
+    Captures tab's "Play as voice" action uses.
+  </Step>
+</Steps>
+
+If none of the three produce a profile the tool returns a helpful error
+pointing at Settings.
+
+## Per-client bindings
+
+Voicebox → Settings → MCP shows one row per `client_id` Voicebox has heard
+from, plus the config snippets you can copy into each agent. Each row
+carries:
+
+| Field | Purpose |
+|---|---|
+| `label` | Display name in the Settings UI (e.g. "Claude Code"). |
+| `profile_id` | The voice this client uses when `profile` isn't passed. |
+| `default_engine` | Override the TTS engine for this client. |
+| `default_personality` | When true, `voicebox.speak` routes through the profile's personality LLM (rewrite) by default. |
+| `last_seen_at` | Last time the server saw a request from this client. |
+
+`last_seen_at` is stamped automatically by middleware on every `/mcp/*`
+request — useful when you're not sure whether your config took.
+
+## The speaking pill
+
+Every agent-initiated speak surfaces the floating pill the same way
+[Dictation](/overview/dictation) does, in a new `Speaking` state showing the
+profile name and an elapsed timer. The pill is intentionally unmissable —
+silent background TTS is a trust hazard, so Voicebox always shows what's
+being spoken and in what voice.
+
+Behind the scenes, the backend broadcasts `speak-start` and `speak-end`
+events on `GET /events/speak`, which `DictateWindow` subscribes to via SSE.
+The pill overrides the capture session when both would render — you can't
+hear two pills at once.
+
+## Non-MCP REST surface
+
+`POST /speak` is a thin wrapper on the same code path for callers that
+don't speak MCP — shell scripts, ACP, A2A, GitHub Actions, whatever.
+
+```bash
+curl -X POST http://127.0.0.1:17493/speak \
+  -H 'Content-Type: application/json' \
+  -H 'X-Voicebox-Client-Id: ci' \
+  -d '{"text":"Build complete.","profile":"Morgan"}'
+```
+
+Body fields match the MCP tool: `text`, optional `profile`, `engine`,
+`personality`, `language`. Returns a `GenerationResponse` — the same shape as
+`POST /generate`.
+
+## Debugging
+
+Use the MCP Inspector to poke tools directly without plumbing through an
+agent:
+
+```
+npx @modelcontextprotocol/inspector http://127.0.0.1:17493/mcp
+```
+
+Start with `voicebox.list_profiles` to confirm wiring, then
+`voicebox.speak` for end-to-end — you should hear audio and see the
+generation land in the Captures tab.
+
+<Callout type="info">
+  If an agent can't reach the server, the first thing to check is that
+  Voicebox is running — the backend only listens while the desktop app is
+  open. The stdio shim surfaces this as a JSON-RPC error on the client
+  side after its 30-second health-wait window elapses.
+</Callout>
+
+## Security
+
+- **Localhost only.** The server binds to `127.0.0.1`. If you ever point
+  Voicebox at a non-loopback interface (e.g. remote-mode over a trusted
+  network), add a bearer token — it's on the roadmap but not in 0.5.0.
+- **No auth today.** Any process that can connect to your loopback can
+  call MCP. That's the same trust boundary as the rest of Voicebox's REST
+  API and is appropriate for a single-user local tool.
+- **`audio_path` reads are unrestricted** against the same trust
+  boundary. If you're scripting against a shared host, prefer
+  `audio_base64` so you don't have to think about path sandboxing.
+- **Voice cloning consent applies.** See [Voice Cloning](/overview/voice-cloning#limitations)
+  — an agent being able to call `voicebox.speak` in someone's voice
+  doesn't change the ethics of whose voices you clone.
+
+## Implementation notes
+
+- **Transport:** Streamable HTTP (Nov-2025 MCP spec, post-SSE). Claude
+  Code, Cursor, Windsurf, and VS Code MCP extensions all support it.
+- **Package naming:** the backend package is `backend/mcp_server/`, not
+  `mcp`, to avoid shadowing the PyPI `mcp` package FastMCP imports
+  internally.
+- **Dependencies:** `fastmcp>=3.0,<4.0`, `sse-starlette>=2.0`.
+- **Lifespan:** mounting FastMCP requires the `lifespan=` kwarg on
+  `FastAPI()` — the startup/shutdown event decorators are incompatible
+  with FastMCP's Streamable HTTP session manager. The Voicebox app.py
+  composes both into one async context manager.
+
+For the full developer-facing tour of the code layout, see
+`backend/mcp_server/README.md` in the repo.
+
+## Next steps
+
+<Cards>
+  <Card title="Voice Personalities" href="/overview/voice-personalities">
+    Persona mode (`personality: true`) for agents that should
+    transform text in-character before speaking.
+  </Card>
+  <Card title="Dictation" href="/overview/dictation">
+    The pill that surfaces agent speech is the same one that surfaces
+    your dictations — one mental model for both directions of the loop.
+  </Card>
+  <Card title="Captures" href="/overview/captures">
+    Every agent-initiated speak lands in the Captures tab with its
+    generated audio — replay, download, repurpose.
+  </Card>
+</Cards>

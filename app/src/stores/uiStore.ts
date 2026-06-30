@@ -1,10 +1,25 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+
+export type Theme = 'light' | 'dark' | 'system';
+
+function resolveTheme(theme: Theme): 'light' | 'dark' {
+  if (theme !== 'system') return theme;
+  if (typeof window === 'undefined') return 'dark';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function applyTheme(theme: Theme) {
+  if (typeof document === 'undefined') return;
+  document.documentElement.classList.toggle('dark', resolveTheme(theme) === 'dark');
+}
 
 // Draft state for the create voice profile form
 export interface ProfileFormDraft {
   name: string;
   description: string;
   language: string;
+  personality: string;
   referenceText: string;
   sampleMode: 'upload' | 'record' | 'system';
   // Note: File objects can't be persisted, so we store metadata
@@ -44,37 +59,51 @@ interface UIStore {
   setProfileFormDraft: (draft: ProfileFormDraft | null) => void;
 
   // Theme
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
+  theme: Theme;
+  setTheme: (theme: Theme) => void;
 }
 
-export const useUIStore = create<UIStore>((set) => ({
-  sidebarOpen: true,
-  setSidebarOpen: (open) => set({ sidebarOpen: open }),
+export const useUIStore = create<UIStore>()(
+  persist(
+    (set) => ({
+      sidebarOpen: true,
+      setSidebarOpen: (open) => set({ sidebarOpen: open }),
 
-  profileDialogOpen: false,
-  setProfileDialogOpen: (open) => set({ profileDialogOpen: open }),
-  editingProfileId: null,
-  setEditingProfileId: (id) => set({ editingProfileId: id }),
+      profileDialogOpen: false,
+      setProfileDialogOpen: (open) => set({ profileDialogOpen: open }),
+      editingProfileId: null,
+      setEditingProfileId: (id) => set({ editingProfileId: id }),
 
-  generationDialogOpen: false,
-  setGenerationDialogOpen: (open) => set({ generationDialogOpen: open }),
+      generationDialogOpen: false,
+      setGenerationDialogOpen: (open) => set({ generationDialogOpen: open }),
 
-  selectedProfileId: null,
-  setSelectedProfileId: (id) => set({ selectedProfileId: id }),
+      selectedProfileId: null,
+      setSelectedProfileId: (id) => set({ selectedProfileId: id }),
 
-  selectedEngine: 'qwen',
-  setSelectedEngine: (engine) => set({ selectedEngine: engine }),
+      selectedEngine: 'qwen',
+      setSelectedEngine: (engine) => set({ selectedEngine: engine }),
 
-  selectedVoiceId: null,
-  setSelectedVoiceId: (id) => set({ selectedVoiceId: id }),
+      selectedVoiceId: null,
+      setSelectedVoiceId: (id) => set({ selectedVoiceId: id }),
 
-  profileFormDraft: null,
-  setProfileFormDraft: (draft) => set({ profileFormDraft: draft }),
+      profileFormDraft: null,
+      setProfileFormDraft: (draft) => set({ profileFormDraft: draft }),
 
-  theme: 'light',
-  setTheme: (theme) => {
-    set({ theme });
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  },
-}));
+      theme: 'system',
+      setTheme: (theme) => {
+        set({ theme });
+        applyTheme(theme);
+      },
+    }),
+    {
+      name: 'voicebox-ui',
+      partialize: (state) => ({
+        selectedProfileId: state.selectedProfileId,
+        theme: state.theme,
+      }),
+      onRehydrateStorage: () => (state) => {
+        if (state) applyTheme(state.theme);
+      },
+    },
+  ),
+);

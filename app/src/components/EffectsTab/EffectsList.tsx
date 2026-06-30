@@ -1,6 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, Plus, Sparkles, Wand2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import {
+  ListPane,
+  ListPaneActions,
+  ListPaneHeader,
+  ListPaneScroll,
+  ListPaneTitle,
+  ListPaneTitleRow,
+} from '@/components/ListPane';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/api/client';
 import type { EffectPresetResponse } from '@/lib/api/types';
@@ -43,73 +51,74 @@ export function EffectsList() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">{t('effects.title')}</h2>
-        <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={handleCreateNew}>
-          <Plus className="h-3.5 w-3.5" />
-          {t('effects.newPreset')}
-        </Button>
-      </div>
+    <ListPane>
+      <ListPaneHeader>
+        <ListPaneTitleRow>
+          <ListPaneTitle>{t('effects.title')}</ListPaneTitle>
+          <ListPaneActions>
+            <Button onClick={handleCreateNew} size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              {t('effects.newPreset')}
+            </Button>
+          </ListPaneActions>
+        </ListPaneTitleRow>
+      </ListPaneHeader>
 
-      {/* Scrollable list */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
-        {/* Built-in presets */}
-        {builtIn.length > 0 && (
-          <div>
-            <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-2 px-1">
-              {t('effects.sections.builtin')}
-            </div>
-            <div className="space-y-1.5">
-              {builtIn.map((preset) => (
-                <PresetCard
-                  key={preset.id}
-                  preset={preset}
-                  isSelected={selectedPresetId === preset.id && !isCreatingNew}
-                  onSelect={() => handleSelect(preset)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* User presets */}
-        {userPresets.length > 0 && (
-          <div>
-            <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-2 px-1">
-              {t('effects.sections.custom')}
-            </div>
-            <div className="space-y-1.5">
-              {userPresets.map((preset) => (
-                <PresetCard
-                  key={preset.id}
-                  preset={preset}
-                  isSelected={selectedPresetId === preset.id && !isCreatingNew}
-                  onSelect={() => handleSelect(preset)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* New preset placeholder */}
-        {isCreatingNew && (
-          <div>
-            <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-2 px-1">
-              {t('effects.sections.new')}
-            </div>
-            <div className="rounded-xl border-2 border-accent/40 bg-accent/5 p-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-accent" />
-                <span className="text-sm font-medium">{t('effects.unsaved.title')}</span>
+      <ListPaneScroll className="pt-16">
+        <div className="px-4 pb-6 space-y-4">
+          {builtIn.length > 0 && (
+            <div>
+              <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-2 px-1">
+                {t('effects.sections.builtin')}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">{t('effects.unsaved.hint')}</p>
+              <div className="space-y-1.5">
+                {builtIn.map((preset) => (
+                  <PresetCard
+                    key={preset.id}
+                    preset={preset}
+                    isSelected={selectedPresetId === preset.id && !isCreatingNew}
+                    onSelect={() => handleSelect(preset)}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
+          )}
+
+          {userPresets.length > 0 && (
+            <div>
+              <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-2 px-1">
+                {t('effects.sections.custom')}
+              </div>
+              <div className="space-y-1.5">
+                {userPresets.map((preset) => (
+                  <PresetCard
+                    key={preset.id}
+                    preset={preset}
+                    isSelected={selectedPresetId === preset.id && !isCreatingNew}
+                    onSelect={() => handleSelect(preset)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isCreatingNew && (
+            <div>
+              <div className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider mb-2 px-1">
+                {t('effects.sections.new')}
+              </div>
+              <div className="rounded-xl border-2 border-accent/40 bg-accent/5 p-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-accent" />
+                  <span className="text-sm font-medium">{t('effects.unsaved.title')}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{t('effects.unsaved.hint')}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </ListPaneScroll>
+    </ListPane>
   );
 }
 

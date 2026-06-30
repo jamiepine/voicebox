@@ -14,12 +14,156 @@
   "nav": {
     "generate": "Generate",
     "stories": "Stories",
+    "captures": "Captures",
     "voices": "Voices",
     "effects": "Effects",
     "audio": "Audio",
     "models": "Models",
     "settings": "Settings",
     "updateBadge": "Update"
+  },
+  "captures": {
+    "title": "Captures",
+    "beta": "Beta",
+    "searchPlaceholder": "Search transcripts…",
+    "snippetEmpty": "(no transcript)",
+    "noTranscriptError": "Capture has no transcript yet",
+    "captureCardLabel": "Capture · {{when}}",
+    "header": {
+      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+    },
+    "source": {
+      "dictation": "Dictation",
+      "recording": "Recording",
+      "file": "File"
+    },
+    "transcript": {
+      "refined": "Refined",
+      "raw": "Raw",
+      "refinedHint": "Refined with Qwen3 · {{model}}",
+      "rawHint": "Transcribed with Whisper {{model}}"
+    },
+    "actions": {
+      "configure": "Configure",
+      "import": "Import",
+      "importing": "Uploading…",
+      "dictate": "Dictate",
+      "stop": "Stop",
+      "copy": "Copy",
+      "refine": "Refine",
+      "reRefine": "Re-refine",
+      "export": "Export",
+      "exportDropdownLabel": "Export capture as",
+      "exportAudio": "Audio (WAV)",
+      "exportTranscript": "Transcript (TXT)",
+      "exportMarkdown": "Markdown (MD)",
+      "delete": "Delete",
+      "playAs": "Play as {{name}}",
+      "playAsFallback": "Play as…",
+      "playAsGenerating": "Generating…",
+      "playAsStop": "Stop · {{name}}",
+      "playAsStopFallback": "Stop · Voice",
+      "playAsDropdownLabel": "Play transcript as"
+    },
+    "empty": {
+      "noMatches": "No captures match \"{{query}}\"",
+      "none": "No captures yet.",
+      "loading": "Loading captures…",
+      "pickOne": "Pick a capture to see the transcript.",
+      "holdToRecord": "Hold to record",
+      "toggleHandsFree": "Toggle hands-free",
+      "pressShortcut": "Press the shortcut anywhere on your machine to start your first capture.",
+      "turnOnShortcut": "Turn on the global shortcut to dictate from anywhere — or click Dictate above for an in-app capture.",
+      "openSettings": "Open Captures settings"
+    },
+    "deleteDialog": {
+      "title": "Delete capture",
+      "description": "This will permanently delete the capture, its audio, and its transcript. This cannot be undone.",
+      "deleting": "Deleting…"
+    },
+    "toast": {
+      "deleteFailed": "Delete failed",
+      "playAsFailed": "Play-as failed",
+      "noVoice": "No voice profile",
+      "noVoiceDescription": "Create a voice profile before using Play as.",
+      "transcriptCopied": "Transcript copied",
+      "copyFailed": "Copy failed",
+      "exportSuccess": "Exported to {{path}}",
+      "exportFailed": "Export failed",
+      "exportEmpty": "Nothing to export",
+      "shortcutNotArmed": "Shortcut on, but not yet armed",
+      "shortcutNotArmedDescription_one": "{{names}} still needs to download. Open the Captures tab to start.",
+      "shortcutNotArmedDescription_other": "{{names}} still need to download. Open the Captures tab to start."
+    },
+    "pill": {
+      "recording": "Recording",
+      "transcribing": "Transcribing",
+      "refining": "Refining",
+      "speaking": "Speaking",
+      "completed": "Done",
+      "stopAria": "Stop recording",
+      "errorFallback": "Something went wrong",
+      "errorCopyTooltip": "Click to copy error"
+    },
+    "chord": {
+      "capturing": "Capturing…",
+      "pressShortcut": "Press your shortcut",
+      "noKeys": "No keys yet",
+      "unsupported": "\"{{key}}\" isn't supported in chords. Try a modifier or letter key.",
+      "notSet": "Not set"
+    },
+    "readiness": {
+      "title": "A few things before you can dictate",
+      "subheading": "The shortcut stays off until everything below is ready.",
+      "downloadButton": "Download",
+      "downloading": "Downloading…",
+      "downloadingPercent": "Downloading… {{pct}}%",
+      "downloadStarted": "Download started",
+      "downloadStartedDescription": "{{name}} is downloading. The shortcut will arm itself when it finishes.",
+      "downloadFailed": "Download failed",
+      "stt": {
+        "label": "{{name}} (speech-to-text)",
+        "ready": "Model downloaded.",
+        "missing": "Needed to transcribe your audio",
+        "missingWithSize": "Needed to transcribe your audio · {{size}}"
+      },
+      "llm": {
+        "label": "{{name}} (refinement)",
+        "ready": "Model downloaded.",
+        "missing": "Cleans up the raw transcript before paste",
+        "missingWithSize": "Cleans up the raw transcript before paste · {{size}}"
+      },
+      "inputMonitoring": {
+        "label": "Input Monitoring permission",
+        "ready": "macOS allows Voicebox to detect your global shortcut.",
+        "missing": "macOS needs to allow Voicebox to detect the global shortcut.",
+        "openSettings": "Open Settings"
+      },
+      "accessibility": {
+        "label": "Accessibility permission",
+        "ready": "Voicebox can paste transcriptions into other apps.",
+        "missing": "Required so transcriptions can paste into the focused app.",
+        "openSettings": "Open Settings"
+      }
+    },
+    "permissions": {
+      "accessibility": {
+        "title": "Grant Accessibility permission to enable auto-paste",
+        "body": "Voicebox needs <path>System Settings → Privacy & Security → Accessibility</path> to paste transcriptions into other apps. Your dictation still lands in the Captures tab without it.",
+        "openSettings": "Open Settings",
+        "recheck": "I've enabled it",
+        "rechecking": "Checking…",
+        "stillMissing": "Still not detected. macOS usually requires quitting and reopening Voicebox after toggling the permission."
+      },
+      "inputMonitoring": {
+        "title": "Grant Input Monitoring to enable the global shortcut",
+        "body": "Voicebox needs <path>System Settings → Privacy & Security → Input Monitoring</path> to detect your dictation chord. The toggle is on, but macOS is blocking key events until you allow it.",
+        "openSettings": "Open Settings",
+        "recheck": "I've enabled it",
+        "rechecking": "Checking…",
+        "stillMissing": "Still not detected. macOS usually requires quitting and reopening Voicebox after toggling the permission."
+      }
+    }
   },
   "voicesTab": {
     "title": "Voices",
@@ -125,7 +269,10 @@
       "noPreference": "No preference",
       "defaultEngineHint": "Auto-selects this engine when the profile is chosen.",
       "defaultEffects": "Default Effects",
-      "defaultEffectsHint": "Effects applied automatically to all new generations with this voice."
+      "defaultEffectsHint": "Effects applied automatically to all new generations with this voice.",
+      "personalityLabel": "Personality",
+      "personalityPlaceholder": "e.g. \"a grumpy pirate who only speaks in nautical metaphors\"",
+      "personalityHint": "Who this voice is and how they talk. Drives the Compose button and the in-character rewrite toggle on the generate page. Leave blank to hide both."
     },
     "avatar": {
       "alt": "Avatar preview"
@@ -415,9 +562,11 @@
     "title": "Stories",
     "newStory": "New Story",
     "loading": "Loading stories…",
+    "searchPlaceholder": "Search stories…",
     "empty": {
       "title": "No stories yet",
-      "hint": "Create your first story to get started"
+      "hint": "Create your first story to get started",
+      "noMatches": "No stories match \"{{query}}\""
     },
     "row": {
       "itemCount_one": "{{count}} item",
@@ -480,16 +629,23 @@
     },
     "itemActions": {
       "playFromHere": "Play from here",
+      "regenerate": "Regenerate",
       "removeFromStory": "Remove from Story"
     },
+    "importAudio": "Import audio…",
+    "importing": "Importing…",
+    "dropToImport": "Drop audio to import",
     "toast": {
       "removeFailed": "Failed to remove item",
       "reorderFailed": "Failed to reorder items",
       "exportFailed": "Failed to export audio",
-      "addFailed": "Failed to add generation"
+      "addFailed": "Failed to add generation",
+      "regenerateFailed": "Failed to regenerate",
+      "importFailed": "Failed to import audio"
     }
   },
   "history": {
+    "empty": "No voice generations, yet…",
     "actions": {
       "menu": "Actions",
       "play": "Play",
@@ -550,6 +706,18 @@
     "effects": {
       "none": "No effects",
       "profileDefault": "Profile default"
+    },
+    "compose": {
+      "tooltip": "Compose",
+      "ariaLabel": "Compose a line in character",
+      "failedTitle": "Compose failed",
+      "failedDescription": "Could not generate text from this personality."
+    },
+    "persona": {
+      "tooltipActive": "Speaking in character",
+      "tooltipInactive": "Speak in character",
+      "ariaLabelActive": "Speaking in character",
+      "ariaLabelInactive": "Speak in character"
     }
   },
   "main": {
@@ -571,6 +739,8 @@
     "tabs": {
       "general": "General",
       "generation": "Generation",
+      "captures": "Captures",
+      "mcp": "MCP",
       "gpu": "GPU",
       "logs": "Logs",
       "changelog": "Changelog",
@@ -579,6 +749,15 @@
     "language": {
       "label": "Language",
       "description": "Choose the display language for Voicebox."
+    },
+    "theme": {
+      "label": "Theme",
+      "description": "Match your system, or pick a fixed light or dark appearance.",
+      "options": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
     },
     "general": {
       "docs": {
@@ -681,6 +860,233 @@
         "title": "Generations folder",
         "description": "Where generated audio files are stored on disk.",
         "open": "Open"
+      },
+      "sidebar": {
+        "aboutTitle": "About voice generation",
+        "aboutBody": "Clone a voice from a short sample, then generate speech in any voice across any language. Ship TTS into AI agents, games, podcasts, or long-form narration.",
+        "differencesTitle": "What's different",
+        "clone": {
+          "title": "Clone any voice in seconds.",
+          "body": "A few seconds of reference audio is enough. Multi-sample support for higher quality when you want it."
+        },
+        "engines": {
+          "title": "Seven engines, 23 languages.",
+          "body": "Pick the tradeoff that fits — quality, speed, or multilingual coverage."
+        },
+        "agentReady": {
+          "title": "Agent-ready.",
+          "body": "REST API with per-profile control — give any AI a voice you've cloned."
+        }
+      }
+    },
+    "captures": {
+      "dictation": {
+        "title": "Dictation",
+        "description": "Capture from anywhere on your machine with a global shortcut.",
+        "globalShortcut": {
+          "title": "Global shortcut",
+          "description": "Hold the shortcut to record from anywhere on your machine. Release to transcribe."
+        },
+        "pushToTalk": {
+          "title": "Push-to-talk shortcut",
+          "description": "Hold these keys anywhere on your system to record. Release to stop and transcribe.",
+          "change": "Change"
+        },
+        "toggle": {
+          "title": "Toggle shortcut",
+          "description": "Press once to start a hands-free recording. Press again to stop. Usually push-to-talk plus Space.",
+          "change": "Change"
+        },
+        "chordPicker": {
+          "pttTitle": "Set push-to-talk shortcut",
+          "pttDescription": "Hold the keys you want to use, then release and click Save. The right-hand modifier badge shows whether a key is the left or right variant.",
+          "toggleTitle": "Set toggle shortcut",
+          "toggleDescription": "Hold the keys you want to use, then release and click Save. Pick something distinct from your push-to-talk chord."
+        },
+        "preview": {
+          "title": "Preview",
+          "description": "What appears on screen while you're holding the shortcut."
+        },
+        "copyToClipboard": {
+          "title": "Copy transcript to clipboard",
+          "description": "The cleaned transcript lands on your clipboard when the capture finishes."
+        },
+        "autoPaste": {
+          "title": "Auto-paste into focused text field",
+          "description": "If a text input is focused in another app, paste directly into it. Voicebox saves and restores whatever was on your clipboard."
+        }
+      },
+      "transcription": {
+        "title": "Transcription",
+        "description": "Pick which speech-to-text model runs on your captures.",
+        "model": {
+          "title": "Transcription model",
+          "description": "Whisper ships with Voicebox and runs entirely on your machine.",
+          "base": "Whisper Base · 74M · {{tail}}",
+          "small": "Whisper Small · 244M · {{tail}}",
+          "medium": "Whisper Medium · 769M · {{tail}}",
+          "large": "Whisper Large · 1.5B · {{tail}}",
+          "turbo": "Whisper Turbo · Pruned Large v3 · {{tail}}",
+          "tail": {
+            "fast": "Fast",
+            "balanced": "Balanced",
+            "higher": "Higher accuracy",
+            "best": "Best accuracy",
+            "nearBest": "Near-best, fast"
+          }
+        },
+        "language": {
+          "title": "Language",
+          "description": "Auto-detect works for most captures. Lock it if you're always speaking the same language.",
+          "auto": "Auto-detect",
+          "en": "English",
+          "es": "Spanish",
+          "fr": "French",
+          "de": "German",
+          "ja": "Japanese",
+          "zh": "Chinese",
+          "hi": "Hindi"
+        },
+        "archive": {
+          "title": "Archive audio",
+          "description": "Keep the original recording alongside every transcript."
+        }
+      },
+      "refinement": {
+        "title": "Refinement",
+        "description": "Optionally run a local LLM over transcripts to clean filler words, punctuation, and self-corrections.",
+        "auto": {
+          "title": "Refine transcripts automatically",
+          "description": "Runs after every capture. You can still toggle between raw and refined in the Captures tab."
+        },
+        "model": {
+          "title": "Refinement model",
+          "description": "Larger models are slower but handle subtle self-corrections and technical vocabulary better.",
+          "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
+          "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "tail": {
+            "veryFast": "Very fast",
+            "fast": "Fast",
+            "fullQuality": "Full quality"
+          }
+        },
+        "smartCleanup": {
+          "title": "Smart cleanup",
+          "description": "Remove filler words (um, uh, like), restore punctuation, and fix capitalization without rephrasing."
+        },
+        "selfCorrection": {
+          "title": "Remove self-corrections",
+          "description": "When you change your mind mid-sentence (\"actually, no...\", \"wait, I meant...\"), drop the retracted part and keep the final intent."
+        },
+        "preserveTechnical": {
+          "title": "Preserve technical terms",
+          "description": "Keep code identifiers, command names, and acronyms exactly as spoken. Turn on when you dictate into a code prompt."
+        }
+      },
+      "playback": {
+        "title": "Playback",
+        "description": "Default voice for the \"Play as\" action in the Captures tab.",
+        "defaultVoice": {
+          "title": "Default voice",
+          "description": "Used when you click Play as without picking a voice first. You can change it per capture.",
+          "noClonedVoices": "No cloned voices yet",
+          "noneSelected": "None selected",
+          "clonedVoices": "Cloned voices"
+        }
+      },
+      "storage": {
+        "title": "Storage",
+        "description": "Captures are saved as paired audio and transcript files in your Voicebox data directory.",
+        "retention": {
+          "title": "Retention",
+          "description": "How long to keep captures. Applies to both audio and transcripts.",
+          "forever": "Keep forever",
+          "d90": "90 days",
+          "d30": "30 days",
+          "d7": "7 days"
+        },
+        "folder": {
+          "title": "Captures folder",
+          "description": "Where capture audio and transcripts are stored on disk.",
+          "open": "Open"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "About Captures",
+        "aboutBody": "Hold a shortcut anywhere on your machine, speak, and Voicebox turns your voice into text. Replay it in any cloned voice, paste it into any app, or pipe it into your coding agent.",
+        "differencesTitle": "What's different",
+        "local": {
+          "title": "Fully local.",
+          "body": "Whisper and the refinement LLM run on your hardware. No cloud, no accounts, your voice never leaves the machine."
+        },
+        "playAs": {
+          "title": "Play as any voice.",
+          "body": "Transcripts can be read back in any profile you've cloned."
+        },
+        "crossPlatform": {
+          "title": "Cross-platform.",
+          "body": "Same shortcut, same flow on macOS, Windows, and Linux."
+        },
+        "windowsCaveat": {
+          "title": "Heads-up on Windows",
+          "body": "The shortcut won't fire while Voicebox itself or any app running as administrator is focused. Working on it."
+        }
+      }
+    },
+    "mcp": {
+      "install": {
+        "title": "Install into your agent",
+        "description": "Voicebox exposes a local MCP server whenever the app is open. Paste one of these snippets into your agent's MCP config.",
+        "http": {
+          "title": "HTTP (recommended)",
+          "description": "For clients that speak HTTP MCP — Claude Code, Cursor, Windsurf, VS Code."
+        },
+        "claudeCode": {
+          "title": "Claude Code one-liner",
+          "description": "Registers via the Claude Code CLI."
+        },
+        "stdio": {
+          "title": "Stdio (fallback)",
+          "description": "For clients that only spawn stdio processes. The shim binary ships with the app."
+        },
+        "copy": "Copy",
+        "copied": "Copied"
+      },
+      "defaultVoice": {
+        "title": "Default voice",
+        "description": "Used when an agent calls voicebox.speak without a specific profile and has no per-client binding.",
+        "label": "Default playback voice",
+        "labelHint": "Shared with the Captures-tab 'Play as voice' dropdown — one default voice for passive playback.",
+        "none": "(none)"
+      },
+      "bindings": {
+        "title": "Per-agent voice",
+        "description": "Bind specific agents to specific voices so you can tell who's speaking without looking. The agent identifies itself by the X-Voicebox-Client-Id header (or VOICEBOX_CLIENT_ID env for stdio).",
+        "empty": "No bindings yet. Add one below, then configure your MCP client to send the matching <code>X-Voicebox-Client-Id</code>.",
+        "lastSeen": "last seen {{when}}",
+        "lastSeenTitle": "Last seen {{when}}",
+        "neverConnected": "never connected",
+        "defaultOption": "(default)",
+        "removeAria": "Remove binding for {{client}}",
+        "add": {
+          "title": "Add a binding",
+          "clientIdPlaceholder": "client id (e.g. claude-code)",
+          "labelPlaceholder": "label (optional)",
+          "action": "Add binding"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "About MCP",
+        "aboutBody": "Model Context Protocol lets your AI coding agent — Claude Code, Cursor, Windsurf — call Voicebox tools. Speak in a cloned voice, transcribe audio, browse captures.",
+        "toolsTitle": "Available tools",
+        "tools": {
+          "speak": "Speak text in a voice profile.",
+          "transcribe": "Whisper STT on a clip.",
+          "listCaptures": "Recent dictations / recordings.",
+          "listProfiles": "Available voice profiles."
+        },
+        "postSpeak": "Also exposed as <code>POST /speak</code> for shell scripts, ACP, A2A."
       }
     },
     "gpu": {
@@ -784,7 +1190,8 @@
     "unknownSize": "Unknown size",
     "sections": {
       "voiceGeneration": "Voice Generation",
-      "transcription": "Transcription"
+      "transcription": "Transcription",
+      "languageModels": "Language Models"
     },
     "status": {
       "loaded": "Loaded"

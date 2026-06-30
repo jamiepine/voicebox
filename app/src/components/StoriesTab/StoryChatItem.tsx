@@ -1,6 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Mic, MoreHorizontal, Play, Trash2 } from 'lucide-react';
+import { GripVertical, Mic, MoreHorizontal, Music, Play, RotateCcw, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,7 @@ interface StoryChatItemProps {
   storyId: string;
   index: number;
   onRemove: () => void;
+  onRegenerate?: () => void;
   currentTimeMs: number;
   isPlaying: boolean;
   dragHandleProps?: React.HTMLAttributes<HTMLButtonElement>;
@@ -30,6 +31,7 @@ interface StoryChatItemProps {
 export function StoryChatItem({
   item,
   onRemove,
+  onRegenerate,
   currentTimeMs,
   isPlaying,
   dragHandleProps,
@@ -83,7 +85,9 @@ export function StoryChatItem({
       {/* Voice Avatar */}
       <div className="shrink-0">
         <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-          {!avatarError ? (
+          {item.engine === 'import' ? (
+            <Music className="h-5 w-5 text-muted-foreground" />
+          ) : !avatarError ? (
             <img
               src={avatarUrl}
               alt={`${item.profile_name} avatar`}
@@ -102,18 +106,24 @@ export function StoryChatItem({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-2">
-          <span className="font-medium text-sm">{item.profile_name}</span>
-          <span className="text-xs text-muted-foreground">{item.language}</span>
+          <span className="font-medium text-sm truncate">
+            {item.engine === 'import' ? item.text : item.profile_name}
+          </span>
+          {item.engine !== 'import' && (
+            <span className="text-xs text-muted-foreground">{item.language}</span>
+          )}
           <span className="text-xs text-muted-foreground tabular-nums ml-auto">
             {formatTime(itemStartMs)}
           </span>
         </div>
-        <Textarea
-          value={item.text}
-          className="flex-1 resize-none text-sm text-muted-foreground select-text bg-card cursor-text"
-          readOnly
-          onDoubleClick={handlePlay}
-        />
+        {item.engine === 'import' ? null : (
+          <Textarea
+            value={item.text}
+            className="flex-1 resize-none text-sm text-muted-foreground select-text bg-card cursor-text"
+            readOnly
+            onDoubleClick={handlePlay}
+          />
+        )}
       </div>
 
       {/* Actions */}
@@ -134,6 +144,12 @@ export function StoryChatItem({
               <Play className="mr-2 h-4 w-4" />
               {t('storyContent.itemActions.playFromHere')}
             </DropdownMenuItem>
+            {onRegenerate && (
+              <DropdownMenuItem onClick={onRegenerate}>
+                <RotateCcw className="mr-2 h-4 w-4" />
+                {t('storyContent.itemActions.regenerate')}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem
               onClick={onRemove}
               className="text-destructive focus:text-destructive"

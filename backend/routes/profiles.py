@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .. import config, models
 from ..app import safe_content_disposition
 from ..database import VoiceProfile as DBVoiceProfile, get_db
-from ..services import channels, export_import, profiles
+from ..services import channels, export_import, personality, profiles
 from ..services.profiles import _profile_to_response
 
 logger = logging.getLogger(__name__)
@@ -361,3 +361,32 @@ async def update_profile_effects(
     db.refresh(profile)
 
     return _profile_to_response(profile)
+
+
+# ── Personality endpoint ──────────────────────────────────────────────
+# Only ``/profiles/{id}/compose`` remains — the UI's compose button
+# produces a fresh in-character utterance the user can edit before
+# speaking. Rewrite now happens inside ``/generate`` (and ``/speak``)
+# when ``personality=true``; there is no standalone rewrite/respond/speak
+# endpoint.
+
+
+@router.post(
+    "/profiles/{profile_id}/compose",
+    response_model=models.PersonalityTextResponse,
+)
+async def compose_in_character(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """Produce a fresh utterance in the profile's character voice."""
+    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    try:
+        result = await personality.compose_as_profile(profile.personality)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return models.PersonalityTextResponse(
+        text=result.text, model_size=result.model_size
+    )

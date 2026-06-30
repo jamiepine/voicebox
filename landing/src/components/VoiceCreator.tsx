@@ -384,10 +384,10 @@ export function VoiceCreator() {
           {/* Left: Copy */}
           <div>
             <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl mb-4">
-              Clone any voice in seconds
+              Any clip becomes a voice.
             </h2>
             <p className="text-muted-foreground mb-6">
-              Three ways to capture a voice sample. Upload a clip, record from your microphone, or
+              Three ways to get a sample in. Upload a clip, record from your microphone, or
               capture audio playing on your system. Voicebox clones the voice from as little as 3
               seconds of audio.
             </p>

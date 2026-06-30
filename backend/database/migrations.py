@@ -17,9 +17,16 @@ Adding a new migration:
        (idempotent) and print a short message when it does real work.
 """
 
+import json
 import logging
+import sqlite3
 
 from sqlalchemy import inspect, text
+
+from ..utils.capture_chords import (
+    default_push_to_talk_chord,
+    default_toggle_to_talk_chord,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +41,8 @@ def run_migrations(engine) -> None:
     _migrate_generations(engine, inspector, tables)
     _migrate_effect_presets(engine, inspector, tables)
     _migrate_generation_versions(engine, inspector, tables)
+    _migrate_capture_settings(engine, inspector, tables)
+    _migrate_mcp_bindings(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
 
 
@@ -125,6 +134,8 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
         _add_column(engine, "story_items", "trim_end_ms INTEGER NOT NULL DEFAULT 0", "trim_end_ms")
     if "version_id" not in columns:
         _add_column(engine, "story_items", "version_id VARCHAR", "version_id")
+    if "volume" not in columns:
+        _add_column(engine, "story_items", "volume FLOAT NOT NULL DEFAULT 1.0", "volume")
 
 
 def _migrate_profiles(engine, inspector, tables: set[str]) -> None:
@@ -146,6 +157,8 @@ def _migrate_profiles(engine, inspector, tables: set[str]) -> None:
         _add_column(engine, "profiles", "design_prompt TEXT", "design_prompt")
     if "default_engine" not in columns:
         _add_column(engine, "profiles", "default_engine VARCHAR", "default_engine")
+    if "personality" not in columns:
+        _add_column(engine, "profiles", "personality TEXT", "personality")
 
 
 def _migrate_generations(engine, inspector, tables: set[str]) -> None:
@@ -164,6 +177,13 @@ def _migrate_generations(engine, inspector, tables: set[str]) -> None:
         _add_column(engine, "generations", "model_size VARCHAR", "model_size")
     if "is_favorited" not in columns:
         _add_column(engine, "generations", "is_favorited BOOLEAN DEFAULT 0", "is_favorited")
+    if "source" not in columns:
+        _add_column(
+            engine,
+            "generations",
+            "source VARCHAR NOT NULL DEFAULT 'manual'",
+            "source",
+        )
 
 
 def _migrate_effect_presets(engine, inspector, tables: set[str]) -> None:
@@ -180,6 +200,96 @@ def _migrate_generation_versions(engine, inspector, tables: set[str]) -> None:
     columns = _get_columns(inspector, "generation_versions")
     if "source_version_id" not in columns:
         _add_column(engine, "generation_versions", "source_version_id VARCHAR", "source_version_id")
+
+
+def _migrate_capture_settings(engine, inspector, tables: set[str]) -> None:
+    if "capture_settings" not in tables:
+        return
+    columns = _get_columns(inspector, "capture_settings")
+    push_default = json.dumps(default_push_to_talk_chord())
+    toggle_default = json.dumps(default_toggle_to_talk_chord())
+    if "allow_auto_paste" not in columns:
+        _add_column(
+            engine,
+            "capture_settings",
+            "allow_auto_paste BOOLEAN NOT NULL DEFAULT 1",
+            "allow_auto_paste",
+        )
+    if "default_playback_voice_id" not in columns:
+        _add_column(
+            engine,
+            "capture_settings",
+            "default_playback_voice_id VARCHAR",
+            "default_playback_voice_id",
+        )
+    if "chord_push_to_talk_keys" not in columns:
+        _add_column(
+            engine,
+            "capture_settings",
+            f"chord_push_to_talk_keys TEXT NOT NULL DEFAULT '{push_default}'",
+            "chord_push_to_talk_keys",
+        )
+    if "chord_toggle_to_talk_keys" not in columns:
+        _add_column(
+            engine,
+            "capture_settings",
+            f"chord_toggle_to_talk_keys TEXT NOT NULL DEFAULT '{toggle_default}'",
+            "chord_toggle_to_talk_keys",
+        )
+    if "hotkey_enabled" not in columns:
+        _add_column(
+            engine,
+            "capture_settings",
+            "hotkey_enabled BOOLEAN NOT NULL DEFAULT 0",
+            "hotkey_enabled",
+        )
+
+
+def _migrate_mcp_bindings(engine, inspector, tables: set[str]) -> None:
+    """Drop the legacy ``default_intent`` column and add ``default_personality``.
+
+    The intent tri-state (respond / rewrite / compose) has been collapsed
+    to a boolean: when true, ``voicebox.speak`` rewrites input through the
+    profile's personality LLM before TTS.
+    """
+    if "mcp_client_bindings" not in tables:
+        return
+    columns = _get_columns(inspector, "mcp_client_bindings")
+    if "default_personality" not in columns:
+        _add_column(
+            engine,
+            "mcp_client_bindings",
+            "default_personality BOOLEAN NOT NULL DEFAULT 0",
+            "default_personality",
+        )
+    if "default_intent" in columns:
+        if _supports_drop_column(engine):
+            with engine.connect() as conn:
+                conn.execute(text("ALTER TABLE mcp_client_bindings DROP COLUMN default_intent"))
+                conn.commit()
+            logger.info("Dropped legacy default_intent column from mcp_client_bindings")
+        else:
+            # ALTER TABLE … DROP COLUMN on SQLite requires 3.35+ (Mar
+            # 2021). Production PyInstaller builds bundle Python 3.12
+            # which links to SQLite 3.40+; this branch only fires for
+            # dev environments running the backend directly against an
+            # old system SQLite (Ubuntu 20.04 = 3.31, Debian 11 = 3.34).
+            # Leaving the unused column in place is harmless — the ORM
+            # only maps declared columns, so a stray one does no work
+            # and gets no reads or writes.
+            logger.warning(
+                "SQLite %s too old to DROP COLUMN (need 3.35+); leaving unused default_intent column on mcp_client_bindings in place.",
+                sqlite3.sqlite_version,
+            )
+
+
+def _supports_drop_column(engine) -> bool:
+    """Whether ``ALTER TABLE … DROP COLUMN`` is supported by the dialect +
+    runtime. Non-SQLite dialects (Postgres, MySQL) have supported it for
+    decades; SQLite only gained the feature in 3.35."""
+    if engine.dialect.name != "sqlite":
+        return True
+    return tuple(int(p) for p in sqlite3.sqlite_version.split(".")[:3]) >= (3, 35, 0)
 
 
 def _normalize_storage_paths(engine, tables: set[str]) -> None:

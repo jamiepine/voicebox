@@ -1,12 +1,12 @@
 import type { PlatformLifecycle, ServerLogEntry } from '@/platform/types';
+import { getDefaultServerUrl } from '@/stores/serverStore';
 
 class WebLifecycle implements PlatformLifecycle {
   onServerReady?: () => void;
 
   async startServer(_remote = false, _modelsDir?: string | null): Promise<string> {
     // Web assumes server is running externally
-    // Return a default URL - this should be configured via env vars
-    const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:17493';
+    const serverUrl = import.meta.env.VITE_SERVER_URL || getDefaultServerUrl();
     this.onServerReady?.();
     return serverUrl;
   }
@@ -17,7 +17,7 @@ class WebLifecycle implements PlatformLifecycle {
 
   async restartServer(_modelsDir?: string | null): Promise<string> {
     // No-op for web - server is managed externally
-    return import.meta.env.VITE_SERVER_URL || 'http://localhost:17493';
+    return import.meta.env.VITE_SERVER_URL || getDefaultServerUrl();
   }
 
   async setKeepServerRunning(_keep: boolean): Promise<void> {

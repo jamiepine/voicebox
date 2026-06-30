@@ -77,6 +77,7 @@ function makeProfileSchema(t: (key: string) => string) {
     name: z.string().min(1, t('profileForm.validation.nameRequired')).max(100),
     description: z.string().max(500).optional(),
     language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
+    personality: z.string().max(2000).optional(),
     sampleFile: z.instanceof(File).optional(),
     referenceText: z.string().max(1000).optional(),
     avatarFile: z.instanceof(File).optional(),
@@ -100,6 +101,7 @@ type ProfileFormValues = {
   name: string;
   description?: string;
   language: LanguageCode;
+  personality?: string;
   sampleFile?: File;
   referenceText?: string;
   avatarFile?: File;
@@ -166,6 +168,7 @@ export function ProfileForm() {
       name: '',
       description: '',
       language: 'en',
+      personality: '',
       sampleFile: undefined,
       referenceText: '',
       avatarFile: undefined,
@@ -331,6 +334,7 @@ export function ProfileForm() {
         name: editingProfile.name,
         description: editingProfile.description || '',
         language: editingProfile.language as LanguageCode,
+        personality: editingProfile.personality || '',
         sampleFile: undefined,
         referenceText: undefined,
         avatarFile: undefined,
@@ -344,6 +348,7 @@ export function ProfileForm() {
         name: profileFormDraft.name,
         description: profileFormDraft.description,
         language: profileFormDraft.language as LanguageCode,
+        personality: profileFormDraft.personality || '',
         referenceText: profileFormDraft.referenceText,
         sampleFile: undefined,
         avatarFile: undefined,
@@ -368,6 +373,7 @@ export function ProfileForm() {
         name: '',
         description: '',
         language: 'en',
+        personality: '',
         sampleFile: undefined,
         referenceText: undefined,
         avatarFile: undefined,
@@ -493,6 +499,7 @@ export function ProfileForm() {
             description: data.description,
             language: data.language,
             default_engine: defaultEngine || undefined,
+            personality: data.personality?.trim() ? data.personality.trim() : undefined,
           },
         });
 
@@ -558,6 +565,7 @@ export function ProfileForm() {
           preset_engine: selectedPresetEngine,
           preset_voice_id: selectedPresetVoiceId,
           default_engine: selectedPresetEngine,
+          personality: data.personality?.trim() ? data.personality.trim() : undefined,
         });
 
         // Handle avatar upload if provided
@@ -654,6 +662,7 @@ export function ProfileForm() {
           description: data.description,
           language: data.language,
           default_engine: defaultEngine || undefined,
+          personality: data.personality?.trim() ? data.personality.trim() : undefined,
         });
 
         // Convert non-WAV uploads to WAV so the backend can always use soundfile.
@@ -756,6 +765,7 @@ export function ProfileForm() {
           name: values.name || '',
           description: values.description || '',
           language: values.language || 'en',
+          personality: values.personality || '',
           referenceText: values.referenceText || '',
           sampleMode,
         };
@@ -818,8 +828,10 @@ export function ProfileForm() {
                       name: '',
                       description: '',
                       language: 'en',
+                      personality: '',
                       sampleFile: undefined,
                       referenceText: '',
+                      avatarFile: undefined,
                     });
                     setSampleMode('record');
                   }}
@@ -1177,6 +1189,27 @@ export function ProfileForm() {
                             {...field}
                           />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="personality"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('profileForm.fields.personalityLabel')}</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder={t('profileForm.fields.personalityPlaceholder')}
+                            className="min-h-[96px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('profileForm.fields.personalityHint')}
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

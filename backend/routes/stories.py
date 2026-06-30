@@ -151,6 +151,20 @@ async def trim_story_item(
     return item
 
 
+@router.put("/stories/{story_id}/items/{item_id}/volume", response_model=models.StoryItemDetail)
+async def update_story_item_volume(
+    story_id: str,
+    item_id: str,
+    data: models.StoryItemVolumeUpdate,
+    db: Session = Depends(get_db),
+):
+    """Set a story item's per-clip volume (linear gain, 0.0–2.0)."""
+    item = await stories.update_story_item_volume(story_id, item_id, data, db)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Story item not found")
+    return item
+
+
 @router.post("/stories/{story_id}/items/{item_id}/split", response_model=list[models.StoryItemDetail])
 async def split_story_item(
     story_id: str,

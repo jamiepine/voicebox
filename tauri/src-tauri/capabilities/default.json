@@ -3,7 +3,7 @@
   "identifier": "default",
   "description": "Default permissions for voicebox",
   "platforms": ["linux", "macOS", "windows"],
-  "windows": ["main"],
+  "windows": ["main", "dictate"],
   "remote": {
     "urls": ["http://localhost:*"]
   },

@@ -14,7 +14,7 @@ export function SettingSection({
 }) {
   return (
     <div className="space-y-1">
-      {title && <h3 className="text-sm font-medium">{title}</h3>}
+      {title && <h3 className="text-lg font-semibold">{title}</h3>}
       {description && <p className="text-sm text-muted-foreground">{description}</p>}
       <div className={`${title || description ? 'pt-3' : ''} space-y-0 divide-y divide-border/60`}>
         {children}

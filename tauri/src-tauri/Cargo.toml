@@ -1,6 +1,6 @@
 [package]
 name = "voicebox"
-version = "0.4.5"
+version = "0.5.0"
 description = "A production-quality desktop app for Qwen3-TTS voice cloning and generation"
 authors = ["you"]
 license = ""
@@ -13,14 +13,14 @@ edition = "2021"
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0", features = [] }
+tauri = { version = "2.0", features = ["macos-private-api"] }
 tauri-plugin-dialog = "2.0"
 tauri-plugin-fs = "2.0"
 tauri-plugin-shell = "2.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["blocking", "json"] }
+reqwest = { version = "0.12", features = ["blocking", "json", "stream"] }
 hound = "3.5"
 base64 = "0.22"
 cpal = "0.15"
@@ -35,7 +35,16 @@ core-foundation-sys = "0.8"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wasapi = "0.22"
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_System_Com"] }
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Accessibility",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_Com",
+    "Win32_System_DataExchange",
+    "Win32_System_Memory",
+    "Win32_System_Threading",
+] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 webkit2gtk = "2.0"
@@ -43,6 +52,15 @@ webkit2gtk = "2.0"
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2.0"
 tauri-plugin-process = "2.0"
+# Observe-only global keyboard tap. Covers macOS, Windows, and Linux
+# (evdev) with left/right modifier fidelity, which is the hard
+# requirement the chord engine needs. keytap is our own crate
+# (jamiepine/keytap), published to crates.io, that replaces the
+# abandoned Narsil/rdev we previously pinned via git — same capability
+# surface, clean shutdown via Drop, no `set_is_main_thread(false)`
+# dance required (the Sonoma-crashing layout-translation path simply
+# isn't called).
+keytap = "0.4"
 
 [features]
 # This feature is used for production builds or when `devPath` points to the filesystem

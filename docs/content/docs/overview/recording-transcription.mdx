@@ -1,64 +1,106 @@
 ---
 title: "Recording & Transcription"
-description: "Record audio and transcribe speech with Whisper"
+description: "A map of the three places you can record and transcribe audio in Voicebox — dictation, captures, and voice-profile samples."
 ---
 
-## Recording
+## Overview
 
-Voicebox includes built-in recording capabilities for creating voice samples and capturing audio.
+Voicebox records and transcribes audio in three different contexts, each
+feeding a different surface in the app. This page is a map; follow the links
+for the detail.
 
-### Features
+| Goal | Where | Docs |
+|---|---|---|
+| Speak and have your words land in another app | Global hotkey → Captures tab + auto-paste | [Dictation](/overview/dictation) |
+| Record a thought, a meeting, or a voice memo inside Voicebox | Captures tab | [Captures](/overview/captures) |
+| Record a clip to clone a voice from | Voices tab → profile samples | [Creating Voice Profiles](/overview/creating-voice-profiles) |
 
-- **Microphone input** - Record from any audio input device
-- **System audio capture** - Record desktop audio (macOS/Windows)
-- **Waveform visualization** - See audio levels in real-time
-- **Multiple formats** - Export as WAV, MP3, or M4A
+All three paths share the same STT backend — it's the surrounding workflow
+that differs.
 
-### How to Record
+## Dictation
 
-<Steps>
-  <Step title="Select Input">
-    Choose your microphone or system audio
-  </Step>
-  <Step title="Start Recording">
-    Click the record button and speak clearly
-  </Step>
-  <Step title="Stop & Save">
-    Click stop when finished
-  </Step>
-  <Step title="Use or Export">
-    Use as voice sample or export to file
-  </Step>
-</Steps>
+The 0.5.0 headline feature. Hold a chord anywhere on your machine, speak,
+release. The transcript lands in whatever text field you had focused,
+cleaned up by a local LLM if auto-refine is on. Captures accumulate in the
+Captures tab for later replay or re-transcription.
 
-## Transcription
+Covered end-to-end in [Dictation](/overview/dictation).
 
-Automatic speech-to-text powered by OpenAI's Whisper model.
+## Captures tab
 
-### Features
+When you don't need to paste into another app — you just want a clean
+transcript of some audio — the Captures tab is the home. Record in-app,
+drop in a file (`.wav`, `.mp3`, `.m4a`, `.webm`, `.opus`, `.flac`), or dig
+through dictations that already landed there. Every capture keeps its
+original audio, can be retranscribed with a different model, and can be
+played back through any voice profile you have.
 
-- **High accuracy** - Industry-leading speech recognition
-- **Multiple languages** - Supports 50+ languages
-- **Automatic detection** - Language auto-detection
-- **Timestamps** - Word-level timing information
+Covered in [Captures](/overview/captures).
 
-### How to Transcribe
+## Voice profile samples
 
-<Steps>
-  <Step title="Select Audio">
-    Choose a recording or upload an audio file
-  </Step>
-  <Step title="Choose Language">
-    Select language or use auto-detect
-  </Step>
-  <Step title="Transcribe">
-    Click transcribe and wait for processing
-  </Step>
-  <Step title="Review & Export">
-    Review text and export as needed
-  </Step>
-</Steps>
+A separate flow, in the Voices tab. When you're creating a profile from an
+audio clip, the sample is what the cloning engine actually learns from —
+the `reference_text` on a sample must match the audio *verbatim*, which is
+why samples are a different data model from captures.
+
+You can promote a capture to a sample from the Captures tab's Send-to menu
+("Use as voice sample…"), which opens a reference-text confirm dialog so
+you can correct the last ~10% of transcript accuracy before saving.
+
+Covered in [Creating Voice Profiles](/overview/creating-voice-profiles).
+
+## Transcription models
+
+All three paths share the same Whisper models. Pick a default in
+**Settings → Captures → Transcription**; override per capture if you need
+to.
+
+| Model | Size | When to pick it |
+|---|---|---|
+| Whisper Base | ~300 MB | Fast. Default. Good for clean speech. |
+| Whisper Small | ~500 MB | Better quality, still fast. |
+| Whisper Medium | ~1.5 GB | High quality. |
+| Whisper Large | ~3 GB | Best quality, slow on CPU. |
+| Whisper Turbo | ~1.5 GB | Large-tier quality, ~5× faster than Large. |
+
+On Apple Silicon the model runs through **MLX-Whisper** (~8× faster than
+PyTorch). Everywhere else it runs through PyTorch `transformers`. The
+backend picks the right one — you don't configure it.
 
 <Callout type="info">
-  Transcription is useful for creating voice samples from existing audio or generating subtitles.
+  For noisy clips, prefer **Turbo** or **Large**. Base can hallucinate on
+  hard inputs — most famously the "thanks for watching" loop. Voicebox
+  strips those loops deterministically before LLM refinement runs, so a
+  capture can be cleanly re-refined even if the raw transcript has them.
 </Callout>
+
+## Language
+
+You can pass a language hint for short clips (under ~5 seconds) where
+Whisper's auto-detect is unreliable. Set a default language lock in
+**Settings → Captures → Transcription → Language**, or override per capture.
+
+## Transcription API
+
+Developer-level detail on the STT backend, model loading, preprocessing, and
+the `/transcribe` endpoint lives in the
+[Transcription developer guide](/developer/transcription). The Captures
+pipeline also exposes `/captures` as a higher-level endpoint that wraps
+STT + archival + optional refinement in one call — see
+[Captures](/overview/captures#api-surface).
+
+## Next steps
+
+<Cards>
+  <Card title="Dictation" href="/overview/dictation">
+    Hold a chord anywhere on your machine, speak, release.
+  </Card>
+  <Card title="Captures" href="/overview/captures">
+    The paired audio + transcript archive.
+  </Card>
+  <Card title="Creating Voice Profiles" href="/overview/creating-voice-profiles">
+    Record or upload samples for voice cloning.
+  </Card>
+</Cards>

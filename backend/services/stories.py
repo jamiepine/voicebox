@@ -20,6 +20,7 @@ from ..models import (
     StoryItemBatchUpdate,
     StoryItemMove,
     StoryItemTrim,
+    StoryItemVolumeUpdate,
     StoryItemSplit,
     StoryItemVersionUpdate,
 )
@@ -69,6 +70,8 @@ def _build_item_detail(
         duration=generation.duration,
         seed=generation.seed,
         instruct=generation.instruct,
+        engine=generation.engine,
+        volume=getattr(item, "volume", 1.0),
         generation_created_at=generation.created_at,
         versions=versions,
         active_version_id=active_version_id,
@@ -466,6 +469,37 @@ async def trim_story_item(
     return _build_item_detail(item, generation, profile.name if profile else "Unknown", db)
 
 
+async def update_story_item_volume(
+    story_id: str,
+    item_id: str,
+    data: StoryItemVolumeUpdate,
+    db: Session,
+) -> Optional[StoryItemDetail]:
+    """Update a story item's playback volume (per-clip linear gain)."""
+    item = (
+        db.query(DBStoryItem)
+        .filter_by(id=item_id, story_id=story_id)
+        .first()
+    )
+    if not item:
+        return None
+    generation = db.query(DBGeneration).filter_by(id=item.generation_id).first()
+    if not generation:
+        return None
+
+    item.volume = data.volume
+
+    story = db.query(DBStory).filter_by(id=story_id).first()
+    if story:
+        story.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(item)
+
+    profile = db.query(DBVoiceProfile).filter_by(id=generation.profile_id).first()
+    return _build_item_detail(item, generation, profile.name if profile else "Unknown", db)
+
+
 async def split_story_item(
     story_id: str,
     item_id: str,
@@ -529,6 +563,7 @@ async def split_story_item(
         track=item.track,
         trim_start_ms=absolute_split_ms,
         trim_end_ms=current_trim_end,
+        volume=getattr(item, "volume", 1.0),
         created_at=datetime.utcnow(),
     )
 
@@ -602,6 +637,7 @@ async def duplicate_story_item(
         track=original_item.track,
         trim_start_ms=current_trim_start,
         trim_end_ms=current_trim_end,
+        volume=getattr(original_item, "volume", 1.0),
         created_at=datetime.utcnow(),
     )
 
@@ -856,6 +892,11 @@ async def export_story_audio(
                 )
             else:
                 trimmed_audio = audio[trim_start_sample:]
+
+            # Apply per-clip volume to the export mix.
+            volume = float(getattr(item, "volume", 1.0) or 1.0)
+            if volume != 1.0:
+                trimmed_audio = trimmed_audio * volume
 
             # Store audio with its timecode info
             start_time_ms = item.start_time_ms

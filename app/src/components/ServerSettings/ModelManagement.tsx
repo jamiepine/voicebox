@@ -83,6 +83,12 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
     'Whisper Large (1.5B parameters). Best accuracy for speech-to-text across multiple languages.',
   'whisper-turbo':
     'Whisper Large v3 Turbo. Pruned for significantly faster inference while maintaining near-large accuracy.',
+  'qwen3-0.6b':
+    'Qwen3 0.6B — smallest of the Qwen3 instruct family. Very fast on CPU, runs at ~400 MB quantized on Apple Silicon. Good for dictation refinement and short completions.',
+  'qwen3-1.7b':
+    'Qwen3 1.7B — balanced size and quality. Handles subtle self-corrections and technical vocabulary better than the 0.6B. Runs at ~1.1 GB quantized on Apple Silicon.',
+  'qwen3-4b':
+    'Qwen3 4B — highest quality local refinement and longer-form reasoning. ~2.5 GB quantized on Apple Silicon, ~8 GB at full precision on PyTorch.',
 };
 
 function formatDownloads(n: number): string {
@@ -411,11 +417,13 @@ export function ModelManagement() {
         m.model_name.startsWith('kokoro'),
     ) ?? [];
   const whisperModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper')) ?? [];
+  const llmModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen3-')) ?? [];
 
   // Build sections
   const sections: { label: string; models: ModelStatus[] }[] = [
     { label: t('models.sections.voiceGeneration'), models: voiceModels },
     { label: t('models.sections.transcription'), models: whisperModels },
+    { label: t('models.sections.languageModels'), models: llmModels },
   ];
 
   // Get detail modal state for selected model

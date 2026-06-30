@@ -239,8 +239,7 @@ export default function DownloadPage() {
         <div className="mt-16 rounded-2xl border border-border bg-gradient-to-br from-card via-card/80 to-background backdrop-blur-sm p-8 md:p-10 overflow-hidden relative">
           <div className="absolute top-0 right-0 w-64 h-64 bg-[#FFDD00]/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
           <div className="relative">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#FFDD00]/30 bg-[#FFDD00]/10 px-3 py-1 mb-4">
-              <Coffee className="h-3 w-3 text-[#FFDD00]" />
+            <div className="inline-flex items-center gap-2 mb-4">
               <span className="text-[11px] font-medium uppercase tracking-wider text-[#FFDD00]">
                 Hi from the maintainer
               </span>

@@ -45,10 +45,13 @@ function getTargetTriple() {
   }
 }
 
-// Create a minimal executable for the platform
-function createPlaceholderBinary(targetTriple) {
+// Create a minimal executable for the platform. ``baseName`` is the
+// sidecar identifier as declared in tauri.conf.json's ``externalBin``
+// (e.g. "voicebox-server", "voicebox-mcp"). Tauri appends the target
+// triple to that name at compile time.
+function createPlaceholderBinary(targetTriple, baseName) {
   const isWindows = targetTriple.includes('windows');
-  const binaryName = `voicebox-server-${targetTriple}${isWindows ? '.exe' : ''}`;
+  const binaryName = `${baseName}-${targetTriple}${isWindows ? '.exe' : ''}`;
   const binaryPath = join(BINARIES_DIR, binaryName);
 
   // Check if real binary already exists (larger than our placeholder)
@@ -354,7 +357,7 @@ function createPlaceholderBinary(targetTriple) {
   } else {
     // Create a minimal shell script for Unix-like systems
     const script = `#!/bin/sh
-echo "[voicebox-server] Dev mode placeholder - start the real server with: bun run dev:server"
+echo "[${baseName}] Dev mode placeholder - start the real server with: bun run dev:server"
 exit 1
 `;
     writeFileSync(binaryPath, script, { mode: 0o755 });
@@ -363,9 +366,16 @@ exit 1
   console.log(`Created dev placeholder: ${binaryName}`);
 }
 
+// Every sidecar listed in tauri.conf.json's ``externalBin`` needs a
+// file on disk at compile time, even in dev. Add to this list whenever
+// a new sidecar is introduced.
+const SIDECAR_BASE_NAMES = ['voicebox-server', 'voicebox-mcp'];
+
 function main() {
   const targetTriple = getTargetTriple();
-  createPlaceholderBinary(targetTriple);
+  for (const baseName of SIDECAR_BASE_NAMES) {
+    createPlaceholderBinary(targetTriple, baseName);
+  }
 }
 
 main();

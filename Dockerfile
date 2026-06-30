@@ -1,7 +1,14 @@
 # ============================================================
-# Voicebox — Local TTS Server with Web UI (CPU)
+# Voicebox — Local TTS Server with Web UI
 # 3-stage build: Frontend → Python deps → Runtime
+#
+# Build variants:
+#   CPU (default):  docker compose up --build
+#   ROCm (AMD GPU): docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
 # ============================================================
+
+# Top-level ARG so it is visible to all stages.
+ARG PYTORCH_VARIANT=cpu
 
 # === Stage 1: Build frontend ===
 FROM oven/bun:1 AS frontend
@@ -24,6 +31,9 @@ RUN cd web && bunx --bun vite build
 # === Stage 2: Build Python dependencies ===
 FROM python:3.11-slim AS backend-builder
 
+# Re-declare ARG inside the stage (Docker scoping requirement).
+ARG PYTORCH_VARIANT=cpu
+
 WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -34,6 +44,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir --upgrade pip
 
 COPY backend/requirements.txt .
+
+# ROCm version to pull PyTorch wheels for. Default is 6.3 (supports RDNA1/2/3).
+# Set ROCM_VERSION=7.2 for RDNA 4 (RX 9000 series) support.
+ARG ROCM_VERSION=6.3
+
+# When building the ROCm variant, install the ROCm-enabled PyTorch wheels
+# first so that the subsequent requirements.txt install sees them as already
+# satisfying the torch/torchaudio constraints and leaves them in place.
+# The CPU path skips this step and installs torch from PyPI as before.
+RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
+      pip install --no-cache-dir --prefix=/install \
+        torch torchaudio \
+        --index-url "https://download.pytorch.org/whl/rocm${ROCM_VERSION}"; \
+    fi
+
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
 RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
@@ -44,9 +69,30 @@ RUN pip install --no-cache-dir --prefix=/install \
 # === Stage 3: Runtime ===
 FROM python:3.11-slim
 
+# Re-declare ARG inside the stage (Docker scoping requirement).
+ARG PYTORCH_VARIANT=cpu
+
+# ROCm device access requires the container user to belong to the render
+# and video groups. GIDs are parameterised to match the host; Ubuntu 22.04+
+# defaults are used here. Override via env vars (docker-compose.rocm.yml
+# passes them through automatically):
+#   export RENDER_GID=$(getent group render | cut -d: -f3)
+#   export VIDEO_GID=$(getent group video  | cut -d: -f3)
+ARG RENDER_GID=992
+ARG VIDEO_GID=44
+RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
+      groupadd -f -g ${RENDER_GID} render && \
+      groupadd -f -g ${VIDEO_GID}  video; \
+    fi
+
 # Create non-root user for security
 RUN groupadd -r voicebox && \
     useradd -r -g voicebox -m -s /bin/bash voicebox
+
+# ROCm: add voicebox user to render+video so it can open /dev/kfd and /dev/dri.
+RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
+      usermod -aG render,video voicebox; \
+    fi
 
 WORKDIR /app
 

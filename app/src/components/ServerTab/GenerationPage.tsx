@@ -1,9 +1,10 @@
-import { FolderOpen } from 'lucide-react';
+import { FolderOpen, Languages, Mic, Zap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Toggle } from '@/components/ui/toggle';
+import { useGenerationSettings } from '@/lib/hooks/useSettings';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
 import { SettingRow, SettingSection } from './SettingRow';
@@ -12,14 +13,18 @@ export function GenerationPage() {
   const { t } = useTranslation();
   const platform = usePlatform();
   const serverUrl = useServerStore((state) => state.serverUrl);
-  const maxChunkChars = useServerStore((state) => state.maxChunkChars);
-  const setMaxChunkChars = useServerStore((state) => state.setMaxChunkChars);
-  const crossfadeMs = useServerStore((state) => state.crossfadeMs);
-  const setCrossfadeMs = useServerStore((state) => state.setCrossfadeMs);
-  const normalizeAudio = useServerStore((state) => state.normalizeAudio);
-  const setNormalizeAudio = useServerStore((state) => state.setNormalizeAudio);
-  const autoplayOnGenerate = useServerStore((state) => state.autoplayOnGenerate);
-  const setAutoplayOnGenerate = useServerStore((state) => state.setAutoplayOnGenerate);
+  const { settings, update } = useGenerationSettings();
+  const persistedMaxChunkChars = settings?.max_chunk_chars ?? 800;
+  const persistedCrossfadeMs = settings?.crossfade_ms ?? 50;
+  const normalizeAudio = settings?.normalize_audio ?? true;
+  const autoplayOnGenerate = settings?.autoplay_on_generate ?? true;
+  // Slider mirrors persist on commit (pointer-up / keyboard-release) only —
+  // onValueChange would fire a PATCH for every pointer-move pixel and round-
+  // trip mid-drag failures could leave persisted state out of sync with UI.
+  const [maxChunkChars, setMaxChunkChars] = useState(persistedMaxChunkChars);
+  const [crossfadeMs, setCrossfadeMs] = useState(persistedCrossfadeMs);
+  useEffect(() => setMaxChunkChars(persistedMaxChunkChars), [persistedMaxChunkChars]);
+  useEffect(() => setCrossfadeMs(persistedCrossfadeMs), [persistedCrossfadeMs]);
   const [opening, setOpening] = useState(false);
   const [generationsPath, setGenerationsPath] = useState<string | null>(null);
 
@@ -48,7 +53,8 @@ export function GenerationPage() {
   }, [platform, generationsPath]);
 
   return (
-    <div className="space-y-8 max-w-2xl">
+    <div className="flex gap-8 items-start max-w-5xl">
+      <div className="flex-1 min-w-0 max-w-2xl space-y-8">
       <SettingSection
         title={t('settings.generation.title')}
         description={t('settings.generation.description')}
@@ -66,6 +72,7 @@ export function GenerationPage() {
             id="maxChunkChars"
             value={[maxChunkChars]}
             onValueChange={([value]) => setMaxChunkChars(value)}
+            onValueCommit={([value]) => update({ max_chunk_chars: value })}
             min={100}
             max={5000}
             step={50}
@@ -88,6 +95,7 @@ export function GenerationPage() {
             id="crossfadeMs"
             value={[crossfadeMs]}
             onValueChange={([value]) => setCrossfadeMs(value)}
+            onValueCommit={([value]) => update({ crossfade_ms: value })}
             min={0}
             max={200}
             step={10}
@@ -103,7 +111,7 @@ export function GenerationPage() {
             <Toggle
               id="normalizeAudio"
               checked={normalizeAudio}
-              onCheckedChange={setNormalizeAudio}
+              onCheckedChange={(v) => update({ normalize_audio: v })}
             />
           }
         />
@@ -116,7 +124,7 @@ export function GenerationPage() {
             <Toggle
               id="autoplayOnGenerate"
               checked={autoplayOnGenerate}
-              onCheckedChange={setAutoplayOnGenerate}
+              onCheckedChange={(v) => update({ autoplay_on_generate: v })}
             />
           }
         />
@@ -137,6 +145,47 @@ export function GenerationPage() {
           }
         />
       </SettingSection>
+      </div>
+
+      <aside className="hidden lg:block w-[280px] shrink-0 space-y-6 sticky top-0">
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold">{t('settings.generation.sidebar.aboutTitle')}</h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {t('settings.generation.sidebar.aboutBody')}
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">{t('settings.generation.sidebar.differencesTitle')}</h3>
+          <ul className="space-y-3 text-sm text-muted-foreground">
+            <li className="flex gap-2.5">
+              <Mic className="h-4 w-4 shrink-0 mt-0.5 text-accent" />
+              <span className="leading-relaxed">
+                <span className="text-foreground font-medium">
+                  {t('settings.generation.sidebar.clone.title')}
+                </span>{' '}
+                {t('settings.generation.sidebar.clone.body')}
+              </span>
+            </li>
+            <li className="flex gap-2.5">
+              <Languages className="h-4 w-4 shrink-0 mt-0.5 text-accent" />
+              <span className="leading-relaxed">
+                <span className="text-foreground font-medium">
+                  {t('settings.generation.sidebar.engines.title')}
+                </span>{' '}
+                {t('settings.generation.sidebar.engines.body')}
+              </span>
+            </li>
+            <li className="flex gap-2.5">
+              <Zap className="h-4 w-4 shrink-0 mt-0.5 text-accent" />
+              <span className="leading-relaxed">
+                <span className="text-foreground font-medium">{t('settings.generation.sidebar.agentReady.title')}</span>{' '}
+                {t('settings.generation.sidebar.agentReady.body')}
+              </span>
+            </li>
+          </ul>
+        </div>
+      </aside>
     </div>
   );
 }

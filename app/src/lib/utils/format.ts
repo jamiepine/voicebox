@@ -1,5 +1,5 @@
 import { formatDistance } from 'date-fns';
-import { ja, zhCN, zhTW } from 'date-fns/locale';
+import { ja, zhCN, zhTW, fr } from 'date-fns/locale';
 import i18n from '@/i18n';
 
 export function formatDuration(seconds: number): string {
@@ -16,6 +16,8 @@ function getDateLocale() {
       return zhCN;
     case 'zh-TW':
       return zhTW;
+    case 'fr':
+      return fr;
     default:
       return undefined;
   }
@@ -38,6 +40,16 @@ export function formatDate(date: string | Date): string {
     addSuffix: true,
     locale: getDateLocale(),
   }).replace(/^about /i, '');
+}
+
+export function formatAbsoluteDate(date: string | Date): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return dateObj.toLocaleString(i18n.language, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 const ENGINE_DISPLAY_NAMES: Record<string, string> = {

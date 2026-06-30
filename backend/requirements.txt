@@ -62,6 +62,11 @@ pedalboard>=0.9.0
 # HTTP client (for CUDA backend download)
 httpx>=0.27.0
 
+# MCP server (Model Context Protocol) — lets local AI agents call
+# voicebox.speak / .transcribe / .list_captures / .list_profiles
+fastmcp>=3.0,<4.0
+sse-starlette>=2.0
+
 # Utilities
 python-multipart>=0.0.6
 Pillow>=10.0.0

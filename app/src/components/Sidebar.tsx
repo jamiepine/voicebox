@@ -1,5 +1,5 @@
 import { Link, useMatchRoute } from '@tanstack/react-router';
-import { AudioLines, Box, Mic, Settings, Speaker, Volume2, Wand2 } from 'lucide-react';
+import { AudioLines, Box, Captions, type LucideIcon, Mic, Settings, Volume2, Wand2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
@@ -13,12 +13,18 @@ interface SidebarProps {
   isMacOS?: boolean;
 }
 
-const tabs = [
+const tabs: Array<{
+  id: string;
+  path: string;
+  icon: LucideIcon;
+  labelKey?: string;
+  label?: string;
+}> = [
   { id: 'main', path: '/', icon: Volume2, labelKey: 'nav.generate' },
   { id: 'stories', path: '/stories', icon: AudioLines, labelKey: 'nav.stories' },
+  { id: 'captures', path: '/captures', icon: Captions, labelKey: 'nav.captures' },
   { id: 'voices', path: '/voices', icon: Mic, labelKey: 'nav.voices' },
   { id: 'effects', path: '/effects', icon: Wand2, labelKey: 'nav.effects' },
-  { id: 'audio', path: '/audio', icon: Speaker, labelKey: 'nav.audio' },
   { id: 'models', path: '/models', icon: Box, labelKey: 'nav.models' },
   { id: 'settings', path: '/settings', icon: Settings, labelKey: 'nav.settings' },
 ];
@@ -41,15 +47,7 @@ export function Sidebar({ isMacOS }: SidebarProps) {
     >
       {/* Logo */}
       <div className="mb-2">
-        <img
-          src={voiceboxLogo}
-          alt="Voicebox"
-          className="w-12 h-12 object-contain"
-          style={{
-            filter:
-              'drop-shadow(0 0 6px hsl(var(--accent) / 0.5)) drop-shadow(0 0 14px hsl(var(--accent) / 0.35)) drop-shadow(0 0 28px hsl(var(--accent) / 0.2))',
-          }}
-        />
+        <img src={voiceboxLogo} alt="Voicebox" className="sidebar-logo w-12 h-12 object-contain" />
       </div>
 
       {/* Navigation Buttons */}
@@ -74,8 +72,8 @@ export function Sidebar({ isMacOS }: SidebarProps) {
                   ? 'bg-white/[0.07] text-foreground shadow-lg backdrop-blur-sm border border-white/[0.08]'
                   : 'text-muted-foreground hover:bg-muted/50',
               )}
-              title={t(tab.labelKey)}
-              aria-label={t(tab.labelKey)}
+              title={tab.label ?? (tab.labelKey ? t(tab.labelKey) : tab.id)}
+              aria-label={tab.label ?? (tab.labelKey ? t(tab.labelKey) : tab.id)}
             >
               {isActive && (
                 <div

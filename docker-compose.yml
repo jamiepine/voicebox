@@ -1,3 +1,7 @@
+# Voicebox — CPU build (default)
+# For AMD ROCm GPU acceleration use the overlay:
+#   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
+
 services:
   voicebox:
     build: .
@@ -5,8 +9,9 @@ services:
     restart: unless-stopped
 
     ports:
-      # Bind to localhost only for security
-      - "127.0.0.1:17493:17493"
+      # Host-side moved to 17600 so the dev/installed Voicebox can keep 17493.
+      # Container still listens on its native port internally.
+      - "127.0.0.1:17600:17493"
 
     volumes:
       # Bind-mount for generated audio (customize the host path as needed)

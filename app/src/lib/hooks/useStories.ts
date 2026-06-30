@@ -9,6 +9,7 @@ import type {
   StoryItemSplit,
   StoryItemTrim,
   StoryItemVersionUpdate,
+  StoryItemVolumeUpdate,
 } from '@/lib/api/types';
 import { usePlatform } from '@/platform/PlatformContext';
 
@@ -147,6 +148,26 @@ export function useTrimStoryItem() {
       itemId: string;
       data: StoryItemTrim;
     }) => apiClient.trimStoryItem(storyId, itemId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
+    },
+  });
+}
+
+export function useUpdateStoryItemVolume() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemVolumeUpdate;
+    }) => apiClient.updateStoryItemVolume(storyId, itemId, data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['stories'] });
       queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });

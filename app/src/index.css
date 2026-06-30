@@ -44,24 +44,24 @@
 
 :root {
   --background: 0 0% 95%;
-  --foreground: 222.2 84% 4.9%;
+  --foreground: 0 0% 5%;
   --card: 0 0% 97%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card-foreground: 0 0% 5%;
   --popover: 0 0% 97%;
-  --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 92%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 90%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 43 50% 50%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --popover-foreground: 0 0% 5%;
+  --primary: 43 55% 58%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 92%;
+  --secondary-foreground: 0 0% 11%;
+  --muted: 0 0% 90%;
+  --muted-foreground: 0 0% 47%;
+  --accent: 43 55% 58%;
+  --accent-foreground: 0 0% 100%;
   --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 85%;
-  --input: 214.3 31.8% 88%;
-  --ring: 222.2 84% 4.9%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 85%;
+  --input: 0 0% 88%;
+  --ring: 0 0% 5%;
   --sidebar: 0 0% 92%;
   --radius: 0.5rem;
   --chart-1: 12 76% 61%;
@@ -155,6 +155,11 @@
 .animate-fade-in-delayed {
   animation: fadeIn 0.5s ease-out 0.15s forwards;
   opacity: 0;
+}
+
+.dark .sidebar-logo {
+  filter: drop-shadow(0 0 6px hsl(var(--accent) / 0.5))
+    drop-shadow(0 0 14px hsl(var(--accent) / 0.35)) drop-shadow(0 0 28px hsl(var(--accent) / 0.2));
 }
 
 /* react-loaders */

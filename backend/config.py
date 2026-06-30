@@ -119,6 +119,13 @@ def get_generations_dir() -> Path:
     return path
 
 
+def get_captures_dir() -> Path:
+    """Get captures directory path."""
+    path = _data_dir / "captures"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def get_cache_dir() -> Path:
     """Get cache directory path."""
     path = _data_dir / "cache"

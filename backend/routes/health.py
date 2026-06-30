@@ -197,6 +197,7 @@ async def filesystem_health():
 
     dirs_to_check = {
         "generations": config.get_generations_dir(),
+        "captures": config.get_captures_dir(),
         "profiles": config.get_profiles_dir(),
         "data": config.get_data_dir(),
     }

@@ -14,12 +14,156 @@
   "nav": {
     "generate": "生成",
     "stories": "故事",
+    "captures": "擷取",
     "voices": "聲音",
     "effects": "效果",
     "audio": "音訊",
     "models": "模型",
     "settings": "設定",
     "updateBadge": "更新"
+  },
+  "captures": {
+    "title": "擷取",
+    "beta": "Beta",
+    "searchPlaceholder": "搜尋轉錄文字……",
+    "snippetEmpty": "(無轉錄文字)",
+    "noTranscriptError": "此擷取尚無轉錄文字",
+    "captureCardLabel": "擷取 · {{when}}",
+    "header": {
+      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+    },
+    "source": {
+      "dictation": "口述",
+      "recording": "錄音",
+      "file": "檔案"
+    },
+    "transcript": {
+      "refined": "精修",
+      "raw": "原始",
+      "refinedHint": "由 Qwen3 · {{model}} 精修",
+      "rawHint": "由 Whisper {{model}} 轉錄"
+    },
+    "actions": {
+      "configure": "設定",
+      "import": "匯入",
+      "importing": "上傳中…",
+      "dictate": "口述",
+      "stop": "停止",
+      "copy": "複製",
+      "refine": "精修",
+      "reRefine": "重新精修",
+      "export": "匯出",
+      "exportDropdownLabel": "匯出格式",
+      "exportAudio": "音訊 (WAV)",
+      "exportTranscript": "文字稿 (TXT)",
+      "exportMarkdown": "Markdown (MD)",
+      "delete": "刪除",
+      "playAs": "以 {{name}} 播放",
+      "playAsFallback": "以聲音播放……",
+      "playAsGenerating": "生成中…",
+      "playAsStop": "停止 · {{name}}",
+      "playAsStopFallback": "停止 · 聲音",
+      "playAsDropdownLabel": "以聲音播放轉錄文字"
+    },
+    "empty": {
+      "noMatches": "找不到符合 \"{{query}}\" 的擷取",
+      "none": "尚無擷取。",
+      "loading": "載入擷取中…",
+      "pickOne": "選擇一個擷取以檢視其轉錄文字。",
+      "holdToRecord": "按住以錄音",
+      "toggleHandsFree": "切換免持模式",
+      "pressShortcut": "在您的電腦上任何位置按下快捷鍵以開始第一次擷取。",
+      "turnOnShortcut": "開啟全域快捷鍵以從任何地方口述——或點選上方的「口述」進行 App 內擷取。",
+      "openSettings": "開啟擷取設定"
+    },
+    "deleteDialog": {
+      "title": "刪除擷取",
+      "description": "這將永久刪除該擷取及其音訊與轉錄。此操作無法復原。",
+      "deleting": "刪除中…"
+    },
+    "toast": {
+      "deleteFailed": "刪除失敗",
+      "playAsFailed": "以聲音播放失敗",
+      "noVoice": "無聲音檔案",
+      "noVoiceDescription": "使用「以聲音播放」前請先建立聲音檔案。",
+      "transcriptCopied": "已複製轉錄文字",
+      "copyFailed": "複製失敗",
+      "exportSuccess": "已匯出至 {{path}}",
+      "exportFailed": "匯出失敗",
+      "exportEmpty": "沒有可匯出的內容",
+      "shortcutNotArmed": "快捷鍵已開啟,但尚未就緒",
+      "shortcutNotArmedDescription_one": "{{names}} 仍需下載。請開啟「擷取」分頁開始下載。",
+      "shortcutNotArmedDescription_other": "{{names}} 仍需下載。請開啟「擷取」分頁開始下載。"
+    },
+    "pill": {
+      "recording": "錄音中",
+      "transcribing": "轉錄中",
+      "refining": "精修中",
+      "speaking": "發話中",
+      "completed": "完成",
+      "stopAria": "停止錄音",
+      "errorFallback": "發生錯誤",
+      "errorCopyTooltip": "點選複製錯誤訊息"
+    },
+    "chord": {
+      "capturing": "擷取中…",
+      "pressShortcut": "請按下您的快捷鍵",
+      "noKeys": "尚未設定按鍵",
+      "unsupported": "「{{key}}」無法用於組合鍵。請改用修飾鍵或字母鍵。",
+      "notSet": "未設定"
+    },
+    "readiness": {
+      "title": "口述前還需要幾項準備",
+      "subheading": "在下列項目全部就緒前,快捷鍵將維持關閉。",
+      "downloadButton": "下載",
+      "downloading": "下載中…",
+      "downloadingPercent": "下載中… {{pct}}%",
+      "downloadStarted": "已開始下載",
+      "downloadStartedDescription": "{{name}} 正在下載。下載完成後快捷鍵會自動就緒。",
+      "downloadFailed": "下載失敗",
+      "stt": {
+        "label": "{{name}}(語音轉文字)",
+        "ready": "模型已下載。",
+        "missing": "用於轉錄您的音訊",
+        "missingWithSize": "用於轉錄您的音訊 · {{size}}"
+      },
+      "llm": {
+        "label": "{{name}}(精修)",
+        "ready": "模型已下載。",
+        "missing": "在貼上前清理原始轉錄文字",
+        "missingWithSize": "在貼上前清理原始轉錄文字 · {{size}}"
+      },
+      "inputMonitoring": {
+        "label": "輸入監控權限",
+        "ready": "macOS 允許 Voicebox 偵測您的全域快捷鍵。",
+        "missing": "macOS 需要允許 Voicebox 偵測全域快捷鍵。",
+        "openSettings": "開啟設定"
+      },
+      "accessibility": {
+        "label": "輔助使用權限",
+        "ready": "Voicebox 可將轉錄文字貼到其他 App。",
+        "missing": "需要此權限才能將轉錄文字貼到目前作用中的 App。",
+        "openSettings": "開啟設定"
+      }
+    },
+    "permissions": {
+      "accessibility": {
+        "title": "授予輔助使用權限以啟用自動貼上",
+        "body": "Voicebox 需要 <path>系統設定 → 私隱與安全性 → 輔助使用</path> 才能將轉錄文字貼到其他 App。即使沒有此權限,口述內容仍會出現在「擷取」分頁。",
+        "openSettings": "開啟設定",
+        "recheck": "我已啟用",
+        "rechecking": "檢查中…",
+        "stillMissing": "仍未偵測到。macOS 通常需要在切換權限後結束並重新開啟 Voicebox。"
+      },
+      "inputMonitoring": {
+        "title": "授予輸入監控權限以啟用全域快捷鍵",
+        "body": "Voicebox 需要 <path>系統設定 → 私隱與安全性 → 輸入監控</path> 才能偵測您的口述組合鍵。功能已開啟,但 macOS 在您允許前會封鎖按鍵事件。",
+        "openSettings": "開啟設定",
+        "recheck": "我已啟用",
+        "rechecking": "檢查中…",
+        "stillMissing": "仍未偵測到。macOS 通常需要在切換權限後結束並重新開啟 Voicebox。"
+      }
+    }
   },
   "voicesTab": {
     "title": "聲音",
@@ -125,7 +269,10 @@
       "noPreference": "無偏好",
       "defaultEngineHint": "選擇此檔案時自動使用此引擎。",
       "defaultEffects": "預設效果",
-      "defaultEffectsHint": "自動套用於使用此聲音所有新生成的效果。"
+      "defaultEffectsHint": "自動套用於使用此聲音所有新生成的效果。",
+      "personalityLabel": "個性",
+      "personalityPlaceholder": "例如:「一位脾氣暴躁的海盜,只會用航海比喻說話」",
+      "personalityHint": "這個聲音是誰以及他們如何說話。會驅動生成頁面上的「撰寫」按鈕和角色化重寫切換。留空則兩者都隱藏。"
     },
     "avatar": {
       "alt": "頭像預覽"
@@ -415,9 +562,11 @@
     "title": "故事",
     "newStory": "新增故事",
     "loading": "載入故事中…",
+    "searchPlaceholder": "搜尋故事…",
     "empty": {
       "title": "尚無故事",
-      "hint": "建立您的第一個故事以開始"
+      "hint": "建立您的第一個故事以開始",
+      "noMatches": "沒有故事符合「{{query}}」"
     },
     "row": {
       "itemCount_one": "{{count}} 項",
@@ -480,16 +629,23 @@
     },
     "itemActions": {
       "playFromHere": "從此處播放",
+      "regenerate": "重新生成",
       "removeFromStory": "從故事中移除"
     },
+    "importAudio": "匯入音訊…",
+    "importing": "匯入中…",
+    "dropToImport": "拖放以匯入音訊",
     "toast": {
       "removeFailed": "移除項目失敗",
       "reorderFailed": "重新排序項目失敗",
       "exportFailed": "匯出音訊失敗",
-      "addFailed": "新增生成失敗"
+      "addFailed": "新增生成失敗",
+      "regenerateFailed": "重新生成失敗",
+      "importFailed": "匯入音訊失敗"
     }
   },
   "history": {
+    "empty": "尚無語音生成…",
     "actions": {
       "menu": "操作",
       "play": "播放",
@@ -550,6 +706,18 @@
     "effects": {
       "none": "無效果",
       "profileDefault": "檔案預設"
+    },
+    "compose": {
+      "tooltip": "撰寫",
+      "ariaLabel": "以角色撰寫一句台詞",
+      "failedTitle": "撰寫失敗",
+      "failedDescription": "無法從此個性生成文字。"
+    },
+    "persona": {
+      "tooltipActive": "以角色發話中",
+      "tooltipInactive": "以角色發話",
+      "ariaLabelActive": "以角色發話中",
+      "ariaLabelInactive": "以角色發話"
     }
   },
   "main": {
@@ -571,6 +739,8 @@
     "tabs": {
       "general": "一般",
       "generation": "生成",
+      "captures": "擷取",
+      "mcp": "MCP",
       "gpu": "GPU",
       "logs": "日誌",
       "changelog": "更新日誌",
@@ -579,6 +749,15 @@
     "language": {
       "label": "語言",
       "description": "選擇 Voicebox 的顯示語言。"
+    },
+    "theme": {
+      "label": "佈景主題",
+      "description": "跟隨系統外觀，或固定為淺色 / 深色模式。",
+      "options": {
+        "system": "跟隨系統",
+        "light": "淺色",
+        "dark": "深色"
+      }
     },
     "general": {
       "docs": { "title": "閱讀文件" },
@@ -676,6 +855,233 @@
         "title": "生成資料夾",
         "description": "生成的音訊檔案在磁碟上的儲存位置。",
         "open": "開啟"
+      },
+      "sidebar": {
+        "aboutTitle": "關於語音生成",
+        "aboutBody": "從一段簡短的樣本複製聲音,然後以任何聲音、跨任何語言生成語音。將 TTS 送進 AI 代理、遊戲、Podcast 或長篇旁白。",
+        "differencesTitle": "有何不同",
+        "clone": {
+          "title": "幾秒內複製任何聲音。",
+          "body": "幾秒鐘的參考音訊就夠了。需要更高品質時也支援多樣本。"
+        },
+        "engines": {
+          "title": "七種引擎、23 種語言。",
+          "body": "選擇最符合需求的取捨——品質、速度,或多語言覆蓋。"
+        },
+        "agentReady": {
+          "title": "代理就緒。",
+          "body": "REST API 提供逐一聲音檔案的控制——讓任何 AI 擁有您複製過的聲音。"
+        }
+      }
+    },
+    "captures": {
+      "dictation": {
+        "title": "口述",
+        "description": "使用全域快捷鍵從電腦上任何位置進行擷取。",
+        "globalShortcut": {
+          "title": "全域快捷鍵",
+          "description": "按住快捷鍵以從電腦上任何位置錄音。放開後進行轉錄。"
+        },
+        "pushToTalk": {
+          "title": "按住說話快捷鍵",
+          "description": "在系統任何位置按住這些按鍵即可錄音。放開後停止並轉錄。",
+          "change": "變更"
+        },
+        "toggle": {
+          "title": "切換快捷鍵",
+          "description": "按一次開始免持錄音。再按一次停止。通常為按住說話加上 Space。",
+          "change": "變更"
+        },
+        "chordPicker": {
+          "pttTitle": "設定按住說話快捷鍵",
+          "pttDescription": "按住您要使用的按鍵,然後放開並點選「儲存」。右側修飾鍵徽章會顯示按鍵是左側或右側的變體。",
+          "toggleTitle": "設定切換快捷鍵",
+          "toggleDescription": "按住您要使用的按鍵,然後放開並點選「儲存」。請選擇與按住說話組合鍵不同的按鍵。"
+        },
+        "preview": {
+          "title": "預覽",
+          "description": "按住快捷鍵時螢幕上顯示的內容。"
+        },
+        "copyToClipboard": {
+          "title": "將轉錄文字複製到剪貼簿",
+          "description": "擷取完成時,清理過的轉錄文字會出現在您的剪貼簿。"
+        },
+        "autoPaste": {
+          "title": "自動貼到目前作用中的文字欄位",
+          "description": "若另一個 App 中已聚焦於文字輸入,直接貼進去。Voicebox 會儲存並還原您原本剪貼簿上的內容。"
+        }
+      },
+      "transcription": {
+        "title": "轉錄",
+        "description": "選擇用於擷取的語音轉文字模型。",
+        "model": {
+          "title": "轉錄模型",
+          "description": "Whisper 隨 Voicebox 提供,完全在您的電腦上執行。",
+          "base": "Whisper Base · 74M · {{tail}}",
+          "small": "Whisper Small · 244M · {{tail}}",
+          "medium": "Whisper Medium · 769M · {{tail}}",
+          "large": "Whisper Large · 1.5B · {{tail}}",
+          "turbo": "Whisper Turbo · 精簡版 Large v3 · {{tail}}",
+          "tail": {
+            "fast": "快速",
+            "balanced": "平衡",
+            "higher": "較高準確度",
+            "best": "最高準確度",
+            "nearBest": "接近最佳,快速"
+          }
+        },
+        "language": {
+          "title": "語言",
+          "description": "自動偵測適用於大多數擷取。若您總是說同一種語言,可以鎖定它。",
+          "auto": "自動偵測",
+          "en": "英文",
+          "es": "西班牙文",
+          "fr": "法文",
+          "de": "德文",
+          "ja": "日文",
+          "zh": "中文",
+          "hi": "印地文"
+        },
+        "archive": {
+          "title": "封存音訊",
+          "description": "在每筆轉錄文字旁保留原始錄音。"
+        }
+      },
+      "refinement": {
+        "title": "精修",
+        "description": "可選擇在轉錄文字上執行本地 LLM,以清除贅詞、補上標點與修正自我更正。",
+        "auto": {
+          "title": "自動精修轉錄文字",
+          "description": "每次擷取後執行。您仍可在「擷取」分頁中切換原始與精修版本。"
+        },
+        "model": {
+          "title": "精修模型",
+          "description": "較大的模型較慢,但對於細微的自我更正與專業詞彙處理得更好。",
+          "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
+          "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "tail": {
+            "veryFast": "非常快",
+            "fast": "快速",
+            "fullQuality": "完整品質"
+          }
+        },
+        "smartCleanup": {
+          "title": "智慧清理",
+          "description": "移除贅詞(嗯、呃、那個之類),還原標點符號,修正大小寫,且不重新改寫。"
+        },
+        "selfCorrection": {
+          "title": "移除自我更正",
+          "description": "當您說到一半改變想法時(「其實不對……」、「等等,我是想說……」),刪掉收回的部分,只保留最終意圖。"
+        },
+        "preserveTechnical": {
+          "title": "保留技術術語",
+          "description": "完整保留所說的程式碼識別字、指令名稱與縮寫。當您要對程式碼提示進行口述時請開啟。"
+        }
+      },
+      "playback": {
+        "title": "播放",
+        "description": "「擷取」分頁中「以聲音播放」動作的預設聲音。",
+        "defaultVoice": {
+          "title": "預設聲音",
+          "description": "當您點選「以聲音播放」但未先選擇聲音時使用。每筆擷取仍可個別變更。",
+          "noClonedVoices": "尚無複製聲音",
+          "noneSelected": "未選擇",
+          "clonedVoices": "複製聲音"
+        }
+      },
+      "storage": {
+        "title": "儲存",
+        "description": "擷取會以成對的音訊與轉錄文字檔形式,儲存在您的 Voicebox 資料目錄中。",
+        "retention": {
+          "title": "保留期限",
+          "description": "擷取保留的時間長度。同時適用於音訊與轉錄文字。",
+          "forever": "永久保留",
+          "d90": "90 天",
+          "d30": "30 天",
+          "d7": "7 天"
+        },
+        "folder": {
+          "title": "擷取資料夾",
+          "description": "擷取的音訊與轉錄在磁碟上的儲存位置。",
+          "open": "開啟"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "關於擷取",
+        "aboutBody": "在電腦上任何位置按住快捷鍵說話,Voicebox 會將您的聲音轉成文字。可以用任何複製的聲音重播、貼到任何 App,或送進您的程式碼代理。",
+        "differencesTitle": "有何不同",
+        "local": {
+          "title": "完全在本機。",
+          "body": "Whisper 與精修 LLM 都在您的硬體上執行。沒有雲端、沒有帳號,您的聲音永遠不會離開電腦。"
+        },
+        "playAs": {
+          "title": "以任何聲音播放。",
+          "body": "轉錄文字可以用您複製過的任何聲音檔案讀回。"
+        },
+        "crossPlatform": {
+          "title": "跨平台。",
+          "body": "在 macOS、Windows 與 Linux 上享有相同的快捷鍵與相同的流程。"
+        },
+        "windowsCaveat": {
+          "title": "Windows 上的提醒",
+          "body": "當 Voicebox 本身或任何以系統管理員身分執行的應用程式取得焦點時,快捷鍵不會觸發。我們正在處理中。"
+        }
+      }
+    },
+    "mcp": {
+      "install": {
+        "title": "安裝到您的代理",
+        "description": "App 開啟時 Voicebox 會提供本地 MCP 伺服器。將以下其中一段程式碼貼到您的代理 MCP 設定中。",
+        "http": {
+          "title": "HTTP(建議)",
+          "description": "適用於支援 HTTP MCP 的客戶端——Claude Code、Cursor、Windsurf、VS Code。"
+        },
+        "claudeCode": {
+          "title": "Claude Code 一行指令",
+          "description": "透過 Claude Code CLI 註冊。"
+        },
+        "stdio": {
+          "title": "Stdio(備用)",
+          "description": "適用於只能啟動 stdio 程序的客戶端。Shim 二進位檔隨 App 提供。"
+        },
+        "copy": "複製",
+        "copied": "已複製"
+      },
+      "defaultVoice": {
+        "title": "預設聲音",
+        "description": "當代理呼叫 voicebox.speak 卻未指定聲音檔案,且沒有對應客戶端綁定時使用。",
+        "label": "預設播放聲音",
+        "labelHint": "與「擷取」分頁的「以聲音播放」下拉選單共用——一個用於被動播放的預設聲音。",
+        "none": "(無)"
+      },
+      "bindings": {
+        "title": "個別代理聲音",
+        "description": "將特定代理綁定到特定聲音,讓您不用看就能聽出是誰在說話。代理透過 X-Voicebox-Client-Id 標頭(stdio 則用 VOICEBOX_CLIENT_ID 環境變數)識別自己。",
+        "empty": "尚無綁定。請在下方新增,然後將您的 MCP 客戶端設定為傳送對應的 <code>X-Voicebox-Client-Id</code>。",
+        "lastSeen": "最後出現於 {{when}}",
+        "lastSeenTitle": "最後出現於 {{when}}",
+        "neverConnected": "從未連線",
+        "defaultOption": "(預設)",
+        "removeAria": "移除 {{client}} 的綁定",
+        "add": {
+          "title": "新增綁定",
+          "clientIdPlaceholder": "客戶端 ID(例如 claude-code)",
+          "labelPlaceholder": "標籤(選填)",
+          "action": "新增綁定"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "關於 MCP",
+        "aboutBody": "Model Context Protocol 讓您的 AI 程式碼代理——Claude Code、Cursor、Windsurf——可以呼叫 Voicebox 工具。以複製的聲音說話、轉錄音訊、瀏覽擷取。",
+        "toolsTitle": "可用工具",
+        "tools": {
+          "speak": "以聲音檔案說出文字。",
+          "transcribe": "對片段執行 Whisper STT。",
+          "listCaptures": "近期口述 / 錄音。",
+          "listProfiles": "可用的聲音檔案。"
+        },
+        "postSpeak": "也提供 <code>POST /speak</code> 介面,供 shell 指令稿、ACP、A2A 使用。"
       }
     },
     "gpu": {
@@ -752,7 +1158,8 @@
     "unknownSize": "未知大小",
     "sections": {
       "voiceGeneration": "語音生成",
-      "transcription": "語音轉錄"
+      "transcription": "語音轉錄",
+      "languageModels": "語言模型"
     },
     "status": {
       "loaded": "已載入"

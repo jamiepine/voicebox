@@ -56,10 +56,41 @@ async def _generation_worker():
                     raise
         except Exception:
             traceback.print_exc()
+            await _force_fail_if_active(
+                job.generation_id,
+                "Worker exited without writing terminal status",
+            )
         finally:
             _running_generation_tasks.pop(job.generation_id, None)
             _queued_generation_ids.discard(job.generation_id)
             _generation_queue.task_done()
+
+
+async def _force_fail_if_active(generation_id: str, error: str) -> None:
+    """Best-effort recovery — flip an active row to failed if the worker
+    bailed before writing a terminal status. Catches the case where the gen
+    coroutine's own status-write raised (e.g. SQLite lock contention)."""
+    try:
+        from ..database import Generation as DBGeneration, get_db
+        from . import history
+
+        db = next(get_db())
+        try:
+            gen = db.query(DBGeneration).filter_by(id=generation_id).first()
+            if gen is None:
+                return
+            if (gen.status or "completed") not in ("loading_model", "generating"):
+                return
+            await history.update_generation_status(
+                generation_id=generation_id,
+                status="failed",
+                db=db,
+                error=error,
+            )
+        finally:
+            db.close()
+    except Exception:
+        traceback.print_exc()
 
 
 def enqueue_generation(generation_id: str, coro):

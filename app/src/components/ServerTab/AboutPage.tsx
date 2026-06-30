@@ -116,7 +116,7 @@ export function AboutPage() {
             </div>
           </FadeIn>
 
-          <FadeIn delay={400}>
+          <FadeIn delay={480}>
             <p className="text-xs text-muted-foreground/40 pt-4">
               <Trans
                 i18nKey="settings.about.license"

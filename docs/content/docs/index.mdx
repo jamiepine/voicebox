@@ -1,23 +1,30 @@
 ---
 title: "Voicebox Documentation"
-description: "Voicebox is a local-first voice cloning studio -- a free and open-source alternative to ElevenLabs."
+description: "Voicebox is the open-source, local-first AI voice studio — a free alternative to ElevenLabs and WisprFlow, running entirely on your machine."
 ---
 
-Voicebox is a **local-first voice cloning studio** -- a free and open-source alternative to ElevenLabs. Clone voices from a few seconds of audio, generate speech in 23 languages across 7 TTS engines, apply post-processing effects, and compose multi-voice projects with a timeline editor.
+Voicebox is the **open-source, local-first AI voice studio** — a free
+alternative to ElevenLabs and WisprFlow in one app. Clone voices, generate
+speech across 7 TTS engines, dictate into any app with a global hotkey,
+compose multi-voice projects, and let any MCP-aware agent speak in a voice
+you own. Everything runs on your hardware.
 
 ![Voicebox App Screenshot](/images/app-screenshot-1.webp)
 
-- **Complete privacy** -- models and voice data stay on your machine
-- **7 TTS engines** -- Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, and Kokoro
-- **Cloning and preset voices** -- zero-shot cloning from a reference sample, or 50+ curated preset voices via Kokoro and Qwen CustomVoice
-- **23 languages** -- from English to Arabic, Japanese, Hindi, Swahili, and more
-- **Post-processing effects** -- pitch shift, reverb, delay, chorus, compression, and filters
-- **Expressive speech** -- paralinguistic tags like `[laugh]`, `[sigh]`, `[gasp]` via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice
-- **Unlimited length** -- auto-chunking with crossfade for scripts, articles, and chapters
-- **Stories editor** -- multi-track timeline for conversations, podcasts, and narratives
-- **API-first** -- REST API for integrating voice synthesis into your own projects
-- **Native performance** -- built with Tauri (Rust), not Electron
-- **Runs everywhere** -- macOS (MLX/Metal), Windows (CUDA), Linux, AMD ROCm, Intel Arc, Docker
+- **Dictation** — hold a chord anywhere on your machine, speak, release; the transcript pastes into the focused field
+- **Captures tab** — paired audio + transcript archive, retranscribe / refine / play-as-voice
+- **Voice personalities** — per-profile compose button + persona-rewrite toggle, powered by a local LLM
+- **Agents speak back** — any MCP-aware agent can call Voicebox to speak in one of your cloned voices
+- **7 TTS engines** — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, Kokoro
+- **Cloning and preset voices** — zero-shot cloning or 50+ curated preset voices
+- **23 languages** — from English to Arabic, Japanese, Hindi, Swahili
+- **Post-processing effects** — pitch shift, reverb, delay, chorus, compression, filters
+- **Expressive speech** — paralinguistic tags (`[laugh]`, `[sigh]`) and natural-language delivery control
+- **Unlimited length** — auto-chunking with crossfade for long scripts
+- **Stories editor** — multi-track timeline for conversations, podcasts, narratives
+- **API-first** — REST + WebSocket API, MCP server for agent integrations
+- **Complete privacy** — models, audio, transcripts, LLM output never leave your machine
+- **Runs everywhere** — macOS (MLX/Metal), Windows (CUDA / DirectML), Linux (ROCm / CPU), Intel Arc, Docker
 
 ## Download
 
@@ -32,6 +39,8 @@ Voicebox is a **local-first voice cloning studio** -- a free and open-source alt
 
 ## Get Started
 
-- [Installation](/overview/installation) -- download and install Voicebox
-- [Quick Start](/overview/quick-start) -- get up and running in 5 minutes
-- [API Reference](/api-reference) -- integrate voice synthesis into your apps
+- [Installation](/overview/installation) — download and install Voicebox
+- [Quick Start](/overview/quick-start) — get up and running in 5 minutes
+- [Dictation](/overview/dictation) — start talking to your computer
+- [Voice Personalities](/overview/voice-personalities) — compose and rewrite in any profile
+- [API Reference](/api-reference) — integrate voice synthesis into your apps

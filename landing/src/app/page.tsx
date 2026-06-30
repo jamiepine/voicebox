@@ -1,20 +1,19 @@
 "use client";
 
-import {
-	Github,
-	Globe,
-	Languages,
-	MessageSquare,
-	SlidersHorizontal,
-	Zap,
-} from "lucide-react";
+import {Github} from "lucide-react";
 import {useEffect, useState} from "react";
+import {AgentIntegration} from "@/components/AgentIntegration";
 import {ApiSection} from "@/components/ApiSection";
+import {CaptureSection} from "@/components/CaptureSection";
 import {ControlUI} from "@/components/ControlUI";
 import {Features} from "@/components/Features";
 import {Footer} from "@/components/Footer";
 import {Navbar} from "@/components/Navbar";
+import {Personalities} from "@/components/Personalities";
 import {AppleIcon, LinuxIcon, WindowsIcon} from "@/components/PlatformIcons";
+import {SupportedModels} from "@/components/SupportedModels";
+import {Testimonials} from "@/components/Testimonials";
+import {TokenTeaser} from "@/components/TokenTeaser";
 import {TutorialsSection} from "@/components/TutorialsSection";
 import {VoiceCreator} from "@/components/VoiceCreator";
 import {GITHUB_REPO} from "@/lib/constants";
@@ -64,10 +63,18 @@ export default function Home() {
 						/>
 					</div>
 
+					{/* Kicker */}
+					<div
+						className="fade-in mb-6 text-[11px] font-semibold uppercase tracking-[0.22em] text-accent"
+						style={{animationDelay: "50ms"}}
+					>
+						The open-source AI voice studio
+					</div>
+
 					{/* Headline */}
 					<div className="fade-in relative" style={{animationDelay: "100ms"}}>
 						<h1 className="text-5xl font-bold tracking-tighter leading-[0.9] text-foreground md:text-7xl lg:text-8xl">
-							Clone any voice, in seconds.
+						Clone, dictate and create.
 						</h1>
 					</div>
 
@@ -76,10 +83,10 @@ export default function Home() {
 						className="fade-in mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl"
 						style={{animationDelay: "200ms"}}
 					>
-						Open source voice cloning studio with support for multiple TTS
-						engines. Clone any voice, generate natural speech, and compose
-						multi-voice projects. All running{" "}
-						<b className="text-white">locally on your machine.</b>
+						Clone voices, generate speech across seven TTS engines, dictate into
+						any app, and talk to agents in voices you own. A free and local alternative
+						to ElevenLabs and WisprFlow, running{" "}
+						<b className="text-white">entirely on your machine.</b>
 					</p>
 
 					{/* CTAs */}
@@ -131,258 +138,26 @@ export default function Home() {
 			{/* ── Voice Creator ────────────────────────────────────────── */}
 			<VoiceCreator />
 
-			{/* ── Tutorials ────────────────────────────────────────────── */}
-			<TutorialsSection />
+			{/* ── Capture (dictation + STT + play as voice) ───────────── */}
+			<CaptureSection />
+
+			{/* ── Agent integration (speak primitive + MCP) ───────────── */}
+			<AgentIntegration />
+
+			{/* ── Personalities (Compose / Rewrite / Respond) ──────────── */}
+			<Personalities />
 
 			{/* ── API Section ──────────────────────────────────────────── */}
 			<ApiSection />
 
-			{/* ── Models ─────────────────────────────────────────────────── */}
-			<section id="about" className="border-t border-border py-24">
-				<div className="mx-auto max-w-5xl px-6">
-					<div className="text-center mb-14">
-						<h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl mb-4">
-							Multi-Engine Architecture
-						</h2>
-						<p className="text-muted-foreground max-w-2xl mx-auto">
-							Choose the right model for every job. All models run locally on
-							your hardware — download once, use forever.
-						</p>
-					</div>
+			{/* ── Tutorials ────────────────────────────────────────────── */}
+			<TutorialsSection />
 
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-						{/* Qwen3-TTS */}
-						<div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6 transition-colors hover:border-accent/30">
-							<div className="flex items-start justify-between mb-3">
-								<div>
-									<h3 className="text-base font-semibold text-foreground">
-										Qwen3-TTS
-									</h3>
-									<span className="text-xs text-muted-foreground/60">
-										by Alibaba
-									</span>
-								</div>
-								<div className="flex gap-1.5">
-									<span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-background text-muted-foreground">
-										1.7B
-									</span>
-									<span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-background text-muted-foreground">
-										0.6B
-									</span>
-								</div>
-							</div>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-4">
-								High-quality multilingual voice cloning with natural prosody.
-								The only engine with delivery instructions — control tone, pace,
-								and emotion with natural language.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<Globe className="h-3 w-3" />
-									10 languages
-								</span>
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<MessageSquare className="h-3 w-3" />
-									Delivery instructions
-								</span>
-							</div>
-						</div>
+			{/* ── Supported models ─────────────────────────────────────── */}
+			<SupportedModels />
 
-						{/* Chatterbox */}
-						<div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6 transition-colors hover:border-accent/30">
-							<div className="flex items-start justify-between mb-3">
-								<div>
-									<h3 className="text-base font-semibold text-foreground">
-										Chatterbox
-									</h3>
-									<span className="text-xs text-muted-foreground/60">
-										by Resemble AI
-									</span>
-								</div>
-							</div>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-4">
-								Production-grade voice cloning with the broadest language
-								support. 23 languages with zero-shot cloning and emotion
-								exaggeration control.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<Languages className="h-3 w-3" />
-									23 languages
-								</span>
-							</div>
-						</div>
-
-						{/* Chatterbox Turbo */}
-						<div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6 transition-colors hover:border-accent/30">
-							<div className="flex items-start justify-between mb-3">
-								<div>
-									<h3 className="text-base font-semibold text-foreground">
-										Chatterbox Turbo
-									</h3>
-									<span className="text-xs text-muted-foreground/60">
-										by Resemble AI
-									</span>
-								</div>
-								<span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-background text-muted-foreground">
-									350M
-								</span>
-							</div>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-4">
-								Lightweight and fast. Supports paralinguistic tags — embed
-								[laugh], [sigh], [gasp] and more directly in your text for
-								expressive, natural speech.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<Zap className="h-3 w-3" />
-									350M params
-								</span>
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<MessageSquare className="h-3 w-3" />
-									[laugh] [sigh] tags
-								</span>
-							</div>
-						</div>
-
-						{/* LuxTTS */}
-						<div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6 transition-colors hover:border-accent/30">
-							<div className="flex items-start justify-between mb-3">
-								<div>
-									<h3 className="text-base font-semibold text-foreground">
-										LuxTTS
-									</h3>
-									<span className="text-xs text-muted-foreground/60">
-										by ZipVoice
-									</span>
-								</div>
-							</div>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-4">
-								Ultra-fast, CPU-friendly voice cloning at 48kHz. Exceeds 150x
-								realtime on CPU with ~1GB VRAM. The fastest engine for quick
-								iterations.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<Zap className="h-3 w-3" />
-									150x realtime
-								</span>
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									48kHz output
-								</span>
-							</div>
-						</div>
-
-						{/* Qwen CustomVoice */}
-						<div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6 transition-colors hover:border-accent/30">
-							<div className="flex items-start justify-between mb-3">
-								<div>
-									<h3 className="text-base font-semibold text-foreground">
-										Qwen CustomVoice
-									</h3>
-									<span className="text-xs text-muted-foreground/60">
-										by Alibaba
-									</span>
-								</div>
-								<div className="flex gap-1.5">
-									<span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-background text-muted-foreground">
-										1.7B
-									</span>
-									<span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-background text-muted-foreground">
-										0.6B
-									</span>
-								</div>
-							</div>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-4">
-								Nine premium preset speakers with natural-language style
-								control. Tell the model how to deliver — "speak slowly with
-								warmth", "authoritative and clear" — and it adapts tone,
-								emotion, and pace.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<SlidersHorizontal className="h-3 w-3" />
-									Instruct control
-								</span>
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<Globe className="h-3 w-3" />
-									10 languages
-								</span>
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									9 preset voices
-								</span>
-							</div>
-						</div>
-
-						{/* HumeAI TADA */}
-						<div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6 transition-colors hover:border-accent/30">
-							<div className="flex items-start justify-between mb-3">
-								<div>
-									<h3 className="text-base font-semibold text-foreground">
-										TADA
-									</h3>
-									<span className="text-xs text-muted-foreground/60">
-										by Hume AI
-									</span>
-								</div>
-								<div className="flex gap-1.5">
-									<span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-background text-muted-foreground">
-										3B
-									</span>
-									<span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-background text-muted-foreground">
-										1B
-									</span>
-								</div>
-							</div>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-4">
-								Speech-language model with text-acoustic dual alignment. Built
-								for long-form generation — produces 700s+ of coherent audio
-								without drift. Multilingual at 3B, English-focused at 1B.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<Globe className="h-3 w-3" />
-									10 languages
-								</span>
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									Long-form coherent
-								</span>
-							</div>
-						</div>
-
-						{/* Kokoro 82M */}
-						<div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6 transition-colors hover:border-accent/30">
-							<div className="flex items-start justify-between mb-3">
-								<div>
-									<h3 className="text-base font-semibold text-foreground">
-										Kokoro
-									</h3>
-									<span className="text-xs text-muted-foreground/60">
-										by hexgrad · Apache 2.0
-									</span>
-								</div>
-								<span className="text-[10px] px-2 py-0.5 rounded-full border border-border bg-background text-muted-foreground">
-									82M
-								</span>
-							</div>
-							<p className="text-sm text-muted-foreground leading-relaxed mb-4">
-								Tiny 82M-parameter TTS that runs at CPU realtime with negligible
-								VRAM. Pre-built voice styles instead of cloning — pick a voice,
-								type, generate. Smallest footprint of any engine.
-							</p>
-							<div className="flex flex-wrap gap-2">
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									<Zap className="h-3 w-3" />
-									CPU realtime
-								</span>
-								<span className="flex items-center gap-1 text-[11px] text-muted-foreground/70">
-									Preset voices
-								</span>
-							</div>
-						</div>
-					</div>
-				</div>
-			</section>
+			{/* ── Testimonials ─────────────────────────────────────────── */}
+			<Testimonials />
 
 			{/* ── Download Section ─────────────────────────────────────── */}
 			<section id="download" className="border-t border-border py-24">
@@ -466,6 +241,9 @@ export default function Home() {
 					</div>
 				</div>
 			</section>
+
+			{/* ── $VOICEBOX token (teaser → /token) ─────────────────────── */}
+			<TokenTeaser />
 
 			{/* ── Footer ───────────────────────────────────────────────── */}
 			<Footer />

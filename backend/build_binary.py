@@ -305,6 +305,28 @@ def build_server(cuda=False, rocm=False):
             "unidic_lite",
             "--hidden-import",
             "loguru",
+            # MCP server — Streamable-HTTP endpoint and the 4 voicebox.* tools.
+            # FastMCP pulls in a chain of deps (mcp, cyclopts, openapi-pydantic,
+            # etc.) that don't auto-discover cleanly under PyInstaller, so we
+            # collect them whole. Small compared to torch.
+            "--hidden-import",
+            "backend.mcp_server",
+            "--hidden-import",
+            "backend.mcp_server.server",
+            "--hidden-import",
+            "backend.mcp_server.tools",
+            "--hidden-import",
+            "backend.mcp_server.context",
+            "--hidden-import",
+            "backend.mcp_server.resolve",
+            "--hidden-import",
+            "backend.mcp_server.events",
+            "--collect-all",
+            "fastmcp",
+            "--collect-all",
+            "mcp",
+            "--hidden-import",
+            "sse_starlette",
         ]
     )
 
@@ -413,10 +435,16 @@ def build_server(cuda=False, rocm=False):
                 "mlx_audio.tts",
                 "--hidden-import",
                 "mlx_audio.stt",
+                "--hidden-import",
+                "mlx_lm",
+                "--hidden-import",
+                "backend.backends.qwen_llm_backend",
                 "--collect-submodules",
                 "mlx",
                 "--collect-submodules",
                 "mlx_audio",
+                "--collect-submodules",
+                "mlx_lm",
                 # Use --collect-all so PyInstaller bundles both data files AND
                 # native shared libraries (.dylib, .metallib) for MLX.
                 # Previously only --collect-data was used, which caused MLX to
@@ -426,6 +454,11 @@ def build_server(cuda=False, rocm=False):
                 "mlx",
                 "--collect-all",
                 "mlx_audio",
+                # mlx_lm ships chat_templates/ JSON files and loads tool_parsers
+                # submodules dynamically via importlib at tokenizer load time,
+                # which --hidden-import alone can't resolve.
+                "--collect-all",
+                "mlx_lm",
             ]
         )
     elif not cuda and not rocm:
@@ -636,8 +669,98 @@ def build_server(cuda=False, rocm=False):
     logger.info("Binary built in %s", backend_dir / "dist" / binary_name)
 
 
+def build_shim():
+    """Build the voicebox-mcp stdio shim as a tiny standalone binary.
+
+    This is the bridge for MCP clients that only speak stdio — it proxies
+    JSON-RPC to the main voicebox-server's /mcp endpoint. Keep it small: no
+    torch, no ML deps, just httpx + asyncio.
+    """
+    backend_dir = Path(__file__).parent
+
+    args = [
+        "mcp_shim/__main__.py",
+        "--onefile",
+        "--name",
+        "voicebox-mcp",
+        # Stdio-only — no console hiding needed on Windows since the parent
+        # MCP client is spawning this as a child process and wants stdio.
+        "--hidden-import",
+        "backend.mcp_shim",
+        "--hidden-import",
+        "backend.mcp_shim.__main__",
+        "--hidden-import",
+        "httpx",
+        "--hidden-import",
+        "httpx._transports.default",
+        "--hidden-import",
+        "anyio",
+        # Exclude everything heavy that httpx/asyncio don't actually need so
+        # the binary stays tiny (~15 MB instead of ~400 MB).
+        "--exclude-module",
+        "torch",
+        "--exclude-module",
+        "transformers",
+        "--exclude-module",
+        "mlx",
+        "--exclude-module",
+        "mlx_audio",
+        "--exclude-module",
+        "mlx_lm",
+        "--exclude-module",
+        "qwen_tts",
+        "--exclude-module",
+        "chatterbox",
+        "--exclude-module",
+        "zipvoice",
+        "--exclude-module",
+        "tada",
+        "--exclude-module",
+        "kokoro",
+        "--exclude-module",
+        "misaki",
+        "--exclude-module",
+        "spacy",
+        "--exclude-module",
+        "librosa",
+        "--exclude-module",
+        "numba",
+        "--exclude-module",
+        "numpy",
+        "--exclude-module",
+        "pedalboard",
+        "--exclude-module",
+        "fastapi",
+        "--exclude-module",
+        "uvicorn",
+        "--exclude-module",
+        "sqlalchemy",
+        "--exclude-module",
+        "fastmcp",
+        "--exclude-module",
+        "mcp",
+    ]
+
+    dist_dir = str(backend_dir / "dist")
+    build_dir = str(backend_dir / "build")
+    args.extend(
+        [
+            "--distpath",
+            dist_dir,
+            "--workpath",
+            build_dir,
+            "--noconfirm",
+            "--clean",
+        ]
+    )
+
+    os.chdir(backend_dir)
+    PyInstaller.__main__.run(args)
+    logger.info("Shim built: %s", backend_dir / "dist" / "voicebox-mcp")
+
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Build voicebox-server binary")
+    parser = argparse.ArgumentParser(description="Build voicebox binaries")
     parser.add_argument(
         "--cuda",
         action="store_true",
@@ -648,5 +771,14 @@ if __name__ == "__main__":
         action="store_true",
         help="Build ROCm-enabled binary (voicebox-server-rocm) for AMD GPUs",
     )
+    parser.add_argument(
+        "--shim",
+        action="store_true",
+        help="Build the voicebox-mcp stdio shim binary instead of the server",
+    )
     cli_args = parser.parse_args()
-    build_server(cuda=cli_args.cuda, rocm=cli_args.rocm)
+    if cli_args.shim:
+        build_shim()
+    else:
+        build_server(cuda=cli_args.cuda, rocm=cli_args.rocm)
+

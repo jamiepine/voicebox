@@ -1,5 +1,8 @@
 """Audio file serving endpoints."""
 
+import mimetypes
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
@@ -9,6 +12,16 @@ from ..services import history
 from ..database import get_db
 
 router = APIRouter()
+
+
+def _audio_media_type(path: Path) -> str:
+    """Derive the Content-Type from the file extension.
+
+    Imported audio retains its source format (.mp3, .m4a, .ogg, …) so a
+    blanket ``audio/wav`` would mislead strict clients trying to decode
+    via the response header instead of sniffing the bytes."""
+    guessed, _ = mimetypes.guess_type(path.name)
+    return guessed or "audio/wav"
 
 
 @router.get("/audio/version/{version_id}")
@@ -26,8 +39,8 @@ async def get_version_audio(version_id: str, db: Session = Depends(get_db)):
 
     return FileResponse(
         audio_path,
-        media_type="audio/wav",
-        filename=f"generation_{version.generation_id}_{version.label}.wav",
+        media_type=_audio_media_type(audio_path),
+        filename=f"generation_{version.generation_id}_{version.label}{audio_path.suffix}",
     )
 
 
@@ -44,8 +57,8 @@ async def get_audio(generation_id: str, db: Session = Depends(get_db)):
 
     return FileResponse(
         audio_path,
-        media_type="audio/wav",
-        filename=f"generation_{generation_id}.wav",
+        media_type=_audio_media_type(audio_path),
+        filename=f"generation_{generation_id}{audio_path.suffix}",
     )
 
 

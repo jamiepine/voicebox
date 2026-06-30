@@ -1,17 +1,29 @@
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
+import { DictateWindow } from '@/components/DictateWindow/DictateWindow';
 import ShinyText from '@/components/ShinyText';
 import { TitleBarDragRegion } from '@/components/TitleBarDragRegion';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
+import { useThemeSync } from '@/hooks/useThemeSync';
 import { apiClient } from '@/lib/api/client';
 import type { HealthResponse } from '@/lib/api/types';
+import { useChordSync } from '@/lib/hooks/useChordSync';
 import { TOP_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import { cn } from '@/lib/utils/cn';
 import { usePlatform } from '@/platform/PlatformContext';
 import { router } from '@/router';
 import { useLogStore } from '@/stores/logStore';
-import { useServerStore } from '@/stores/serverStore';
+import {
+  getDefaultServerUrl,
+  isLoopbackVoiceboxServerUrl,
+  useServerStore,
+} from '@/stores/serverStore';
+
+function isDictateView(): boolean {
+  if (typeof window === 'undefined') return false;
+  return new URLSearchParams(window.location.search).get('view') === 'dictate';
+}
 
 /**
  * Validate that a health response has the expected Voicebox-specific shape.
@@ -64,6 +76,19 @@ const LOADING_MESSAGES = [
 ];
 
 function App() {
+  useThemeSync();
+
+  // The dictate window runs in a separate Tauri webview that must skip
+  // server bootstrap (the main window owns that lifecycle) and render only
+  // the floating recording surface. Split into a sibling component so the
+  // main app's hooks are not called on the dictate path.
+  if (isDictateView()) {
+    return <DictateWindow />;
+  }
+  return <MainApp />;
+}
+
+function MainApp() {
   const platform = usePlatform();
   const [serverReady, setServerReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
@@ -72,6 +97,10 @@ function App() {
 
   // Automatically check for app updates on startup and show toast notifications
   useAutoUpdater({ checkOnMount: true, showToast: true });
+
+  // Replay the saved chord into the Rust hotkey listener every time
+  // capture_settings resolves or the user edits the chord.
+  useChordSync();
 
   // Sync stored setting to Rust on startup
   useEffect(() => {
@@ -105,6 +134,11 @@ function App() {
   // Setup window close handler and auto-start server when running in Tauri (production only)
   useEffect(() => {
     if (!platform.metadata.isTauri) {
+      const serverUrl = getDefaultServerUrl();
+      const currentServerUrl = useServerStore.getState().serverUrl;
+      if (currentServerUrl !== serverUrl && isLoopbackVoiceboxServerUrl(currentServerUrl)) {
+        useServerStore.getState().setServerUrl(serverUrl);
+      }
       setServerReady(true); // Web assumes server is running
       return;
     }
