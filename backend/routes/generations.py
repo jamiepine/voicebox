@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, tts
+from ..services import history, personality, profiles, settings as settings_service, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
@@ -80,7 +80,10 @@ async def generate_speech(
     source = "manual"
     if data.personality and getattr(profile, "personality", None):
         try:
-            llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
+            saved = settings_service.get_capture_settings(db)
+            llm_result = await personality.rewrite_as_profile(
+                profile.personality, data.text, model_size=saved.llm_model
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         text = llm_result.text.strip()
