@@ -77,14 +77,7 @@ class QwenCustomVoiceBackend:
 
     def _is_model_cached(self, model_size: Optional[str] = None) -> bool:
         size = model_size or self.model_size
-        cv_repo = self._get_model_path(size)
-        # CustomVoice models depend on the Base model's tokenizer/processor config.
-        # If the Base model is not cached, the AutoProcessor will try to download
-        # it and crash if we force offline mode.
-        base_repo = f"Qwen/Qwen3-TTS-12Hz-{size}-Base"
-        return is_model_cached(cv_repo) and is_model_cached(
-            base_repo, required_files=["preprocessor_config.json"]
-        )
+        return is_model_cached(self._get_model_path(size))
 
     async def load_model_async(self, model_size: Optional[str] = None) -> None:
         if model_size is None:
@@ -107,27 +100,22 @@ class QwenCustomVoiceBackend:
 
         with model_load_progress(model_name, is_cached):
             from qwen_tts import Qwen3TTSModel
-            from huggingface_hub import constants as hf_constants
-            tts_cache_dir = hf_constants.HF_HUB_CACHE
 
             model_path = self._get_model_path(model_size)
             logger.info("Loading Qwen CustomVoice %s on %s...", model_size, self.device)
 
-            with force_offline_if_cached(is_cached, model_name):
-                if self.device == "cpu":
-                    self.model = Qwen3TTSModel.from_pretrained(
-                        model_path,
-                        cache_dir=tts_cache_dir,
-                        torch_dtype=torch.float32,
-                        low_cpu_mem_usage=False,
-                    )
-                else:
-                    self.model = Qwen3TTSModel.from_pretrained(
-                        model_path,
-                        cache_dir=tts_cache_dir,
-                        device_map=self.device,
-                        torch_dtype=torch.bfloat16,
-                    )
+            if self.device == "cpu":
+                self.model = Qwen3TTSModel.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.float32,
+                    low_cpu_mem_usage=False,
+                )
+            else:
+                self.model = Qwen3TTSModel.from_pretrained(
+                    model_path,
+                    device_map=self.device,
+                    torch_dtype=torch.bfloat16,
+                )
 
         self._current_model_size = model_size
         self.model_size = model_size

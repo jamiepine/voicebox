@@ -283,8 +283,10 @@ async def _download_rocm_binary_locked(version: Optional[str] = None):
         status="downloading",
     )
 
+    # Server core and libs archive are both published under the app-version
+    # release tag; the libs content version is encoded in the filename only.
     server_base_url = f"{GITHUB_RELEASES_URL}/{version}"
-    libs_base_url = f"{GITHUB_RELEASES_URL}/{ROCM_LIBS_VERSION}"
+    libs_base_url = server_base_url
     server_archive = "voicebox-server-rocm.tar.gz"
     libs_archive = f"rocm-libs-{ROCM_LIBS_VERSION}.tar.gz"
 
