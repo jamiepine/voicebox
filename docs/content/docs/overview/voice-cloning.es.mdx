@@ -1,0 +1,118 @@
+---
+title: "Clonación de voz"
+description: "Clona cualquier voz a partir de unos segundos de audio de referencia"
+---
+
+## Resumen
+
+Voicebox puede replicar la voz de una persona concreta a partir de una muestra de audio corta, lo que se conoce como **clonación de voz zero-shot**. Tú proporcionas entre 10 y 30 segundos de habla clara, el modelo extrae un embedding de voz y, a partir de ahí, puedes generar cualquier texto con esa voz.
+
+Cinco motores en 0.4 admiten clonación:
+
+| Motor                       | Idiomas   | Puntos fuertes                                                             |
+| --------------------------- | --------- | -------------------------------------------------------------------------- |
+| **Qwen3-TTS** (0.6B / 1.7B) | 10        | Multilingüe de alta calidad, admite instrucciones de interpretación en el mismo kwarg |
+| **Chatterbox Multilingual** | 23        | La cobertura de idiomas más amplia: árabe, hindi, suajili, hebreo y más    |
+| **Chatterbox Turbo**        | Inglés    | Modelo rápido de 350M con etiquetas paralingüísticas de emoción (`[laugh]`, `[sigh]`) |
+| **LuxTTS**                  | Inglés    | Ligero (~1 GB de VRAM), salida a 48 kHz, 150x tiempo real en CPU           |
+| **TADA** (1B / 3B)          | 10        | Modelo de lenguaje de voz con generación coherente de formato largo de más de 700s |
+
+<Callout type="info">
+  ¿No quieres grabar audio? Usa en su lugar una voz curada de Kokoro o Qwen CustomVoice; consulta [Voces predefinidas](./preset-voices.mdx).
+</Callout>
+
+## Cómo funciona
+
+<Steps>
+  <Step title="Sube o graba una muestra">
+    Proporciona entre 10 y 30 segundos de habla clara de la voz objetivo
+  </Step>
+  <Step title="Análisis del motor">
+    El motor seleccionado analiza las características vocales, el tono y los patrones de habla
+  </Step>
+  <Step title="Perfil de voz creado">
+    Se genera un embedding de voz y se almacena con tu perfil
+  </Step>
+  <Step title="Generar voz">
+    Usa el perfil para generar cualquier texto con la voz clonada
+  </Step>
+</Steps>
+
+## Elegir un motor para clonar
+
+Distintos motores se adaptan a distintos casos de uso. La cuadrícula de perfiles atenúa los motores no compatibles para que puedas cambiar fácilmente.
+
+| Si quieres…                                        | Elige                 |
+| -------------------------------------------------- | --------------------- |
+| La mejor calidad general en unos pocos idiomas comunes | **Qwen3-TTS 1.7B**    |
+| Generación más rápida, calidad ligeramente inferior | **Qwen3-TTS 0.6B**    |
+| Idiomas fuera de los 10 de Qwen (árabe, hindi, etc.) | **Chatterbox Multilingual** |
+| Inglés expresivo con etiquetas `[laugh]` `[sigh]`  | **Chatterbox Turbo**  |
+| Configuración solo con CPU o GPU ligera, inglés    | **LuxTTS**            |
+| Generación de formato largo (audiolibros, capítulos completos) | **TADA 3B**           |
+
+## Buenas prácticas
+
+### Calidad de la muestra
+
+<Cards>
+  <Card title="Sí">
+    - Usa entre 10 y 30 segundos de audio
+    - Habla clara y constante
+    - Ruido de fondo mínimo
+    - Ritmo de habla natural
+  </Card>
+  <Card title="No">
+    - Clips muy cortos (< 5 segundos)
+    - Ruido de fondo fuerte
+    - Música o voces superpuestas
+    - Audio muy procesado
+  </Card>
+</Cards>
+
+### Múltiples muestras
+
+Añadir varias muestras del mismo hablante puede mejorar la calidad:
+
+- Distintos estilos de habla (informal, formal)
+- Distintas emociones (alegre, serio)
+- Distintas condiciones de grabación
+
+<Callout type="info">
+  El modelo aprenderá una representación más robusta a partir de muestras diversas. Resulta especialmente útil para voces distintivas que, de otro modo, el modelo podría suavizar.
+</Callout>
+
+## Idiomas admitidos por motor
+
+- **Qwen3-TTS** — inglés, chino, japonés, coreano, alemán, francés, ruso, portugués, español, italiano (10)
+- **Chatterbox Multilingual** — árabe, chino, danés, neerlandés, inglés, finés, francés, alemán, griego, hebreo, hindi, italiano, japonés, coreano, malayo, noruego, polaco, portugués, ruso, español, suajili, sueco, turco (23)
+- **Chatterbox Turbo** — inglés
+- **LuxTTS** — inglés
+- **TADA 3B** — 10 multilingües; **TADA 1B** — inglés
+
+Para ver las tablas completas de idiomas y las notas específicas de cada motor, consulta la [guía de desarrollo de motores TTS](/developer/tts-engines).
+
+## Limitaciones
+
+<Callout type="warn">
+  La clonación de voz solo debe usarse con consentimiento. Asegúrate de tener permiso para clonar la voz de alguien. Consulta el [SECURITY.md](https://github.com/jamiepine/voicebox/blob/main/SECURITY.md) del proyecto y tus leyes locales sobre contenido de voz sintética.
+</Callout>
+
+- La calidad depende de la claridad de la muestra: las muestras ruidosas producen clones ruidosos
+- Funciona mejor con un tono de habla constante dentro de una muestra
+- Puede tener dificultades con acentos extremos o impedimentos del habla
+- El ruido de fondo reduce la calidad y puede introducir artefactos
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Crear perfiles de voz" href="/overview/creating-voice-profiles">
+    Guía paso a paso para crear perfiles
+  </Card>
+  <Card title="Voces predefinidas" href="/overview/preset-voices">
+    Usa voces integradas en lugar de clonar
+  </Card>
+  <Card title="Generar voz" href="/overview/generating-speech">
+    Usa un perfil para generar audio
+  </Card>
+</Cards>
