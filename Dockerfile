@@ -45,18 +45,13 @@ RUN pip install --no-cache-dir --upgrade pip
 
 COPY backend/requirements.txt .
 
-# ROCm version to pull PyTorch wheels for. Default is 6.3 (supports RDNA1/2/3).
-# Set ROCM_VERSION=7.2 for RDNA 4 (RX 9000 series) support.
+# ROCm wheel index. Default 6.3 (RDNA1/2/3); set ROCM_VERSION=7.2 for RDNA4.
 ARG ROCM_VERSION=6.3
 
-# When building the ROCm variant, install the ROCm-enabled PyTorch wheels
-# first so that the subsequent requirements.txt install sees them as already
-# satisfying the torch/torchaudio constraints and leaves them in place.
-# The CPU path skips this step and installs torch from PyPI as before.
+# For ROCm, make the PyTorch ROCm index primary so every install below resolves
+# torch to ROCm wheels instead of the default CUDA build.
 RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
-      pip install --no-cache-dir --prefix=/install \
-        torch torchaudio \
-        --index-url "https://download.pytorch.org/whl/rocm${ROCM_VERSION}"; \
+      printf '[global]\nindex-url = https://download.pytorch.org/whl/rocm%s\nextra-index-url = https://pypi.org/simple\n' "$ROCM_VERSION" > /etc/pip.conf; \
     fi
 
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
@@ -69,37 +64,17 @@ RUN pip install --no-cache-dir --prefix=/install \
 # === Stage 3: Runtime ===
 FROM python:3.11-slim
 
-# Re-declare ARG inside the stage (Docker scoping requirement).
-ARG PYTORCH_VARIANT=cpu
-
-# ROCm device access requires the container user to belong to the render
-# and video groups. GIDs are parameterised to match the host; Ubuntu 22.04+
-# defaults are used here. Override via env vars (docker-compose.rocm.yml
-# passes them through automatically):
-#   export RENDER_GID=$(getent group render | cut -d: -f3)
-#   export VIDEO_GID=$(getent group video  | cut -d: -f3)
-ARG RENDER_GID=992
-ARG VIDEO_GID=44
-RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
-      groupadd -f -g ${RENDER_GID} render && \
-      groupadd -f -g ${VIDEO_GID}  video; \
-    fi
-
-# Create non-root user for security
+# Create non-root user; the entrypoint joins GPU device groups at runtime.
 RUN groupadd -r voicebox && \
     useradd -r -g voicebox -m -s /bin/bash voicebox
 
-# ROCm: add voicebox user to render+video so it can open /dev/kfd and /dev/dri.
-RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
-      usermod -aG render,video voicebox; \
-    fi
-
 WORKDIR /app
 
-# Install only runtime system dependencies
+# Install only runtime system dependencies (gosu drops root in the entrypoint)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder stage
@@ -115,9 +90,6 @@ COPY --from=frontend --chown=voicebox:voicebox /build/web/dist /app/frontend/
 RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache \
     && chown -R voicebox:voicebox /app/data
 
-# Switch to non-root user
-USER voicebox
-
 # Expose the API port
 EXPOSE 17493
 
@@ -125,5 +97,7 @@ EXPOSE 17493
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
     CMD curl -f http://localhost:17493/health || exit 1
 
-# Start the FastAPI server
+# Entrypoint joins GPU groups then drops to the voicebox user
+COPY --chmod=755 scripts/rocm-entrypoint.sh /usr/local/bin/entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "17493"]

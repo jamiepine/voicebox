@@ -1,24 +1,11 @@
+---
 # ROCm (AMD GPU) overlay for Voicebox
 #
-# Usage:
 #   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
 #
-# Prerequisites on the host:
-#   1. ROCm drivers installed — https://rocm.docs.amd.com/projects/install-on-linux
-#   2. Current user in the 'render' and 'video' groups:
-#        sudo usermod -aG render,video $USER   (then log out/in)
-#
-# If the render/video GIDs on your host differ from the Ubuntu 22.04 defaults
-# (render=992, video=44), export them before running compose so the build arg
-# and group_add values both stay in sync automatically:
-#   export RENDER_GID=$(getent group render | cut -d: -f3)
-#   export VIDEO_GID=$(getent group video  | cut -d: -f3)
-#   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
-#
-# ROCm version (ROCM_VERSION):
-#   Default is 6.3 (supports RDNA1/2/3). For RDNA 4 (RX 9000 series) use 7.2:
-#   export ROCM_VERSION=7.2
-#   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
+# Requires ROCm drivers on the host:
+# https://rocm.docs.amd.com/projects/install-on-linux
+# RDNA4 (RX 9000): export ROCM_VERSION=7.2 (default 6.3 covers RDNA1-3).
 
 services:
   voicebox:
@@ -26,39 +13,24 @@ services:
       context: .
       args:
         PYTORCH_VARIANT: rocm
-        # These build args read from env vars so a single export covers both the
-        # Dockerfile group creation and the runtime group_add below.
-        RENDER_GID: ${RENDER_GID:-992}
-        VIDEO_GID: ${VIDEO_GID:-44}
         ROCM_VERSION: ${ROCM_VERSION:-6.3}
 
-    # Pass the AMD GPU device nodes into the container.
-    # /dev/kfd  — ROCm compute interface (required for GPU inference)
-    # /dev/dri  — DRM render nodes (required for display/memory access)
     devices:
       - /dev/kfd
       - /dev/dri
-
-    # Grant access to the render and video groups so the non-root user
-    # inside the container can open the GPU device nodes.
-    # These reference the same env vars used in build.args above so a
-    # single export keeps Dockerfile groups and runtime group_add in sync.
-    group_add:
-      - "${RENDER_GID:-992}"   # render
-      - "${VIDEO_GID:-44}"     # video
 
     environment:
       # HSA_OVERRIDE_GFX_VERSION forces the ROCm runtime to treat the GPU as a
       # specific GFX version when auto-detection fails or the GPU is newer than
       # the ROCm release. app.py sets 10.3.0 (RDNA2) by default; override here
       # for your GPU family:
-      #   RDNA4 / RX 9000 series:              12.0.0  (requires ROCM_VERSION=7.2)
+      #   RDNA4 / RX 9000 series:              12.0.0
+      #                                           (requires ROCM_VERSION=7.2)
       #   RDNA3 / RX 7000 series / Strix Halo: 11.0.0
       #   RDNA2 / RX 6000 series:              10.3.0
       #   RDNA1 / RX 5000 series:              10.1.0
       #   Vega / GCN5:                          9.0.0
-      - HSA_OVERRIDE_GFX_VERSION=11.0.0
+      - HSA_OVERRIDE_GFX_VERSION=${HSA_OVERRIDE_GFX_VERSION:-}
 
-      # Tune the ROCm memory allocator to reduce fragmentation during
-      # multi-engine inference (TTS + STT + LLM running concurrently).
+      # Tune the ROCm memory allocator
       - PYTORCH_HIP_ALLOC_CONF=garbage_collection_threshold:0.8,max_split_size_mb:512
