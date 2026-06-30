@@ -1101,6 +1101,17 @@ async fn paste_final_text(
     Ok(true)
 }
 
+/// Leave the final transcript on the system clipboard.
+///
+/// This is intentionally separate from `paste_final_text`: auto-paste keeps
+/// using save/write/paste/restore so it does not clobber existing clipboard
+/// contents unless the user opts into this explicit SuperWhisper-style mode.
+#[command]
+fn copy_text_to_clipboard(text: String) -> Result<(), String> {
+    clipboard::write_text(&text)?;
+    Ok(())
+}
+
 /// Inspect the currently focused UI element. Returns the owning app's PID,
 /// bundle id, and AX role. Useful for sanity-checking the focus pipeline
 /// before committing to a paste.
@@ -1372,6 +1383,7 @@ pub fn run() {
             open_accessibility_settings,
             open_input_monitoring_settings,
             paste_final_text,
+            copy_text_to_clipboard,
             enable_hotkey,
             disable_hotkey,
             update_chord_bindings
