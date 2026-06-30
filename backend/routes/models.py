@@ -2,19 +2,100 @@
 
 import asyncio
 import shutil
+from contextlib import suppress
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
 
-from .. import models
-from ..utils.platform_detect import get_backend_type
+from .. import config as backend_config, models
 from ..services.task_queue import create_background_task
 from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
 
 router = APIRouter()
+MODEL_CACHE_DIR_PREFIX = "models--"
+
+
+def _resolve_missing_leaf(path: Path) -> Path:
+    """Resolve a path whose final component may not exist yet."""
+    try:
+        return path.resolve(strict=True)
+    except FileNotFoundError:
+        try:
+            return path.parent.resolve(strict=True) / path.name
+        except FileNotFoundError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="Destination parent directory does not exist",
+            ) from exc
+
+
+def _resolve_migration_destination(raw_destination: str, source: Path) -> Path:
+    """Resolve and constrain a model migration destination.
+
+    The API is unauthenticated, so migration is only allowed into Voicebox's
+    app-owned model storage root or one direct child of that root.
+    """
+    if not raw_destination.strip():
+        raise HTTPException(status_code=400, detail="Destination is required")
+
+    owned_root_path = backend_config.get_models_dir()
+    if owned_root_path.is_symlink():
+        raise HTTPException(status_code=400, detail="Voicebox models directory cannot be a symlink")
+
+    owned_root = owned_root_path.resolve()
+    requested = Path(raw_destination).expanduser()
+    candidate = requested if requested.is_absolute() else owned_root / requested
+    if candidate.is_symlink():
+        raise HTTPException(status_code=400, detail="Destination cannot be a symlink")
+
+    destination = _resolve_missing_leaf(candidate)
+
+    try:
+        relative_destination = destination.relative_to(owned_root)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Destination must be inside the Voicebox-owned models directory",
+        ) from exc
+
+    if len(relative_destination.parts) > 1:
+        raise HTTPException(
+            status_code=400,
+            detail="Destination must be the Voicebox models directory or one direct child",
+        )
+
+    source = source.resolve()
+    if source == destination:
+        raise HTTPException(status_code=400, detail="Source and destination are the same directory")
+
+    if destination.is_relative_to(source):
+        raise HTTPException(status_code=400, detail="Destination cannot be inside the current cache directory")
+
+    return destination
+
+
+def _model_cache_dirs(source: Path) -> list[Path]:
+    """Return top-level HuggingFace model cache directories eligible to migrate."""
+    return [
+        item
+        for item in source.iterdir()
+        if item.name.startswith(MODEL_CACHE_DIR_PREFIX) and item.is_dir() and not item.is_symlink()
+    ]
+
+
+def _validate_no_destination_collisions(model_dirs: list[Path], destination: Path) -> None:
+    """Prevent migration from deleting or overwriting destination model dirs."""
+    collisions = [
+        item.name for item in model_dirs if (destination / item.name).exists() or (destination / item.name).is_symlink()
+    ]
+    if collisions:
+        names = ", ".join(sorted(collisions))
+        raise HTTPException(
+            status_code=409,
+            detail=f"Destination already contains model cache directories: {names}",
+        )
 
 
 def _get_dir_size(path: Path) -> int:
@@ -123,32 +204,26 @@ async def migrate_models(request: models.ModelMigrateRequest):
     """Move all downloaded models to a new directory with byte-level progress via SSE."""
     from huggingface_hub import constants as hf_constants
 
-    source = Path(hf_constants.HF_HUB_CACHE)
-    destination = Path(request.destination)
+    source = Path(hf_constants.HF_HUB_CACHE).resolve()
 
     if not source.exists():
         raise HTTPException(status_code=404, detail="Current model cache directory not found")
 
-    if source.resolve() == destination.resolve():
-        raise HTTPException(status_code=400, detail="Source and destination are the same directory")
-
-    if destination.resolve().is_relative_to(source.resolve()):
-        raise HTTPException(status_code=400, detail="Destination cannot be inside the current cache directory")
+    destination = _resolve_migration_destination(request.destination, source)
 
     progress_manager = get_progress_manager()
-    model_dirs = [d for d in source.iterdir() if d.name.startswith("models--") and d.is_dir()]
+    model_dirs = _model_cache_dirs(source)
     if not model_dirs:
         progress_manager.update_progress("migration", 1, 1, status="complete")
         progress_manager.mark_complete("migration")
         return {"moved": 0, "errors": [], "source": str(source), "destination": str(destination)}
 
+    _validate_no_destination_collisions(model_dirs, destination)
     destination.mkdir(parents=True, exist_ok=True)
 
     same_fs = False
-    try:
+    with suppress(OSError):
         same_fs = source.stat().st_dev == destination.stat().st_dev
-    except OSError:
-        pass
 
     async def migrate_background():
         moved = 0
@@ -159,8 +234,6 @@ async def migrate_models(request: models.ModelMigrateRequest):
                 for i, item in enumerate(model_dirs):
                     dest_item = destination / item.name
                     try:
-                        if dest_item.exists():
-                            shutil.rmtree(dest_item)
                         shutil.move(str(item), str(dest_item))
                         moved += 1
                         progress_manager.update_progress(
@@ -171,7 +244,7 @@ async def migrate_models(request: models.ModelMigrateRequest):
                             status="downloading",
                         )
                     except Exception as e:
-                        errors.append(f"{item.name}: {str(e)}")
+                        errors.append(f"{item.name}: {e!s}")
             else:
                 total_bytes = sum(_get_dir_size(d) for d in model_dirs)
                 progress_manager.update_progress(
@@ -182,15 +255,13 @@ async def migrate_models(request: models.ModelMigrateRequest):
                 for item in model_dirs:
                     dest_item = destination / item.name
                     try:
-                        if dest_item.exists():
-                            shutil.rmtree(dest_item)
                         copied = await asyncio.to_thread(
                             _copy_with_progress, item, dest_item, progress_manager, copied, total_bytes
                         )
                         await asyncio.to_thread(shutil.rmtree, str(item))
                         moved += 1
                     except Exception as e:
-                        errors.append(f"{item.name}: {str(e)}")
+                        errors.append(f"{item.name}: {e!s}")
 
             progress_manager.update_progress("migration", 1, 1, status="complete")
             progress_manager.mark_complete("migration")
@@ -228,7 +299,6 @@ async def get_model_status():
     """Get status of all available models."""
     from huggingface_hub import constants as hf_constants
 
-    backend_type = get_backend_type()
     task_manager = get_task_manager()
 
     active_download_names = {task.model_name for task in task_manager.get_active_downloads()}
@@ -240,7 +310,7 @@ async def get_model_status():
     except ImportError:
         use_scan_cache = False
 
-    from ..backends import get_all_model_configs, check_model_loaded
+    from ..backends import check_model_loaded, get_all_model_configs
 
     registry_configs = get_all_model_configs()
     model_configs = [
@@ -445,6 +515,7 @@ async def cancel_model_download(request: models.ModelDownloadRequest):
 async def delete_model(model_name: str):
     """Delete a downloaded model from the HuggingFace cache."""
     from huggingface_hub import constants as hf_constants
+
     from ..backends import get_model_config, unload_model_by_config
 
     config = get_model_config(model_name)
