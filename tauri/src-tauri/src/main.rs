@@ -200,10 +200,39 @@ struct ServerState {
     server_pid: Mutex<Option<u32>>,
     keep_running_on_close: Mutex<bool>,
     models_dir: Mutex<Option<String>>,
-    /// Override the backend selection. When set to Some("cpu"), forces the CPU
-    /// sidecar even if GPU binaries exist on disk. This solves the Windows
-    /// catch-22 where an active .exe cannot be deleted.
+    /// Override the backend selection: Some("cpu") forces the CPU sidecar even
+    /// when GPU binaries exist (solving the Windows catch-22 where an active
+    /// .exe cannot be deleted), while Some("cuda")/Some("rocm") pin a specific
+    /// GPU variant when more than one is installed. None uses the on-disk
+    /// default (ROCm preferred, then CUDA). Persisted to disk so the choice
+    /// survives an app restart.
     backend_override: Mutex<Option<String>>,
+}
+
+fn backend_override_file(data_dir: &std::path::Path) -> std::path::PathBuf {
+    data_dir.join("backend_override")
+}
+
+fn read_persisted_backend_override(data_dir: &std::path::Path) -> Option<String> {
+    std::fs::read_to_string(backend_override_file(data_dir))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+fn write_persisted_backend_override(data_dir: &std::path::Path, value: Option<&str>) {
+    let path = backend_override_file(data_dir);
+    match value {
+        Some(v) => {
+            let _ = std::fs::create_dir_all(data_dir);
+            if let Err(e) = std::fs::write(&path, v) {
+                println!("Failed to persist backend override: {}", e);
+            }
+        }
+        None => {
+            let _ = std::fs::remove_file(&path);
+        }
+    }
 }
 
 /// Run `<exe> --version` with a 10-second timeout to avoid hanging Tauri startup.
@@ -521,8 +550,23 @@ async fn start_server(
         println!("Custom models directory: {}", dir);
     }
 
-    // Respect backend override (e.g., user wants CPU even though GPU binary exists)
-    let backend_override = state.backend_override.lock().unwrap().clone();
+    // Respect backend override (e.g., user wants CPU even though a GPU binary
+    // exists, or pinned a specific GPU variant). The in-memory value resets to
+    // None on app launch, so fall back to the persisted choice on disk.
+    let backend_override = {
+        let in_memory = state.backend_override.lock().unwrap().clone();
+        in_memory.or_else(|| read_persisted_backend_override(&data_dir))
+    };
+
+    // Honor a pinned GPU variant by ignoring the other one — but only when the
+    // pinned variant is actually installed, so a stale pin to a deleted backend
+    // self-heals to the default order instead of forcing CPU. With no pin, both
+    // stay eligible and the launch order below prefers ROCm, then CUDA.
+    let pin = backend_override.as_deref();
+    let pin_cuda = pin == Some("cuda") && cuda_binary.is_some();
+    let pin_rocm = pin == Some("rocm") && rocm_binary.is_some();
+    let rocm_binary = if pin_cuda { None } else { rocm_binary };
+    let cuda_binary = if pin_rocm { None } else { cuda_binary };
 
     // If ROCm binary exists, launch it from the onedir directory.
     // If CUDA binary exists, launch it from the onedir directory.
@@ -864,8 +908,15 @@ fn set_keep_server_running(state: State<'_, ServerState>, keep_running: bool) {
 }
 
 #[command]
-fn set_backend_override(state: State<'_, ServerState>, backend: Option<String>) {
+fn set_backend_override(
+    app: tauri::AppHandle,
+    state: State<'_, ServerState>,
+    backend: Option<String>,
+) {
     println!("set_backend_override called with: {:?}", backend);
+    if let Ok(data_dir) = app.path().app_data_dir() {
+        write_persisted_backend_override(&data_dir, backend.as_deref());
+    }
     *state.backend_override.lock().unwrap() = backend;
 }
 

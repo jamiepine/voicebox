@@ -442,7 +442,8 @@ class HealthResponse(BaseModel):
     gpu_type: Optional[str] = None  # GPU type (CUDA, MPS, or None)
     vram_used_mb: Optional[float] = None
     backend_type: Optional[str] = None  # Backend type (mlx or pytorch)
-    backend_variant: Optional[str] = None  # Binary variant (cpu or cuda)
+    backend_variant: Optional[str] = None  # Binary variant (cpu, cuda, or rocm)
+    supports_rocm: bool = False  # AMD GPU on Windows — the ROCm backend is applicable
     gpu_compatibility_warning: Optional[str] = None  # Warning if GPU arch unsupported
 
 

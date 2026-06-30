@@ -161,6 +161,9 @@ export function GpuPage() {
   const cudaDownloading = cudaStatus?.downloading ?? false;
   const rocmAvailable = rocmStatus?.available ?? false;
   const rocmDownloading = rocmStatus?.downloading ?? false;
+  // The ROCm backend only applies to AMD GPUs on Windows. Show the section when
+  // the backend detects applicable hardware, or it is already downloaded/active.
+  const supportsRocm = (health?.supports_rocm ?? false) || rocmAvailable || isCurrentlyRocm;
 
   useEffect(() => {
     return () => {
@@ -318,14 +321,6 @@ export function GpuPage() {
     }
   };
 
-  const handleRestart = async () => {
-    setError(null);
-    try {
-      await restartServerWithPolling(t('settings.gpu.errors.restartFailed'));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : t('settings.gpu.errors.restartFailed'));
-    }
-  };
 
   const handleSwitchToCpu = async () => {
     setError(null);
@@ -506,6 +501,7 @@ export function GpuPage() {
             )}
           </SettingSection>
 
+          {supportsRocm && (
           <SettingSection
             title={t('settings.gpu.rocm.title')}
             description={t('settings.gpu.rocm.description')}
@@ -579,6 +575,7 @@ export function GpuPage() {
               </>
             )}
           </SettingSection>
+          )}
         </>
       )}
 

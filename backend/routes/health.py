@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .. import config, models
 from ..services import tts
 from ..database import get_db
-from ..utils.platform_detect import get_backend_type
+from ..utils.platform_detect import get_backend_type, is_amd_gpu_windows
 
 router = APIRouter()
 
@@ -186,6 +186,7 @@ async def health():
         vram_used_mb=vram_used,
         backend_type=backend_type,
         backend_variant=os.environ.get("VOICEBOX_BACKEND_VARIANT", default_variant),
+        supports_rocm=is_amd_gpu_windows(),
         gpu_compatibility_warning=gpu_compat_warning,
     )
 

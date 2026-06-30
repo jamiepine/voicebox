@@ -4,6 +4,7 @@ Platform detection for backend selection.
 
 import platform
 import subprocess
+from functools import lru_cache
 from typing import Literal
 
 
@@ -17,6 +18,7 @@ def is_apple_silicon() -> bool:
     return platform.system() == "Darwin" and platform.machine() == "arm64"
 
 
+@lru_cache(maxsize=1)
 def is_amd_gpu_windows() -> bool:
     """
     Check if the primary GPU on Windows is an AMD Radeon card.
@@ -24,6 +26,9 @@ def is_amd_gpu_windows() -> bool:
     Uses WMI to query Win32_VideoController, with a fallback to
     torch.cuda.get_device_name(0) if WMI is unavailable.  This is
     useful for deciding whether the ROCm backend is appropriate.
+
+    Result is cached since it shells out to PowerShell and the GPU
+    does not change at runtime — safe to call from the health path.
 
     Returns:
         True if an AMD GPU is detected on Windows, False otherwise.

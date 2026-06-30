@@ -9,11 +9,20 @@ Usage:
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from backend.utils.platform_detect import is_amd_gpu_windows
 
 
 class TestAmdGpuWindows:
     """Unit tests for is_amd_gpu_windows with mocks."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_detection_cache(self):
+        # is_amd_gpu_windows is memoized; reset between cases so each mock takes effect.
+        is_amd_gpu_windows.cache_clear()
+        yield
+        is_amd_gpu_windows.cache_clear()
 
     @patch("backend.utils.platform_detect.platform.system", return_value="Linux")
     def test_returns_false_on_linux(self, _mock_system):
