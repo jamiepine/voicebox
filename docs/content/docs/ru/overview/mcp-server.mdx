@@ -112,13 +112,19 @@ JSON-RPC из stdio в Streamable HTTP. Чтобы это работало, са
 
 ### `voicebox.speak`
 
+Обязателен только `text`. `profile` можно передать по имени или id; если его
+не указать, Voicebox использует клиентскую привязку, а затем глобальный профиль
+по умолчанию. `engine` принимает значения `qwen`, `qwen_custom_voice`, `luxtts`,
+`chatterbox`, `chatterbox_turbo`, `tada` или `kokoro`. `personality: true`
+переписывает текст через personality LLM профиля перед TTS.
+
 ```ts
 voicebox.speak({
   text: "Deploy complete.",
-  profile?: "Morgan",            // имя или id; если не передано, берётся клиентская привязка, затем глобальный default
-  engine?: "qwen",               // qwen | qwen_custom_voice | luxtts | chatterbox | chatterbox_turbo | tada | kokoro
-  personality?: true,            // переписать текст через personality LLM профиля перед TTS; значение по умолчанию может идти из клиентской привязки
-  language?: "en",
+  profile: "Morgan",
+  engine: "qwen",
+  personality: true,
+  language: "en",
 })
 ```
 
@@ -139,12 +145,15 @@ voicebox.speak({
 
 ### `voicebox.transcribe`
 
+Передайте ровно один источник аудио: `audio_base64` или `audio_path`.
+Поля `language` и `model` необязательны; `model` принимает значения `base`,
+`small`, `medium`, `large` или `turbo`.
+
 ```ts
 voicebox.transcribe({
-  audio_base64?: "<base64>",    // нужно передать ровно одно из двух полей
-  audio_path?: "/absolute/path/to/file.wav",
-  language?: "en",
-  model?: "turbo",              // base | small | medium | large | turbo
+  audio_path: "/absolute/path/to/file.wav",
+  language: "en",
+  model: "turbo",
 })
 ```
 
