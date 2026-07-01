@@ -6,10 +6,8 @@ the master key and recovery phrase never appear in anything sent to the server.
 """
 
 import base64
-import json
 from datetime import datetime
 
-import httpx
 import keyring
 import keyring.backend
 import pytest
@@ -20,6 +18,7 @@ from backend.database.models import Base, CloudSettings
 from backend.services import cloud_account, cloud_crypto, cloud_keys
 from backend.services.cloud_account import CloudAccountError
 from backend.services.cloud_api import CloudApiClient
+from backend.tests.fake_cloud import FakeCloud
 
 USER_A = "user-a"
 
@@ -39,57 +38,6 @@ class InMemoryKeyring(keyring.backend.KeyringBackend):
 
     def delete_password(self, service, username):
         self.store.pop((service, username), None)
-
-
-class FakeCloud:
-    """Just enough of the cloud API for the identity flows, plus a transcript
-    of every request body so tests can assert what the server was shown."""
-
-    def __init__(self):
-        self.devices: dict[str, dict] = {}
-        self.account_key: dict | None = None
-        self.seen_bodies: list[bytes] = []
-        self._next_id = 0
-
-    def transport(self) -> httpx.MockTransport:
-        return httpx.MockTransport(self.handle)
-
-    def handle(self, request: httpx.Request) -> httpx.Response:
-        if request.content:
-            self.seen_bodies.append(request.content)
-        path, method = request.url.path, request.method
-
-        if path == "/v1/devices" and method == "POST":
-            body = json.loads(request.content)
-            self._next_id += 1
-            device_id = f"dev-{self._next_id}"
-            self.devices[device_id] = {
-                "id": device_id,
-                "name": body["name"],
-                "publicKey": body["publicKey"],
-                "wrappedMasterKey": None,
-                "revokedAt": None,
-            }
-            return self._ok({"deviceId": device_id, "accountHasKey": self.account_key is not None}, 201)
-        if path == "/v1/devices" and method == "GET":
-            return self._ok(list(self.devices.values()))
-        if path == "/v1/devices/account-key" and method == "PUT":
-            self.account_key = json.loads(request.content)
-            return self._ok(None)
-        if path == "/v1/devices/account-key" and method == "GET":
-            return self._ok(self.account_key)
-        if path.endswith("/wrapped-key") and method == "POST":
-            device_id = path.split("/")[3]
-            self.devices[device_id]["wrappedMasterKey"] = json.loads(request.content)["wrappedMasterKey"]
-            return self._ok(None)
-        if path.endswith("/wrapped-key") and method == "GET":
-            device_id = path.split("/")[3]
-            return self._ok({"wrappedMasterKey": self.devices[device_id]["wrappedMasterKey"]})
-        return httpx.Response(404, json={"ok": False, "error": {"message": f"unhandled {method} {path}"}})
-
-    @staticmethod
-    def _ok(data, status=200):
-        return httpx.Response(status, json={"ok": True, "data": data})
 
 
 @pytest.fixture

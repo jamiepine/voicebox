@@ -285,13 +285,16 @@ def _migrate_mcp_bindings(engine, inspector, tables: set[str]) -> None:
 
 
 def _migrate_cloud_settings(engine, inspector, tables: set[str]) -> None:
-    """Add ``sync_device_id`` — the server-assigned id from registering this
-    install as an encryption-capable sync device."""
+    """Add the cloud sync columns: ``sync_device_id`` (the server-assigned id
+    from registering this install as an encryption-capable sync device) and
+    ``sync_cursor`` (highest applied seq from the sync feed)."""
     if "cloud_settings" not in tables:
         return
     columns = _get_columns(inspector, "cloud_settings")
     if "sync_device_id" not in columns:
         _add_column(engine, "cloud_settings", "sync_device_id VARCHAR", "sync_device_id")
+    if "sync_cursor" not in columns:
+        _add_column(engine, "cloud_settings", "sync_cursor INTEGER NOT NULL DEFAULT 0", "sync_cursor")
 
 
 def _supports_drop_column(engine) -> bool:
