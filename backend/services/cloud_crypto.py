@@ -78,6 +78,11 @@ def generate_device_keypair() -> tuple[bytes, bytes]:
     return bytes(private), bytes(private.public_key)
 
 
+def device_public_key(device_private_key: bytes) -> bytes:
+    """Re-derive the public half from a stored private key."""
+    return bytes(PrivateKey(device_private_key).public_key)
+
+
 def wrap_master_key_for_device(master_key: bytes, device_public_key: bytes) -> bytes:
     """Seal MK to another device's public key (run on an *existing* device when
     provisioning a new one). Only the target device's private key can open it."""

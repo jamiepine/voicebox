@@ -253,6 +253,10 @@ class CloudSettings(Base):
     device_name = Column(String, nullable=True)
     account_user_id = Column(String, nullable=True)
     connected_at = Column(DateTime, nullable=True)
+    # Server-assigned sync device id (device table on the cloud side). Set when
+    # this install registers as an encryption-capable device; the matching
+    # X25519 private key lives in the OS keychain (services/cloud_keys.py).
+    sync_device_id = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
