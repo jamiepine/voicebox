@@ -813,3 +813,41 @@ class CloudStatusResponse(BaseModel):
     account_user_id: Optional[str] = None
     key_prefix: Optional[str] = None
     connected_at: Optional[datetime] = None
+
+
+class CloudSyncSetupResponse(BaseModel):
+    """Result of registering this install as a sync device.
+
+    ``recovery_phrase`` is present exactly once, when this device minted the
+    account's key material (first device). The UI must force-display it and
+    never persist it. When absent, the account already has key material and
+    this device is awaiting provisioning (wrapped key from an existing device,
+    or a recovery-phrase restore)."""
+
+    status: str  # unregistered | awaiting_provision | ready
+    device_id: Optional[str] = None
+    recovery_phrase: Optional[str] = None
+
+
+class CloudSyncStatusResponse(BaseModel):
+    """Sync identity + progress for the settings UI."""
+
+    status: str  # unregistered | awaiting_provision | ready
+    device_id: Optional[str] = None
+    sync_cursor: int = 0
+
+
+class CloudRestoreRequest(BaseModel):
+    """Recovery-phrase restore on a fresh device."""
+
+    phrase: str
+
+
+class CloudSyncRunResponse(BaseModel):
+    """Outcome of one push+pull sync pass."""
+
+    pushed: int
+    pushed_deletes: int
+    pulled: int
+    pulled_deletes: int
+    cursor: int

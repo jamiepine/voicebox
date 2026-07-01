@@ -3,7 +3,7 @@
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean, JSON
+from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean, JSON, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 
 from ..utils.capture_chords import (
@@ -253,7 +253,43 @@ class CloudSettings(Base):
     device_name = Column(String, nullable=True)
     account_user_id = Column(String, nullable=True)
     connected_at = Column(DateTime, nullable=True)
+    # Server-assigned sync device id (device table on the cloud side). Set when
+    # this install registers as an encryption-capable device; the matching
+    # X25519 private key lives in the OS keychain (services/cloud_keys.py).
+    sync_device_id = Column(String, nullable=True)
+    # Highest server seq this install has applied from the sync feed.
+    sync_cursor = Column(Integer, nullable=False, default=0)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CloudSyncState(Base):
+    """Per-entity sync bookkeeping for cloud backup (one row per synced object).
+
+    Envelopes are randomized (fresh content key + nonce per encryption), so the
+    ciphertext hash changes on every re-encrypt even when the content didn't.
+    To keep the server's changed-hash dedup working, this table remembers what
+    was last uploaded: the plaintext fingerprints (to detect real local edits)
+    and the ciphertext hashes the server currently holds (to re-declare
+    unchanged blobs without re-encrypting or re-uploading them).
+    """
+
+    __tablename__ = "cloud_sync_state"
+    __table_args__ = (UniqueConstraint("kind", "client_id", name="uq_cloud_sync_state_kind_client"),)
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    kind = Column(String, nullable=False)  # capture | generation | profile | settings
+    client_id = Column(String, nullable=False)  # the local entity id
+    server_object_id = Column(String, nullable=True)
+    # Client-bumped LWW version (object.version on the server).
+    version = Column(Integer, nullable=False, default=1)
+    # SHA-256 of the canonical plaintext record JSON at last push/pull.
+    record_fingerprint = Column(String, nullable=True)
+    # SHA-256 + size of the record ciphertext the server currently holds.
+    record_hash = Column(String, nullable=True)
+    record_size = Column(Integer, nullable=False, default=0)
+    # Per-asset bookkeeping, JSON: {clientAssetId: {role, fingerprint, hash, size}}
+    assets_json = Column(Text, nullable=False, default="{}")
+    last_synced_at = Column(DateTime, nullable=True)
 
 
 class MCPClientBinding(Base):
