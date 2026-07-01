@@ -33,6 +33,7 @@ export const ALL_LANGUAGES = {
   sw: 'Swahili',
   tr: 'Turkish',
   zh: 'Chinese',
+  ro: 'Romanian',
 } as const;
 
 export type LanguageCode = keyof typeof ALL_LANGUAGES;
@@ -70,6 +71,7 @@ export const ENGINE_LANGUAGES: Record<string, readonly LanguageCode[]> = {
   tada: ['en', 'ar', 'zh', 'de', 'es', 'fr', 'it', 'ja', 'pl', 'pt'],
   kokoro: ['en', 'es', 'fr', 'hi', 'it', 'pt', 'ja', 'zh'],
   qwen_custom_voice: ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'ru', 'pt', 'es', 'it'],
+  f5_tts: ['ro'],
 } as const;
 
 /** Helper: get language options for a given engine. */
