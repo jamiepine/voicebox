@@ -124,12 +124,21 @@ def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     from .mcp_server.server import build_mcp_server, compose_lifespan
     from .mcp_server.context import ClientIdMiddleware
+    from starlette.middleware import Middleware
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
 
     # Build the MCP app up-front so we can wire its lifespan into FastAPI's —
     # FastMCP's Streamable HTTP transport only works if its session manager
     # runs inside the parent ASGI lifespan.
     mcp = build_mcp_server()
-    mcp_app = mcp.http_app(path="/", transport="http")
+    mcp_app = mcp.http_app(
+        path="/", 
+        transport="http",
+        middleware=[Middleware(
+            TrustedHostMiddleware, 
+            allowed_hosts=["127.0.0.1", "localhost", "127.0.0.1:17493", "localhost:17493"]
+        )],
+    )
 
     @asynccontextmanager
     async def voicebox_lifespan(app: FastAPI):
@@ -159,6 +168,10 @@ def create_app() -> FastAPI:
 
     _configure_cors(application)
     application.add_middleware(ClientIdMiddleware)
+    application.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["127.0.0.1", "localhost", "127.0.0.1:17493", "localhost:17493"]
+    )
     register_routers(application)
     application.mount("/mcp", mcp_app)
     logger.info("MCP: mounted at /mcp")
