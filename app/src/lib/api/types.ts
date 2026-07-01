@@ -542,3 +542,17 @@ export interface MCPClientBindingUpsert {
 export interface MCPClientBindingListResponse {
   items: MCPClientBinding[];
 }
+
+/* ─── Cloud (backup & sync) ───────────────────────────────────────────── */
+
+export interface CloudLoginStartResponse {
+  authorize_url: string;
+}
+
+export interface CloudStatus {
+  connected: boolean;
+  device_name: string | null;
+  account_user_id: string | null;
+  key_prefix: string | null;
+  connected_at: string | null;
+}
