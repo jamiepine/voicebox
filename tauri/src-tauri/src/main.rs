@@ -17,6 +17,8 @@ mod synthetic_keys;
 
 use std::sync::Mutex;
 use tauri::{command, State, Manager, WindowEvent, Emitter, Listener, RunEvent, WebviewUrl, WebviewWindowBuilder, PhysicalPosition};
+#[cfg(target_os = "macos")]
+use tauri::menu::{AboutMetadata, HELP_SUBMENU_ID, MenuBuilder, SubmenuBuilder, WINDOW_SUBMENU_ID};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::mpsc;
 
@@ -114,6 +116,115 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
     }
     let _ = window.set_ignore_cursor_events(false);
     let _ = window.show();
+}
+
+#[cfg(target_os = "macos")]
+fn install_russian_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
+    if !macos_prefers_russian() {
+        return Ok(());
+    }
+
+    let pkg_info = app.package_info();
+    let config = app.config();
+    let app_name = pkg_info.name.clone();
+    let about_metadata = AboutMetadata {
+        name: Some(app_name.clone()),
+        version: Some(pkg_info.version.to_string()),
+        copyright: config.bundle.copyright.clone(),
+        authors: config.bundle.publisher.clone().map(|publisher| vec![publisher]),
+        ..Default::default()
+    };
+
+    let app_menu = SubmenuBuilder::new(app, app_name.as_str())
+        .about_with_text(format!("О приложении {app_name}"), Some(about_metadata))
+        .separator()
+        .services_with_text("Службы")
+        .separator()
+        .hide_with_text(format!("Скрыть {app_name}"))
+        .hide_others_with_text("Скрыть остальные")
+        .separator()
+        .quit_with_text(format!("Завершить {app_name}"))
+        .build()?;
+
+    let file_menu = SubmenuBuilder::new(app, "Файл")
+        .close_window_with_text("Закрыть окно")
+        .build()?;
+
+    let edit_menu = SubmenuBuilder::new(app, "Правка")
+        .undo_with_text("Отменить")
+        .redo_with_text("Повторить")
+        .separator()
+        .cut_with_text("Вырезать")
+        .copy_with_text("Скопировать")
+        .paste_with_text("Вставить")
+        .select_all_with_text("Выбрать всё")
+        .build()?;
+
+    let view_menu = SubmenuBuilder::new(app, "Вид")
+        .fullscreen_with_text("Перейти в полноэкранный режим")
+        .build()?;
+
+    let window_menu = SubmenuBuilder::with_id(app, WINDOW_SUBMENU_ID, "Окно")
+        .minimize_with_text("Свернуть")
+        .maximize_with_text("Развернуть")
+        .separator()
+        .close_window_with_text("Закрыть окно")
+        .build()?;
+
+    let help_menu = SubmenuBuilder::with_id(app, HELP_SUBMENU_ID, "Справка").build()?;
+
+    let menu = MenuBuilder::new(app)
+        .item(&app_menu)
+        .item(&file_menu)
+        .item(&edit_menu)
+        .item(&view_menu)
+        .item(&window_menu)
+        .item(&help_menu)
+        .build()?;
+
+    app.set_menu(menu)?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn macos_prefers_russian() -> bool {
+    use objc::runtime::Object;
+    use objc::{class, msg_send, sel, sel_impl};
+
+    type Id = *mut Object;
+
+    unsafe fn nsstring_to_string(value: Id) -> Option<String> {
+        if value.is_null() {
+            return None;
+        }
+        let bytes: *const std::os::raw::c_char = msg_send![value, UTF8String];
+        if bytes.is_null() {
+            return None;
+        }
+        Some(std::ffi::CStr::from_ptr(bytes).to_string_lossy().into_owned())
+    }
+
+    unsafe {
+        let pool: Id = msg_send![class!(NSAutoreleasePool), alloc];
+        let pool: Id = msg_send![pool, init];
+        let languages: Id = msg_send![class!(NSLocale), preferredLanguages];
+        let count: usize = if languages.is_null() {
+            0
+        } else {
+            msg_send![languages, count]
+        };
+        let preferred_language = if count > 0 {
+            let value: Id = msg_send![languages, objectAtIndex: 0usize];
+            nsstring_to_string(value)
+        } else {
+            None
+        };
+        let _: () = msg_send![pool, drain];
+
+        preferred_language
+            .map(|language| language.to_ascii_lowercase().starts_with("ru"))
+            .unwrap_or(false)
+    }
 }
 
 const LEGACY_PORT: u16 = 8000;
@@ -1395,6 +1506,8 @@ pub fn run() {
             {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
+                #[cfg(target_os = "macos")]
+                install_russian_menu(app.handle())?;
 
                 // Resolve the active keyboard layout's V keycode now, on
                 // the main thread, and register an observer for layout

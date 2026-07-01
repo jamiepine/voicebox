@@ -37,7 +37,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { EffectConfig, PresetVoice, VoiceType } from '@/lib/api/types';
-import { LANGUAGE_CODES, LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
+import { getLanguageOptions, LANGUAGE_CODES, type LanguageCode } from '@/lib/constants/languages';
 import { useAudioPlayer } from '@/lib/hooks/useAudioPlayer';
 import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
 import {
@@ -131,6 +131,7 @@ function base64ToFile(base64: string, fileName: string, fileType: string): File 
 
 export function ProfileForm() {
   const { t } = useTranslation();
+  const languageOptions = getLanguageOptions();
   const platform = usePlatform();
   const open = useUIStore((state) => state.profileDialogOpen);
   const setOpen = useUIStore((state) => state.setProfileDialogOpen);
@@ -1228,7 +1229,7 @@ export function ProfileForm() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {LANGUAGE_OPTIONS.map((lang) => (
+                            {languageOptions.map((lang) => (
                               <SelectItem key={lang.value} value={lang.value}>
                                 {lang.label}
                               </SelectItem>

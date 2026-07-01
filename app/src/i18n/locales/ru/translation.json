@@ -11,6 +11,37 @@
     "unknown": "Неизвестно",
     "unknownError": "Неизвестная ошибка"
   },
+  "startup": {
+    "actions": {
+      "retry": "Повторить"
+    },
+    "errors": {
+      "connectTimeout": "Не удалось подключиться к серверу Voicebox за 2 минуты. Проверьте, что сервер запущен, и попробуйте ещё раз.",
+      "serverStartupFailed": "Не удалось запустить сервер"
+    },
+    "loading": {
+      "warmingTensors": "Прогреваем тензоры...",
+      "calibratingSynthesizer": "Калибруем движок синтеза...",
+      "initializingVoiceModels": "Инициализируем голосовые модели...",
+      "loadingNeuralNetworks": "Загружаем нейросети...",
+      "preparingAudioPipelines": "Готовим аудиоконвейеры...",
+      "optimizingWaveforms": "Оптимизируем генераторы волны...",
+      "tuningAnalyzers": "Настраиваем частотные анализаторы...",
+      "buildingEmbeddings": "Собираем голосовые эмбеддинги...",
+      "configuringTts": "Настраиваем ядра синтеза речи...",
+      "syncingBuffers": "Синхронизируем аудиобуферы...",
+      "establishingConnections": "Устанавливаем соединения с моделями...",
+      "preprocessingData": "Подготавливаем обучающие данные...",
+      "validatingSamples": "Проверяем голосовые образцы...",
+      "compilingEngines": "Компилируем движки инференса...",
+      "mappingPhonemes": "Сопоставляем фонемные последовательности...",
+      "aligningProsody": "Выравниваем параметры просодии...",
+      "activatingSynthesis": "Запускаем синтез речи...",
+      "fineTuningAcoustics": "Донастраиваем акустические модели...",
+      "preparingMatrices": "Готовим матрицы клонирования голоса...",
+      "initializingQwen": "Инициализируем Qwen TTS..."
+    }
+  },
   "nav": {
     "generate": "Генерация",
     "stories": "Сюжеты",
@@ -654,6 +685,7 @@
   },
   "history": {
     "empty": "Генераций пока нет…",
+    "endOfList": "Вы достигли конца списка",
     "actions": {
       "menu": "Действия",
       "play": "Воспроизвести",
@@ -675,6 +707,11 @@
       "body_other": "Это безвозвратно удалит {{count}} неудачной генерации из истории. Это действие нельзя отменить.",
       "clearing": "Очистка…",
       "clearAll": "Очистить всё"
+    },
+    "status": {
+      "failed": "Ошибка",
+      "generating": "Генерация...",
+      "loadingModel": "Загрузка модели..."
     },
     "importDialog": {
       "title": "Импортировать генерацию",

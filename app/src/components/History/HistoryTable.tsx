@@ -535,7 +535,9 @@ export function HistoryTable() {
                           {formatEngineName(gen.engine, gen.model_size)}
                         </span>
                         {isFailed ? (
-                          <span className="text-xs text-destructive">Failed</span>
+                          <span className="text-xs text-destructive">
+                            {t('history.status.failed')}
+                          </span>
                         ) : !isGenerating ? (
                           <span className="text-xs text-muted-foreground">
                             {formatDuration(gen.duration ?? 0)}
@@ -545,7 +547,9 @@ export function HistoryTable() {
                       <div className="text-xs text-muted-foreground">
                         {isInProgress ? (
                           <span className="text-accent">
-                            {gen.status === 'loading_model' ? 'Loading model...' : 'Generating...'}
+                            {gen.status === 'loading_model'
+                              ? t('history.status.loadingModel')
+                              : t('history.status.generating')}
                           </span>
                         ) : (
                           formatDate(gen.created_at)
@@ -765,7 +769,7 @@ export function HistoryTable() {
             {/* End of list indicator */}
             {!hasMore && history.length > 0 && (
               <div className="text-center py-4 text-xs text-muted-foreground">
-                You've reached the end
+                {t('history.endOfList')}
               </div>
             )}
           </div>
