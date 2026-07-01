@@ -44,7 +44,7 @@ export default function CapturePage() {
       <section className="relative border-t border-border py-24">
         <div className="mx-auto max-w-5xl px-6 text-center mb-14">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent mb-4">
-            {isRussian ? 'Вкладка Captures' : 'The Captures tab'}
+            {isRussian ? 'Вкладка «Записи»' : 'The Captures tab'}
           </div>
           <h2 className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground mb-4">
             {isRussian
@@ -53,7 +53,7 @@ export default function CapturePage() {
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             {isRussian
-              ? 'Зажмите хоткей, скажите фразу и отпустите: запись сразу попадает во вкладку Captures. Можно переслушать исходное аудио, заново расшифровать его другой моделью, доработать локальной LLM, скопировать в буфер обмена или сразу отправить MCP-агенту. Ничего не уходит в облако.'
+              ? 'Зажмите хоткей, скажите фразу и отпустите: запись сразу попадает во вкладку «Записи». Можно переслушать исходное аудио, заново расшифровать его другой моделью, доработать локальной LLM, скопировать в буфер обмена или сразу отправить MCP-агенту. Ничего не уходит в облако.'
               : 'Hold the shortcut, speak, release — a capture lands in the Captures tab. Replay the original audio, re-transcribe with a different model, refine with a local LLM, copy to clipboard, or send it straight to any MCP-aware agent. Nothing leaves your machine.'}
           </p>
         </div>
@@ -92,7 +92,7 @@ export default function CapturePage() {
               </h3>
               <p className="text-sm leading-relaxed text-muted-foreground">
                 {isRussian
-                  ? 'Каждая диктовка сохраняет и аудио, и текст. Ищите, переобрабатывайте или превращайте любую запись в голосовой сэмпл для клонирования прямо из Captures.'
+                  ? 'Каждая диктовка сохраняет и аудио, и текст. Ищите, переобрабатывайте или превращайте любую запись в голосовой сэмпл для клонирования прямо из вкладки «Записи».'
                   : 'Every dictation keeps both the audio and the transcript. Search, re-run, or turn any capture into a voice sample for cloning from the Captures tab.'}
               </p>
             </div>
