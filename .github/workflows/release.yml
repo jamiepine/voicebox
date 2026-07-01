@@ -317,6 +317,7 @@ jobs:
           python scripts/package_cuda.py \
             backend/dist/voicebox-server-cuda/ \
             --output release-assets/ \
+            --platform windows-x86_64 \
             --cuda-libs-version cu128-v1 \
             --torch-compat ">=2.7.0,<2.11.0"
 
@@ -325,10 +326,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-assets/voicebox-server-cuda.tar.gz
-            release-assets/voicebox-server-cuda.tar.gz.sha256
-            release-assets/cuda-libs-cu128-v1.tar.gz
-            release-assets/cuda-libs-cu128-v1.tar.gz.sha256
+            release-assets/voicebox-server-cuda-windows-x86_64.tar.gz
+            release-assets/voicebox-server-cuda-windows-x86_64.tar.gz.sha256
+            release-assets/cuda-libs-windows-x86_64-cu128-v1.tar.gz
+            release-assets/cuda-libs-windows-x86_64-cu128-v1.tar.gz.sha256
             release-assets/cuda-libs.json
           draft: true
         env:
@@ -340,6 +341,70 @@ jobs:
           name: voicebox-server-cuda-windows
           path: backend/dist/voicebox-server-cuda/
           retention-days: 7
+
+  build-cuda-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: true
+          large-packages: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install CUDA PyTorch (Linux) first so requirements see it satisfied
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install torch torchaudio \
+            --index-url https://download.pytorch.org/whl/cu128
+
+      - name: Install remaining Python dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install --no-deps chatterbox-tts
+          pip install --no-deps hume-tada
+
+      - name: Verify CUDA support in torch
+        run: python -c "import torch; assert torch.version.cuda, 'torch is not a CUDA build'; print('CUDA torch', torch.__version__)"
+
+      - name: Build CUDA server binary (onedir)
+        working-directory: backend
+        env:
+          TORCH_CUDA_ARCH_LIST: "8.0;8.6;8.9;9.0;12.0+PTX"
+        run: python build_binary.py --cuda
+
+      - name: Package into server core + CUDA libs archives
+        run: |
+          python scripts/package_cuda.py \
+            backend/dist/voicebox-server-cuda/ \
+            --output release-assets/ \
+            --platform linux-x86_64 \
+            --cuda-libs-version cu128-v1 \
+            --torch-compat ">=2.7.0,<2.11.0"
+
+      - name: Upload archives to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/voicebox-server-cuda-linux-x86_64.tar.gz
+            release-assets/voicebox-server-cuda-linux-x86_64.tar.gz.sha256
+            release-assets/cuda-libs-linux-x86_64-cu128-v1.tar.gz
+            release-assets/cuda-libs-linux-x86_64-cu128-v1.tar.gz.sha256
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-rocm-windows:
     runs-on: windows-latest
@@ -378,6 +443,7 @@ jobs:
           python scripts/package_rocm.py \
             backend/dist/voicebox-server-rocm/ \
             --output release-assets/ \
+            --platform windows-x86_64 \
             --rocm-libs-version rocm7.2-v1 \
             --torch-compat ">=2.9.0,<2.10.0"
 
@@ -386,10 +452,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-assets/voicebox-server-rocm.tar.gz
-            release-assets/voicebox-server-rocm.tar.gz.sha256
-            release-assets/rocm-libs-rocm7.2-v1.tar.gz
-            release-assets/rocm-libs-rocm7.2-v1.tar.gz.sha256
+            release-assets/voicebox-server-rocm-windows-x86_64.tar.gz
+            release-assets/voicebox-server-rocm-windows-x86_64.tar.gz.sha256
+            release-assets/rocm-libs-windows-x86_64-rocm7.2-v1.tar.gz
+            release-assets/rocm-libs-windows-x86_64-rocm7.2-v1.tar.gz.sha256
             release-assets/rocm-libs.json
           draft: true
         env:
@@ -401,3 +467,71 @@ jobs:
           name: voicebox-server-rocm-windows
           path: backend/dist/voicebox-server-rocm/
           retention-days: 7
+
+  build-rocm-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: true
+          large-packages: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install ROCm PyTorch (Linux) first so requirements see it satisfied
+        # Unlike Windows, the Linux ROCm runtime ships inside the torch wheels
+        # (torch/lib/*.so + rocBLAS/hipBLASLt/aotriton kernel data), so we pull
+        # it from the PyTorch ROCm index instead of the AMD Radeon SDK wheels.
+        # Installing it before requirements.txt keeps pip from first pulling the
+        # default (CUDA) torch stack that requirements.txt's unqualified torch
+        # would otherwise resolve — avoiding wasted downloads and disk pressure.
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install torch torchaudio \
+            --index-url https://download.pytorch.org/whl/rocm7.2
+
+      - name: Install remaining Python dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install --no-deps chatterbox-tts
+          pip install --no-deps hume-tada
+
+      - name: Verify ROCm support in torch
+        run: python -c "import torch; assert torch.version.hip, 'torch is not a ROCm build'; print('ROCm torch', torch.__version__)"
+
+      - name: Build ROCm server binary (onedir)
+        working-directory: backend
+        run: python build_binary.py --rocm
+
+      - name: Package into server core + ROCm libs archives
+        run: |
+          python scripts/package_rocm.py \
+            backend/dist/voicebox-server-rocm/ \
+            --output release-assets/ \
+            --platform linux-x86_64 \
+            --rocm-libs-version rocm7.2-v1 \
+            --torch-compat ">=2.12.0,<2.13.0"
+
+      - name: Upload archives to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/voicebox-server-rocm-linux-x86_64.tar.gz
+            release-assets/voicebox-server-rocm-linux-x86_64.tar.gz.sha256
+            release-assets/rocm-libs-linux-x86_64-rocm7.2-v1.tar.gz
+            release-assets/rocm-libs-linux-x86_64-rocm7.2-v1.tar.gz.sha256
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

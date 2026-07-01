@@ -15,6 +15,16 @@
   Ubuntu render/video group IDs; the container joins the groups that own the GPU
   device nodes at startup. Native Linux setup now picks ROCm wheels for AMD GPUs
   and CUDA wheels for NVIDIA GPUs before installing backend dependencies.
+- **Downloadable GPU backends install a native Linux binary, not a Windows
+  `.exe`.** Installing the CUDA or ROCm backend on Linux previously downloaded a
+  Windows executable and silently fell back to CPU, because the release assets
+  weren't platform-specific and only Windows binaries were published. GPU server
+  assets are now platform-qualified (`voicebox-server-{cuda,rocm}-<platform>.tar.gz`)
+  and new `build-cuda-linux` / `build-rocm-linux` release jobs build the Linux
+  bundles (ROCm from the PyTorch ROCm index, whose wheels bundle the
+  HIP/rocBLAS/hipBLASLt/aotriton runtime). The ROCm download is now offered on
+  Linux hosts with an AMD ROCm driver (`/dev/kfd`), not only on Windows. Fixes
+  the Linux CUDA-installs-a-Windows-exe bug.
 
 ## [0.5.0] - 2026-04-22
 

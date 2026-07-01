@@ -270,7 +270,7 @@ export interface HealthResponse {
   vram_used_mb?: number;
   backend_type?: string;
   backend_variant?: string; // "cpu", "cuda", or "rocm"
-  supports_rocm?: boolean; // AMD GPU on Windows — the ROCm backend is applicable
+  supports_rocm?: boolean; // AMD GPU on Windows or Linux (/dev/kfd) — the ROCm backend is applicable
 }
 
 export interface CudaDownloadProgress {
