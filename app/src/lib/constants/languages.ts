@@ -1,3 +1,5 @@
+import i18n from '@/i18n';
+
 /**
  * Supported languages for voice generation, per engine.
  *
@@ -36,6 +38,43 @@ export const ALL_LANGUAGES = {
 } as const;
 
 export type LanguageCode = keyof typeof ALL_LANGUAGES;
+
+const LANGUAGE_LABELS_RU: Record<LanguageCode, string> = {
+  ar: 'Арабский',
+  da: 'Датский',
+  de: 'Немецкий',
+  el: 'Греческий',
+  en: 'Английский',
+  es: 'Испанский',
+  fi: 'Финский',
+  fr: 'Французский',
+  he: 'Иврит',
+  hi: 'Хинди',
+  it: 'Итальянский',
+  ja: 'Японский',
+  ko: 'Корейский',
+  ms: 'Малайский',
+  nl: 'Нидерландский',
+  no: 'Норвежский',
+  pl: 'Польский',
+  pt: 'Португальский',
+  ru: 'Русский',
+  sv: 'Шведский',
+  sw: 'Суахили',
+  tr: 'Турецкий',
+  zh: 'Китайский',
+};
+
+export function getLanguageLabel(code: LanguageCode): string {
+  const uiLanguage = i18n.resolvedLanguage ?? i18n.language;
+  const primaryLanguage = uiLanguage.split('-')[0];
+
+  if (primaryLanguage === 'ru') {
+    return LANGUAGE_LABELS_RU[code];
+  }
+
+  return ALL_LANGUAGES[code];
+}
 
 /** Per-engine supported language codes. */
 export const ENGINE_LANGUAGES: Record<string, readonly LanguageCode[]> = {
@@ -77,13 +116,19 @@ export function getLanguageOptionsForEngine(engine: string) {
   const codes = ENGINE_LANGUAGES[engine] ?? ENGINE_LANGUAGES.qwen;
   return codes.map((code) => ({
     value: code,
-    label: ALL_LANGUAGES[code],
+    label: getLanguageLabel(code),
   }));
 }
 
 // ── Backwards-compatible exports used elsewhere ──────────────────────
 export const SUPPORTED_LANGUAGES = ALL_LANGUAGES;
 export const LANGUAGE_CODES = Object.keys(ALL_LANGUAGES) as LanguageCode[];
+export function getLanguageOptions() {
+  return LANGUAGE_CODES.map((code) => ({
+    value: code,
+    label: getLanguageLabel(code),
+  }));
+}
 export const LANGUAGE_OPTIONS = LANGUAGE_CODES.map((code) => ({
   value: code,
   label: ALL_LANGUAGES[code],

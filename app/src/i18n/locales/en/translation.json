@@ -11,6 +11,37 @@
     "unknown": "Unknown",
     "unknownError": "Unknown error"
   },
+  "startup": {
+    "actions": {
+      "retry": "Retry"
+    },
+    "errors": {
+      "connectTimeout": "Could not connect to a Voicebox server within 2 minutes. Please check that the server is running and try again.",
+      "serverStartupFailed": "Server startup failed"
+    },
+    "loading": {
+      "warmingTensors": "Warming up tensors...",
+      "calibratingSynthesizer": "Calibrating synthesizer engine...",
+      "initializingVoiceModels": "Initializing voice models...",
+      "loadingNeuralNetworks": "Loading neural networks...",
+      "preparingAudioPipelines": "Preparing audio pipelines...",
+      "optimizingWaveforms": "Optimizing waveform generators...",
+      "tuningAnalyzers": "Tuning frequency analyzers...",
+      "buildingEmbeddings": "Building voice embeddings...",
+      "configuringTts": "Configuring text-to-speech cores...",
+      "syncingBuffers": "Syncing audio buffers...",
+      "establishingConnections": "Establishing model connections...",
+      "preprocessingData": "Preprocessing training data...",
+      "validatingSamples": "Validating voice samples...",
+      "compilingEngines": "Compiling inference engines...",
+      "mappingPhonemes": "Mapping phoneme sequences...",
+      "aligningProsody": "Aligning prosody parameters...",
+      "activatingSynthesis": "Activating speech synthesis...",
+      "fineTuningAcoustics": "Fine-tuning acoustic models...",
+      "preparingMatrices": "Preparing voice cloning matrices...",
+      "initializingQwen": "Initializing Qwen TTS framework..."
+    }
+  },
   "nav": {
     "generate": "Generate",
     "stories": "Stories",
@@ -646,6 +677,7 @@
   },
   "history": {
     "empty": "No voice generations, yet…",
+    "endOfList": "You've reached the end",
     "actions": {
       "menu": "Actions",
       "play": "Play",
@@ -665,6 +697,11 @@
       "body_other": "This will permanently delete {{count}} failed generations from your history. This cannot be undone.",
       "clearing": "Clearing…",
       "clearAll": "Clear all"
+    },
+    "status": {
+      "failed": "Failed",
+      "generating": "Generating...",
+      "loadingModel": "Loading model..."
     },
     "importDialog": {
       "title": "Import Generation",

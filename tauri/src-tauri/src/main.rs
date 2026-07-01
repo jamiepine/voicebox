@@ -17,6 +17,8 @@ mod synthetic_keys;
 
 use std::sync::Mutex;
 use tauri::{command, State, Manager, WindowEvent, Emitter, Listener, RunEvent, WebviewUrl, WebviewWindowBuilder, PhysicalPosition};
+#[cfg(target_os = "macos")]
+use tauri::menu::{AboutMetadata, HELP_SUBMENU_ID, MenuBuilder, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::mpsc;
 
@@ -114,6 +116,175 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
     }
     let _ = window.set_ignore_cursor_events(false);
     let _ = window.show();
+}
+
+#[cfg(target_os = "macos")]
+fn install_russian_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
+    let pkg_info = app.package_info();
+    let config = app.config();
+    let app_name = pkg_info.name.clone();
+    let about_metadata = AboutMetadata {
+        name: Some(app_name.clone()),
+        version: Some(pkg_info.version.to_string()),
+        copyright: config.bundle.copyright.clone(),
+        authors: config.bundle.publisher.clone().map(|publisher| vec![publisher]),
+        ..Default::default()
+    };
+
+    let about_text = format!("О приложении {app_name}");
+    let hide_text = format!("Скрыть {app_name}");
+    let quit_text = format!("Завершить {app_name}");
+
+    let app_menu = Submenu::with_items(
+        app,
+        app_name,
+        true,
+        &[
+            &PredefinedMenuItem::about(app, Some(&about_text), Some(about_metadata))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::services(app, Some("Службы"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::hide(app, Some(&hide_text))?,
+            &PredefinedMenuItem::hide_others(app, Some("Скрыть остальные"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::quit(app, Some(&quit_text))?,
+        ],
+    )?;
+
+    let file_menu = Submenu::with_items(
+        app,
+        "Файл",
+        true,
+        &[&PredefinedMenuItem::close_window(app, Some("Закрыть окно"))?],
+    )?;
+
+    let edit_menu = Submenu::with_items(
+        app,
+        "Правка",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, Some("Отменить"))?,
+            &PredefinedMenuItem::redo(app, Some("Повторить"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, Some("Вырезать"))?,
+            &PredefinedMenuItem::copy(app, Some("Скопировать"))?,
+            &PredefinedMenuItem::paste(app, Some("Вставить"))?,
+            &PredefinedMenuItem::select_all(app, Some("Выбрать всё"))?,
+        ],
+    )?;
+
+    let view_menu = Submenu::with_items(
+        app,
+        "Вид",
+        true,
+        &[&PredefinedMenuItem::fullscreen(app, Some("Перейти в полноэкранный режим"))?],
+    )?;
+
+    let window_menu = Submenu::with_id_and_items(
+        app,
+        WINDOW_SUBMENU_ID,
+        "Окно",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, Some("Свернуть"))?,
+            &PredefinedMenuItem::maximize(app, Some("Развернуть"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::close_window(app, Some("Закрыть окно"))?,
+        ],
+    )?;
+
+    let help_menu = Submenu::with_id_and_items(app, HELP_SUBMENU_ID, "Справка", true, &[])?;
+
+    let menu = MenuBuilder::new(app)
+        .item(&app_menu)
+        .item(&file_menu)
+        .item(&edit_menu)
+        .item(&view_menu)
+        .item(&window_menu)
+        .item(&help_menu)
+        .build()?;
+
+    app.set_menu(menu)?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn is_russian_language_tag(language: &str) -> bool {
+    language
+        .split(['-', '_'])
+        .next()
+        .map(|primary| primary.eq_ignore_ascii_case("ru"))
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "macos")]
+fn sync_macos_menu_for_language<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    language: Option<&str>,
+) -> tauri::Result<()> {
+    let use_russian_menu = language
+        .map(is_russian_language_tag)
+        .unwrap_or_else(macos_prefers_russian);
+
+    if use_russian_menu {
+        install_russian_menu(app)
+    } else {
+        app.remove_menu()?;
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[command]
+fn sync_native_language_menu(app: tauri::AppHandle, language: String) -> Result<(), String> {
+    sync_macos_menu_for_language(&app, Some(&language)).map_err(|e| e.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+#[command]
+fn sync_native_language_menu(_language: String) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn macos_prefers_russian() -> bool {
+    use objc::runtime::Object;
+    use objc::{class, msg_send, sel, sel_impl};
+
+    type Id = *mut Object;
+
+    unsafe fn nsstring_to_string(value: Id) -> Option<String> {
+        if value.is_null() {
+            return None;
+        }
+        let bytes: *const std::os::raw::c_char = msg_send![value, UTF8String];
+        if bytes.is_null() {
+            return None;
+        }
+        Some(std::ffi::CStr::from_ptr(bytes).to_string_lossy().into_owned())
+    }
+
+    unsafe {
+        let pool: Id = msg_send![class!(NSAutoreleasePool), alloc];
+        let pool: Id = msg_send![pool, init];
+        let languages: Id = msg_send![class!(NSLocale), preferredLanguages];
+        let count: usize = if languages.is_null() {
+            0
+        } else {
+            msg_send![languages, count]
+        };
+        let preferred_language = if count > 0 {
+            let value: Id = msg_send![languages, objectAtIndex: 0usize];
+            nsstring_to_string(value)
+        } else {
+            None
+        };
+        let _: () = msg_send![pool, drain];
+
+        preferred_language
+            .map(|language| language.to_ascii_lowercase().starts_with("ru"))
+            .unwrap_or(false)
+    }
 }
 
 const LEGACY_PORT: u16 = 8000;
@@ -1395,6 +1566,10 @@ pub fn run() {
             {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
+                #[cfg(target_os = "macos")]
+                if let Err(e) = sync_macos_menu_for_language(app.handle(), None) {
+                    eprintln!("sync_macos_menu_for_language: failed to install macOS menu: {e}");
+                }
 
                 // Resolve the active keyboard layout's V keycode now, on
                 // the main thread, and register an observer for layout
@@ -1523,7 +1698,8 @@ pub fn run() {
             paste_final_text,
             enable_hotkey,
             disable_hotkey,
-            update_chord_bindings
+            update_chord_bindings,
+            sync_native_language_menu
         ])
         .on_window_event({
             let closing = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));

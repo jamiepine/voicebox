@@ -27,7 +27,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { SampleList } from '@/components/VoiceProfiles/SampleList';
 import { apiClient } from '@/lib/api/client';
 import type { EffectConfig } from '@/lib/api/types';
-import { LANGUAGE_CODES, LANGUAGE_OPTIONS, type LanguageCode } from '@/lib/constants/languages';
+import { getLanguageOptions, LANGUAGE_CODES, type LanguageCode } from '@/lib/constants/languages';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import {
   useDeleteAvatar,
@@ -59,6 +59,7 @@ interface VoiceInspectorProps {
 
 export function VoiceInspector({ profileId }: VoiceInspectorProps) {
   const { t } = useTranslation();
+  const languageOptions = getLanguageOptions();
   const { data: profile } = useProfile(profileId);
   const audioUrl = usePlayerStore((state) => state.audioUrl);
   const isPlayerVisible = !!audioUrl;
@@ -309,7 +310,7 @@ export function VoiceInspector({ profileId }: VoiceInspectorProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {LANGUAGE_OPTIONS.map((lang) => (
+                        {languageOptions.map((lang) => (
                           <SelectItem key={lang.value} value={lang.value}>
                             {lang.label}
                           </SelectItem>
