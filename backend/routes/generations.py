@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, tts
+from ..services import history, personality, profiles, settings as settings_service, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
@@ -79,8 +79,16 @@ async def generate_speech(
     text = data.text
     source = "manual"
     if data.personality and getattr(profile, "personality", None):
+        # Speak-in-character shares the single refinement LLM configured in
+        # Settings → Model Management (capture_settings.llm_model) — without
+        # threading it through here, rewrite_as_profile() falls back to
+        # whatever the LLM backend singleton last happened to load, ignoring
+        # the user's selection.
+        refinement_model_size = settings_service.get_capture_settings(db).llm_model
         try:
-            llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
+            llm_result = await personality.rewrite_as_profile(
+                profile.personality, data.text, model_size=refinement_model_size
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         text = llm_result.text.strip()
