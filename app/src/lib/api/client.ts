@@ -52,6 +52,9 @@ import type {
   MCPClientBindingUpsert,
   CloudLoginStartResponse,
   CloudStatus,
+  CloudSyncRunResponse,
+  CloudSyncSetupResponse,
+  CloudSyncStatus,
 } from './types';
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
@@ -936,6 +939,32 @@ class ApiClient {
 
   async disconnectCloud(): Promise<CloudStatus> {
     return this.request<CloudStatus>('/cloud/disconnect', { method: 'POST' });
+  }
+
+  // Encrypted backup & sync. setupCloudSync registers this install as an
+  // encryption device — when it returns a recovery_phrase, this device just
+  // minted the account key and the phrase must be force-displayed once.
+  async getCloudSyncStatus(): Promise<CloudSyncStatus> {
+    return this.request<CloudSyncStatus>('/cloud/sync/status');
+  }
+
+  async setupCloudSync(): Promise<CloudSyncSetupResponse> {
+    return this.request<CloudSyncSetupResponse>('/cloud/sync/setup', { method: 'POST' });
+  }
+
+  async restoreCloudSync(phrase: string): Promise<CloudSyncStatus> {
+    return this.request<CloudSyncStatus>('/cloud/sync/restore', {
+      method: 'POST',
+      body: JSON.stringify({ phrase }),
+    });
+  }
+
+  async adoptCloudSync(): Promise<CloudSyncStatus> {
+    return this.request<CloudSyncStatus>('/cloud/sync/adopt', { method: 'POST' });
+  }
+
+  async runCloudSync(): Promise<CloudSyncRunResponse> {
+    return this.request<CloudSyncRunResponse>('/cloud/sync/run', { method: 'POST' });
   }
 }
 

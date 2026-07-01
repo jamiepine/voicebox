@@ -535,3 +535,27 @@ export interface CloudStatus {
   key_prefix: string | null;
   connected_at: string | null;
 }
+
+export type CloudSyncState = 'unregistered' | 'awaiting_provision' | 'ready';
+
+export interface CloudSyncStatus {
+  status: CloudSyncState;
+  device_id: string | null;
+  sync_cursor: number;
+}
+
+export interface CloudSyncSetupResponse {
+  status: CloudSyncState;
+  device_id: string | null;
+  /** Present exactly once, when this device minted the account's key
+   *  material. Must be force-displayed and never persisted. */
+  recovery_phrase: string | null;
+}
+
+export interface CloudSyncRunResponse {
+  pushed: number;
+  pushed_deletes: number;
+  pulled: number;
+  pulled_deletes: number;
+  cursor: number;
+}
