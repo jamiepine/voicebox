@@ -24,9 +24,9 @@ from .base import (
 
 logger = logging.getLogger(__name__)
 
-# Monkeypatch torchaudio.load to use soundfile instead of torchcodec
-# TorchAudio 2.6 removed legacy soundfile fallback and strictly requires
-# TorchCodec, which crashes without full FFmpeg DLLs on Windows.
+# We use a mocked torchaudio.load with soundfile instead of torchcodec when
+# F5-TTS loads audio, because TorchAudio 2.6 strictly requires TorchCodec,
+# which crashes without full FFmpeg DLLs on Windows.
 import torchaudio
 import soundfile as sf
 import torch
@@ -39,7 +39,6 @@ def _mock_torchaudio_load(uri, **kwargs):
         audio = audio.T
     return torch.from_numpy(audio), sr
 
-torchaudio.load = _mock_torchaudio_load
 VOCOS_REPO = "charactr/vocos-mel-24khz"
 
 MODELS = {
@@ -58,6 +57,7 @@ class F5TTSBackend:
         self.model = None
         self.vocoder = None
         self._device = None
+        self._loaded_model_size = None
         self._model_load_lock = asyncio.Lock()
 
     def _get_device(self) -> str:
@@ -66,14 +66,17 @@ class F5TTSBackend:
     def is_loaded(self) -> bool:
         return self.model is not None and self.vocoder is not None
 
+    def _normalize_model_size(self, model_size: str) -> str:
+        if model_size in ("default", "f5-tts"):
+            return "f5-tts-ro"
+        return model_size
+
     def _get_model_path(self, model_size: str = "default") -> str:
-        if model_size == "default":
-            model_size = "f5-tts-ro"
+        model_size = self._normalize_model_size(model_size)
         return MODELS[model_size]["repo"]
 
     def _is_model_cached(self, model_size: str = "default") -> bool:
-        if model_size == "default":
-            model_size = "f5-tts-ro"
+        model_size = self._normalize_model_size(model_size)
         model_info = MODELS[model_size]
         required = [model_info["ckpt_file"]]
         if model_info["vocab_file"]:
@@ -85,18 +88,21 @@ class F5TTSBackend:
 
     async def load_model(self, model_size: str = "default") -> None:
         """Load the F5-TTS model and Vocos vocoder."""
-        if self.is_loaded():
+        model_size = self._normalize_model_size(model_size)
+        if self.is_loaded() and self._loaded_model_size == model_size:
             return
+            
         async with self._model_load_lock:
             if self.is_loaded():
-                return
+                if self._loaded_model_size == model_size:
+                    return
+                self.unload_model()
+                
             await asyncio.to_thread(self._load_model_sync, model_size)
+            self._loaded_model_size = model_size
 
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
-        if model_size == "default":
-            model_size = "f5-tts-ro"
-            
         model_name = model_size
         is_cached = self._is_model_cached(model_size)
 
@@ -147,6 +153,7 @@ class F5TTSBackend:
             self.model = None
             self.vocoder = None
             self._device = None
+            self._loaded_model_size = None
             empty_device_cache(device)
             logger.info("F5-TTS unloaded")
 
@@ -206,18 +213,21 @@ class F5TTSBackend:
 
             logger.info("[F5-TTS] Generating...")
             
+            from unittest.mock import patch
+
             # Use their infer_process wrapper
-            audio_array, sample_rate, _ = infer_process(
-                ref_audio=ref_audio,
-                ref_text=ref_text,
-                gen_text=text,
-                model_obj=self.model,
-                vocoder=self.vocoder,
-                mel_spec_type="vocos",
-                show_info=logger.info,
-                progress=None,
-                device=self._device,
-            )
+            with patch("torchaudio.load", _mock_torchaudio_load):
+                audio_array, sample_rate, _ = infer_process(
+                    ref_audio=ref_audio,
+                    ref_text=ref_text,
+                    gen_text=text,
+                    model_obj=self.model,
+                    vocoder=self.vocoder,
+                    mel_spec_type="vocos",
+                    show_info=logger.info,
+                    progress=None,
+                    device=self._device,
+                )
 
             # Convert to numpy if it's a tensor (infer_process already returns numpy array)
             if isinstance(audio_array, torch.Tensor):
