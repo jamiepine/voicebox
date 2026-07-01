@@ -46,7 +46,15 @@ fn build_dictate_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewW
     .skip_taskbar(true)
     .resizable(false)
     .shadow(false)
-    .visible(false)
+    // On Linux (GTK3 + tao 0.34.5), building the transparent dictate pill with
+    // `.visible(false)` leaves its GDK window unrealized. The first
+    // `set_ignore_cursor_events()` dispatched over the glib main-context channel
+    // then unwraps a `None` GDK window and aborts the whole app with a
+    // non-unwinding panic at tao event_loop.rs:449 (see #680). Build the window
+    // visible so GTK realizes the GDK backing, then immediately park it
+    // off-screen and hide it (below). Net user-visible effect is unchanged — the
+    // pill stays hidden until a speak — but the window now actually exists.
+    .visible(true)
     .build()?;
 
     if let Some(monitor) = window.current_monitor()? {
@@ -56,6 +64,11 @@ fn build_dictate_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewW
         let y = (monitor_size.height as f64 * 0.04) as i32;
         window.set_position(PhysicalPosition::new(x, y))?;
     }
+
+    // Force GDK realization to complete, then get the window off-screen and
+    // hidden before anything can toggle cursor-ignore on it.
+    let _ = window.set_position(PhysicalPosition::new(-10_000, -10_000));
+    let _ = window.hide();
 
     Ok(window)
 }
