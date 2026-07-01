@@ -16,7 +16,7 @@ const generationSchema = z.object({
   text: z.string().min(1, '').max(50000),
   language: z.enum(LANGUAGE_CODES as [LanguageCode, ...LanguageCode[]]),
   seed: z.number().int().optional(),
-  modelSize: z.enum(['1.7B', '0.6B', '1B', '3B']).optional(),
+  modelSize: z.enum(['1.7B', '0.6B', '1B', '3B', 'f5-tts-ro']).optional(),
   instruct: z.string().max(500).optional(),
   engine: z
     .enum([
@@ -27,6 +27,7 @@ const generationSchema = z.object({
       'chatterbox_turbo',
       'tada',
       'kokoro',
+      'f5_tts',
     ])
     .optional(),
   personality: z.boolean().optional(),
@@ -100,8 +101,10 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'tada-1b'
                 : engine === 'kokoro'
                   ? 'kokoro'
-                  : engine === 'qwen_custom_voice'
-                    ? `qwen-custom-voice-${data.modelSize}`
+                  : engine === 'f5_tts'
+                    ? 'f5-tts-ro'
+                    : engine === 'qwen_custom_voice'
+                      ? `qwen-custom-voice-${data.modelSize}`
                     : `qwen-tts-${data.modelSize}`;
       const displayName =
         engine === 'luxtts'
@@ -116,13 +119,15 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'TADA 1B'
                 : engine === 'kokoro'
                   ? 'Kokoro 82M'
-                  : engine === 'qwen_custom_voice'
-                    ? data.modelSize === '1.7B'
-                      ? 'Qwen CustomVoice 1.7B'
-                      : 'Qwen CustomVoice 0.6B'
-                    : data.modelSize === '1.7B'
-                      ? 'Qwen TTS 1.7B'
-                      : 'Qwen TTS 0.6B';
+                  : engine === 'f5_tts'
+                    ? 'F5-TTS Romanian'
+                    : engine === 'qwen_custom_voice'
+                      ? data.modelSize === '1.7B'
+                        ? 'Qwen CustomVoice 1.7B'
+                        : 'Qwen CustomVoice 0.6B'
+                      : data.modelSize === '1.7B'
+                        ? 'Qwen TTS 1.7B'
+                        : 'Qwen TTS 0.6B';
 
       // Check if model needs downloading
       try {
