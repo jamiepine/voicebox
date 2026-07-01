@@ -12,6 +12,7 @@ import {
   Volume2,
   Zap,
 } from 'lucide-react';
+import { useLocale } from '@/components/LocaleProvider';
 
 type Tag = { icon: LucideIcon; label: string };
 
@@ -29,7 +30,7 @@ type ModelGroup = {
   models: Model[];
 };
 
-const MODEL_GROUPS: ModelGroup[] = [
+const MODEL_GROUPS_EN: ModelGroup[] = [
   {
     title: 'TTS Engines',
     subtitle: 'Text → speech. Voice cloning, preset voices, and delivery control.',
@@ -152,13 +153,141 @@ const MODEL_GROUPS: ModelGroup[] = [
   },
 ];
 
+const MODEL_GROUPS_RU: ModelGroup[] = [
+  {
+    title: 'TTS-движки',
+    subtitle: 'Текст → речь. Клонирование голоса, готовые голоса и управление подачей.',
+    models: [
+      {
+        name: 'Qwen3-TTS',
+        author: 'Alibaba',
+        sizes: ['1.7B', '0.6B'],
+        description:
+          'Высококачественное многоязычное клонирование с естественной просодией. Единственный движок с голосовыми инструкциями: управляйте тоном, темпом и эмоцией естественным языком.',
+        tags: [
+          { icon: Globe, label: '10 языков' },
+          { icon: MessageSquare, label: 'Инструкции по подаче' },
+        ],
+      },
+      {
+        name: 'Chatterbox',
+        author: 'Resemble AI',
+        description:
+          'Продакшн-уровень клонирования голоса с самым широким языковым покрытием. 23 языка, zero-shot cloning и усиление эмоций.',
+        tags: [{ icon: Languages, label: '23 языка' }],
+      },
+      {
+        name: 'Chatterbox Turbo',
+        author: 'Resemble AI',
+        sizes: ['350M'],
+        description:
+          'Лёгкий и быстрый. Поддерживает паралингвистические теги: вставляйте [laugh], [sigh], [gasp] прямо в текст для выразительной речи.',
+        tags: [
+          { icon: Zap, label: 'Быстро' },
+          { icon: MessageSquare, label: 'Поддержка [tag]' },
+        ],
+      },
+      {
+        name: 'LuxTTS',
+        author: 'ZipVoice',
+        description:
+          'Сверхбыстрое CPU-friendly клонирование в 48kHz. Более 150x realtime на CPU и около 1GB VRAM. Самый быстрый движок для быстрых итераций.',
+        tags: [
+          { icon: Zap, label: '150x realtime' },
+          { icon: Volume2, label: '48kHz' },
+        ],
+      },
+      {
+        name: 'Qwen CustomVoice',
+        author: 'Alibaba',
+        sizes: ['1.7B', '0.6B'],
+        description:
+          'Девять премиальных готовых голосов с управлением стилем естественным языком. "Говори медленно и тепло", "уверенно и чётко" — тон и темп подстраиваются.',
+        tags: [
+          { icon: SlidersHorizontal, label: 'Instruct control' },
+          { icon: Globe, label: '10 языков' },
+        ],
+      },
+      {
+        name: 'TADA',
+        author: 'Hume AI',
+        sizes: ['3B', '1B'],
+        description:
+          'Speech-language model с двойным выравниванием текста и акустики. Рассчитана на long-form: 700+ секунд связного аудио без дрейфа. Многоязычная на 3B.',
+        tags: [
+          { icon: Globe, label: '10 языков' },
+          { icon: MessageSquare, label: 'Long-form' },
+        ],
+      },
+      {
+        name: 'Kokoro',
+        author: 'hexgrad · Apache 2.0',
+        sizes: ['82M'],
+        description:
+          'Миниатюрный TTS на 82M параметров, который идёт в realtime на CPU почти без VRAM. Готовые голосовые стили: выберите голос, введите текст, получите результат.',
+        tags: [
+          { icon: Zap, label: 'CPU realtime' },
+          { icon: Volume2, label: 'Готовые голоса' },
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Распознавание речи',
+    subtitle: 'Речь → текст. Многоязычное STT для диктовки и захватов.',
+    models: [
+      {
+        name: 'Whisper',
+        author: 'OpenAI',
+        sizes: ['1.5B', '769M', '244M', '74M'],
+        description:
+          'Базовый выбор. Зрелое многоязычное ASR в широком диапазоне размеров: берите Tiny ради скорости или Large ради максимальной точности.',
+        tags: [{ icon: Languages, label: '99 языков' }],
+      },
+      {
+        name: 'Whisper Turbo',
+        author: 'OpenAI',
+        sizes: ['809M'],
+        description:
+          'Облегчённый Whisper Large v3. Почти максимальное качество примерно в 8 раз быстрее — хороший дефолт для диктовки в реальном времени.',
+        tags: [
+          { icon: Languages, label: '99 языков' },
+          { icon: Zap, label: 'В 8 раз быстрее' },
+        ],
+      },
+    ],
+  },
+  {
+    title: 'Языковые модели',
+    subtitle: 'Очистка транскриптов, ответы персон и локальное рассуждение.',
+    models: [
+      {
+        name: 'Qwen3',
+        author: 'Alibaba',
+        sizes: ['4B', '1.7B', '0.6B'],
+        description:
+          'Отвечает за очистку транскриптов, persona replies и весь голосовой I/O-цикл. Делит рантайм с TTS/STT-стеком: один кеш моделей, одна GPU-история.',
+        tags: [
+          { icon: Sparkles, label: 'Очистка' },
+          { icon: Brain, label: 'Ответы персонажей' },
+        ],
+      },
+    ],
+  },
+];
+
 function ModelCard({ model }: { model: Model }) {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+
   return (
     <div className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-4 transition-colors hover:border-accent/30 flex flex-col">
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-foreground truncate">{model.name}</h3>
-          <span className="text-[11px] text-muted-foreground/60">by {model.author}</span>
+          <span className="text-[11px] text-muted-foreground/60">
+            {isRussian ? 'от' : 'by'} {model.author}
+          </span>
         </div>
         {model.sizes && model.sizes.length > 0 && (
           <div className="flex flex-wrap gap-1 justify-end shrink-0 max-w-[55%]">
@@ -197,6 +326,9 @@ function ModelCard({ model }: { model: Model }) {
 }
 
 function ModelGroupSection({ group }: { group: ModelGroup }) {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+
   return (
     <div>
       {/* Group header */}
@@ -206,8 +338,14 @@ function ModelGroupSection({ group }: { group: ModelGroup }) {
           <p className="text-sm text-muted-foreground/80">{group.subtitle}</p>
         </div>
         <span className="text-[11px] font-mono text-ink-faint/60 tabular-nums shrink-0">
-          {String(group.models.length).padStart(2, '0')} model
-          {group.models.length === 1 ? '' : 's'}
+          {String(group.models.length).padStart(2, '0')}{' '}
+          {isRussian
+            ? group.models.length === 1
+              ? 'модель'
+              : group.models.length < 5
+                ? 'модели'
+                : 'моделей'
+            : `model${group.models.length === 1 ? '' : 's'}`}
         </span>
       </div>
 
@@ -222,21 +360,26 @@ function ModelGroupSection({ group }: { group: ModelGroup }) {
 }
 
 export function SupportedModels() {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const groups = isRussian ? MODEL_GROUPS_RU : MODEL_GROUPS_EN;
+
   return (
     <section id="about" className="border-t border-border py-24">
       <div className="mx-auto max-w-6xl px-6">
         <div className="text-center mb-14">
           <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl mb-4">
-            Supported models
+            {isRussian ? 'Поддерживаемые модели' : 'Supported models'}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Pick the right model for every job — TTS, transcription, refinement. All models run
-            locally on your hardware. Download once, use forever.
+            {isRussian
+              ? 'Подбирайте подходящую модель под каждую задачу: TTS, распознавание, очистка текста. Все модели работают локально на вашем железе. Скачали один раз — пользуетесь сколько угодно.'
+              : 'Pick the right model for every job — TTS, transcription, refinement. All models run locally on your hardware. Download once, use forever.'}
           </p>
         </div>
 
         <div className="space-y-14">
-          {MODEL_GROUPS.map((group) => (
+          {groups.map((group) => (
             <ModelGroupSection key={group.title} group={group} />
           ))}
         </div>
