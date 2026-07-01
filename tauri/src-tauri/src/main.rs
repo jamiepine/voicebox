@@ -120,10 +120,6 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
 
 #[cfg(target_os = "macos")]
 fn install_russian_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
-    if !macos_prefers_russian() {
-        return Ok(());
-    }
-
     let pkg_info = app.package_info();
     let config = app.config();
     let app_name = pkg_info.name.clone();
@@ -209,6 +205,44 @@ fn install_russian_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::
         .build()?;
 
     app.set_menu(menu)?;
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn is_russian_language_tag(language: &str) -> bool {
+    language
+        .split(['-', '_'])
+        .next()
+        .map(|primary| primary.eq_ignore_ascii_case("ru"))
+        .unwrap_or(false)
+}
+
+#[cfg(target_os = "macos")]
+fn sync_macos_menu_for_language<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    language: Option<&str>,
+) -> tauri::Result<()> {
+    let use_russian_menu = language
+        .map(is_russian_language_tag)
+        .unwrap_or_else(macos_prefers_russian);
+
+    if use_russian_menu {
+        install_russian_menu(app)
+    } else {
+        app.remove_menu()?;
+        Ok(())
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[command]
+fn sync_native_language_menu(app: tauri::AppHandle, language: String) -> Result<(), String> {
+    sync_macos_menu_for_language(&app, Some(&language)).map_err(|e| e.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+#[command]
+fn sync_native_language_menu(_language: String) -> Result<(), String> {
     Ok(())
 }
 
@@ -1533,8 +1567,8 @@ pub fn run() {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
                 #[cfg(target_os = "macos")]
-                if let Err(e) = install_russian_menu(app.handle()) {
-                    eprintln!("install_russian_menu: failed to install Russian macOS menu: {e}");
+                if let Err(e) = sync_macos_menu_for_language(app.handle(), None) {
+                    eprintln!("sync_macos_menu_for_language: failed to install macOS menu: {e}");
                 }
 
                 // Resolve the active keyboard layout's V keycode now, on
@@ -1664,7 +1698,8 @@ pub fn run() {
             paste_final_text,
             enable_hotkey,
             disable_hotkey,
-            update_chord_bindings
+            update_chord_bindings,
+            sync_native_language_menu
         ])
         .on_window_event({
             let closing = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));

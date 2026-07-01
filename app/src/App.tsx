@@ -1,4 +1,5 @@
 import { RouterProvider } from '@tanstack/react-router';
+import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
@@ -90,7 +91,7 @@ function App() {
 }
 
 function MainApp() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const platform = usePlatform();
   const [serverReady, setServerReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
@@ -99,6 +100,26 @@ function MainApp() {
 
   // Automatically check for app updates on startup and show toast notifications
   useAutoUpdater({ checkOnMount: true, showToast: true });
+
+  // Keep the native macOS app menu aligned with the active UI language.
+  useEffect(() => {
+    if (!platform.metadata.isTauri) {
+      return;
+    }
+
+    const syncNativeLanguageMenu = (language: string) => {
+      invoke('sync_native_language_menu', { language }).catch((error) => {
+        console.error('Failed to sync native language menu:', error);
+      });
+    };
+
+    syncNativeLanguageMenu(i18n.resolvedLanguage ?? i18n.language);
+    i18n.on('languageChanged', syncNativeLanguageMenu);
+
+    return () => {
+      i18n.off('languageChanged', syncNativeLanguageMenu);
+    };
+  }, [i18n, platform.metadata.isTauri]);
 
   // Replay the saved chord into the Rust hotkey listener every time
   // capture_settings resolves or the user edits the chord.
