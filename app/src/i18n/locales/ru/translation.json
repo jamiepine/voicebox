@@ -1106,10 +1106,14 @@
       "active": "Активно",
       "cuda": {
         "title": "CUDA backend",
+        "activeTitle": "CUDA backend активен",
         "description": "Ускорение на NVIDIA GPU через загружаемый CUDA backend.",
         "downloading": "Загрузка CUDA backend…",
         "downloadingShort": "Загрузка…",
         "updating": "Обновление…"
+      },
+      "activeBackend": {
+        "description": "GPU-ускорение сейчас включено."
       },
       "restart": {
         "ready": "Сервер успешно перезапущен",
@@ -1128,7 +1132,7 @@
       },
       "switchToCpu": {
         "title": "Переключиться на CPU backend",
-        "description": "Отключить GPU-ускорение. Позже CUDA можно будет загрузить снова.",
+        "description": "Отключить GPU-ускорение. Позже GPU backend можно будет загрузить снова.",
         "button": "Переключить"
       },
       "remove": {
@@ -1141,9 +1145,33 @@
         "downloadStart": "Не удалось начать загрузку",
         "restartFailed": "Не удалось перезапустить",
         "switchCpu": "Не удалось переключиться на CPU",
-        "deleteCuda": "Не удалось удалить CUDA backend"
+        "deleteCuda": "Не удалось удалить CUDA backend",
+        "deleteRocm": "Не удалось удалить ROCm backend"
       },
-      "footer": "Voicebox автоматически определяет и использует лучший доступный GPU в вашей системе. На Mac с Apple Silicon backend на MLX нативно работает через Neural Engine и GPU с использованием Metal Performance Shaders (MPS) и не требует дополнительной настройки. На Windows и Linux с NVIDIA GPU можно скачать дополнительный CUDA backend для аппаратно ускоренного инференса. Там, где PyTorch это поддерживает, также доступны AMD ROCm, Intel XPU и DirectML. Если GPU не обнаружен, Voicebox автоматически переключается на CPU — все движки продолжат работать, просто медленнее."
+      "footer": "Voicebox автоматически определяет и использует лучший доступный GPU в вашей системе. На Mac с Apple Silicon backend на MLX нативно работает через Neural Engine и GPU с использованием Metal Performance Shaders (MPS) и не требует дополнительной настройки. В Windows можно скачать дополнительные CUDA (NVIDIA) или ROCm (AMD) backend для аппаратно ускоренного инференса. Там, где PyTorch это поддерживает, также доступны Intel XPU и DirectML. Если GPU не обнаружен, Voicebox автоматически переключается на CPU — все движки продолжат работать, просто медленнее.",
+      "rocm": {
+        "title": "AMD ROCm backend",
+        "activeTitle": "ROCm backend активен",
+        "description": "Ускорение на AMD GPU через загружаемый ROCm backend.",
+        "downloading": "Загрузка ROCm backend…",
+        "downloadingShort": "Загрузка…",
+        "updating": "Обновление…"
+      },
+      "downloadRocm": {
+        "title": "Скачать AMD ROCm backend",
+        "description": "Около 2–3 ГБ. Требуется AMD Radeon GPU с поддержкой ROCm.",
+        "button": "Скачать"
+      },
+      "switchToRocm": {
+        "title": "Переключиться на ROCm backend",
+        "description": "ROCm backend загружен и готов к работе. Перезапустите сервер, чтобы включить его.",
+        "button": "Перезапустить"
+      },
+      "removeRocm": {
+        "title": "Удалить ROCm backend",
+        "description": "Удалить загруженный ROCm-бинарник, чтобы освободить место на диске.",
+        "button": "Удалить"
+      }
     },
     "logs": {
       "title": "Логи сервера",
