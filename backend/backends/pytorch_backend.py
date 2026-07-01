@@ -21,6 +21,7 @@ from .base import (
 )
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 from ..utils.audio import load_audio
+from ..utils.whisper_stt import transcribe_whisper_pytorch
 
 
 class PyTorchTTSBackend:
@@ -335,44 +336,17 @@ class PyTorchSTTBackend:
 
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
-            # Load audio
             audio, _sr = load_audio(audio_path, sample_rate=16000)
 
-            # Inference runs with the process's default HF_HUB_OFFLINE
-            # state — forcing offline here (issue #462) broke online users
-            # whose `get_decoder_prompt_ids` / tokenizer calls issue
-            # legitimate metadata lookups.
-            # Process audio
-            inputs = self.processor(
+            # Whisper accepts ~30 s per forward pass. Longer captures are
+            # windowed with overlap so Captures / dictation get the full file.
+            return transcribe_whisper_pytorch(
                 audio,
-                sampling_rate=16000,
-                return_tensors="pt",
+                processor=self.processor,
+                model=self.model,
+                device=self.device,
+                language=language,
             )
-            inputs = inputs.to(self.device)
-
-            # Generate transcription
-            # If language is provided, force it; otherwise let Whisper auto-detect
-            generate_kwargs = {}
-            if language:
-                forced_decoder_ids = self.processor.get_decoder_prompt_ids(
-                    language=language,
-                    task="transcribe",
-                )
-                generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
-
-            with torch.no_grad():
-                predicted_ids = self.model.generate(
-                    inputs["input_features"],
-                    **generate_kwargs,
-                )
-
-            # Decode
-            transcription = self.processor.batch_decode(
-                predicted_ids,
-                skip_special_tokens=True,
-            )[0]
-
-            return transcription.strip()
 
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)
