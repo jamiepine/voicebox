@@ -94,7 +94,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href={getLocalizedPath(locale, '/cloud')}
+                  href="/cloud"
                   className="hover:text-foreground transition-colors"
                 >
                   Cloud
@@ -102,7 +102,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href={getLocalizedPath(locale, '/pricing')}
+                  href="/pricing"
                   className="hover:text-foreground transition-colors"
                 >
                   {isRussian ? 'Цены' : 'Pricing'}
@@ -124,7 +124,7 @@ export function Footer() {
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li>
                 <a
-                  href={getLocalizedPath(locale, '/blog')}
+                  href="/blog"
                   className="hover:text-foreground transition-colors"
                 >
                   {isRussian ? 'Блог' : 'Blog'}
@@ -209,7 +209,7 @@ export function Footer() {
               </div>
               <CopyAddress address={TOKEN_CONTRACT_ADDRESS} />
               <Link
-                href={getLocalizedPath(locale, '/token')}
+                href="/token"
                 className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
               >
                 {isRussian ? 'Подробнее о токене' : 'Token details'}

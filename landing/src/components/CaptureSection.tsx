@@ -539,7 +539,7 @@ export function CaptureSection() {
         {/* Kicker + headline */}
         <div className="text-center mb-14">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent mb-4">
-            {isRussian ? 'Захват' : 'Capture'}
+            {isRussian ? 'Записи' : 'Capture'}
           </div>
           <h2 className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl mb-5">
             {isRussian ? 'Диктуйте где угодно. Вставляйте в любое приложение.' : 'Dictate anywhere. Paste into any app.'}

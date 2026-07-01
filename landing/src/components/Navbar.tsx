@@ -80,13 +80,13 @@ export function Navbar() {
             {isRussian ? 'Модели' : 'Models'}
           </a>
           <a
-            href={getLocalizedPath(locale, '/pricing')}
+            href="/pricing"
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             {isRussian ? 'Цены' : 'Pricing'}
           </a>
           <a
-            href={getLocalizedPath(locale, '/blog')}
+            href="/blog"
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             {isRussian ? 'Блог' : 'Blog'}
@@ -103,7 +103,7 @@ export function Navbar() {
 
         <div className="flex items-center gap-2 justify-self-end">
           <a
-            href={getLocalizedPath(locale, '/token')}
+            href="/token"
             className="hidden sm:flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-accent/40"
             aria-label={`${TOKEN_TICKER} token`}
           >
