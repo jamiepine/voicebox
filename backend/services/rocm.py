@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Optional
 
 from ..config import get_data_dir
+from ..utils.platform_detect import server_asset_platform
 from ..utils.progress import get_progress_manager
 from .. import __version__
 
@@ -287,8 +288,9 @@ async def _download_rocm_binary_locked(version: Optional[str] = None):
     # release tag; the libs content version is encoded in the filename only.
     server_base_url = f"{GITHUB_RELEASES_URL}/{version}"
     libs_base_url = server_base_url
-    server_archive = "voicebox-server-rocm.tar.gz"
-    libs_archive = f"rocm-libs-{ROCM_LIBS_VERSION}.tar.gz"
+    plat = server_asset_platform()
+    server_archive = f"voicebox-server-rocm-{plat}.tar.gz"
+    libs_archive = f"rocm-libs-{plat}-{ROCM_LIBS_VERSION}.tar.gz"
 
     # Always stage when any download is needed, then atomically rename over
     # rocm_dir on success. This prevents a failed mid-extraction from leaving

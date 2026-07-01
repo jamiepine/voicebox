@@ -1,10 +1,11 @@
 """
 Package the PyInstaller --onedir ROCm build into two archives.
 
-Takes the PyInstaller --onedir output directory and splits it into:
-  1. voicebox-server-rocm.tar.gz       — server core (exe + non-AMD deps)
-  2. rocm-libs-{version}.tar.gz        — AMD/ROCm runtime libraries only
-  3. rocm-libs.json                    — version manifest for the ROCm libs
+Takes the PyInstaller --onedir output directory and splits it into
+(names carry a platform token, e.g. linux-x86_64, via --platform):
+  1. voicebox-server-rocm-{platform}.tar.gz  — server core (exe + non-AMD deps)
+  2. rocm-libs-{platform}-{version}.tar.gz   — AMD/ROCm runtime libraries only
+  3. rocm-libs.json                          — version manifest for the ROCm libs
 
 Mirrors scripts/package_cuda.py. The split lets the server core re-download on
 every app update while the much larger ROCm runtime stays cached until the
@@ -43,6 +44,7 @@ ROCM_DLL_PREFIXES = (
     "rocrand",
     "rocsolver",
     "rocsparse",
+    "rocroller",
     "rocprofiler",
     "roctracer",
     "roctx",
@@ -51,22 +53,30 @@ ROCM_DLL_PREFIXES = (
     "rccl",
     "hsa-runtime",
     "hsa",
+    "aotriton",
 )
 
 # Directory markers for the bundled ROCm SDK runtime packages. Everything under
 # these trees except Python sources (the pure-python rocm_sdk glue) is part of
 # the runtime payload — this is where rocBLAS Tensile data and MIOpen kernel
 # databases live, which dominate the download size.
+#
+# Windows: the ROCm runtime ships as separate rocm_sdk wheels (the _rocm_sdk_*
+# trees). Linux: the download.pytorch.org/whl/rocm torch wheels bundle the
+# runtime kernel data under torch/lib/<library>/ instead (rocBLAS/hipBLASLt
+# Tensile data ~5 GB, aotriton kernel images ~0.9 GB). Any file under either
+# tree is runtime payload and belongs in the cached libs archive.
 ROCM_LIB_DIR_MARKERS = (
     "_rocm_sdk_core",
     "_rocm_sdk_libraries_custom",
     "rocm_sdk_core",
     "rocm_sdk_libraries_custom",
+    "torch/lib/rocblas/",
+    "torch/lib/hipblaslt/",
+    "torch/lib/hipsparselt/",
+    "torch/lib/aotriton.images/",
+    "torch/share/miopen/",
 )
-
-# Heavy native/data extensions shipped by the ROCm runtime (HIP fat binaries,
-# rocBLAS Tensile data, MIOpen kernel DBs).
-ROCM_LIB_EXTS = (".dll", ".so", ".dat", ".db", ".kdb", ".hsaco", ".co", ".bc")
 
 # Python sources stay in the server core so the rocm_sdk import glue remains
 # alongside the exe. (Both archives extract into backends/rocm/, so this only
@@ -88,16 +98,18 @@ def is_rocm_file(rel_path: str) -> bool:
     if name.endswith(_PYTHON_EXTS):
         return False
 
-    # Native payload inside the bundled ROCm SDK package trees.
+    # Everything under a ROCm runtime payload tree (Windows rocm_sdk wheels or
+    # Linux torch/lib/<library>/ kernel data) is cached-libs content.
     if any(marker in rel_lower for marker in ROCM_LIB_DIR_MARKERS):
-        if name.endswith(ROCM_LIB_EXTS):
-            return True
+        return True
 
-    # ROCm/HIP DLLs/shared objects anywhere (e.g. _internal/torch/lib/amdhip64.dll).
-    if name.endswith((".dll", ".so")):
-        name_no_ext = name.rsplit(".", 1)[0]
+    # ROCm/HIP shared objects anywhere. Windows names them amdhip64.dll; Linux
+    # names them libamdhip64.so / libaotriton_v2.so.0.11.2 — a leading "lib" and
+    # a version suffix the simple ".dll"/".so" split would otherwise miss.
+    if name.endswith(".dll") or ".so" in name:
+        stem = name.split(".dll", 1)[0].split(".so", 1)[0].removeprefix("lib")
         for prefix in ROCM_DLL_PREFIXES:
-            if name_no_ext.startswith(prefix):
+            if stem.startswith(prefix):
                 return True
 
     return False
@@ -115,11 +127,21 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def platform_tag() -> str:
+    """Platform token for release-asset names (mirrors backend server_asset_platform)."""
+    import platform
+
+    machine = platform.machine().lower()
+    arch = "arm64" if machine in ("arm64", "aarch64") else "x86_64"
+    return f"{platform.system().lower()}-{arch}"
+
+
 def package(
     onedir_path: Path,
     output_dir: Path,
     rocm_libs_version: str,
     torch_compat: str,
+    plat: str,
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -159,27 +181,29 @@ def package(
 
     # Create server core archive. Files are stored relative to the archive root
     # (no parent prefix) so extracting to backends/rocm/ lands at the right level.
-    server_archive = output_dir / "voicebox-server-rocm.tar.gz"
+    server_name = f"voicebox-server-rocm-{plat}.tar.gz"
+    server_archive = output_dir / server_name
     print(f"\nCreating server core archive: {server_archive.name}")
     with tarfile.open(server_archive, "w:gz") as tar:
         for rel_str, full_path in core_files:
             tar.add(full_path, arcname=rel_str)
     server_sha = sha256_file(server_archive)
-    (output_dir / "voicebox-server-rocm.tar.gz.sha256").write_text(
-        f"{server_sha}  voicebox-server-rocm.tar.gz\n"
+    (output_dir / f"{server_name}.sha256").write_text(
+        f"{server_sha}  {server_name}\n"
     )
     print(f"  Size: {server_archive.stat().st_size / (1024**2):.1f} MB")
     print(f"  SHA-256: {server_sha[:16]}...")
 
     # Create ROCm libs archive.
-    rocm_libs_archive = output_dir / f"rocm-libs-{rocm_libs_version}.tar.gz"
+    rocm_libs_name = f"rocm-libs-{plat}-{rocm_libs_version}.tar.gz"
+    rocm_libs_archive = output_dir / rocm_libs_name
     print(f"\nCreating ROCm libs archive: {rocm_libs_archive.name}")
     with tarfile.open(rocm_libs_archive, "w:gz") as tar:
         for rel_str, full_path in rocm_files:
             tar.add(full_path, arcname=rel_str)
     rocm_sha = sha256_file(rocm_libs_archive)
-    (output_dir / f"rocm-libs-{rocm_libs_version}.tar.gz.sha256").write_text(
-        f"{rocm_sha}  rocm-libs-{rocm_libs_version}.tar.gz\n"
+    (output_dir / f"{rocm_libs_name}.sha256").write_text(
+        f"{rocm_sha}  {rocm_libs_name}\n"
     )
     print(f"  Size: {rocm_libs_archive.stat().st_size / (1024**2):.1f} MB")
     print(f"  SHA-256: {rocm_sha[:16]}...")
@@ -236,6 +260,13 @@ def main():
         default=">=2.9.0,<2.10.0",
         help="Torch version compatibility range (default: >=2.9.0,<2.10.0)",
     )
+    parser.add_argument(
+        "--platform",
+        type=str,
+        default=None,
+        help="Platform token for asset names, e.g. linux-x86_64 "
+        "(default: auto-detect from the current host)",
+    )
     args = parser.parse_args()
 
     if not args.input.is_dir():
@@ -244,7 +275,8 @@ def main():
         sys.exit(1)
 
     output_dir = args.output or args.input.parent
-    package(args.input, output_dir, args.rocm_libs_version, args.torch_compat)
+    plat = args.platform or platform_tag()
+    package(args.input, output_dir, args.rocm_libs_version, args.torch_compat, plat)
 
 
 if __name__ == "__main__":

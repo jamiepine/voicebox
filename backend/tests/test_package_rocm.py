@@ -37,6 +37,19 @@ class TestIsRocmFile:
             "_internal/_rocm_sdk_libraries_custom/lib/miopen/db/kernels.kdb",
             # Windows path separators must be handled too.
             "_internal\\torch\\lib\\rccl.dll",
+            # Linux layout: leading 'lib', .so (incl. version suffix), and the
+            # torch/lib/<library>/ kernel-data trees the rocm torch wheels bundle.
+            "_internal/torch/lib/libamdhip64.so",
+            "_internal/torch/lib/librocblas.so",
+            "_internal/torch/lib/libMIOpen.so",
+            "_internal/torch/lib/libaotriton_v2.so.0.11.2",
+            "_internal/torch/lib/rocblas/library/TensileLibrary_gfx1201.dat",
+            "_internal/torch/lib/hipblaslt/library/Kernels.so-000.co",
+            "_internal/torch/lib/aotriton.images/images/amd-gfx120x/flash.aks2",
+            "_internal/torch/lib/aotriton.images/images/amd-gfx942/__signature__",
+            "_internal/torch/lib/librocroller.so",
+            "_internal/torch/share/miopen/db/gfx1201_110.HIP.fdb.txt",
+            "_internal/torch/share/miopen/db/gfx1201_110.db.txt",
         ],
     )
     def test_runtime_files_are_rocm(self, rel_path):
@@ -49,6 +62,9 @@ class TestIsRocmFile:
             "_internal/python312.dll",
             "_internal/torch/lib/torch_cpu.dll",
             "_internal/torch/lib/c10.dll",
+            # Linux core torch shared objects (leading 'lib', not ROCm).
+            "_internal/torch/lib/libtorch_cpu.so",
+            "_internal/torch/lib/libc10.so",
             # Pure-python rocm_sdk glue stays in the core, even under an SDK dir.
             "_internal/rocm_sdk/__init__.py",
             "_internal/_rocm_sdk_core/_dist_info.py",
@@ -86,14 +102,14 @@ class TestPackage:
         )
 
         out = tmp_path / "release-assets"
-        package_rocm.package(onedir, out, "rocm7.2-v1", ">=2.9.0,<2.10.0")
+        package_rocm.package(onedir, out, "rocm7.2-v1", ">=2.9.0,<2.10.0", "linux-x86_64")
 
-        server = out / "voicebox-server-rocm.tar.gz"
-        libs = out / "rocm-libs-rocm7.2-v1.tar.gz"
+        server = out / "voicebox-server-rocm-linux-x86_64.tar.gz"
+        libs = out / "rocm-libs-linux-x86_64-rocm7.2-v1.tar.gz"
         assert server.exists()
         assert libs.exists()
-        assert (out / "voicebox-server-rocm.tar.gz.sha256").exists()
-        assert (out / "rocm-libs-rocm7.2-v1.tar.gz.sha256").exists()
+        assert (out / "voicebox-server-rocm-linux-x86_64.tar.gz.sha256").exists()
+        assert (out / "rocm-libs-linux-x86_64-rocm7.2-v1.tar.gz.sha256").exists()
 
         with tarfile.open(libs) as tar:
             lib_names = set(tar.getnames())
@@ -118,4 +134,6 @@ class TestPackage:
         _write(onedir / "_internal" / "torch" / "lib" / "torch_cpu.dll")
 
         with pytest.raises(SystemExit):
-            package_rocm.package(onedir, tmp_path / "out", "rocm7.2-v1", ">=2.9.0,<2.10.0")
+            package_rocm.package(
+                onedir, tmp_path / "out", "rocm7.2-v1", ">=2.9.0,<2.10.0", "linux-x86_64"
+            )

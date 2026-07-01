@@ -2,6 +2,7 @@
 Platform detection for backend selection.
 """
 
+import os
 import platform
 import subprocess
 from functools import lru_cache
@@ -67,6 +68,46 @@ def is_amd_gpu_windows() -> bool:
         pass
 
     return False
+
+
+# Platform tokens for which we actually build and publish downloadable GPU
+# server assets. Anything else must not be offered a download (it would 404).
+SUPPORTED_GPU_ASSET_PLATFORMS = frozenset({"linux-x86_64", "windows-x86_64"})
+
+
+@lru_cache(maxsize=1)
+def is_amd_rocm_capable() -> bool:
+    """Whether this host can run the downloadable ROCm backend.
+
+    Decides whether to offer the ROCm backend download in the UI, so it must
+    work before ROCm torch is installed (can't rely on torch.version.hip).
+
+    Windows: reuse the WMI/torch AMD probe. Linux: /dev/kfd is created by the
+    amdgpu kernel driver whenever ROCm compute is available — the same gate the
+    Docker entrypoint and setup recipe use. Gated on a platform we publish
+    assets for so unsupported arches (e.g. linux-arm64) aren't offered a 404.
+    """
+    if server_asset_platform() not in SUPPORTED_GPU_ASSET_PLATFORMS:
+        return False
+    system = platform.system()
+    if system == "Windows":
+        return is_amd_gpu_windows()
+    if system == "Linux":
+        return os.path.exists("/dev/kfd")
+    return False
+
+
+def server_asset_platform() -> str:
+    """Platform token identifying which downloadable GPU server assets to fetch.
+
+    Windows and Linux ROCm/CUDA builds are distinct binaries published as
+    separate release assets, so the download URL must be qualified by platform.
+    Only the platforms that ship a downloadable GPU backend are meaningful here
+    (macOS uses MLX/Metal and has no CUDA/ROCm server to download).
+    """
+    machine = platform.machine().lower()
+    arch = "arm64" if machine in ("arm64", "aarch64") else "x86_64"
+    return f"{platform.system().lower()}-{arch}"
 
 
 def get_backend_type() -> Literal["mlx", "pytorch"]:

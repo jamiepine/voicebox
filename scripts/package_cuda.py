@@ -1,10 +1,11 @@
 """
 Package the PyInstaller --onedir CUDA build into two archives.
 
-Takes the PyInstaller --onedir output directory and splits it into:
-  1. voicebox-server-cuda.tar.gz  — server core (exe + non-NVIDIA deps)
-  2. cuda-libs-cu128.tar.gz       — NVIDIA runtime libraries only
-  3. cuda-libs.json                — version manifest for the CUDA libs
+Takes the PyInstaller --onedir output directory and splits it into
+(names carry a platform token, e.g. linux-x86_64, via --platform):
+  1. voicebox-server-cuda-{platform}.tar.gz  — server core (exe + non-NVIDIA deps)
+  2. cuda-libs-{platform}-{version}.tar.gz   — NVIDIA runtime libraries only
+  3. cuda-libs.json                          — version manifest for the CUDA libs
 
 Usage:
     python scripts/package_cuda.py backend/dist/voicebox-server-cuda/
@@ -73,12 +74,14 @@ def is_nvidia_file(rel_path: str) -> bool:
             if part == "nvidia":
                 return True
 
-    # NVIDIA DLLs anywhere in the tree (e.g. _internal/torch/lib/cublas64_12.dll)
+    # NVIDIA shared objects anywhere. Windows: cublas64_12.dll. Linux:
+    # libcublas.so / libcublas.so.12 — a leading "lib" and a version suffix the
+    # simple ".dll"/".so" split would otherwise miss.
     name = rel_lower.rsplit("/", 1)[-1]
-    if name.endswith(".dll") or name.endswith(".so"):
-        name_no_ext = name.rsplit(".", 1)[0]
+    if name.endswith(".dll") or ".so" in name:
+        stem = name.split(".dll", 1)[0].split(".so", 1)[0].removeprefix("lib")
         for prefix in NVIDIA_DLL_PREFIXES:
-            if name_no_ext.startswith(prefix):
+            if stem.startswith(prefix):
                 return True
 
     return False
@@ -96,11 +99,21 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def platform_tag() -> str:
+    """Platform token for release-asset names (mirrors backend server_asset_platform)."""
+    import platform
+
+    machine = platform.machine().lower()
+    arch = "arm64" if machine in ("arm64", "aarch64") else "x86_64"
+    return f"{platform.system().lower()}-{arch}"
+
+
 def package(
     onedir_path: Path,
     output_dir: Path,
     cuda_libs_version: str,
     torch_compat: str,
+    plat: str,
 ):
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -140,27 +153,29 @@ def package(
     # Create server core archive
     # Files are stored relative to the archive root (no parent directory prefix)
     # so extracting to backends/cuda/ puts everything at the right level.
-    server_archive = output_dir / "voicebox-server-cuda.tar.gz"
+    server_name = f"voicebox-server-cuda-{plat}.tar.gz"
+    server_archive = output_dir / server_name
     print(f"\nCreating server core archive: {server_archive.name}")
     with tarfile.open(server_archive, "w:gz") as tar:
         for rel_str, full_path in core_files:
             tar.add(full_path, arcname=rel_str)
     server_sha = sha256_file(server_archive)
-    (output_dir / "voicebox-server-cuda.tar.gz.sha256").write_text(
-        f"{server_sha}  voicebox-server-cuda.tar.gz\n"
+    (output_dir / f"{server_name}.sha256").write_text(
+        f"{server_sha}  {server_name}\n"
     )
     print(f"  Size: {server_archive.stat().st_size / (1024**2):.1f} MB")
     print(f"  SHA-256: {server_sha[:16]}...")
 
     # Create CUDA libs archive
-    cuda_libs_archive = output_dir / f"cuda-libs-{cuda_libs_version}.tar.gz"
+    cuda_libs_name = f"cuda-libs-{plat}-{cuda_libs_version}.tar.gz"
+    cuda_libs_archive = output_dir / cuda_libs_name
     print(f"\nCreating CUDA libs archive: {cuda_libs_archive.name}")
     with tarfile.open(cuda_libs_archive, "w:gz") as tar:
         for rel_str, full_path in nvidia_files:
             tar.add(full_path, arcname=rel_str)
     cuda_sha = sha256_file(cuda_libs_archive)
-    (output_dir / f"cuda-libs-{cuda_libs_version}.tar.gz.sha256").write_text(
-        f"{cuda_sha}  cuda-libs-{cuda_libs_version}.tar.gz\n"
+    (output_dir / f"{cuda_libs_name}.sha256").write_text(
+        f"{cuda_sha}  {cuda_libs_name}\n"
     )
     print(f"  Size: {cuda_libs_archive.stat().st_size / (1024**2):.1f} MB")
     print(f"  SHA-256: {cuda_sha[:16]}...")
@@ -217,6 +232,13 @@ def main():
         default=">=2.7.0,<2.11.0",
         help="Torch version compatibility range (default: >=2.6.0,<2.11.0)",
     )
+    parser.add_argument(
+        "--platform",
+        type=str,
+        default=None,
+        help="Platform token for asset names, e.g. linux-x86_64 "
+        "(default: auto-detect from the current host)",
+    )
     args = parser.parse_args()
 
     if not args.input.is_dir():
@@ -225,7 +247,8 @@ def main():
         sys.exit(1)
 
     output_dir = args.output or args.input.parent
-    package(args.input, output_dir, args.cuda_libs_version, args.torch_compat)
+    plat = args.platform or platform_tag()
+    package(args.input, output_dir, args.cuda_libs_version, args.torch_compat, plat)
 
 
 if __name__ == "__main__":

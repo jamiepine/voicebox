@@ -136,26 +136,35 @@ async def test_download_rocm_binary_progress_reporting(mock_backends_dir, fake_t
     server_sha = hashlib.sha256(fake_tar_gz).hexdigest()
     libs_sha = hashlib.sha256(fake_tar_gz).hexdigest()
 
+    # Pin the platform token so this exercises the exact production URL contract
+    # rather than whatever server_asset_platform() happens to return on the host.
+    plat = "linux-x86_64"
+    base = "https://github.com/jamiepine/voicebox/releases/download/v0.2.3"
+    server_name = f"voicebox-server-rocm-{plat}.tar.gz"
+    libs_name = f"rocm-libs-{plat}-{rocm.ROCM_LIBS_VERSION}.tar.gz"
     responses = {
-        "https://github.com/jamiepine/voicebox/releases/download/v0.2.3/voicebox-server-rocm.tar.gz": FakeResponse(
+        f"{base}/{server_name}": FakeResponse(
             content=fake_tar_gz,
             headers={"content-length": str(len(fake_tar_gz))},
         ),
-        "https://github.com/jamiepine/voicebox/releases/download/v0.2.3/voicebox-server-rocm.tar.gz.sha256": FakeResponse(
-            content=f"{server_sha}  voicebox-server-rocm.tar.gz\n".encode(),
+        f"{base}/{server_name}.sha256": FakeResponse(
+            content=f"{server_sha}  {server_name}\n".encode(),
         ),
-        f"https://github.com/jamiepine/voicebox/releases/download/v0.2.3/rocm-libs-{rocm.ROCM_LIBS_VERSION}.tar.gz": FakeResponse(
+        f"{base}/{libs_name}": FakeResponse(
             content=fake_tar_gz,
             headers={"content-length": str(len(fake_tar_gz))},
         ),
-        f"https://github.com/jamiepine/voicebox/releases/download/v0.2.3/rocm-libs-{rocm.ROCM_LIBS_VERSION}.tar.gz.sha256": FakeResponse(
-            content=f"{libs_sha}  rocm-libs.tar.gz\n".encode(),
+        f"{base}/{libs_name}.sha256": FakeResponse(
+            content=f"{libs_sha}  {libs_name}\n".encode(),
         ),
     }
 
     fake_client = FakeHttpxClient(responses)
 
-    with patch("httpx.AsyncClient", return_value=fake_client):
+    with (
+        patch("httpx.AsyncClient", return_value=fake_client),
+        patch.object(rocm, "server_asset_platform", return_value=plat),
+    ):
         await rocm.download_rocm_binary(version="v0.2.3")
 
     # Verify extraction

@@ -161,8 +161,8 @@ export function GpuPage() {
   const cudaDownloading = cudaStatus?.downloading ?? false;
   const rocmAvailable = rocmStatus?.available ?? false;
   const rocmDownloading = rocmStatus?.downloading ?? false;
-  // The ROCm backend only applies to AMD GPUs on Windows. Show the section when
-  // the backend detects applicable hardware, or it is already downloaded/active.
+  // The ROCm backend applies to AMD GPUs on Windows or Linux (/dev/kfd). Show the
+  // section when the backend detects applicable hardware, or it is already downloaded/active.
   const supportsRocm = (health?.supports_rocm ?? false) || rocmAvailable || isCurrentlyRocm;
 
   useEffect(() => {
