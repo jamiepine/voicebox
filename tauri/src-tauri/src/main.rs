@@ -18,7 +18,7 @@ mod synthetic_keys;
 use std::sync::Mutex;
 use tauri::{command, State, Manager, WindowEvent, Emitter, Listener, RunEvent, WebviewUrl, WebviewWindowBuilder, PhysicalPosition};
 #[cfg(target_os = "macos")]
-use tauri::menu::{AboutMetadata, HELP_SUBMENU_ID, MenuBuilder, SubmenuBuilder, WINDOW_SUBMENU_ID};
+use tauri::menu::{AboutMetadata, HELP_SUBMENU_ID, MenuBuilder, PredefinedMenuItem, Submenu, WINDOW_SUBMENU_ID};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::mpsc;
 
@@ -135,43 +135,69 @@ fn install_russian_menu<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> tauri::
         ..Default::default()
     };
 
-    let app_menu = SubmenuBuilder::new(app, app_name.as_str())
-        .about_with_text(format!("О приложении {app_name}"), Some(about_metadata))
-        .separator()
-        .services_with_text("Службы")
-        .separator()
-        .hide_with_text(format!("Скрыть {app_name}"))
-        .hide_others_with_text("Скрыть остальные")
-        .separator()
-        .quit_with_text(format!("Завершить {app_name}"))
-        .build()?;
+    let about_text = format!("О приложении {app_name}");
+    let hide_text = format!("Скрыть {app_name}");
+    let quit_text = format!("Завершить {app_name}");
 
-    let file_menu = SubmenuBuilder::new(app, "Файл")
-        .close_window_with_text("Закрыть окно")
-        .build()?;
+    let app_menu = Submenu::with_items(
+        app,
+        app_name,
+        true,
+        &[
+            &PredefinedMenuItem::about(app, Some(&about_text), Some(about_metadata))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::services(app, Some("Службы"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::hide(app, Some(&hide_text))?,
+            &PredefinedMenuItem::hide_others(app, Some("Скрыть остальные"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::quit(app, Some(&quit_text))?,
+        ],
+    )?;
 
-    let edit_menu = SubmenuBuilder::new(app, "Правка")
-        .undo_with_text("Отменить")
-        .redo_with_text("Повторить")
-        .separator()
-        .cut_with_text("Вырезать")
-        .copy_with_text("Скопировать")
-        .paste_with_text("Вставить")
-        .select_all_with_text("Выбрать всё")
-        .build()?;
+    let file_menu = Submenu::with_items(
+        app,
+        "Файл",
+        true,
+        &[&PredefinedMenuItem::close_window(app, Some("Закрыть окно"))?],
+    )?;
 
-    let view_menu = SubmenuBuilder::new(app, "Вид")
-        .fullscreen_with_text("Перейти в полноэкранный режим")
-        .build()?;
+    let edit_menu = Submenu::with_items(
+        app,
+        "Правка",
+        true,
+        &[
+            &PredefinedMenuItem::undo(app, Some("Отменить"))?,
+            &PredefinedMenuItem::redo(app, Some("Повторить"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::cut(app, Some("Вырезать"))?,
+            &PredefinedMenuItem::copy(app, Some("Скопировать"))?,
+            &PredefinedMenuItem::paste(app, Some("Вставить"))?,
+            &PredefinedMenuItem::select_all(app, Some("Выбрать всё"))?,
+        ],
+    )?;
 
-    let window_menu = SubmenuBuilder::with_id(app, WINDOW_SUBMENU_ID, "Окно")
-        .minimize_with_text("Свернуть")
-        .maximize_with_text("Развернуть")
-        .separator()
-        .close_window_with_text("Закрыть окно")
-        .build()?;
+    let view_menu = Submenu::with_items(
+        app,
+        "Вид",
+        true,
+        &[&PredefinedMenuItem::fullscreen(app, Some("Перейти в полноэкранный режим"))?],
+    )?;
 
-    let help_menu = SubmenuBuilder::with_id(app, HELP_SUBMENU_ID, "Справка").build()?;
+    let window_menu = Submenu::with_id_and_items(
+        app,
+        WINDOW_SUBMENU_ID,
+        "Окно",
+        true,
+        &[
+            &PredefinedMenuItem::minimize(app, Some("Свернуть"))?,
+            &PredefinedMenuItem::maximize(app, Some("Развернуть"))?,
+            &PredefinedMenuItem::separator(app)?,
+            &PredefinedMenuItem::close_window(app, Some("Закрыть окно"))?,
+        ],
+    )?;
+
+    let help_menu = Submenu::with_id_and_items(app, HELP_SUBMENU_ID, "Справка", true, &[])?;
 
     let menu = MenuBuilder::new(app)
         .item(&app_menu)
@@ -1507,7 +1533,9 @@ pub fn run() {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
                 #[cfg(target_os = "macos")]
-                install_russian_menu(app.handle())?;
+                if let Err(e) = install_russian_menu(app.handle()) {
+                    eprintln!("install_russian_menu: failed to install Russian macOS menu: {e}");
+                }
 
                 // Resolve the active keyboard layout's V keycode now, on
                 // the main thread, and register an observer for layout

@@ -69,7 +69,7 @@ export function getLanguageLabel(code: LanguageCode): string {
   const uiLanguage = i18n.resolvedLanguage ?? i18n.language;
   const primaryLanguage = uiLanguage.split('-')[0];
 
-  if (uiLanguage === 'ru' || primaryLanguage === 'ru') {
+  if (primaryLanguage === 'ru') {
     return LANGUAGE_LABELS_RU[code];
   }
 
