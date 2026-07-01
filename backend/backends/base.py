@@ -51,18 +51,17 @@ def is_model_cached(
         if not snapshots_dir.exists():
             return False
 
+        blobs_dir = repo_cache / "blobs"
+        if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
+            logger.debug(f"Found .incomplete files for {hf_repo}")
+            return False
+
         if required_files:
             # Check that every required filename exists somewhere in snapshots
             for fname in required_files:
                 if not any(snapshots_dir.rglob(fname)):
                     return False
             return True
-
-        # For generic weight checking, incomplete blobs mean a download is still in progress
-        blobs_dir = repo_cache / "blobs"
-        if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
-            logger.debug(f"Found .incomplete files for {hf_repo}")
-            return False
 
         # Check that at least one weight file exists
         for ext in weight_extensions:
