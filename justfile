@@ -17,8 +17,11 @@ pip := if os() == "windows" { venv_bin / "pip.exe" } else { venv_bin / "pip" }
 # Shell selection: use powershell on Windows, bash elsewhere
 set windows-shell := ["powershell", "-NoProfile", "-Command"]
 
-# Detect best python for venv creation (platform-aware)
-system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
+# Detect best python for venv creation (platform-aware).
+# Prefer 3.12/3.11 over 3.13+: numba (a required ML dependency) has no
+# wheel for Python 3.13 yet, so preferring it over a plain `python3`
+# fallback just trades one failure mode for a guaranteed one.
+system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || command -v python3.11 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
 
 # ─── Setup ────────────────────────────────────────────────────────────
 
@@ -35,9 +38,9 @@ setup-python:
     if [ ! -d "{{ venv }}" ]; then
         echo "Creating Python virtual environment..."
         PY_MINOR=$({{ system_python }} -c "import sys; print(sys.version_info[1])")
-        if [ "$PY_MINOR" -gt 13 ]; then
-            echo "Warning: Python 3.$PY_MINOR detected. ML packages may not be compatible."
-            echo "Recommended: brew install python@3.12"
+        if [ "$PY_MINOR" -ge 13 ]; then
+            echo "Warning: Python 3.$PY_MINOR detected. numba (a required ML dependency) has no wheel for Python 3.13+ yet, so this may fail installing requirements.txt."
+            echo "Recommended: install Python 3.12 (e.g. brew install python@3.12, or pyenv/uv) and re-run just setup."
         fi
         {{ system_python }} -m venv {{ venv }}
     fi
@@ -82,8 +85,9 @@ setup-python:
     if (-not (Test-Path "{{ venv }}")) { \
         Write-Host "Creating Python virtual environment..."; \
         $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
-        if ([int]$pyMinor -gt 13) { \
-            Write-Host "Warning: Python 3.$pyMinor detected. ML packages may not be compatible."; \
+        if ([int]$pyMinor -ge 13) { \
+            Write-Host "Warning: Python 3.$pyMinor detected. numba (a required ML dependency) has no wheel for Python 3.13+ yet, so this may fail installing requirements.txt."; \
+            Write-Host "Recommended: install Python 3.12 and re-run just setup."; \
         }; \
         & {{ system_python }} -m venv {{ venv }}; \
     }
