@@ -1421,6 +1421,16 @@ pub fn run() {
                 let handle_for_hide = app.handle().clone();
                 app.handle().listen("dictate:hide", move |_event| {
                     if let Some(window) = handle_for_hide.get_webview_window(DICTATE_WINDOW_LABEL) {
+                        // `set_ignore_cursor_events(true)` aborts on Linux/GTK:
+                        // tao's CursorIgnoreEvents(true) handler calls
+                        // `gtk_window.window().unwrap()`, and a pill that was
+                        // built `.visible(false)` and never shown has no
+                        // realized GdkWindow yet, so the unwrap panics in a
+                        // non-unwinding context. The click-through-while-hidden
+                        // hack is a macOS NSWindow workaround anyway (see the
+                        // comment above), so skip it on Linux — parking the
+                        // window off-screen and `hide()` are enough there.
+                        #[cfg(not(target_os = "linux"))]
                         let _ = window.set_ignore_cursor_events(true);
                         let _ = window.set_position(PhysicalPosition::new(-10_000, -10_000));
                         let _ = window.hide();
