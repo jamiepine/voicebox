@@ -72,6 +72,13 @@ setup-python:
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
         {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        # mlx-lm / mlx-audio declare transformers>=5.x, which conflicts with the
+        # transformers<=4.57.6 cap in requirements.txt, so install them --no-deps
+        # (matches .github/workflows/release.yml). Without these, MLX engines
+        # (Qwen TTS, Whisper STT, personality LLM) fail at call time with
+        # "No module named 'mlx_audio'".
+        {{ pip }} install --no-deps mlx-lm==0.31.1
+        {{ pip }} install --no-deps mlx-audio==0.4.1
     fi
     {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
     {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
