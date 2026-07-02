@@ -212,7 +212,9 @@ class MLXQwenLLMBackend:
         if self.model is not None and self._current_model_size != model_size:
             self.unload_model()
 
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        from ..services.mlx_thread import run_mlx
+
+        await run_mlx(self._load_model_sync, model_size)
 
     def _load_model_sync(self, model_size: str) -> None:
         from mlx_lm import load as mlx_load
@@ -255,7 +257,9 @@ class MLXQwenLLMBackend:
         examples: Optional[list[tuple[str, str]]] = None,
     ) -> str:
         await self.load_model(model_size)
-        return await asyncio.to_thread(
+        from ..services.mlx_thread import run_mlx
+
+        return await run_mlx(
             self._generate_sync, prompt, system, max_tokens, temperature, examples
         )
 
