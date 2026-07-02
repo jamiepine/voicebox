@@ -269,6 +269,10 @@ fn apply_effect(app: &AppHandle, effect: Effect) {
                 // it out of whatever app the user was typing in, which is
                 // the opposite of what a dictation overlay should do.
                 let _ = window.show();
+                // Order the pill into the currently-active Space (incl. a
+                // foreign app's fullscreen Space) — see main.rs.
+                #[cfg(target_os = "macos")]
+                crate::force_order_front(&window);
                 let payload = serde_json::json!({ "focus": focus });
                 let _ = window.emit("dictate:start", payload);
             }
