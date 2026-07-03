@@ -366,6 +366,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Free up disk space
         uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
@@ -377,7 +379,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip"
 
       - name: Install GPU PyTorch (Linux) first so requirements see it satisfied
         # The Linux GPU runtime ships inside the torch wheels (for ROCm:
