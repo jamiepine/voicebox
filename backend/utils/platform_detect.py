@@ -72,7 +72,7 @@ def is_amd_gpu_windows() -> bool:
 
 # Platform tokens for which we actually build and publish downloadable GPU
 # server assets. Anything else must not be offered a download (it would 404).
-SUPPORTED_GPU_ASSET_PLATFORMS = frozenset({"linux-x86_64", "windows-x86_64"})
+SUPPORTED_GPU_ASSET_PLATFORMS = ("linux-x86_64", "windows-x86_64")
 
 
 @lru_cache(maxsize=1)
