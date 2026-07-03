@@ -18,11 +18,13 @@ Usage:
 """
 
 import argparse
-import hashlib
 import json
 import sys
 import tarfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from package_cuda import matches_lib_prefix, sha256_file  # noqa: E402
 
 # DLL/.so name prefixes that identify AMD ROCm/HIP runtime libraries. They may
 # sit in torch/lib/ (torch's bundled HIP runtime) or inside the bundled ROCm SDK
@@ -103,37 +105,9 @@ def is_rocm_file(rel_path: str) -> bool:
     if any(marker in rel_lower for marker in ROCM_LIB_DIR_MARKERS):
         return True
 
-    # ROCm/HIP shared objects anywhere. Windows names them amdhip64.dll; Linux
-    # names them libamdhip64.so / libaotriton_v2.so.0.11.2 — a leading "lib" and
-    # a version suffix the simple ".dll"/".so" split would otherwise miss.
-    if name.endswith(".dll") or ".so" in name:
-        stem = name.split(".dll", 1)[0].split(".so", 1)[0].removeprefix("lib")
-        for prefix in ROCM_DLL_PREFIXES:
-            if stem.startswith(prefix):
-                return True
-
-    return False
-
-
-def sha256_file(path: Path) -> str:
-    """Compute SHA-256 hex digest of a file."""
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        while True:
-            chunk = f.read(1024 * 1024)
-            if not chunk:
-                break
-            h.update(chunk)
-    return h.hexdigest()
-
-
-def platform_tag() -> str:
-    """Platform token for release-asset names (mirrors backend server_asset_platform)."""
-    import platform
-
-    machine = platform.machine().lower()
-    arch = "arm64" if machine in ("arm64", "aarch64") else "x86_64"
-    return f"{platform.system().lower()}-{arch}"
+    # ROCm/HIP shared objects anywhere (amdhip64.dll, libamdhip64.so,
+    # libaotriton_v2.so.0.11.2 — lib prefix and version suffix handled).
+    return matches_lib_prefix(name, ROCM_DLL_PREFIXES)
 
 
 def package(
@@ -263,9 +237,9 @@ def main():
     parser.add_argument(
         "--platform",
         type=str,
-        default=None,
-        help="Platform token for asset names, e.g. linux-x86_64 "
-        "(default: auto-detect from the current host)",
+        required=True,
+        help="Platform token for asset names, e.g. linux-x86_64. Explicit so a "
+        "cross-platform CI runner can never mislabel an asset.",
     )
     args = parser.parse_args()
 
@@ -275,8 +249,7 @@ def main():
         sys.exit(1)
 
     output_dir = args.output or args.input.parent
-    plat = args.platform or platform_tag()
-    package(args.input, output_dir, args.rocm_libs_version, args.torch_compat, plat)
+    package(args.input, output_dir, args.rocm_libs_version, args.torch_compat, args.platform)
 
 
 if __name__ == "__main__":

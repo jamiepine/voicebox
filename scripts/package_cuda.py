@@ -74,16 +74,20 @@ def is_nvidia_file(rel_path: str) -> bool:
             if part == "nvidia":
                 return True
 
-    # NVIDIA shared objects anywhere. Windows: cublas64_12.dll. Linux:
-    # libcublas.so / libcublas.so.12 — a leading "lib" and a version suffix the
-    # simple ".dll"/".so" split would otherwise miss.
-    name = rel_lower.rsplit("/", 1)[-1]
+    # NVIDIA shared objects anywhere (e.g. _internal/torch/lib/cublas64_12.dll).
+    return matches_lib_prefix(rel_lower.rsplit("/", 1)[-1], NVIDIA_DLL_PREFIXES)
+
+
+def matches_lib_prefix(name: str, prefixes: tuple) -> bool:
+    """Whether a shared-library file name matches one of the GPU lib prefixes.
+
+    Handles Windows (cublas64_12.dll) and Linux (libcublas.so, libcublas.so.12)
+    naming — a leading "lib" and a version suffix the simple ".dll"/".so" split
+    would otherwise miss. Shared with package_rocm.py.
+    """
     if name.endswith(".dll") or ".so" in name:
         stem = name.split(".dll", 1)[0].split(".so", 1)[0].removeprefix("lib")
-        for prefix in NVIDIA_DLL_PREFIXES:
-            if stem.startswith(prefix):
-                return True
-
+        return stem.startswith(prefixes)
     return False
 
 
@@ -97,15 +101,6 @@ def sha256_file(path: Path) -> str:
                 break
             h.update(chunk)
     return h.hexdigest()
-
-
-def platform_tag() -> str:
-    """Platform token for release-asset names (mirrors backend server_asset_platform)."""
-    import platform
-
-    machine = platform.machine().lower()
-    arch = "arm64" if machine in ("arm64", "aarch64") else "x86_64"
-    return f"{platform.system().lower()}-{arch}"
 
 
 def package(
@@ -235,9 +230,9 @@ def main():
     parser.add_argument(
         "--platform",
         type=str,
-        default=None,
-        help="Platform token for asset names, e.g. linux-x86_64 "
-        "(default: auto-detect from the current host)",
+        required=True,
+        help="Platform token for asset names, e.g. linux-x86_64. Explicit so a "
+        "cross-platform CI runner can never mislabel an asset.",
     )
     args = parser.parse_args()
 
@@ -247,8 +242,7 @@ def main():
         sys.exit(1)
 
     output_dir = args.output or args.input.parent
-    plat = args.platform or platform_tag()
-    package(args.input, output_dir, args.cuda_libs_version, args.torch_compat, plat)
+    package(args.input, output_dir, args.cuda_libs_version, args.torch_compat, args.platform)
 
 
 if __name__ == "__main__":
