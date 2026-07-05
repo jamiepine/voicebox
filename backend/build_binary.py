@@ -330,6 +330,9 @@ def build_server(cuda=False, rocm=False):
         ]
     )
 
+    if sys.version_info >= (3, 13):
+        args.extend(["--hidden-import", "audioop"])
+
     # Add CUDA/ROCm-specific hidden imports
     if cuda or rocm:
         variant = "ROCm" if rocm else "CUDA"
