@@ -34,6 +34,11 @@
   <a href="#development">Development</a>
 </p>
 
+> [!NOTE]
+> **This fork (MaximusPrime77/voicebox) includes:**
+> * 🇹🇷 **Full Turkish Language Support**: Translation of the entire application interface (registered as `tr` in `i18n`).
+> * ⚡ **Fixed AMD GPU Windows Detection**: Patched native DirectML & ROCm backend detection for AMD Radeon graphics cards on Windows.
+
 <br/>
 
 <p align="center">
