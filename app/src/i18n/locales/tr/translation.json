@@ -1,0 +1,1274 @@
+{
+  "common": {
+    "cancel": "İptal",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "edit": "Düzenle",
+    "close": "Kapat",
+    "confirm": "Onayla",
+    "loading": "Yükleniyor…",
+    "error": "Hata",
+    "unknown": "Bilinmeyen",
+    "unknownError": "Bilinmeyen hata"
+  },
+  "nav": {
+    "generate": "Üret",
+    "stories": "Hikayeler",
+    "captures": "Kayıtlar",
+    "voices": "Sesler",
+    "effects": "Efektler",
+    "audio": "Ses Kanalları",
+    "models": "Modeller",
+    "settings": "Ayarlar",
+    "updateBadge": "Güncelle"
+  },
+  "captures": {
+    "title": "Kayıtlar",
+    "beta": "Beta",
+    "searchPlaceholder": "Metinlerde ara…",
+    "snippetEmpty": "(metin yok)",
+    "noTranscriptError": "Kaydı henüz metne dönüştürülmedi",
+    "captureCardLabel": "Kayıt · {{when}}",
+    "header": {
+      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+    },
+    "source": {
+      "dictation": "Dikte",
+      "recording": "Kayıt",
+      "file": "Dosya"
+    },
+    "transcript": {
+      "refined": "İyileştirilmiş",
+      "raw": "Ham Metin",
+      "refinedHint": "Qwen3 · {{model}} ile iyileştirildi",
+      "rawHint": "Whisper {{model}} ile metne dönüştürüldü"
+    },
+    "actions": {
+      "configure": "Yapılandır",
+      "import": "İçe Aktar",
+      "importing": "Yükleniyor…",
+      "dictate": "Dikte Et",
+      "stop": "Durdur",
+      "copy": "Kopyala",
+      "refine": "İyileştir",
+      "reRefine": "Yeniden İyileştir",
+      "export": "Dışa Aktar",
+      "exportDropdownLabel": "Kaydı farklı dışa aktar",
+      "exportAudio": "Ses (WAV)",
+      "exportTranscript": "Metin (TXT)",
+      "exportMarkdown": "Markdown (MD)",
+      "delete": "Sil",
+      "playAs": "{{name}} Olarak Oynat",
+      "playAsFallback": "Sesle Oynat…",
+      "playAsGenerating": "Üretiliyor…",
+      "playAsStop": "Durdur · {{name}}",
+      "playAsStopFallback": "Durdur · Ses",
+      "playAsDropdownLabel": "Metni şu sesle oynat"
+    },
+    "empty": {
+      "noMatches": "\"{{query}}\" aramasıyla eşleşen kayıt bulunamadı",
+      "none": "Henüz kayıt yok.",
+      "loading": "Kayıtlar yükleniyor…",
+      "pickOne": "Metni görmek için bir kayıt seçin.",
+      "holdToRecord": "Kaydetmek için basılı tutun",
+      "toggleHandsFree": "Eller serbest modunu değiştir",
+      "pressShortcut": "İlk kaydınızı başlatmak için bilgisayarınızda kısayola basın.",
+      "turnOnShortcut": "Her yerden dikte etmek için küresel kısayolu açın — veya uygulama içi kayıt için yukarıdaki Dikte Et butonuna tıklayın.",
+      "openSettings": "Kayıt ayarlarlarını aç"
+    },
+    "deleteDialog": {
+      "title": "Kaydı sil",
+      "description": "Bu işlem kaydı, sesini ve metnini kalıcı olarak silecektir. Bu işlem geri alınamaz.",
+      "deleting": "Siliniyor…"
+    },
+    "toast": {
+      "deleteFailed": "Silme başarısız oldu",
+      "playAsFailed": "Seslendirme başarısız oldu",
+      "noVoice": "Ses profili bulunamadı",
+      "noVoiceDescription": "Seslendirme özelliğini kullanmadan önce bir ses profili oluşturun.",
+      "transcriptCopied": "Metin kopyalandı",
+      "copyFailed": "Kopyalama başarısız oldu",
+      "exportSuccess": "{{path}} konumuna dışa aktarıldı",
+      "exportFailed": "Dışa aktarma başarısız oldu",
+      "exportEmpty": "Dışa aktarılacak bir şey yok",
+      "shortcutNotArmed": "Kısayol açık ancak henüz hazır değil",
+      "shortcutNotArmedDescription_one": "{{names}} modelinin indirilmesi gerekiyor. Başlatmak için Kayıtlar sekmesini açın.",
+      "shortcutNotArmedDescription_other": "{{names}} modellerinin indirilmesi gerekiyor. Başlatmak için Kayıtlar sekmesini açın."
+    },
+    "pill": {
+      "recording": "Kaydediliyor",
+      "transcribing": "Metne Dönüştürülüyor",
+      "refining": "Metin İyileştiriliyor",
+      "speaking": "Konuşuyor",
+      "completed": "Tamamlandı",
+      "stopAria": "Kaydı durdur",
+      "errorFallback": "Bir hata oluştu",
+      "errorCopyTooltip": "Hatayı kopyalamak için tıklayın"
+    },
+    "chord": {
+      "capturing": "Algılanıyor…",
+      "pressShortcut": "Kısayol tuşlarınıza basın",
+      "noKeys": "Henüz tuş basılmadı",
+      "unsupported": "\"{{key}}\" kısayollarda desteklenmiyor. Bir değiştirici (Ctrl/Shift vb.) veya harf tuşu deneyin.",
+      "notSet": "Ayarlanmadı"
+    },
+    "readiness": {
+      "title": "Dikte etmeden önce yapılması gerekenler",
+      "subheading": "Aşağıdaki adımların tümü tamamlanana kadar kısayol etkinleştirilmez.",
+      "downloadButton": "İndir",
+      "downloading": "İndiriliyor…",
+      "downloadingPercent": "İndiriliyor… %{{pct}}",
+      "downloadStarted": "İndirme başlatıldı",
+      "downloadStartedDescription": "{{name}} indiriliyor. İndirme bittiğinde kısayol etkinleşecektir.",
+      "downloadFailed": "İndirme başarısız oldu",
+      "stt": {
+        "label": "{{name}} (sesi metne dönüştürme)",
+        "ready": "Model indirildi.",
+        "missing": "Sesinizi metne dönüştürmek için gerekli",
+        "missingWithSize": "Sesinizi metne dönüştürmek için gerekli · {{size}}"
+      },
+      "llm": {
+        "label": "{{name}} (metin iyileştirme)",
+        "ready": "Model indirildi.",
+        "missing": "Yapıştırmadan önce ham metni temizler ve düzenler",
+        "missingWithSize": "Yapıştırmadan önce ham metni temizler ve düzenler · {{size}}"
+      },
+      "inputMonitoring": {
+        "label": "Giriş İzleme izni",
+        "ready": "macOS, Voicebox'ın küresel kısayolunuzu algılamasına izin veriyor.",
+        "missing": "macOS'in Voicebox'ın küresel kısayolunuzu algılamasına izin vermesi gerekiyor.",
+        "openSettings": "Ayarları Aç"
+      },
+      "accessibility": {
+        "label": "Erişilebilirlik izni",
+        "ready": "Voicebox, metinleri diğer uygulamalara yapıştırabilir.",
+        "missing": "Metinlerin odaklanılan uygulamaya doğrudan yapıştırılması için gereklidir.",
+        "openSettings": "Ayarları Aç"
+      }
+    },
+    "permissions": {
+      "accessibility": {
+        "title": "Otomatik yapıştırmayı etkinleştirmek için Erişilebilirlik izni verin",
+        "body": "Voicebox'ın metinleri diğer uygulamalara yapıştırabilmesi için <path>Sistem Ayarları → Gizlilik ve Güvenlik → Erişilebilirlik</path> iznine ihtiyacı vardır. Bu izin olmadan da dikte ettiğiniz metinler Kayıtlar sekmesine kaydedilmeye devam eder.",
+        "openSettings": "Ayarları Aç",
+        "recheck": "Etkinleştirdim",
+        "rechecking": "Kontrol ediliyor…",
+        "stillMissing": "Henüz algılanmadı. macOS genellikle izni değiştirdikten sonra Voicebox'ı kapatıp yeniden açmanızı gerektirir."
+      },
+      "inputMonitoring": {
+        "title": "Küresel kısayolu etkinleştirmek için Giriş İzleme izni verin",
+        "body": "Voicebox'ın dikte kısayolunuzu algılayabilmesi için <path>Sistem Ayarları → Gizlilik ve Güvenlik → Giriş İzleme</path> iznine ihtiyacı vardır. Seçenek açık olsa bile macOS, siz izin verene kadar tuş olaylarını engeller.",
+        "openSettings": "Ayarları Aç",
+        "recheck": "Etkinleştirdim",
+        "rechecking": "Kontrol ediliyor…",
+        "stillMissing": "Henüz algılanmadı. macOS genellikle izni değiştirdikten sonra Voicebox'ı kapatıp yeniden açmanızı gerektirir."
+      }
+    }
+  },
+  "voicesTab": {
+    "title": "Sesler",
+    "loading": "Sesler yükleniyor…",
+    "searchPlaceholder": "Seslerde ara…",
+    "newVoice": "Yeni Ses",
+    "avatarAlt": "{{name}} avatarı",
+    "selectChannels": "Kanalları seç…",
+    "channelDefaultLabel": "{{name}} (Varsayılan)",
+    "columns": {
+      "name": "Ad",
+      "language": "Dil",
+      "generations": "Üretimler",
+      "samples": "Örnekler",
+      "effects": "Efektler",
+      "channels": "Kanallar"
+    }
+  },
+  "voiceInspector": {
+    "loading": "Yükleniyor…",
+    "defaultEffectsHint": "Bu sesle yapılan yeni üretimlere otomatik olarak uygulanır.",
+    "fields": {
+      "description": "Açıklama"
+    },
+    "toast": {
+      "invalidImageFormat": "Lütfen PNG, JPG veya WebP seçin",
+      "avatarUpdated": "Avatar güncellendi",
+      "savedDescription": "\"{{name}}\" kaydedildi."
+    }
+  },
+  "audioChannels": {
+    "title": "Ses Kanalları",
+    "newChannel": "Yeni Kanal",
+    "loading": "Yükleniyor…",
+    "confirmDelete": "Bu kanalı silmek istediğinize emin misiniz?",
+    "noVoicesAssigned": "Atanmış ses yok",
+    "selectDevice": "Cihaz seçin",
+    "addDevice": "Cihaz ekle",
+    "addVoice": "Ses ekle",
+    "defaultSuffix": "varsayılan",
+    "empty": {
+      "message": "Henüz ses kanalı yok. Sesleri belirli cihazlara yönlendirmek için ilk kanalınızı oluşturun.",
+      "action": "Kanal Oluştur"
+    },
+    "labels": {
+      "outputDevices": "Çıkış Cihazları",
+      "assignedVoices": "Atanmış Sesler"
+    },
+    "devices": {
+      "title": "Kullanılabilir Cihazlar",
+      "defaultNote": "Varsayılan kanal, sistemin varsayılan ses cihazını kullanır",
+      "toggleHint": "Cihazları seçilen kanala eklemek veya kaldırmak için üzerlerine tıklayın",
+      "selectHint": "Cihaz atamak için bir kanal seçin",
+      "empty": "Ses cihazı bulunamadı",
+      "requiresTauri": "Ses cihazı seçimi için Tauri gereklidir"
+    },
+    "fields": {
+      "name": "Kanal Adı",
+      "namePlaceholder": "Örn: Sanal Kablo, Yayın"
+    },
+    "createDialog": {
+      "title": "Ses Kanalı Oluştur",
+      "description": "Sesleri belirli çıkış cihazlarına yönlendirmek için yeni bir ses kanalı (bus) oluşturun.",
+      "action": "Oluştur"
+    },
+    "editDialog": {
+      "title": "Kanalı Düzenle",
+      "description": "Kanal ayarlarını ve ses atamalarını güncelleyin."
+    }
+  },
+  "profileForm": {
+    "createTitle": "Ses Oluştur",
+    "editTitle": "Sesi Düzenle",
+    "createDescription": "Ses örneğinden veya yerleşik bir sesten yeni bir ses profili oluşturun.",
+    "editDescription": "Ses profili ayrıntılarını güncelleyin ve örnekleri yönetin.",
+    "draftRestored": "Taslak geri yüklendi",
+    "discard": "Taslağı Sil",
+    "source": {
+      "clone": "Sesten klonla",
+      "builtin": "Yerleşik ses"
+    },
+    "builtin": {
+      "hint": "Hazır bir ses seçin. Bunlar için bir ses örneği yüklemeniz gerekmez.",
+      "badge": "Yerleşik Ses",
+      "note": "Bu profil yerleşik bir ses kullanıyor. Ses modeli oluşturulduktan sonra değiştirilemez."
+    },
+    "sampleTabs": {
+      "upload": "Dosya Yükle",
+      "record": "Kaydet",
+      "system": "Sistem Sesi"
+    },
+    "fields": {
+      "engine": "Motor (Engine)",
+      "voice": "Ses",
+      "name": "Ad",
+      "namePlaceholder": "Sesimin Adı",
+      "descriptionLabel": "Açıklama (İsteğe bağlı)",
+      "descriptionPlaceholder": "Bu sesi tanımlayın…",
+      "language": "Dil",
+      "referenceText": "Referans Metin",
+      "referenceTextPlaceholder": "Ses kaydında söylenen metni birebir girin…",
+      "defaultEngine": "Varsayılan Motor",
+      "noPreference": "Tercih yok",
+      "defaultEngineHint": "Bu profil seçildiğinde bu motoru otomatik olarak etkinleştirir.",
+      "defaultEffects": "Varsayılan Efektler",
+      "defaultEffectsHint": "Bu sesle yapılan tüm yeni üretimlere otomatik olarak uygulanacak efektler.",
+      "personalityLabel": "Kişilik / Karakter",
+      "personalityPlaceholder": "Örn: \"yalnızca denizcilik terimleriyle konuşan huysuz bir korsan\"",
+      "personalityHint": "Bu sesin kim olduğunu ve nasıl konuştuğunu tanımlar. Üretim sayfasındaki 'Metin Yaz' butonunu ve karakter gibi konuşma özelliğini besler. Gizlemek için boş bırakın."
+    },
+    "avatar": {
+      "alt": "Profil resmi önizlemesi"
+    },
+    "actions": {
+      "saving": "Kaydediliyor…",
+      "saveChanges": "Değişiklikleri Kaydet",
+      "createProfile": "Profil Oluştur"
+    },
+    "validation": {
+      "nameRequired": "Ad gereklidir",
+      "referenceRequired": "Ses örneği eklenirken referans metin gereklidir",
+      "sampleRequired": "Ses örneği gereklidir",
+      "referenceTextRequired": "Referans metin gereklidir",
+      "audioTooLong": "Ses çok uzun ({{duration}}). Maksimum süre {{max}} saniyedir.",
+      "audioFailed": "Ses dosyası doğrulanamadı. Lütfen farklı bir dosya deneyin."
+    },
+    "toast": {
+      "recordingComplete": "Kayıt tamamlandı",
+      "recordingCompleteDescription": "Ses başarıyla kaydedildi.",
+      "recordingError": "Kayıt hatası",
+      "systemAudioCaptured": "Sistem sesi yakalandı",
+      "systemAudioCapturedDescription": "Ses başarıyla yakalandı.",
+      "systemAudioError": "Sistem sesi yakalama hatası",
+      "transcribeFailed": "Metne dönüştürme başarısız oldu",
+      "transcribeFailedFallback": "Ses metne dönüştürülemedi",
+      "noFile": "Dosya seçilmedi",
+      "noFileDescription": "Lütfen önce bir ses dosyası seçin.",
+      "invalidFile": "Geçersiz dosya türü",
+      "invalidImageFormat": "Lütfen bir görsel dosyası seçin (PNG, JPG veya WebP)",
+      "fileTooLarge": "Dosya çok büyük",
+      "imageTooLargeDescription": "Görsel boyutu 5 MB'tan küçük olmalıdır",
+      "avatarRemoved": "Avatar kaldırıldı",
+      "avatarRemovedDescription": "Avatar görseli başarıyla kaldırıldı.",
+      "avatarRemoveFailed": "Avatar kaldırılamadı",
+      "avatarUploadFailed": "Avatar yüklenemedi",
+      "avatarUploadFailedFallback": "Avatar yüklenirken hata oluştu",
+      "effectsUpdateFailed": "Efektler güncellenemedi",
+      "effectsUpdateFailedFallback": "Efekt zinciri kaydedilemedi",
+      "voiceUpdated": "Ses güncellendi",
+      "voiceUpdatedDescription": "\"{{name}}\" başarıyla güncellendi.",
+      "noVoiceSelected": "Ses seçilmedi",
+      "noVoiceSelectedDescription": "Lütfen yerleşik bir ses seçin.",
+      "profileCreated": "Profil oluşturuldu",
+      "profileCreatedBuiltin": "\"{{name}}\" yerleşik bir sesle oluşturuldu.",
+      "profileCreatedSample": "\"{{name}}\" ses örneğiyle oluşturuldu.",
+      "sampleRequired": "Ses örneği gereklidir",
+      "sampleRequiredDescription": "Ses profilini oluşturmak için lütfen bir ses örneği sağlayın.",
+      "referenceTextRequired": "Referans metin gereklidir",
+      "referenceTextRequiredDescription": "Lütfen ses örneğinin referans metnini sağlayın.",
+      "invalidAudio": "Geçersiz ses dosyası",
+      "invalidAudioDescription": "Ses süresi {{duration}}, ancak izin verilen maksimum süre {{max}} saniyedir.",
+      "validationError": "Doğrulama hatası",
+      "rollbackFailed": "Geri alma başarısız oldu",
+      "rollbackFailedDescription": "Örnek yükleme hatasından sonra oluşturulan profil silinemedi.",
+      "profileRolledBack": "Profil geri alındı.",
+      "sampleFailed": "Ses örneği eklenemedi",
+      "sampleFailedDescription": "Örnek eklenirken hata oluştu.",
+      "sampleFailedRolledBack": "Örnek eklenemedi. Profil geri alındı.",
+      "saveFailed": "Profil kaydedilemedi"
+    }
+  },
+  "audioSample": {
+    "chooseFile": "Dosya Seç",
+    "uploadHint": "Dosya seçmek için tıklayın veya sürükleyip bırakın. Maksimum süre: 30 saniye.",
+    "fileUploaded": "Dosya yüklendi",
+    "fileLabel": "Dosya: {{name}}",
+    "play": "Oynat",
+    "pause": "Duraklat",
+    "transcribe": "Metne Dönüştür",
+    "transcribing": "Metne dönüştürülüyor…",
+    "remove": "Kaldır",
+    "startRecording": "Kaydı Başlat",
+    "recordHint": "Kaydetmek için tıklayın. Maksimum süre: 30 saniye.",
+    "stopRecording": "Kaydı Durdur",
+    "remaining": "{{time}} kaldı",
+    "recordingComplete": "Kayıt tamamlandı",
+    "recordAgain": "Yeniden Kaydet",
+    "startCapture": "Yakalama Başlat",
+    "systemHint": "Sisteminizden ses yakalayın. Maksimum süre: 30 saniye.",
+    "stopCapture": "Yakalama Durdur",
+    "captureComplete": "Yakalama tamamlandı",
+    "captureAgain": "Yeniden Yakala"
+  },
+  "sampleList": {
+    "loading": "Ses örnekleri yükleniyor…",
+    "empty": {
+      "title": "Henüz ses örneği yok",
+      "hint": "Başlamak için ilk ses örneğinizi ekleyin"
+    },
+    "editing": "Deşifreyi düzenle",
+    "placeholder": "Referans metni girin…",
+    "saving": "Kaydediliyor…",
+    "editTranscription": "Deşifreyi düzenle",
+    "deleteSample": "Örneği sil",
+    "addSample": "Örnek Ekle",
+    "note": "Not: Tek bir 30 saniyelik ses örneği en ideal sonucu verir. Birden fazla örnek kullanılması kaliteyi düşürebilir. Gelecekteki güncellemelerde, aynı sesin farklı tarzları için örnekler birbirinin yerine kullanılabilir hale gelecektir.",
+    "deleteDialog": {
+      "title": "Örneği Sil",
+      "description": "Bu ses örneğini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "deleting": "Siliniyor…"
+    },
+    "player": {
+      "play": "Örneği oynat",
+      "pause": "Örneği duraklat",
+      "stop": "Durdur",
+      "stopAria": "Oynatmayı durdur",
+      "position": "Örnek oynatma konumu",
+      "positionValue": "{{current}} / {{total}}"
+    },
+    "toast": {
+      "invalidText": "Geçersiz metin",
+      "invalidTextDescription": "Referans metin boş bırakılamaz.",
+      "updated": "Örnek güncellendi",
+      "updatedDescription": "Referans metin başarıyla güncellendi.",
+      "updateFailed": "Güncelleme başarısız oldu",
+      "updateFailedFallback": "Örnek güncellenemedi"
+    }
+  },
+  "profiles": {
+    "card": {
+      "noDescription": "Açıklama yok",
+      "designed": "tasarlandı",
+      "export": "Profili dışa aktar",
+      "edit": "Profili düzenle",
+      "delete": "Profili sil",
+      "selectLabel": "{{name}}, {{language}}. Ses üretimi için seçin.",
+      "selectLabelSelected": "{{name}}, {{language}}. Ses üretimi için seçildi."
+    },
+    "list": {
+      "errorLoading": "Profiller yüklenirken hata oluştu: {{message}}",
+      "empty": "Henüz ses profili yok. Başlamak için ilk profilinizi oluşturun.",
+      "createVoice": "Ses Oluştur",
+      "unsupportedNote": "Mevcut model için yalnızca desteklenen ses profilleri seçilebilir."
+    },
+    "deleteDialog": {
+      "title": "Profili Sil",
+      "body": "\"{{name}}\" profilini silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "deleting": "Siliniyor…"
+    }
+  },
+  "effects": {
+    "title": "Efektler",
+    "newPreset": "Yeni Hazır Ayar",
+    "noDescription": "Açıklama yok",
+    "placeholder": "Bir hazır ayar seçin veya yeni bir tane oluşturun",
+    "effectCount_one": "{{count}} efekt",
+    "effectCount_other": "{{count}} efekt",
+    "sections": {
+      "builtin": "Yerleşik",
+      "custom": "Özel",
+      "new": "Yeni"
+    },
+    "badge": {
+      "builtin": "yerleşik"
+    },
+    "unsaved": {
+      "title": "Kaydedilmemiş Ayar",
+      "hint": "Efektleri sağdaki panelden yapılandırın."
+    },
+    "detail": {
+      "newTitle": "Yeni Hazır Ayar",
+      "editTitle": "Hazır Ayarı Düzenle",
+      "savePreset": "Hazır Ayarı Kaydet",
+      "saveAsCustom": "Özel Olarak Kaydet",
+      "saving": "Kaydediliyor…",
+      "deleting": "Siliniyor…"
+    },
+    "fields": {
+      "name": "Ad",
+      "namePlaceholder": "Hazır ayarım…",
+      "description": "Açıklama",
+      "descriptionPlaceholder": "Bu hazır ayarın ne işe yaradığını açıklayın…"
+    },
+    "preview": {
+      "label": "Önizleme",
+      "button": "Önizleme",
+      "processing": "İşleniyor…",
+      "hint": "Önizleme, efektleri kaydetmeden doğrudan ses üzerinde test etmenizi sağlar."
+    },
+    "saveAs": {
+      "title": "Özel Hazır Ayar Olarak Kaydet",
+      "description": "Mevcut efekt zincirine dayalı yeni bir özel hazır ayar oluşturun.",
+      "suggestedName": "{{name}} (Kopya)"
+    },
+    "toast": {
+      "saved": "Hazır ayar kaydedildi",
+      "createdDescription": "\"{{name}}\" oluşturuldu.",
+      "updated": "Hazır ayar güncellendi",
+      "deleted": "Hazır ayar silindi",
+      "saveFailed": "Kaydetme başarısız oldu",
+      "deleteFailed": "Silme başarısız oldu",
+      "previewFailed": "Önizleme başarısız oldu",
+      "nameRequired": "Ad gereklidir"
+    },
+    "chain": {
+      "loadPreset": "Hazır ayar yükle…",
+      "addEffect": "Efekt ekle…",
+      "clear": "Temizle",
+      "enable": "Etkinleştir",
+      "disable": "Devre Dışı Bırak",
+      "remove": "Kaldır"
+    },
+    "types": {
+      "chorus": {
+        "label": "Koro / Flanger (Chorus)",
+        "params": {
+          "rate_hz": "LFO Hızı (Hz)",
+          "depth": "Modülasyon Derinliği",
+          "feedback": "Geri Besleme Miktarı",
+          "centre_delay_ms": "Merkez Gecikme (ms)",
+          "mix": "Islak/Kuru (Wet/Dry) Dengesi"
+        }
+      },
+      "reverb": {
+        "label": "Yankı (Reverb)",
+        "params": {
+          "room_size": "Oda Boyutu",
+          "damping": "Yüksek Frekans Sönümleme",
+          "wet_level": "Efekt (Wet) Seviyesi",
+          "dry_level": "Ham Ses (Dry) Seviyesi",
+          "width": "Stereo Genişliği"
+        }
+      },
+      "delay": {
+        "label": "Gecikme (Delay)",
+        "params": {
+          "delay_seconds": "Gecikme Süresi (saniye)",
+          "feedback": "Geri Besleme Miktarı",
+          "mix": "Islak/Kuru (Wet/Dry) Dengesi"
+        }
+      },
+      "compressor": {
+        "label": "Kompresör (Compressor)",
+        "params": {
+          "threshold_db": "Eşik Değeri (dB)",
+          "ratio": "Sıkıştırma Oranı",
+          "attack_ms": "Tepki Süresi (Attack - ms)",
+          "release_ms": "Bırakma Süresi (Release - ms)"
+        }
+      },
+      "gain": {
+        "label": "Kazanç / Ses Seviyesi (Gain)",
+        "params": {
+          "gain_db": "Kazanç (dB)"
+        }
+      },
+      "highpass": {
+        "label": "Yüksek Geçiren Filtre (High-Pass)",
+        "params": {
+          "cutoff_frequency_hz": "Kesim Frekansı (Hz)"
+        }
+      },
+      "lowpass": {
+        "label": "Alçak Geçiren Filtre (Low-Pass)",
+        "params": {
+          "cutoff_frequency_hz": "Kesim Frekansı (Hz)"
+        }
+      },
+      "pitch_shift": {
+        "label": "Perde Değiştirme (Pitch Shift)",
+        "params": {
+          "semitones": "Yarım Ton Kaydırma (Semitones)"
+        }
+      }
+    },
+    "builtinPresets": {
+      "Robotic": {
+        "name": "Robotik",
+        "description": "Metalik robotik ses (yavaş LFO ve yüksek geri beslemeli flanger)"
+      },
+      "Radio": {
+        "name": "Radyo",
+        "description": "Bant geçiren filtre ve hafif sıkıştırma ile ince AM-radyo sesi"
+      },
+      "Echo Chamber": {
+        "name": "Yankı Odası",
+        "description": "Kuyruklu gecikme ile geniş yankı efekti"
+      },
+      "Deep Voice": {
+        "name": "Kalın Ses",
+        "description": "Daha düşük ses perdesi ve ekstra sıcaklık"
+      }
+    }
+  },
+  "stories": {
+    "title": "Hikayeler",
+    "newStory": "Yeni Hikaye",
+    "loading": "Hikayeler yükleniyor…",
+    "searchPlaceholder": "Hikayelerde ara…",
+    "empty": {
+      "title": "Henüz hikaye yok",
+      "hint": "Başlamak için ilk hikayenizi oluşturun",
+      "noMatches": "\"{{query}}\" aramasıyla eşleşen hikaye bulunamadı"
+    },
+    "row": {
+      "itemCount_one": "{{count}} öge",
+      "itemCount_other": "{{count}} öge",
+      "ariaLabel": "Hikaye {{name}}, {{count}} öge, {{updated}}",
+      "actionsLabel": "{{name}} için işlemler"
+    },
+    "createDialog": {
+      "title": "Yeni Hikaye Oluştur",
+      "description": "Ses üretimlerinizi diyaloglar halinde düzenlemek için yeni bir hikaye oluşturun.",
+      "action": "Oluştur",
+      "creating": "Oluşturuluyor…"
+    },
+    "editDialog": {
+      "title": "Hikayeyi Düzenle",
+      "description": "Hikayenin adını ve açıklamasını güncelleyin.",
+      "saving": "Kaydediliyor…"
+    },
+    "deleteDialog": {
+      "title": "Emin misiniz?",
+      "description": "Bu işlem hikayeyi ve içindeki tüm ögeleri kalıcı olarak silecektir. Bu işlem geri alınamaz.",
+      "deleting": "Siliniyor…"
+    },
+    "fields": {
+      "name": "Ad",
+      "namePlaceholder": "Hikayemin Adı",
+      "descriptionLabel": "Açıklama (isteğe bağlı)",
+      "descriptionPlaceholder": "Şunlar arasında geçen bir diyalog…"
+    },
+    "toast": {
+      "nameRequired": "Ad gereklidir",
+      "nameRequiredDescription": "Lütfen bir hikaye adı girin",
+      "created": "Hikaye oluşturuldu",
+      "createdDescription": "\"{{name}}\" oluşturuldu",
+      "createFailed": "Hikaye oluşturulamadı",
+      "updateFailed": "Hikaye güncellenemedi",
+      "deleteFailed": "Hikaye silinemedi"
+    }
+  },
+  "storyContent": {
+    "selectStory": {
+      "title": "Bir hikaye seçin",
+      "hint": "İçeriğini görüntülemek için listeden bir hikaye seçin"
+    },
+    "loading": "Hikaye yükleniyor…",
+    "notFound": {
+      "title": "Hikaye bulunamadı",
+      "hint": "Seçilen hikaye yüklenemedi"
+    },
+    "generatingCount_one": "{{count}} ses üretiliyor",
+    "generatingCount_other": "{{count}} ses üretiliyor",
+    "add": "Ekle",
+    "searchPlaceholder": "İsme veya metne göre ara…",
+    "searchNoMatches": "Eşleşen üretim bulunamadı",
+    "searchNoAvailable": "Kullanılabilir üretim yok",
+    "exportAudio": "Sesi Dışa Aktar",
+    "empty": {
+      "title": "Bu hikayede öge yok",
+      "hint": "Öge eklemek için aşağıdaki kutuyu kullanarak konuşma üretin"
+    },
+    "itemActions": {
+      "playFromHere": "Buradan itibaren oynat",
+      "regenerate": "Yeniden Üret",
+      "removeFromStory": "Hikayeden Kaldır"
+    },
+    "importAudio": "Sesi içe aktar…",
+    "importing": "İçe aktarılıyor…",
+    "dropToImport": "İçe aktarmak için ses dosyasını buraya bırakın",
+    "toast": {
+      "removeFailed": "Öge kaldırılamadı",
+      "reorderFailed": "Ögeler yeniden sıralanamadı",
+      "exportFailed": "Ses dışa aktarılamadı",
+      "addFailed": "Üretim eklenemedi",
+      "regenerateFailed": "Yeniden üretme başarısız oldu",
+      "importFailed": "Ses içe aktarılamadı"
+    }
+  },
+  "history": {
+    "empty": "Henüz ses üretimi yok…",
+    "actions": {
+      "menu": "İşlemler",
+      "play": "Oynat",
+      "exportAudio": "Sesi Dışa Aktar",
+      "exportPackage": "Paket Olarak Dışa Aktar",
+      "applyEffects": "Efektleri Uygula",
+      "regenerate": "Yeniden Üret"
+    },
+    "deleteDialog": {
+      "title": "Üretimi Sil",
+      "body": "Bu üretimi \"{{name}}\" profilinden silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+      "deleting": "Siliniyor…"
+    },
+    "clearFailedDialog": {
+      "title": "Başarısız üretimleri temizle",
+      "body_one": "Bu işlem, geçmişinizdeki {{count}} başarısız üretimi kalıcı olarak silecektir. Bu işlem geri alınamaz.",
+      "body_other": "Bu işlem, geçmişinizdeki {{count}} başarısız üretimi kalıcı olarak silecektir. Bu işlem geri alınamaz.",
+      "clearing": "Temizleniyor…",
+      "clearAll": "Tümünü Temizle"
+    },
+    "importDialog": {
+      "title": "Üretimi İçe Aktar",
+      "body": "\"{{name}}\" sesinden üretimi içe aktarın. Bu işlem üretimi geçmişinize ekleyecektir.",
+      "importing": "İçe aktarılıyor…",
+      "action": "İçe Aktar"
+    },
+    "effectsDialog": {
+      "title": "Efektleri Uygula",
+      "body": "Bu üretime uygulanacak post-processing (art arda işleme) efektlerini yapılandırın. Yeni bir sürüm oluşturulacaktır.",
+      "sourceLabel": "Kaynak",
+      "sourcePlaceholder": "Kaynak sürümü seçin",
+      "apply": "Uygula",
+      "applying": "Uygulanıyor…"
+    }
+  },
+  "generation": {
+    "placeholder": {
+      "storyWithEffects": "\"{{name}}\" için konuşma üretin… (efektler için / yazın)",
+      "story": "\"{{name}}\" için konuşma üretin…",
+      "profile": "{{name}} kullanarak konuşma üretin…",
+      "effectsHint": "[laugh], [sigh] gibi efektler için / yazın…",
+      "selectVoice": "Yukarıdan bir ses profili seçin…"
+    },
+    "button": {
+      "generate": "Konuşma üret",
+      "generating": "Üretiliyor…",
+      "selectFirst": "Önce bir ses profili seçin"
+    },
+    "instruct": {
+      "show": "Konuşma talimatlarını göster",
+      "hide": "Konuşma talimatlarını gizle",
+      "tooltip": "Konuşma talimatları (ton, duygu, hız)",
+      "placeholder": "Konuşma talimatları — Örn: Sıcak bir tonla yavaşça konuş, Otoriter ve net…"
+    },
+    "voiceSelector": {
+      "placeholder": "Bir ses seçin…"
+    },
+    "effects": {
+      "none": "Efekt yok",
+      "profileDefault": "Profil varsayılanı"
+    },
+    "compose": {
+      "tooltip": "Metin Yaz (Compose)",
+      "ariaLabel": "Karakter ağzından bir cümle yaz",
+      "failedTitle": "Metin yazma başarısız oldu",
+      "failedDescription": "Bu kişilikten metin üretilemedi."
+    },
+    "persona": {
+      "tooltipActive": "Karakter olarak konuşuyor",
+      "tooltipInactive": "Karakter olarak konuştur",
+      "ariaLabelActive": "Karakter olarak konuşuyor",
+      "ariaLabelInactive": "Karakter olarak konuştur"
+    }
+  },
+  "main": {
+    "importVoice": "Sesi İçe Aktar",
+    "createVoice": "Ses Oluştur",
+    "import": {
+      "invalidTitle": "Geçersiz dosya türü",
+      "invalidDescription": "Lütfen geçerli bir .voicebox.zip dosyası seçin",
+      "successTitle": "Profil içe aktarıldı",
+      "successDescription": "Ses profili başarıyla içe aktarıldı",
+      "failedTitle": "Profil içe aktarılamadı",
+      "dialogTitle": "Profili İçe Aktar",
+      "dialogDescription": "\"{{name}}\" profilini içe aktarın. Bu işlem, tüm ses örnekleriyle birlikte yeni bir profil oluşturacaktır.",
+      "importing": "İçe aktarılıyor…",
+      "action": "İçe Aktar"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "general": "Genel",
+      "generation": "Üretim",
+      "captures": "Kayıtlar",
+      "mcp": "MCP",
+      "gpu": "GPU",
+      "logs": "Loglar",
+      "changelog": "Değişiklikler",
+      "about": "Hakkında"
+    },
+    "language": {
+      "label": "Dil",
+      "description": "Voicebox'ın arayüz dilini seçin."
+    },
+    "theme": {
+      "label": "Tema",
+      "description": "Sistem temanızı eşleştirin veya sabit bir açık ya da koyu görünüm seçin.",
+      "options": {
+        "system": "Sistem",
+        "light": "Açık",
+        "dark": "Koyu"
+      }
+    },
+    "general": {
+      "docs": {
+        "title": "Belgeleri Oku"
+      },
+      "discord": {
+        "title": "Discord Sunucumuza Katılın",
+        "subtitle": "Yardım alın ve sesleri paylaşın"
+      },
+      "serverUrl": {
+        "title": "Sunucu URL'si",
+        "description": "Voicebox arka plan sunucunuzun bağlantı adresi.",
+        "invalidUrl": "Lütfen geçerli bir URL girin",
+        "updatedTitle": "Sunucu URL'si güncellendi",
+        "updatedDescription": "{{url}} adresine bağlanıldı"
+      },
+      "keepServerRunning": {
+        "title": "Uygulama kapandığında sunucuyu açık tut",
+        "description": "Uygulamayı kapattıktan sonra sunucu arka planda çalışmaya devam edecektir.",
+        "failedTitle": "Ayar güncellenemedi",
+        "failedDescription": "Ayar sunucuyla senkronize edilemedi.",
+        "updatedTitle": "Ayar güncellendi",
+        "runningDescription": "Uygulama kapandığında sunucu çalışmaya devam edecek",
+        "stoppedDescription": "Uygulama kapandığında sunucu durdurulacak"
+      },
+      "networkAccess": {
+        "title": "Yerel ağ erişimine izin ver",
+        "description": "Sunucunun yerel ağınızdaki diğer cihazlardan erişilebilir olmasını sağlar. Değiştirdikten sonra uygulamayı yeniden başlatın.",
+        "updatedTitle": "Ayar güncellendi",
+        "enabled": "Ağ erişimi etkinleştirildi. Uygulamak için uygulamayı yeniden başlatın.",
+        "disabled": "Ağ erişimi devre dışı bırakıldı. Uygulamak için uygulamayı yeniden başlatın."
+      },
+      "connection": {
+        "connecting": "Bağlanıyor",
+        "offline": "Çevrimdışı",
+        "online": "Çevrimiçi"
+      },
+      "updates": {
+        "title": "Uygulama Güncellemeleri",
+        "devSuffix": " (geliştirici)",
+        "devMode": {
+          "title": "Geliştirici modu",
+          "description": "Geliştirici modunda otomatik güncellemeler devre dışıdır."
+        },
+        "check": {
+          "title": "Güncellemeleri denetle",
+          "available": "Sürüm {{version}} kullanılabilir",
+          "checking": "Denetleniyor…",
+          "upToDate": "Uygulamanız güncel",
+          "button": "Denetle"
+        },
+        "error": "Güncelleme hatası",
+        "download": {
+          "title": "Sürüm {{version}} güncellemesi",
+          "description": "En son sürümü indirin ve yükleyin.",
+          "button": "İndir"
+        },
+        "downloading": "Güncelleme indiriliyor…",
+        "ready": {
+          "title": "Güncelleme yüklemeye hazır",
+          "description": "Sürüm {{version}} başarıyla indirildi. Tamamlamak için uygulamayı yeniden başlatın.",
+          "button": "Şimdi Yeniden Başlat"
+        }
+      },
+      "api": {
+        "title": "API Erişimi",
+        "description": "<code>{{url}}</code> adresindeki REST API aracılığıyla Voicebox'ı kendi iş akışlarınıza entegre edin.",
+        "viewReference": "Tam API referansını görüntüleyin",
+        "endpoints": {
+          "generate": "Konuşma üret",
+          "health": "Sunucu durumu",
+          "profiles": "Sesleri listele",
+          "history": "Geçmiş üretimler"
+        }
+      }
+    },
+    "generation": {
+      "title": "Üretim",
+      "description": "Uzun metin üretimi için kontroller. Bu ayarlar tüm ses motorlarına uygulanır.",
+      "chunkLimit": {
+        "title": "Otomatik bölme sınırı",
+        "description": "Uzun metinler cümle sınırlarında bölümlere ayrılır. Düşük değerler uzun metin üretimlerinde kaliteyi artırabilir.",
+        "value": "{{chars}} karakter"
+      },
+      "crossfade": {
+        "title": "Bölüm geçişi (crossfade)",
+        "description": "Geçişleri yumuşatmak için bölümler arasındaki sesi karıştırır. Keskin geçiş için 0 yapın.",
+        "cut": "Kes",
+        "ms": "{{ms}}ms"
+      },
+      "normalize": {
+        "title": "Sesi normalize et",
+        "description": "Üretimler arasında tutarlı bir ses seviyesi sağlamak için çıkış sesini ayarlar."
+      },
+      "autoplay": {
+        "title": "Üretildiğinde otomatik oynat",
+        "description": "Ses üretimi tamamlandığında sesi otomatik olarak oynatır."
+      },
+      "folder": {
+        "title": "Üretimler klasörü",
+        "description": "Üretilen ses dosyalarının diskte saklandığı konum.",
+        "open": "Aç"
+      },
+      "sidebar": {
+        "aboutTitle": "Ses üretimi hakkında",
+        "aboutBody": "Kısa bir ses örneğinden ses klonlayın ve herhangi bir dilde konuşma üretin. TTS (Metinden Sese) özelliğini yapay zeka ajanlarına, oyunlara, podcast'lere veya sesli kitaplara entegre edin.",
+        "differencesTitle": "Neler farklı?",
+        "clone": {
+          "title": "Saniyeler içinde ses klonlama",
+          "body": "Birkaç saniyelik referans ses yeterlidir. İstediğinizde daha yüksek kalite için çoklu örnek desteği sunar."
+        },
+        "engines": {
+          "title": "Yeni motor, 23 dil",
+          "body": "İhtiyacınıza uygun dengeyi seçin: kalite, hız veya çok dilli kapsam."
+        },
+        "agentReady": {
+          "title": "Ajanlara (Agent) hazır",
+          "body": "Profil bazlı kontrole sahip REST API — klonladığınız sesi herhangi bir yapay zekaya aktarın."
+        }
+      }
+    },
+    "captures": {
+      "dictation": {
+        "title": "Dikte",
+        "description": "Küresel bir kısayol ile bilgisayarınızın her yerinden ses yakalayın.",
+        "globalShortcut": {
+          "title": "Küresel kısayol",
+          "description": "Bilgisayarınızın her yerinden kaydetmek için kısayolu basılı tutun. Metne dönüştürmek için bırakın."
+        },
+        "pushToTalk": {
+          "title": "Bas-konuş kısayolu",
+          "description": "Kaydetmek için sisteminizin herhangi bir yerinde bu tuşları basılı tutun. Durdurup metne dönüştürmek için bırakın.",
+          "change": "Değiştir"
+        },
+        "toggle": {
+          "title": "Aç/kapat kısayolu",
+          "description": "Eller serbest kaydı başlatmak için bir kez basın. Durdurmak için tekrar basın. Genellikle bas-konuş kısayolu + Boşluk tuşudur.",
+          "change": "Değiştir"
+        },
+        "chordPicker": {
+          "pttTitle": "Bas-konuş kısayolunu ayarla",
+          "pttDescription": "Kullanmak istediğiniz tuşları basılı tutun, ardından bırakıp Kaydet'e tıklayın. Sağdaki değiştirici simgesi tuşun sol mu sağ mı olduğunu gösterir.",
+          "toggleTitle": "Aç/kapat kısayolunu ayarla",
+          "toggleDescription": "Kullanmak istediğiniz tuşları basılı tutun, ardından bırakıp Kaydet'e tıklayın. Bas-konuş kısayolunuzdan farklı bir tuş kombinasyonu seçin."
+        },
+        "preview": {
+          "title": "Önizleme",
+          "description": "Kısayolu basılı tuttuğunuzda ekranda ne görüneceği."
+        },
+        "copyToClipboard": {
+          "title": "Metni panoya kopyala",
+          "description": "Kayıt bittiğinde temizlenmiş metin otomatik olarak panonuza kopyalanır."
+        },
+        "autoPaste": {
+          "title": "Odaklanılan metin alanına otomatik yapıştır",
+          "description": "Başka bir uygulamada bir metin giriş alanı odaklanmışsa, metni doğrudan oraya yapıştırır. Voicebox panonuzdakileri geçici olarak korur."
+        }
+      },
+      "transcription": {
+        "title": "Metne Dönüştürme",
+        "description": "Kayıtlarınızda hangi sesi metne dönüştürme modelinin çalışacağını seçin.",
+        "model": {
+          "title": "Metne dönüştürme modeli",
+          "description": "Whisper, Voicebox ile birlikte gelir ve tamamen cihazınızda çalışır.",
+          "base": "Whisper Base · 74M · {{tail}}",
+          "small": "Whisper Small · 244M · {{tail}}",
+          "medium": "Whisper Medium · 769M · {{tail}}",
+          "large": "Whisper Large · 1.5B · {{tail}}",
+          "turbo": "Whisper Turbo · Pruned Large v3 · {{tail}}",
+          "tail": {
+            "fast": "Hızlı",
+            "balanced": "Dengeli",
+            "higher": "Yüksek doğruluk",
+            "best": "En iyi doğruluk",
+            "nearBest": "En iyiye yakın, hızlı"
+          }
+        },
+        "language": {
+          "title": "Dil",
+          "description": "Otomatik algılama çoğu kayıt için çalışır. Her zaman aynı dili konuşuyorsanız dili sabitleyin.",
+          "auto": "Otomatik algıla",
+          "en": "İngilizce",
+          "es": "İspanyolca",
+          "fr": "Fransızca",
+          "de": "Almanca",
+          "ja": "Japonca",
+          "zh": "Çince",
+          "hi": "Hintçe"
+        },
+        "archive": {
+          "title": "Sesi arşivle",
+          "description": "Orijinal ses kaydını her metin deşifresinin yanında saklayın."
+        }
+      },
+      "refinement": {
+        "title": "Metin İyileştirme",
+        "description": "Gereksiz dolgu kelimeleri, noktalama işaretlerini ve konuşma esnasındaki kendini düzeltmeleri temizlemek için metinlerinizi yerel bir yapay zeka modelinden geçirin.",
+        "auto": {
+          "title": "Metinleri otomatik olarak iyileştir",
+          "description": "Her kayıttan sonra çalışır. Kayıtlar sekmesinde ham metin ile iyileştirilmiş metin arasında geçiş yapabilirsiniz."
+        },
+        "model": {
+          "title": "İyileştirme modeli",
+          "description": "Büyük modeller daha yavaştır ancak ince düzeltmeleri ve teknik kelimeleri daha iyi işler.",
+          "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
+          "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "tail": {
+            "veryFast": "Çok hızlı",
+            "fast": "Hızlı",
+            "fullQuality": "Tam kalite"
+          }
+        },
+        "smartCleanup": {
+          "title": "Akıllı temizlik",
+          "description": "Metnin anlamını bozmadan dolgu kelimeleri (şey, ııı, yani vb.) temizler, noktalama işaretlerini ve büyük/küçük harfleri düzeltir."
+        },
+        "selfCorrection": {
+          "title": "Konuşma düzeltmelerini kaldır",
+          "description": "Cümlenin ortasında karar değiştirdiğinizde (\"aslında hayır...\", \"yok, şey demek istedim...\") vazgeçtiğiniz kısmı atıp yalnızca asıl söylemek istediğinizi korur."
+        },
+        "preserveTechnical": {
+          "title": "Teknik terimleri koru",
+          "description": "Kod tanımlayıcılarını, komut adlarını ve kısaltmaları söylendiği gibi korur. Bir kodlama istemi yazdırırken bunu açın."
+        }
+      },
+      "playback": {
+        "title": "Oynatma",
+        "description": "Kayıtlar sekmesindeki \"Oynat\" eylemi için varsayılan ses.",
+        "defaultVoice": {
+          "title": "Varsayılan ses",
+          "description": "Önce bir ses seçmeden Oynat'a tıkladığınızda kullanılır. Bunu her kayıt için değiştirebilirsiniz.",
+          "noClonedVoices": "Henüz klonlanmış ses yok",
+          "noneSelected": "Hiçbiri seçilmedi",
+          "clonedVoices": "Klonlanmış sesler"
+        }
+      },
+      "storage": {
+        "title": "Depolama",
+        "description": "Kayıtlar, Voicebox veri dizininizde ses ve metin dosyaları halinde eşleştirilerek saklanır.",
+        "retention": {
+          "title": "Saklama süresi",
+          "description": "Kayıtların ne kadar süreyle saklanacağı. Hem ses hem de metin dosyaları için geçerlidir.",
+          "forever": "Süresiz sakla",
+          "d90": "90 gün",
+          "d30": "30 gün",
+          "d7": "7 gün"
+        },
+        "folder": {
+          "title": "Kayıtlar klasörü",
+          "description": "Kayıt seslerinin ve metinlerinin diskte saklandığı klasör.",
+          "open": "Aç"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "Kayıtlar Hakkında",
+        "aboutBody": "Bilgisayarınızın her yerinden bir kısayola basılı tutun, konuşun ve Voicebox sesinizi metne dönüştürsün. Bu metni klonlanmış herhangi bir sesle tekrar oynatabilir, başka uygulamalara yapıştırabilir veya kodlama ajanınıza aktarabilirsiniz.",
+        "differencesTitle": "Neler farklı?",
+        "local": {
+          "title": "Tamamen yerel",
+          "body": "Whisper ve metin iyileştirme modeli tamamen kendi donanımınızda çalışır. Bulut veya hesap zorunluluğu yoktur; sesiniz asla bilgisayarınızdan çıkmaz."
+        },
+        "playAs": {
+          "title": "İstediğiniz sesle oynatın",
+          "body": "Metinler, klonladığınız herhangi bir ses profilinde seslendirilebilir."
+        },
+        "crossPlatform": {
+          "title": "Çoklu platform desteği",
+          "body": "macOS, Windows and Linux'ta aynı kısayol ve aynı iş akışı kullanılır."
+        },
+        "windowsCaveat": {
+          "title": "Windows Kullanıcıları İçin Not",
+          "body": "Voicebox'ın kendisi veya yönetici olarak çalıştırılan herhangi bir uygulama odaklanmışken kısayol tuşları tetiklenmeyebilir. Bu konuda çalışıyoruz."
+        }
+      }
+    },
+    "mcp": {
+      "install": {
+        "title": "Ajanınıza (Agent) Yükleyin",
+        "description": "Voicebox, uygulama açık olduğu sürece yerel bir MCP sunucusu sunar. Ajanınızın MCP yapılandırmasına bu kod parçacıklarından birini yapıştırın.",
+        "http": {
+          "title": "HTTP (Önerilen)",
+          "description": "HTTP MCP destekleyen istemciler için — Claude Code, Cursor, Windsurf, VS Code."
+        },
+        "claudeCode": {
+          "title": "Claude Code tek satırlık kod",
+          "description": "Claude Code CLI aracılığıyla kaydeder."
+        },
+        "stdio": {
+          "title": "Stdio (Geri Çekilme seçeneği)",
+          "description": "Yalnızca stdio süreçlerini başlatan istemciler için. Uyum kütüphanesi uygulama ile birlikte gelir."
+        },
+        "copy": "Kopyala",
+        "copied": "Kopyalandı"
+      },
+      "defaultVoice": {
+        "title": "Varsayılan ses",
+        "description": "Bir ajan belirli bir profil olmadan voicebox.speak fonksiyonunu çağırdığında ve istemci bazlı bir eşleştirme bulunmadığında kullanılır.",
+        "label": "Varsayılan seslendirme sesi",
+        "labelHint": "Kayıtlar sekmesindeki 'Ses olarak oynat' açılır menüsü ile paylaşılır — pasif oynatma için tek bir varsayılan sestir.",
+        "none": "(hiçbiri)"
+      },
+      "bindings": {
+        "title": "Ajan Başına Ses",
+        "description": "Hangi ajanın konuştuğunu ekrana bakmadan anlayabilmek için belirli ajanları belirli seslerle eşleştirin. Ajan, kendisini X-Voicebox-Client-Id başlığı (veya stdio için VOICEBOX_CLIENT_ID ortam değişkeni) ile tanımlar.",
+        "empty": "Henüz eşleştirme yok. Aşağıdan bir tane ekleyin ve ardından MCP istemcinizi eşleşen <code>X-Voicebox-Client-Id</code> değerini gönderecek şekilde yapılandırın.",
+        "lastSeen": "son görülme: {{when}}",
+        "lastSeenTitle": "Son görülme: {{when}}",
+        "neverConnected": "hiç bağlanmadı",
+        "defaultOption": "(varsayılan)",
+        "removeAria": "{{client}} için eşleştirmeyi kaldır",
+        "add": {
+          "title": "Eşleştirme ekle",
+          "clientIdPlaceholder": "istemci kimliği (Örn: claude-code)",
+          "labelPlaceholder": "etiket (isteğe bağlı)",
+          "action": "Eşleştirmeyi Ekle"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "MCP Hakkında",
+        "aboutBody": "Model Context Protocol (Model Bağlam Protokolü), yapay zeka kodlama ajanınızın (Claude Code, Cursor, Windsurf vb.) Voicebox araçlarını çağırmasını sağlar. Klonlanmış bir sesle konuşun, sesleri metne dönüştürün, kayıtlarınıza göz atın.",
+        "toolsTitle": "Kullanılabilir araçlar",
+        "tools": {
+          "speak": "Metni bir ses profilinde seslendirir.",
+          "transcribe": "Bir ses dosyası üzerinde Whisper STT çalıştırır.",
+          "listCaptures": "Son dikteleri ve ses kayıtlarını listeler.",
+          "listProfiles": "Mevcut ses profillerini listeler."
+        },
+        "postSpeak": "Ayrıca kabuk betikleri, ACP ve A2A için <code>POST /speak</code> olarak da sunulur."
+      }
+    },
+    "gpu": {
+      "cpuOnly": "Sadece CPU",
+      "vramUsed": "{{mb}} MB VRAM",
+      "noAcceleration": "Grafik hızlandırma algılanmadı",
+      "active": "Aktif",
+      "cuda": {
+        "title": "CUDA Altyapısı (NVIDIA)",
+        "activeTitle": "CUDA Altyapısı Aktif",
+        "description": "İndirilebilir bir CUDA backend aracılığıyla NVIDIA GPU hızlandırması.",
+        "downloading": "CUDA altyapısı indiriliyor…",
+        "downloadingShort": "İndiriliyor…",
+        "updating": "Güncelleniyor…"
+      },
+      "activeBackend": {
+        "description": "Ekran kartı (GPU) hızlandırması şu anda etkinleştirilmiştir."
+      },
+      "restart": {
+        "ready": "Sunucu başarıyla yeniden başlatıldı",
+        "waiting": "Sunucu yeniden başlatılıyor…",
+        "stopping": "Sunucu durduruluyor…"
+      },
+      "download": {
+        "title": "CUDA altyapısını indir",
+        "description": "~2.4 GB indirme boyutu. CUDA destekli bir NVIDIA ekran kartı gerektirir.",
+        "button": "İndir"
+      },
+      "switchToCuda": {
+        "title": "CUDA altyapısına geçiş yap",
+        "description": "CUDA backend indirildi ve hazır. Etkinleştirmek için sunucuyu yeniden başlatın.",
+        "button": "Yeniden Başlat"
+      },
+      "switchToCpu": {
+        "title": "CPU altyapısına geçiş yap",
+        "description": "Ekran kartı hızlandırmasını devre dışı bırakın. GPU altyapısını daha sonra tekrar indirebilirsiniz.",
+        "button": "Geçiş Yap"
+      },
+      "remove": {
+        "title": "CUDA altyapısını kaldır",
+        "description": "Disk alanı kazanmak için indirilen CUDA bileşenlerini silin.",
+        "button": "Kaldır"
+      },
+      "errors": {
+        "downloadFailed": "İndirme başarısız oldu",
+        "downloadStart": "İndirme başlatılamadı",
+        "restartFailed": "Yeniden başlatma başarısız oldu",
+        "switchCpu": "CPU moduna geçiş başarısız oldu",
+        "deleteCuda": "CUDA altyapısı silinemedi",
+        "deleteRocm": "ROCm altyapısı silinemedi"
+      },
+      "footer": "Voicebox, sisteminizdeki kullanılabilir en iyi GPU'yu otomatik olarak algılar ve kullanır. Apple Silicon Mac'lerde MLX backend'i, ek bir kuruluma gerek kalmadan Apple Neural Engine ve GPU üzerinde Metal Performance Shaders (MPS) aracılığıyla yerel olarak çalışır. Windows üzerinde, donanım hızlandırmalı çıkarım için isteğe bağlı CUDA (NVIDIA) or ROCm (AMD) backend'lerini indirebilirsiniz. Intel XPU ve DirectML de PyTorch aracılığıyla desteklenmektedir. Herhangi bir GPU algılanmadığında Voicebox, CPU moduna geri döner — tüm modeller çalışmaya devam eder ancak daha yavaştır.",
+      "rocm": {
+        "title": "AMD ROCm Altyapısı",
+        "activeTitle": "ROCm Altyapısı Aktif",
+        "description": "İndirilebilir bir ROCm backend aracılığıyla AMD GPU hızlandırması.",
+        "downloading": "ROCm altyapısı indiriliyor…",
+        "downloadingShort": "İndiriliyor…",
+        "updating": "Güncelleniyor…"
+      },
+      "downloadRocm": {
+        "title": "AMD ROCm altyapısını indir",
+        "description": "~2-3 GB indirme boyutu. ROCm destekli bir AMD Radeon ekran kartı gerektirir.",
+        "button": "İndir"
+      },
+      "switchToRocm": {
+        "title": "ROCm altyapısına geçiş yap",
+        "description": "ROCm backend indirildi ve hazır. Etkinleştirmek için sunucuyu yeniden başlatın.",
+        "button": "Yeniden Başlat"
+      },
+      "removeRocm": {
+        "title": "ROCm altyapısını kaldır",
+        "description": "Disk alanı kazanmak için indirilen ROCm bileşenlerini silin.",
+        "button": "Kaldır"
+      }
+    },
+    "logs": {
+      "title": "Sunucu Logları",
+      "lineCount_one": "{{count}} satır",
+      "lineCount_other": "{{count}} satır",
+      "scrollToBottom": "En alta kaydır",
+      "clear": "Temizle",
+      "empty": "Henüz log çıktısı yok.",
+      "devHint": "Sunucu logları yalnızca uygulama sunucu sürecini yönettiğinde (üretim derlemelerinde) kaydedilir."
+    },
+    "changelog": {
+      "devBadge": "dev",
+      "showLess": "Daha az göster",
+      "showMore": "Daha fazla göster"
+    },
+    "about": {
+      "tagline": "Açık kaynaklı ses sentezleme stüdyosu. Sesleri klonlayın, konuşma üretin, efektler uygulayın ve ses destekli uygulamalar geliştirin — hepsi tamamen kendi cihazınızda çalışır.",
+      "createdBy": "Geliştiren",
+      "buyCoffee": "Bana bir kahve ısmarla",
+      "license": "Lisans: <link>MIT</link>"
+    }
+  },
+  "models": {
+    "title": "Modeller",
+    "subtitle": "Ses üretimi ve metne dönüştürme için yapay zeka modellerini indirin ve yönetin",
+    "defaultName": "Model",
+    "unknownSize": "Bilinmeyen boyut",
+    "sections": {
+      "voiceGeneration": "Ses Üretimi",
+      "transcription": "Metne Dönüştürme",
+      "languageModels": "Dil Modelleri"
+    },
+    "status": {
+      "loaded": "Yüklendi"
+    },
+    "storage": {
+      "location": "Depolama konumu",
+      "open": "Aç",
+      "change": "Değiştir",
+      "migrating": "Taşınıyor…",
+      "reset": "Sıfırla",
+      "pickerTitle": "Model depolama klasörünü seçin"
+    },
+    "progress": {
+      "connecting": "Bağlanıyor…",
+      "connectingHf": "HuggingFace sunucularına bağlanılıyor…"
+    },
+    "problems": {
+      "title": "Sorunlar",
+      "clearAll": "Tümünü Temizle",
+      "noDetails": "Hata ayrıntısı bulunamadı. Lütfen indirmeyi tekrar deneyin.",
+      "startedAt": "başlangıç zamanı: {{time}}"
+    },
+    "detail": {
+      "loadingInfo": "Model bilgileri yükleniyor…",
+      "byAuthor": "geliştiren: {{author}}",
+      "downloads": "İndirmeler",
+      "likes": "Beğeniler",
+      "license": "Lisans",
+      "languagesCount": "{{count}} dil destekleniyor",
+      "languagesList": "Diller: {{list}}",
+      "onDisk": "Diskteki yer: {{size}}"
+    },
+    "actions": {
+      "download": "İndir",
+      "retry": "Yeniden Dene",
+      "unload": "Bellekten Çıkar",
+      "unloading": "Bellekten çıkarılıyor…",
+      "unloadFirst": "Silmeden önce modeli bellekten çıkarın",
+      "deleteModel": "Modeli Sil"
+    },
+    "deleteDialog": {
+      "title": "Modeli Sil",
+      "body": "<strong>{{name}}</strong> modelini silmek istediğinizden emin misiniz?",
+      "sizeNote": "Bu işlem diskte {{size}} kadar yer açacaktır. Modeli tekrar kullanmak isterseniz yeniden indirmeniz gerekecektir.",
+      "deleting": "Siliniyor…"
+    },
+    "migrateDialog": {
+      "title": "Modeller yeni konuma taşınsın mı?",
+      "description": "Modeller yeni klasöre taşınırken sunucu geçici olarak kapatılacaktır. Taşıma işlemi bittiğinde sunucu otomatik olarak yeniden başlayacaktır.",
+      "action": "Modelleri Taşı",
+      "preparing": "Hazırlanıyor…",
+      "restartingServer": "Sunucu yeniden başlatılıyor…"
+    },
+    "migrate": {
+      "title": "Modeller taşınıyor",
+      "offline": "Modeller taşınırken sunucu geçici olarak çevrimdışıdır."
+    },
+    "toast": {
+      "downloadFailed": "İndirme başarısız oldu",
+      "cancelFailed": "İptal başarısız oldu",
+      "cancelFailedDescription": "İndirme görevi iptal edilemedi.",
+      "deleted": "Model silindi",
+      "deletedDescription": "{{name}} başarıyla silindi.",
+      "deleteFailed": "Silme başarısız oldu",
+      "unloaded": "Model bellekten çıkarıldı",
+      "unloadedDescription": "{{name}} başarıyla bellekten kaldırıldı.",
+      "unloadFailed": "Bellekten çıkarılamadı",
+      "openFolderFailed": "Model klasörü açılamadı",
+      "pickerFailed": "Klasör seçici açılamadı",
+      "resetToDefault": "Reset to default location. Restarting server…",
+      "noModelsToMigrate": "Taşınacak model yok",
+      "noModelsToMigrateDescription": "Depolama konumunu değiştirmeden önce lütfen en az bir model indirin.",
+      "migrated": "Modeller başarıyla taşındı",
+      "migrationFailed": "Taşıma başarısız oldu",
+      "migrationFailedGeneric": "Modeller taşınamadı",
+      "migrationConnectionLost": "Taşıma sırasında bağlantı kesildi"
+    }
+  }
+}
