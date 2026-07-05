@@ -154,7 +154,7 @@ curl -X POST http://127.0.0.1:17493/generate \
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup guidelines.
 
 ### Quick Start (macOS / Linux)
-1. Install [Prerequisites](https://v2.tauri.app/start/prerequisites/) (Bun, Rust, Python 3.11+, and Xcode on macOS).
+1. Install [Prerequisites](https://v2.tauri.app/start/prerequisites/) (Bun, Rust, Python 3.12+, and Xcode on macOS).
 2. Install [just](https://github.com/casey/just): `brew install just` or `cargo install just`.
 3. Clone and start in development mode:
    ```bash

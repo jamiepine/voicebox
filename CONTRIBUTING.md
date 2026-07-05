@@ -18,9 +18,9 @@ Thank you for your interest in contributing to Voicebox! This document provides 
   curl -fsSL https://bun.sh/install | bash
   ```
 
-- **[Python 3.11+](https://python.org)** - For backend development
+- **[Python 3.12+](https://python.org)** - For backend development
   ```bash
-  python --version  # Should be 3.11 or higher
+  python --version  # Should be 3.12 or higher
   ```
 
 - **[Rust](https://rustup.rs)** - For Tauri desktop app (installed automatically by Tauri CLI)
