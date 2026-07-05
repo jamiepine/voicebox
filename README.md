@@ -37,7 +37,7 @@
 > [!NOTE]
 > **This fork (MaximusPrime77/voicebox) includes:**
 > * 🇹🇷 **Full Turkish Language Support**: Translation of the entire application interface (registered as `tr` in `i18n`).
-> * ⚡ **Fixed AMD GPU Windows Detection**: Patched native DirectML & ROCm backend detection for AMD Radeon graphics cards on Windows.
+> * ⚡ **Windows AMD GPU Support**: Native DirectML & ROCm backend support enabled for AMD Radeon graphics cards on Windows.
 
 <br/>
 
