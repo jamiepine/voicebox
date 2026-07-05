@@ -42,25 +42,34 @@ export function DictateWindow() {
   const focusRef = useRef<FocusSnapshot | null>(null);
 
   const session = useCaptureRecordingSession({
-    onFinalText: async (text, _capture, allowAutoPaste) => {
+    onFinalText: async (text, _capture, allowAutoPaste, copyTranscriptToClipboard) => {
       const focus = focusRef.current;
       // Consume-once: a second chord before this fires would overwrite
       // focusRef, but nulling it here guards against the late-arriving
       // refine-result firing a paste after the user has moved on.
       focusRef.current = null;
-      if (!allowAutoPaste) return;
-      if (!focus || !text.trim()) return;
-      try {
-        await invoke('paste_final_text', { text, focus });
-      } catch (err) {
-        // Surface accessibility failures to the main window so it can prompt
-        // the user to grant permission. Other errors stay swallowed —
-        // the transcription still landed in the captures list.
-        const msg = err instanceof Error ? err.message : String(err);
-        if (/accessibility/i.test(msg)) {
-          emit('system:accessibility-missing').catch(() => {});
+      const finalText = text.trim();
+      if (!finalText) return;
+      if (allowAutoPaste && focus) {
+        try {
+          await invoke('paste_final_text', { text: finalText, focus });
+        } catch (err) {
+          // Surface accessibility failures to the main window so it can prompt
+          // the user to grant permission. Other errors stay swallowed —
+          // the transcription still landed in the captures list.
+          const msg = err instanceof Error ? err.message : String(err);
+          if (/accessibility/i.test(msg)) {
+            emit('system:accessibility-missing').catch(() => {});
+          }
+          console.warn('[dictate] paste_final_text failed:', err);
         }
-        console.warn('[dictate] paste_final_text failed:', err);
+      }
+      if (copyTranscriptToClipboard) {
+        try {
+          await invoke('copy_text_to_clipboard', { text: finalText });
+        } catch (err) {
+          console.warn('[dictate] copy_text_to_clipboard failed:', err);
+        }
       }
     },
   });
@@ -141,9 +150,7 @@ export function DictateWindow() {
     audio.onplaying = () => {
       emit('dictate:show').catch(() => {});
       setSpeaking((prev) =>
-        prev && prev.generationId === generationId
-          ? { ...prev, startedAt: Date.now() }
-          : prev,
+        prev && prev.generationId === generationId ? { ...prev, startedAt: Date.now() } : prev,
       );
       setSpeakElapsed(0);
     };

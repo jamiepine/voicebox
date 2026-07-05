@@ -34,10 +34,10 @@ class VoiceProfile(Base):
 
     # Voice type system — added v0.3.x
     voice_type = Column(String, default="cloned")  # "cloned" | "preset" | "designed"
-    preset_engine = Column(String, nullable=True)   # e.g. "kokoro" — only for preset
+    preset_engine = Column(String, nullable=True)  # e.g. "kokoro" — only for preset
     preset_voice_id = Column(String, nullable=True)  # e.g. "am_adam" — only for preset
-    design_prompt = Column(Text, nullable=True)      # text description — only for designed
-    default_engine = Column(String, nullable=True)   # auto-selected engine, locked for preset
+    design_prompt = Column(Text, nullable=True)  # text description — only for designed
+    default_engine = Column(String, nullable=True)  # auto-selected engine, locked for preset
     # Free-form character prompt used by the compose button and the
     # personality-rewrite path on /generate. Describes *what* this voice
     # says and how, orthogonal to how it sounds (handled by the preset /
@@ -203,6 +203,7 @@ class CaptureSettings(Base):
     self_correction = Column(Boolean, nullable=False, default=True)
     preserve_technical = Column(Boolean, nullable=False, default=True)
     allow_auto_paste = Column(Boolean, nullable=False, default=True)
+    copy_transcript_to_clipboard = Column(Boolean, nullable=False, default=False)
     default_playback_voice_id = Column(String, nullable=True)
     # Default OFF — opting in is what triggers the macOS Input Monitoring TCC
     # prompt. We deliberately don't spawn the global keyboard tap until the
@@ -212,12 +213,8 @@ class CaptureSettings(Base):
     hotkey_enabled = Column(Boolean, nullable=False, default=False)
     # Lists of keytap key names (e.g. "MetaRight", "ControlRight"). Right-hand
     # modifiers by default so they don't collide with left-hand shortcuts.
-    chord_push_to_talk_keys = Column(
-        JSON, nullable=False, default=default_push_to_talk_chord
-    )
-    chord_toggle_to_talk_keys = Column(
-        JSON, nullable=False, default=default_toggle_to_talk_chord
-    )
+    chord_push_to_talk_keys = Column(JSON, nullable=False, default=default_push_to_talk_chord)
+    chord_toggle_to_talk_keys = Column(JSON, nullable=False, default=default_toggle_to_talk_chord)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

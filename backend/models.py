@@ -81,11 +81,15 @@ class GenerationRequest(BaseModel):
 
     profile_id: str
     text: str = Field(..., min_length=1, max_length=50000)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$")
+    language: str = Field(
+        default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B)$")
     instruct: Optional[str] = Field(None, max_length=500)
-    engine: Optional[str] = Field(default="qwen", pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$")
+    engine: Optional[str] = Field(
+        default="qwen", pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$"
+    )
     personality: bool = Field(
         default=False,
         description="When true and the profile has a personality prompt, the input text is rewritten in-character before TTS.",
@@ -220,15 +224,16 @@ class CaptureCreateResponse(CaptureResponse):
     """
     Response model for ``POST /captures``.
 
-    Adds ``auto_refine`` and ``allow_auto_paste`` — the server-side settings
-    captured at the moment the capture was created. The client reads these to
-    decide whether to chain a refinement request and whether to fire the
-    synthetic-paste pipeline, so it doesn't need a synced local copy of the
-    capture_settings table across sibling Tauri webviews.
+    Adds capture-delivery settings captured at the moment the capture was
+    created. The client reads these to decide whether to chain a refinement
+    request, fire the synthetic-paste pipeline, and/or leave the final
+    transcript on the clipboard, so it doesn't need a synced local copy of
+    the capture_settings table across sibling Tauri webviews.
     """
 
     auto_refine: bool
     allow_auto_paste: bool
+    copy_transcript_to_clipboard: bool
 
 
 class CaptureRefineRequest(BaseModel):
@@ -256,14 +261,11 @@ class CaptureSettingsResponse(BaseModel):
     self_correction: bool = True
     preserve_technical: bool = True
     allow_auto_paste: bool = True
+    copy_transcript_to_clipboard: bool = False
     default_playback_voice_id: Optional[str] = None
     hotkey_enabled: bool = False
-    chord_push_to_talk_keys: List[str] = Field(
-        default_factory=default_push_to_talk_chord
-    )
-    chord_toggle_to_talk_keys: List[str] = Field(
-        default_factory=default_toggle_to_talk_chord
-    )
+    chord_push_to_talk_keys: List[str] = Field(default_factory=default_push_to_talk_chord)
+    chord_toggle_to_talk_keys: List[str] = Field(default_factory=default_toggle_to_talk_chord)
 
     class Config:
         from_attributes = True
@@ -280,6 +282,7 @@ class CaptureSettingsUpdate(BaseModel):
     self_correction: Optional[bool] = None
     preserve_technical: Optional[bool] = None
     allow_auto_paste: Optional[bool] = None
+    copy_transcript_to_clipboard: Optional[bool] = None
     default_playback_voice_id: Optional[str] = None
     hotkey_enabled: Optional[bool] = None
     chord_push_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
