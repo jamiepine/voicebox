@@ -902,6 +902,18 @@
           "title": "プレビュー",
           "description": "ショートカットを押している間、画面に表示される内容です。"
         },
+        "previewLocation": {
+          "title": "プレビュー位置",
+          "description": "フローティングのキャプチャプレビューを表示する場所を選びます。",
+          "options": {
+            "top_left": "左上",
+            "top_center": "上中央",
+            "top_right": "右上",
+            "bottom_left": "左下",
+            "bottom_center": "下中央",
+            "bottom_right": "右下"
+          }
+        },
         "copyToClipboard": {
           "title": "文字起こしをクリップボードにコピー",
           "description": "キャプチャが終わると、整形済みの文字起こしがクリップボードに保存されます。"
