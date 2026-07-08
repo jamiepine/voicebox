@@ -38,6 +38,13 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# An empty HSA_OVERRIDE_GFX_VERSION poisons the ROCm HSA runtime. It is
+# treated as "force-empty" and no GPU is detected, even natively supported
+# ones (e.g. gfx1201 / RX 9070 on ROCm 7.2). docker-compose can't
+# conditionally omit an env var, so we clean it up here before torch loads.
+if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
+    os.environ.pop("HSA_OVERRIDE_GFX_VERSION", None)
+
 # AMD GPU environment variables must be set before torch import
 # Only set HSA_OVERRIDE_GFX_VERSION for older GPUs that need it.
 # RDNA 3+ (gfx1100+) and RDNA 4 (gfx1200+) are natively supported by ROCm
