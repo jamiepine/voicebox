@@ -34,3 +34,15 @@ services:
 
       # Tune the ROCm memory allocator
       - PYTORCH_HIP_ALLOC_CONF=garbage_collection_threshold:0.8,max_split_size_mb:512
+
+      # Redirect MIOpen kernel cache to a writable, persistent directory.
+      # Without this, MIOpen may fail to write its cache and throw
+      # miopenStatusUnknownError on fresh containers.
+      - MIOPEN_USER_DB_PATH=/app/data/cache/miopen_db
+      - MIOPEN_CUSTOM_CACHE_DIR=/app/data/cache/miopen_cache
+
+      # Use fast heuristics for kernel selection instead of exhaustive
+      # benchmarking. On RDNA4, exhaustive mode tries kernels that fail to
+      # allocate workspace memory (ptr: 0 size: 0), causing system stuttering
+      # on every generation even when the cache is present.
+      - MIOPEN_FIND_MODE=FAST
