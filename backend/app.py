@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+import secrets
 import subprocess
 import sys
 from contextlib import asynccontextmanager
@@ -190,7 +191,7 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             auth_header = request.headers.get("Authorization", "")
             bearer = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
             provided = request.headers.get("X-Api-Key", "") or bearer
-            if provided != _VOICEBOX_API_KEY:
+            if not secrets.compare_digest(provided, _VOICEBOX_API_KEY):
                 from fastapi.responses import JSONResponse
                 return JSONResponse({"detail": "Unauthorized"}, status_code=401)
         return await call_next(request)
