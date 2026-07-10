@@ -38,7 +38,11 @@ fn build_dictate_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewW
     .title("Voicebox Dictate")
     .inner_size(DICTATE_WINDOW_WIDTH, DICTATE_WINDOW_HEIGHT)
     .decorations(false)
-    .transparent(true)
+    // Transparent windows can cause tao to panic on Linux/X11 when
+    // set_ignore_cursor_events is called because the underlying GDK window
+    // may not be realized. Keep transparency for platforms where the
+    // click-through workaround is supported.
+    .transparent(!cfg!(target_os = "linux"))
     .always_on_top(true)
     // Follow the user across macOS Spaces / virtual desktops instead of
     // being pinned to the Space where the window was first created.
@@ -112,7 +116,10 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
             let _ = window.set_position(PhysicalPosition::new(x, y));
         }
     }
-    let _ = window.set_ignore_cursor_events(false);
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = window.set_ignore_cursor_events(false);
+    }
     let _ = window.show();
 }
 
@@ -1421,7 +1428,10 @@ pub fn run() {
                 let handle_for_hide = app.handle().clone();
                 app.handle().listen("dictate:hide", move |_event| {
                     if let Some(window) = handle_for_hide.get_webview_window(DICTATE_WINDOW_LABEL) {
-                        let _ = window.set_ignore_cursor_events(true);
+                        #[cfg(not(target_os = "linux"))]
+                        {
+                            let _ = window.set_ignore_cursor_events(true);
+                        }
                         let _ = window.set_position(PhysicalPosition::new(-10_000, -10_000));
                         let _ = window.hide();
                     }
