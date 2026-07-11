@@ -98,6 +98,7 @@ if not os.environ.get("MIOPEN_LOG_LEVEL"):
 
 import torch
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -192,7 +193,6 @@ class ApiKeyMiddleware(BaseHTTPMiddleware):
             bearer = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
             provided = request.headers.get("X-Api-Key", "") or bearer
             if not secrets.compare_digest(provided, _VOICEBOX_API_KEY):
-                from fastapi.responses import JSONResponse
                 return JSONResponse({"detail": "Unauthorized"}, status_code=401)
         return await call_next(request)
 
