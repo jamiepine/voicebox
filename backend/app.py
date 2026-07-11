@@ -4,6 +4,7 @@ import asyncio
 import logging
 import os
 import re
+import secrets
 import subprocess
 import sys
 from contextlib import asynccontextmanager
@@ -97,7 +98,11 @@ if not os.environ.get("MIOPEN_LOG_LEVEL"):
 
 import torch
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 from urllib.parse import quote
 
 from . import __version__, config, database
@@ -158,6 +163,7 @@ def create_app() -> FastAPI:
     )
 
     _configure_cors(application)
+    application.add_middleware(ApiKeyMiddleware)
     application.add_middleware(ClientIdMiddleware)
     register_routers(application)
     application.mount("/mcp", mcp_app)
@@ -165,6 +171,30 @@ def create_app() -> FastAPI:
     _mount_frontend(application)
 
     return application
+
+
+_VOICEBOX_API_KEY = os.environ.get("VOICEBOX_API_KEY", "")
+
+_API_KEY_EXEMPT_PATHS = {"/", "/health", "/health/filesystem"}
+
+
+class ApiKeyMiddleware(BaseHTTPMiddleware):
+    """Enforce API key authentication when VOICEBOX_API_KEY is set.
+
+    If the env var is not set the middleware is a no-op, preserving
+    the existing local-only behaviour.  When set, every request must
+    supply the key either as ``Authorization: Bearer <key>`` or the
+    ``X-Api-Key: <key>`` header.  Health/root paths are always exempt.
+    """
+
+    async def dispatch(self, request: Request, call_next) -> Response:
+        if _VOICEBOX_API_KEY and request.url.path not in _API_KEY_EXEMPT_PATHS:
+            auth_header = request.headers.get("Authorization", "")
+            bearer = auth_header.removeprefix("Bearer ").strip() if auth_header.startswith("Bearer ") else ""
+            provided = request.headers.get("X-Api-Key", "") or bearer
+            if not secrets.compare_digest(provided, _VOICEBOX_API_KEY):
+                return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+        return await call_next(request)
 
 
 def _configure_cors(application: FastAPI) -> None:
