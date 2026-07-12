@@ -93,9 +93,11 @@ class MLXTTSBackend:
         if self.model is not None and self._current_model_size == model_size:
             return
 
-        # Unload existing model if different size requested
+        # Unload existing model if different size requested — routed
+        # through the same dedicated thread as load/generate so it stays
+        # serialized with any in-flight MLX call (see _run_on_mlx_thread).
         if self.model is not None and self._current_model_size != model_size:
-            self.unload_model()
+            await _run_on_mlx_thread(self.unload_model)
 
         # Run blocking load on the dedicated MLX thread
         await _run_on_mlx_thread(self._load_model_sync, model_size)

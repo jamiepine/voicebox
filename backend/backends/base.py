@@ -171,10 +171,10 @@ def check_cuda_compatibility() -> tuple[bool, str | None]:
 
 def empty_device_cache(device: str) -> None:
     """
-    Free cached memory on the given device (CUDA or XPU).
+    Free cached memory on the given device (CUDA, XPU, or MPS).
 
-    Backends should call this after unloading models so VRAM is returned
-    to the OS.
+    Backends should call this after unloading models so VRAM/unified
+    memory is returned to the OS.
     """
     import torch
 
@@ -182,6 +182,8 @@ def empty_device_cache(device: str) -> None:
         torch.cuda.empty_cache()
     elif device == "xpu" and hasattr(torch, "xpu"):
         torch.xpu.empty_cache()
+    elif device == "mps" and hasattr(torch, "mps"):
+        torch.mps.empty_cache()
 
 
 def manual_seed(seed: int, device: str) -> None:
