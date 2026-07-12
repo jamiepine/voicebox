@@ -175,6 +175,8 @@ async def health():
             default_variant = "cuda"
     elif has_xpu:
         default_variant = "xpu"
+    elif backend_type == "mlx":
+        default_variant = "mps"
 
     return models.HealthResponse(
         status="healthy",
