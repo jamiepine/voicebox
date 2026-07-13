@@ -11,13 +11,14 @@ import asyncio
 import base64 as b64
 import logging
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
 from fastmcp import FastMCP
 
-from .. import models
-from ..database import get_db
+from .. import config, models
+from ..database import Generation as DBGeneration, get_db
 from ..services import captures as captures_service
 from ..services import profiles as profiles_service
 from . import events as mcp_events
@@ -31,6 +32,10 @@ logger = logging.getLogger(__name__)
 # asking us to ingest a 20 GB file.
 MAX_TRANSCRIBE_BYTES = 200 * 1024 * 1024  # 200 MB
 
+# How long voicebox.speak_audio will poll before giving up on a generation
+# that never reaches "completed"/"failed".
+DEFAULT_SPEAK_AUDIO_TIMEOUT_SECONDS = 60.0
+
 
 def register_tools(mcp: FastMCP) -> None:
     """Attach all Voicebox tools to the given FastMCP instance."""
@@ -40,7 +45,12 @@ def register_tools(mcp: FastMCP) -> None:
         description=(
             "Speak text in a Voicebox voice profile. Returns a generation id "
             "the caller can poll at /generate/{id}/status. Audio plays on the "
-            "user's speakers and is saved to the Captures / History tab."
+            "user's speakers and is saved to the Captures / History tab. "
+            "Requires a Voicebox browser tab (or the floating pill) to "
+            "already be open to actually hear it — for headless/background "
+            "callers with no Voicebox UI open, use `voicebox.speak_audio` "
+            "instead, which waits for generation and returns the audio "
+            "bytes directly."
         ),
     )
     async def voicebox_speak(
@@ -101,6 +111,130 @@ def register_tools(mcp: FastMCP) -> None:
                 personality=use_persona,
                 db=db,
             )
+        finally:
+            db.close()
+
+    @mcp.tool(
+        name="voicebox.speak_audio",
+        description=(
+            "Like voicebox.speak, but blocks until generation finishes and "
+            "returns the result as base64-encoded audio bytes in the tool "
+            "result (`audio_base64`, `audio_format`), instead of relying on "
+            "an open Voicebox browser tab / floating pill to play it. Use "
+            "this for headless or background callers (e.g. a chat agent "
+            "with no Voicebox UI open) that need the actual audio — to "
+            "play it themselves, attach it to a message, etc. Still fires "
+            "the same speak-start event, so an open Voicebox tab will *also* "
+            "play it and save it to Captures / History, same as "
+            "voicebox.speak. Accepts the same `profile`/`engine`/"
+            "`personality`/`language` parameters as voicebox.speak (see its "
+            "description for details on those). Raises if the generation "
+            "doesn't complete within `timeout_seconds` (default 60s) — pass "
+            "a higher value for long text or a slow/cold-loading model."
+        ),
+    )
+    async def voicebox_speak_audio(
+        text: str,
+        profile: str | None = None,
+        engine: str | None = None,
+        personality: bool | None = None,
+        language: str | None = None,
+        timeout_seconds: float = DEFAULT_SPEAK_AUDIO_TIMEOUT_SECONDS,
+    ) -> dict[str, Any]:
+        """Like ``voicebox_speak``, but waits for the generation and returns
+        the resulting audio inline instead of only a poll URL.
+
+        See ``voicebox_speak`` for parameter semantics — this wraps the same
+        ``_speak`` helper (identical profile/engine/personality resolution)
+        and adds polling + reading the finished audio file off disk.
+        """
+        from ..database.models import MCPClientBinding
+
+        if timeout_seconds <= 0:
+            raise ValueError("`timeout_seconds` must be > 0.")
+
+        db = next(get_db())
+        try:
+            client_id = current_client_id.get()
+            vp = resolve_profile(profile, client_id, db)
+            if vp is None:
+                raise ValueError(
+                    "No voice profile resolved. Pass `profile=` with a "
+                    "voice profile name or id, or set a default voice in "
+                    "Voicebox → Settings → MCP."
+                )
+
+            binding = None
+            if client_id:
+                binding = (
+                    db.query(MCPClientBinding)
+                    .filter(MCPClientBinding.client_id == client_id)
+                    .first()
+                )
+
+            resolved_personality = personality
+            if resolved_personality is None and binding is not None:
+                resolved_personality = bool(binding.default_personality)
+
+            resolved_engine = engine
+            if resolved_engine is None and binding is not None:
+                resolved_engine = binding.default_engine
+
+            use_persona = bool(resolved_personality) and bool(vp.personality)
+            speak_result = await _speak(
+                profile_id=vp.id,
+                profile_name=vp.name,
+                text=text,
+                engine=resolved_engine,
+                language=language,
+                personality=use_persona,
+                db=db,
+            )
+
+            generation_id = speak_result.get("generation_id")
+            if not generation_id:
+                raise ValueError(
+                    "Generation failed to start; no generation_id returned."
+                )
+
+            deadline = time.monotonic() + timeout_seconds
+            gen = None
+            while True:
+                db.expire_all()
+                gen = db.query(DBGeneration).filter_by(id=generation_id).first()
+                status = (gen.status if gen else None) or "generating"
+                if status == "completed":
+                    break
+                if status == "failed":
+                    error_detail = gen.error if gen else "unknown error"
+                    raise ValueError(
+                        f"Generation {generation_id} failed: {error_detail}"
+                    )
+                if time.monotonic() >= deadline:
+                    raise ValueError(
+                        f"Generation {generation_id} did not complete within "
+                        f"{timeout_seconds}s (last status: {status}). Pass a "
+                        "higher `timeout_seconds` for long text or a "
+                        "slow/cold-loading model."
+                    )
+                await asyncio.sleep(0.5)
+
+            audio_path = config.resolve_storage_path(gen.audio_path)
+            if audio_path is None or not audio_path.is_file():
+                raise ValueError(
+                    f"Generation {generation_id} completed but its audio "
+                    "file is missing on disk."
+                )
+
+            audio_bytes = await asyncio.to_thread(audio_path.read_bytes)
+
+            return {
+                **speak_result,
+                "status": "completed",
+                "duration": gen.duration,
+                "audio_base64": b64.b64encode(audio_bytes).decode("ascii"),
+                "audio_format": audio_path.suffix.lstrip("."),
+            }
         finally:
             db.close()
 
