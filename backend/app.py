@@ -113,6 +113,7 @@ from .database import get_db
 from .utils.platform_detect import get_backend_type
 from .utils.progress import get_progress_manager
 from .services.task_queue import create_background_task, init_queue
+from .services import idle_unload
 from .routes import register_routers
 
 
@@ -293,6 +294,7 @@ async def _run_startup(application: FastAPI) -> None:
     logger.info("Data directory: %s", config.get_data_dir())
 
     init_queue()
+    idle_unload.start()
 
     # Mark stale "generating" records as failed -- leftovers from a killed process
     from sqlalchemy import text as sa_text
