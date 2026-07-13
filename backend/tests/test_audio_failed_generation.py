@@ -44,7 +44,7 @@ def test_resolve_storage_path_empty_returns_none():
     assert config.resolve_storage_path(Path("")) is None
 
 
-@pytest.fixture()
+@pytest.fixture
 def client(tmp_path, monkeypatch):
     """Minimal app with only the audio routes and a temp sqlite DB."""
     monkeypatch.setattr(config, "_data_dir", tmp_path)
