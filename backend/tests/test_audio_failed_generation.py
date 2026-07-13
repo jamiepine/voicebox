@@ -25,7 +25,14 @@ from starlette.testclient import TestClient
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from backend import config
-from backend.database import Base, Generation, VoiceProfile, get_db
+from backend.database import (
+    Base,
+    Generation,
+    GenerationVersion,
+    ProfileSample,
+    VoiceProfile,
+    get_db,
+)
 from backend.routes.audio import router as audio_router
 
 
@@ -33,12 +40,16 @@ def test_resolve_storage_path_empty_returns_none():
     """An empty stored path must not resolve to the data dir itself."""
     assert config.resolve_storage_path("") is None
     assert config.resolve_storage_path(None) is None
+    # Path("") is truthy, so it must be rejected via its (empty) parts.
+    assert config.resolve_storage_path(Path("")) is None
 
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     """Minimal app with only the audio routes and a temp sqlite DB."""
     monkeypatch.setattr(config, "_data_dir", tmp_path)
+    # An existing directory that a stored audio_path may wrongly point to.
+    (tmp_path / "somedir").mkdir()
 
     engine = create_engine(
         f"sqlite:///{tmp_path / 'test.db'}",
@@ -74,6 +85,25 @@ def client(tmp_path, monkeypatch):
                 text="completed but file deleted",
                 audio_path="generations/does-not-exist.wav",
                 status="completed",
+            ),
+            Generation(
+                id="gen-with-version",
+                profile_id="profile-1",
+                text="generation with a broken version",
+                audio_path="somedir",
+                status="completed",
+            ),
+            GenerationVersion(
+                id="version-dir",
+                generation_id="gen-with-version",
+                label="original",
+                audio_path="somedir",
+            ),
+            ProfileSample(
+                id="sample-dir",
+                profile_id="profile-1",
+                audio_path="somedir",
+                reference_text="sample pointing at a directory",
             ),
         ]
     )
@@ -113,3 +143,22 @@ def test_unknown_generation_returns_404(client):
     response = client.get("/audio/no-such-generation")
     assert response.status_code == 404
     assert response.json()["detail"] == "Generation not found"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "/audio/gen-with-version",
+        "/audio/version/version-dir",
+        "/samples/sample-dir",
+    ],
+)
+def test_audio_path_pointing_at_directory_returns_404(client, url):
+    """A stored path resolving to an existing directory must 404, not 500.
+
+    Guards the is_file() checks: a directory passes exists() and would
+    crash FileResponse.
+    """
+    response = client.get(url)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Audio file not found"

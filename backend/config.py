@@ -76,12 +76,15 @@ def to_storage_path(path: str | Path) -> str:
 
 def resolve_storage_path(path: str | Path | None) -> Path | None:
     """Resolve a DB-stored path against the configured data dir."""
-    # Empty paths (e.g. failed generations) must not resolve to the data
-    # dir itself, which exists and would defeat the callers' 404 guards.
-    if not path:
+    if path is None:
         return None
 
     stored_path = Path(path)
+    # Empty paths (e.g. failed generations) must not resolve to the data
+    # dir itself, which exists and would defeat the callers' 404 guards.
+    # Path("") is truthy, so check parts rather than the raw value.
+    if not stored_path.parts:
+        return None
     if stored_path.is_absolute():
         rebased_path = _path_relative_to_any_data_dir(stored_path)
         if rebased_path is not None:
