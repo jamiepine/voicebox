@@ -16,7 +16,8 @@ miniaudio>=1.59
 # mlx_audio.stt.load) works fine on transformers 4.57.x in practice.
 #
 # Install it via `pip install --no-deps mlx-audio==0.4.1` after this file
-# (see .github/workflows/release.yml). Most other mlx-audio runtime deps
+# (see .github/workflows/release.yml and the setup-python recipe in the
+# justfile). Most other mlx-audio runtime deps
 # (huggingface_hub, librosa, mlx-lm, numba, numpy, protobuf, pyloudnorm,
 # sounddevice, tqdm) are already in requirements.txt or pulled in by
 # other engines.

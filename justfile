@@ -72,6 +72,12 @@ setup-python:
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
         {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        # mlx-lm and mlx-audio declare transformers>=5.x, which conflicts with
+        # our transformers<=4.57.x cap, so install them --no-deps (their other
+        # runtime deps are covered by requirements.txt / requirements-mlx.txt —
+        # see the note in requirements-mlx.txt and .github/workflows/release.yml)
+        {{ pip }} install --no-deps mlx-lm==0.31.1
+        {{ pip }} install --no-deps mlx-audio==0.4.1
     fi
     {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
     {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
