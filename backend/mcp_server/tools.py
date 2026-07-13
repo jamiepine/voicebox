@@ -119,18 +119,25 @@ def register_tools(mcp: FastMCP) -> None:
         description=(
             "Like voicebox.speak, but blocks until generation finishes and "
             "returns the result as base64-encoded audio bytes in the tool "
-            "result (`audio_base64`, `audio_format`), instead of relying on "
-            "an open Voicebox browser tab / floating pill to play it. Use "
-            "this for headless or background callers (e.g. a chat agent "
-            "with no Voicebox UI open) that need the actual audio — to "
-            "play it themselves, attach it to a message, etc. Still fires "
-            "the same speak-start event, so an open Voicebox tab will *also* "
-            "play it and save it to Captures / History, same as "
-            "voicebox.speak. Accepts the same `profile`/`engine`/"
-            "`personality`/`language` parameters as voicebox.speak (see its "
-            "description for details on those). Raises if the generation "
-            "doesn't complete within `timeout_seconds` (default 60s) — pass "
-            "a higher value for long text or a slow/cold-loading model."
+            "actual audio, instead of relying on an open Voicebox browser "
+            "tab / floating pill to play it. Use this for headless or "
+            "background callers (e.g. a chat agent with no Voicebox UI "
+            "open) that need the audio itself — to play it, attach it to a "
+            "message, save it, etc. Still fires the same speak-start event, "
+            "so an open Voicebox tab will *also* play it and save it to "
+            "Captures / History, same as voicebox.speak. Accepts the same "
+            "`profile`/`engine`/`personality`/`language` parameters as "
+            "voicebox.speak (see its description for details on those). "
+            "Raises if the generation doesn't complete within "
+            "`timeout_seconds` (default 60s) — pass a higher value for "
+            "long text or a slow/cold-loading model. By default returns "
+            "the audio as base64 (`audio_base64`, `audio_format`) in the "
+            "tool result — note this can be tens of KB of text and may get "
+            "truncated by clients/agents that cap tool-result size. "
+            "Loopback callers can instead pass `output_path` (an absolute "
+            "local path) to have the server write the file there directly "
+            "and return just `saved_path` (no base64), which avoids that "
+            "risk entirely for large audio."
         ),
     )
     async def voicebox_speak_audio(
@@ -140,6 +147,7 @@ def register_tools(mcp: FastMCP) -> None:
         personality: bool | None = None,
         language: str | None = None,
         timeout_seconds: float = DEFAULT_SPEAK_AUDIO_TIMEOUT_SECONDS,
+        output_path: str | None = None,
     ) -> dict[str, Any]:
         """Like ``voicebox_speak``, but waits for the generation and returns
         the resulting audio inline instead of only a poll URL.
@@ -147,11 +155,28 @@ def register_tools(mcp: FastMCP) -> None:
         See ``voicebox_speak`` for parameter semantics — this wraps the same
         ``_speak`` helper (identical profile/engine/personality resolution)
         and adds polling + reading the finished audio file off disk.
+
+        ``output_path``, if given, must be an absolute path and is only
+        honored for loopback callers (same restriction as ``audio_path`` on
+        ``voicebox_transcribe``, for the same reason: a Voicebox bound on
+        0.0.0.0 shouldn't double as a remote arbitrary-local-file-write
+        primitive). When honored, the response omits ``audio_base64`` /
+        ``audio_format`` entirely and returns ``saved_path`` instead.
         """
         from ..database.models import MCPClientBinding
 
         if timeout_seconds <= 0:
             raise ValueError("`timeout_seconds` must be > 0.")
+
+        if output_path is not None:
+            if not request_is_loopback():
+                raise ValueError(
+                    "`output_path` is only available to loopback callers — "
+                    "remote callers must omit it and use the base64 "
+                    "response instead."
+                )
+            if not Path(output_path).is_absolute():
+                raise ValueError("`output_path` must be absolute.")
 
         db = next(get_db())
         try:
@@ -225,6 +250,21 @@ def register_tools(mcp: FastMCP) -> None:
                     f"Generation {generation_id} completed but its audio "
                     "file is missing on disk."
                 )
+
+            if output_path is not None:
+                dest = Path(output_path)
+
+                def _copy_to_output_path() -> None:
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(audio_path.read_bytes())
+
+                await asyncio.to_thread(_copy_to_output_path)
+                return {
+                    **speak_result,
+                    "status": "completed",
+                    "duration": gen.duration,
+                    "saved_path": str(dest),
+                }
 
             audio_bytes = await asyncio.to_thread(audio_path.read_bytes)
 
