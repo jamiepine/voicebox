@@ -6,9 +6,25 @@ from typing import Optional, List, Tuple
 import asyncio
 import logging
 import numpy as np
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# All MLX work (module imports, model loading, generation) must happen on ONE
+# dedicated thread: mlx_lm creates a thread-local GPU stream at import time,
+# and MLX arrays/ops that captured it fail with "There is no Stream(gpu, N)
+# in current thread" when later evaluated from a different thread — which is
+# exactly what asyncio.to_thread's rotating pool does. Observed on the
+# Qwen3-TTS voice-clone (ICL) path; a single-worker executor fixes it for
+# every MLX backend at once (MLX is single-GPU, so this serialization costs
+# nothing in practice).
+_MLX_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx")
+
+
+async def _run_on_mlx_thread(fn, *args):
+    """Run a blocking MLX operation on the dedicated MLX thread."""
+    return await asyncio.get_running_loop().run_in_executor(_MLX_EXECUTOR, fn, *args)
 
 # PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
 # This prevents mlx_audio from making network requests when models are cached
@@ -82,7 +98,7 @@ class MLXTTSBackend:
             self.unload_model()
 
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        await _run_on_mlx_thread(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -259,7 +275,7 @@ class MLXTTSBackend:
             return audio, sample_rate
 
         # Run blocking inference in thread pool
-        audio, sample_rate = await asyncio.to_thread(_generate_sync)
+        audio, sample_rate = await _run_on_mlx_thread(_generate_sync)
 
         return audio, sample_rate
 
@@ -293,7 +309,7 @@ class MLXSTTBackend:
             return
 
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        await _run_on_mlx_thread(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -364,4 +380,4 @@ class MLXSTTBackend:
                 return str(result).strip()
 
         # Run blocking transcription in thread pool
-        return await asyncio.to_thread(_transcribe_sync)
+        return await _run_on_mlx_thread(_transcribe_sync)
