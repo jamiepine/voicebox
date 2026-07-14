@@ -12,7 +12,7 @@ import base64 as b64
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastmcp import FastMCP
 
@@ -49,6 +49,7 @@ def register_tools(mcp: FastMCP) -> None:
         engine: str | None = None,
         personality: bool | None = None,
         language: str | None = None,
+        model_size: Literal["1.7B", "0.6B", "1B", "3B"] | None = None,
     ) -> dict[str, Any]:
         """Speak ``text`` in a voice profile.
 
@@ -61,6 +62,12 @@ def register_tools(mcp: FastMCP) -> None:
         LLM before TTS. When omitted, the per-client binding's
         ``default_personality`` flag decides; when that is unset, the
         default is plain TTS.
+
+        ``model_size`` selects a model variant for engines that ship more
+        than one — ``qwen`` and ``qwen_custom_voice`` accept "1.7B" (default)
+        or "0.6B"; ``tada`` accepts "1B" or "3B". Other engines ignore it.
+        Omit to use the engine default. Requesting a smaller variant (e.g.
+        "0.6B") is faster and avoids reloading a heavier model between calls.
         """
         from ..database.models import MCPClientBinding
 
@@ -99,6 +106,7 @@ def register_tools(mcp: FastMCP) -> None:
                 engine=resolved_engine,
                 language=language,
                 personality=use_persona,
+                model_size=model_size,
                 db=db,
             )
         finally:
@@ -228,18 +236,23 @@ async def _speak(
     engine: str | None,
     language: str | None,
     personality: bool,
+    model_size: str | None = None,
     db,
 ) -> dict[str, Any]:
     """Delegate to POST /generate — the route handles personality-rewrite
     internally when ``personality=true`` and the profile has a prompt."""
     from ..routes.generations import generate_speech
 
+    # model_size=None is intentional: generate_speech normalizes it to the
+    # engine default (see routes/generations.py), so an omitted size behaves
+    # exactly like the REST /generate endpoint with no model_size in the body.
     req = models.GenerationRequest(
         profile_id=profile_id,
         text=text,
         language=language or "en",
         engine=engine,
         personality=personality,
+        model_size=model_size,
     )
     generation = await generate_speech(req, db)
     return _speak_response(generation, profile_name, source="mcp")
