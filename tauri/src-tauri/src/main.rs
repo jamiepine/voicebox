@@ -17,8 +17,16 @@ mod synthetic_keys;
 
 use std::sync::Mutex;
 use tauri::{command, State, Manager, WindowEvent, Emitter, Listener, RunEvent, WebviewUrl, WebviewWindowBuilder, PhysicalPosition};
+#[cfg(desktop)]
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+};
 use tauri_plugin_shell::ShellExt;
 use tokio::sync::mpsc;
+
+static TRAY_QUIT_REQUESTED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 pub const DICTATE_WINDOW_LABEL: &str = "dictate";
 const DICTATE_WINDOW_WIDTH: f64 = 420.0;
@@ -118,6 +126,15 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
 
 const LEGACY_PORT: u16 = 8000;
 pub(crate) const SERVER_PORT: u16 = 17493;
+
+#[cfg(desktop)]
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.unminimize();
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
 
 /// Find a voicebox-server process listening on a given port (Windows only).
 ///
@@ -1396,6 +1413,35 @@ pub fn run() {
                 app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
                 app.handle().plugin(tauri_plugin_process::init())?;
 
+                let open_item = MenuItem::with_id(app, "open", "Open Voicebox", true, None::<&str>)?;
+                let quit_item = MenuItem::with_id(app, "quit", "Quit Voicebox", true, None::<&str>)?;
+                let tray_menu = Menu::with_items(app, &[&open_item, &quit_item])?;
+
+                TrayIconBuilder::with_id("voicebox-tray")
+                    .icon(app.default_window_icon().expect("Voicebox app icon missing").clone())
+                    .tooltip("Voicebox")
+                    .menu(&tray_menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "open" => show_main_window(app),
+                        "quit" => {
+                            TRAY_QUIT_REQUESTED.store(true, std::sync::atomic::Ordering::SeqCst);
+                            app.exit(0);
+                        }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click {
+                            button: MouseButton::Left,
+                            button_state: MouseButtonState::Up,
+                            ..
+                        } = event
+                        {
+                            show_main_window(tray.app_handle());
+                        }
+                    })
+                    .build(app)?;
+
                 // Resolve the active keyboard layout's V keycode now, on
                 // the main thread, and register an observer for layout
                 // changes. The synthetic-paste hot path then only reads an
@@ -1529,6 +1575,15 @@ pub fn run() {
             let closing = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
             move |window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
+                #[cfg(desktop)]
+                if window.label() == "main"
+                    && !TRAY_QUIT_REQUESTED.load(std::sync::atomic::Ordering::SeqCst)
+                {
+                    api.prevent_close();
+                    window.hide().ok();
+                    return;
+                }
+
                 // If we're already in the close flow, let it proceed
                 if closing.load(std::sync::atomic::Ordering::SeqCst) {
                     return;
