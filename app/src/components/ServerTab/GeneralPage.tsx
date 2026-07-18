@@ -49,6 +49,7 @@ export function GeneralPage() {
   const { toast } = useToast();
   const { data: health, isLoading, error: healthError, refetch: refetchHealth } = useServerHealth();
   const [serverAction, setServerAction] = useState<'start' | 'stop' | 'restart' | null>(null);
+  const serverOnline = Boolean(health) && !healthError;
 
   const resolver = useMemo(
     () => zodResolver(makeConnectionSchema(t('settings.general.serverUrl.invalidUrl'))),
@@ -194,7 +195,7 @@ export function GeneralPage() {
                   type="button"
                   size="sm"
                   onClick={() => runServerAction('start')}
-                  disabled={serverAction !== null || Boolean(health)}
+                  disabled={serverAction !== null || serverOnline}
                 >
                   {serverAction === 'start' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -208,7 +209,7 @@ export function GeneralPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => runServerAction('restart')}
-                  disabled={serverAction !== null || !health}
+                  disabled={serverAction !== null || !serverOnline}
                 >
                   {serverAction === 'restart' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -222,7 +223,7 @@ export function GeneralPage() {
                   size="sm"
                   variant="destructive"
                   onClick={() => runServerAction('stop')}
-                  disabled={serverAction !== null || !health}
+                  disabled={serverAction !== null || !serverOnline}
                 >
                   {serverAction === 'stop' ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
