@@ -697,6 +697,7 @@ async fn start_server(
     // PyInstaller bundles can be slow on first import, especially torch/transformers
     let timeout = tokio::time::Duration::from_secs(120);
     let start_time = tokio::time::Instant::now();
+    let mut last_health_check = tokio::time::Instant::now() - tokio::time::Duration::from_secs(1);
     let mut error_output = Vec::new();
 
     loop {
@@ -725,6 +726,21 @@ async fn start_server(
             }
 
             return Err("Server startup timeout - check Console.app for detailed logs".to_string());
+        }
+
+        // Windows sidecars are built with PyInstaller's --noconsole flag, so
+        // stdout/stderr may be redirected to NUL and never produce the Uvicorn
+        // readiness lines handled below. Poll the Voicebox-specific health
+        // endpoint as a platform-independent readiness signal as well.
+        if last_health_check.elapsed() >= tokio::time::Duration::from_secs(1) {
+            last_health_check = tokio::time::Instant::now();
+            let healthy = tokio::task::spawn_blocking(|| check_health(SERVER_PORT))
+                .await
+                .unwrap_or(false);
+            if healthy {
+                println!("Server is ready (health check passed)!");
+                break;
+            }
         }
 
         match tokio::time::timeout(tokio::time::Duration::from_millis(100), rx.recv()).await {
