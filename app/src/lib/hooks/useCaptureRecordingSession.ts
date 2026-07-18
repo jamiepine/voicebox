@@ -3,11 +3,7 @@ import { emit as tauriEmit } from '@tauri-apps/api/event';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PillState } from '@/components/CapturePill/CapturePill';
 import { apiClient } from '@/lib/api/client';
-import type {
-  CaptureListResponse,
-  CaptureResponse,
-  CaptureSource,
-} from '@/lib/api/types';
+import type { CaptureListResponse, CaptureResponse, CaptureSource } from '@/lib/api/types';
 import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
 
 /**
@@ -55,6 +51,14 @@ export type CapturePillState = PillState | 'hidden';
 
 export interface UseCaptureRecordingSessionOptions {
   /**
+   * Keep the microphone warm between captures and pre-open it on mount, so
+   * push-to-talk dictation doesn't clip the first words while ``getUserMedia``
+   * initialises the device. Enabled by the always-mounted floating dictate
+   * window; left off for the main-window Dictate button, which records far
+   * less often and shouldn't hold the mic open in the background.
+   */
+  keepMicWarm?: boolean;
+  /**
    * Fired after a capture row is created on the server. Callers can use this
    * to select the new capture or emit a Tauri event to a sibling window.
    */
@@ -68,11 +72,7 @@ export interface UseCaptureRecordingSessionOptions {
    * lands after the user flips the toggle still uses the value the capture
    * was created under.
    */
-  onFinalText?: (
-    text: string,
-    capture: CaptureResponse,
-    allowAutoPaste: boolean,
-  ) => void;
+  onFinalText?: (text: string, capture: CaptureResponse, allowAutoPaste: boolean) => void;
 }
 
 export interface UseCaptureRecordingSessionResult {
@@ -221,11 +221,7 @@ export function useCaptureRecordingSession(
       } else {
         if (pillStateRef.current === 'transcribing') scheduleHidePill();
         if (capture.transcript_raw) {
-          onFinalTextRef.current?.(
-            capture.transcript_raw,
-            capture,
-            capture.allow_auto_paste,
-          );
+          onFinalTextRef.current?.(capture.transcript_raw, capture, capture.allow_auto_paste);
         }
       }
     },
@@ -249,7 +245,9 @@ export function useCaptureRecordingSession(
     startRecording: beginAudioRecording,
     stopRecording,
     error: recordError,
+    prewarm,
   } = useAudioRecording({
+    keepWarm: options.keepMicWarm ?? false,
     onRecordingComplete: (blob, recordedDuration) => {
       // Trigger-happy tap — MediaRecorder hasn't emitted a usable chunk yet
       // so the blob is empty or unparseable. Surface it as a transient pill
@@ -277,6 +275,13 @@ export function useCaptureRecordingSession(
       showError(recordError);
     }
   }, [recordError, showError]);
+
+  // Pre-open the mic once the session mounts so the very first dictation
+  // doesn't clip. Only meaningful when ``keepMicWarm`` is set (prewarm is a
+  // no-op otherwise); the warm stream self-releases after an idle window.
+  useEffect(() => {
+    if (options.keepMicWarm) void prewarm();
+  }, [options.keepMicWarm, prewarm]);
 
   const startRecording = useCallback(() => {
     if (isRecording) return;
@@ -308,8 +313,7 @@ export function useCaptureRecordingSession(
     [refineMutation],
   );
 
-  const pillElapsedMs =
-    pillState === 'recording' ? Math.round(duration * 1000) : frozenElapsedMs;
+  const pillElapsedMs = pillState === 'recording' ? Math.round(duration * 1000) : frozenElapsedMs;
 
   return {
     pillState,

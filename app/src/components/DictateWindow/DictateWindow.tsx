@@ -42,6 +42,10 @@ export function DictateWindow() {
   const focusRef = useRef<FocusSnapshot | null>(null);
 
   const session = useCaptureRecordingSession({
+    // This floating window is always mounted, so keeping the mic warm here
+    // removes the first-words clipping on push-to-talk without holding the
+    // device open from the main app window.
+    keepMicWarm: true,
     onFinalText: async (text, _capture, allowAutoPaste) => {
       const focus = focusRef.current;
       // Consume-once: a second chord before this fires would overwrite
@@ -141,9 +145,7 @@ export function DictateWindow() {
     audio.onplaying = () => {
       emit('dictate:show').catch(() => {});
       setSpeaking((prev) =>
-        prev && prev.generationId === generationId
-          ? { ...prev, startedAt: Date.now() }
-          : prev,
+        prev && prev.generationId === generationId ? { ...prev, startedAt: Date.now() } : prev,
       );
       setSpeakElapsed(0);
     };
