@@ -12,4 +12,11 @@ for dev in /dev/kfd /dev/dri/render*; do
     }
     usermod -aG "$grp" voicebox
 done
+
+# Named volumes are created root-owned when the mount path is absent from the
+# image, so the HuggingFace cache can end up unwritable by the app user.
+# Create and hand it over before dropping privileges.
+mkdir -p /home/voicebox/.cache/huggingface
+chown -R voicebox:voicebox /home/voicebox/.cache
+
 exec gosu voicebox "$@"
