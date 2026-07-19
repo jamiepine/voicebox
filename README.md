@@ -73,7 +73,7 @@ The two cloud incumbents sit on opposite halves of the voice I/O loop — Eleven
 
 - **Complete privacy** — models, voice data, and captures never leave your machine
 - **8 TTS engines** — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, Kokoro, and MMS
-- **Voice cloning and preset voices** — zero-shot cloning from a reference sample, or 50+ curated preset voices via Kokoro and Qwen CustomVoice
+- **Voice cloning and preset voices** — zero-shot cloning from a reference sample, or 50+ curated preset voices via Kokoro, Qwen CustomVoice, and MMS (Romanian)
 - **24 languages** — from English to Arabic, Japanese, Hindi, Romanian, Swahili, and more
 - **Post-processing effects** — pitch shift, reverb, delay, chorus, compression, and filters
 - **Expressive speech** — paralinguistic tags like `[laugh]`, `[sigh]`, `[gasp]` via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice

@@ -11,8 +11,10 @@ speaker, so profiles follow the preset-voice pattern (like Kokoro).
 Languages supported:
   - Romanian (ro) — ``facebook/mms-tts-ron``
 
-Adding a language is a one-line addition to ``MMS_HF_REPOS`` plus a voice
-entry in ``MMS_VOICES`` and a ``ModelConfig`` registration.
+Adding a language requires an entry in ``MMS_HF_REPOS`` and ``MMS_VOICES``,
+a ``ModelConfig`` registration, and threading the requested language through
+``_get_model_path``/``_load_model_sync`` — today those resolve to
+``MMS_DEFAULT_LANGUAGE`` because only one checkpoint ships.
 """
 
 import asyncio
