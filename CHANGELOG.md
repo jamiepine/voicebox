@@ -7,6 +7,16 @@
 
 ## [Unreleased]
 
+### Voice Generation
+
+- **Romanian TTS via a new MMS engine.** A new `mms` engine wraps Meta's
+  MMS-TTS Romanian checkpoint (`facebook/mms-tts-ron`) — a ~150MB VITS model
+  that runs realtime on CPU, using the already-bundled transformers runtime
+  (zero new dependencies). It ships as a preset voice (like Kokoro): create a
+  profile with the Romanian MMS voice and generate. Romanian text using either
+  diacritic convention (cedilla ş/ţ or comma-below ș/ț) is normalized
+  automatically so no character is silently dropped by the tokenizer.
+
 ### Linux
 
 - **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch
