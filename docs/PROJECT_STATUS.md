@@ -23,7 +23,7 @@
 
 The backend exposes:
 
-- **`TTSBackend` Protocol** with eight concrete engine implementations:
+- **`TTSBackend` Protocol** with nine concrete engine implementations:
   - Qwen3-TTS (PyTorch or MLX depending on platform)
   - Qwen CustomVoice (predefined speakers with instruct)
   - LuxTTS (fast, CPU-friendly)
@@ -32,6 +32,7 @@ The backend exposes:
   - TADA (1B English, 3B multilingual via HumeAI)
   - Kokoro 82M (pre-built voices, CPU realtime)
   - MMS (Meta per-language VITS checkpoints — Romanian, preset voice, CPU realtime)
+  - F5-TTS Romanian (community fine-tune — Romanian voice cloning, MPS/CPU, slow)
 - **`STTBackend` Protocol** for Whisper (PyTorch or MLX-Whisper)
 - **Profiles / History / Stories** services for persistence and timeline editing
 
@@ -51,6 +52,7 @@ The backend exposes:
 | TADA | `backend/backends/hume_backend.py` | HumeAI TADA — 1B English + 3B Multilingual |
 | Kokoro | `backend/backends/kokoro_backend.py` | Kokoro 82M — CPU realtime, pre-built voices |
 | MMS | `backend/backends/mms_backend.py` | Meta MMS — Romanian VITS, preset voice, diacritics normalization |
+| F5-TTS | `backend/backends/f5_backend.py` | F5-TTS Romanian fine-tune — cloning, 12s reference trimming, diacritics normalization |
 | Qwen CustomVoice | `backend/backends/qwen_custom_voice_backend.py` | Qwen CustomVoice — predefined speakers with instruct |
 | Platform detect | `backend/platform_detect.py` | Apple Silicon → MLX, else → PyTorch |
 | API types | `backend/models.py` | Pydantic request/response models |
@@ -159,6 +161,7 @@ Shipped 2026-04-25 (PR #544). Voicebox went from a voice-cloning studio to a ful
 - HumeAI TADA — 1B English + 3B Multilingual (PR #296)
 - Kokoro 82M — CPU-realtime, 8 languages, Apache 2.0 (PR #325)
 - MMS (Meta) — Romanian preset voice, ~150MB VITS, CPU realtime, diacritics normalization
+- F5-TTS Romanian — community fine-tune, first true Romanian cloning, 24 kHz, MPS/CPU
 - Multi-engine architecture with thread-safe backend registry (PR #254)
 - Chunked TTS generation — engine-agnostic, removes ~500 char limit (PR #266)
 - Async generation queue (PR #269)
@@ -259,12 +262,13 @@ Shipped 2026-04-25 (PR #544). Voicebox went from a voice-cloning studio to a ful
 | TADA 3B Multilingual | `tada-3b-ml` | Cloned | 10 (en, ar, zh, de, es, fr, it, ja, pl, pt) | ~8 GB | Multilingual, text-acoustic dual alignment | None |
 | Kokoro 82M | `kokoro` | Preset | 8 (en, es, fr, hi, it, pt, ja, zh) | ~350 MB | 82M params, CPU realtime, Apache 2.0, pre-built voices | None |
 | MMS Romanian | `mms-tts-ron` | Preset | Romanian (ro) | ~150 MB | Meta MMS VITS, 16 kHz, CPU realtime, cedilla/comma-below diacritics normalization | None |
+| F5-TTS Romanian | `f5-tts-romanian` | Cloned | Romanian, English (ro, en) | ~1.2 GB (+Vocos vocoder) | Community F5-TTS fine-tune (`MihaiPopa-1/F5-TTS-Romanian`), 24 kHz, 32-step flow matching (~12x realtime on MPS, ~20x on CPU), 12s reference trimming, diacritics normalization | None |
 
 ### Multi-Engine Architecture (Shipped)
 
 - **Thread-safe backend registry** (`_tts_backends` dict + `_tts_backends_lock`) with double-checked locking
 - **Per-engine backend instances** — each engine gets its own singleton, loaded lazily
-- **Engine field on GenerationRequest** — frontend sends `engine: 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox' | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'mms'`
+- **Engine field on GenerationRequest** — frontend sends `engine: 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox' | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'mms' | 'f5'`
 - **Per-engine language filtering** — `ENGINE_LANGUAGES` map in frontend, backend regex accepts all languages
 - **Per-engine voice prompts** — `create_voice_prompt_for_profile()` dispatches to the correct backend
 - **Profile type system** — preset vs cloned profiles, UI grays out incompatible engines and auto-switches on selection
@@ -582,6 +586,7 @@ Notable:
 | **HumeAI TADA 1B/3B** | Zero-shot | 5x faster than LLM-TTS | 24 kHz | EN (1B), 10 (3B) | Medium | Partial — prosody | PyTorch | **Shipped** (PR #296) |
 | **Kokoro-82M** | Preset voices | CPU realtime | 24 kHz | 8 | Tiny (82M) | None | All | **Shipped** (PR #325) |
 | **MMS (Meta)** | Preset voice (1/lang) | CPU realtime | 16 kHz | Romanian (extensible per-checkpoint) | Tiny (~100M) | None | All | **Shipped** — zero new deps (transformers VITS) |
+| **F5-TTS Romanian** | Zero-shot cloning (<=12s ref) | Slow (~12x RT on MPS) | 24 kHz | Romanian + English | Medium (336M + Vocos) | None | MPS/CPU (CUDA untested) | **Shipped** — one new dep (`f5-tts`), community fine-tune |
 | ~~**CosyVoice2-0.5B**~~ | 3-10s zero-shot | Very fast | 24 kHz | Multilingual | Low | **Yes** | — | **Abandoned** (PR #311) — poor output quality |
 | ~~**VoxCPM2**~~ | Zero-shot | ~0.15 RTF streaming | 48 kHz | 30 | Medium | Partial — parenthetical style | **CUDA-only in practice** | **Backlogged** (2026-04-18) — see notes above |
 | **Fish Speech** | 10-30s few-shot | Real-time | 24-44 kHz | 50+ | Medium | **Yes** — word-level inline | All | Candidate — license TBD |
