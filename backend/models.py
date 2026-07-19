@@ -14,7 +14,7 @@ from .utils.capture_chords import (
 # Shared validation patterns for TTS requests. The Qwen-specific 10-language
 # patterns further down are intentionally separate — do not merge them.
 TTS_LANGUAGE_PATTERN = "^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr|ro)$"
-TTS_ENGINE_PATTERN = "^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro|mms)$"
+TTS_ENGINE_PATTERN = "^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro|mms|f5)$"
 
 
 class VoiceProfileCreate(BaseModel):

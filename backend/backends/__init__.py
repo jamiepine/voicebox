@@ -216,6 +216,7 @@ TTS_ENGINES = {
     "tada": "TADA",
     "kokoro": "Kokoro",
     "mms": "MMS TTS",
+    "f5": "F5-TTS",
 }
 
 LLM_ENGINES = {
@@ -372,6 +373,14 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             hf_repo_id="facebook/mms-tts-ron",
             size_mb=150,
             languages=["ro"],
+        ),
+        ModelConfig(
+            model_name="f5-tts-romanian",
+            display_name="F5-TTS Romanian (community)",
+            engine="f5",
+            hf_repo_id="MihaiPopa-1/F5-TTS-Romanian",
+            size_mb=1200,
+            languages=["ro", "en"],
         ),
     ]
 
@@ -717,6 +726,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .mms_backend import MMSTTSBackend
 
             backend = MMSTTSBackend()
+        elif engine == "f5":
+            from .f5_backend import F5TTSBackend
+
+            backend = F5TTSBackend()
         elif engine == "qwen_custom_voice":
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 
