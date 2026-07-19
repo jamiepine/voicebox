@@ -268,7 +268,7 @@ export function CapturesTab() {
       // override fall through to whatever the backend picks.
       const engine = voice.default_engine as
         | 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox'
-        | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'mms'
+        | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'mms' | 'f5'
         | undefined;
       // Prefer the capture's language, but only if the target engine can
       // speak it (e.g. MMS is Romanian-only, Kokoro covers 8 languages) —

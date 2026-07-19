@@ -71,6 +71,7 @@ const DEFAULT_ENGINE_OPTIONS = [
   { value: 'tada', label: 'TADA' },
   { value: 'kokoro', label: 'Kokoro 82M' },
   { value: 'mms', label: 'MMS Romanian' },
+  { value: 'f5', label: 'F5-TTS Romanian' },
 ] as const;
 
 function makeProfileSchema(t: (key: string) => string) {
@@ -1209,9 +1210,7 @@ export function ProfileForm() {
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          {t('profileForm.fields.personalityHint')}
-                        </FormDescription>
+                        <FormDescription>{t('profileForm.fields.personalityHint')}</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

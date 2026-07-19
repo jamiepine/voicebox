@@ -73,6 +73,8 @@ export const ENGINE_LANGUAGES: Record<string, readonly LanguageCode[]> = {
   kokoro: ['en', 'es', 'fr', 'hi', 'it', 'pt', 'ja', 'zh'],
   qwen_custom_voice: ['zh', 'en', 'ja', 'ko', 'de', 'fr', 'ru', 'pt', 'es', 'it'],
   mms: ['ro'],
+  // F5-TTS Romanian community fine-tune — Romanian cloning; retains English.
+  f5: ['ro', 'en'],
 } as const;
 
 /** Helper: get language options for a given engine. */

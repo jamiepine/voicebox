@@ -58,6 +58,7 @@ const ENGINE_DISPLAY_NAMES: Record<string, string> = {
   chatterbox: 'Chatterbox',
   chatterbox_turbo: 'Chatterbox Turbo',
   mms: 'MMS TTS',
+  f5: 'F5-TTS',
 };
 
 export function formatEngineName(engine?: string, modelSize?: string): string {
