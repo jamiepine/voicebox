@@ -295,8 +295,7 @@ class F5TTSBackend:
         Returns:
             Tuple of (audio_array, sample_rate)
         """
-        await self.load_model()
-
+        # Validate the prompt before the expensive model load.
         ref_audio = voice_prompt.get("ref_audio")
         ref_text = voice_prompt.get("ref_text") or ""
         if not ref_audio or not Path(ref_audio).exists():
@@ -305,6 +304,8 @@ class F5TTSBackend:
         # large-v3-turbo — a surprise ~1.6GB download. Refuse instead.
         if not ref_text.strip():
             raise ValueError("F5-TTS requires the reference transcript (profile sample reference_text)")
+
+        await self.load_model()
 
         def _generate_sync():
             ref_file, trimmed_text = self._prepare_reference(ref_audio, ref_text)
