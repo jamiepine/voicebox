@@ -73,6 +73,11 @@ def _get_preset_voice_ids(engine: str) -> set[str]:
 
         return {voice_id for voice_id, _name, _gender, _lang, _desc in QWEN_CUSTOM_VOICES}
 
+    if engine == "mms":
+        from ..backends.mms_backend import MMS_VOICES
+
+        return {voice_id for voice_id, _name, _gender, _lang in MMS_VOICES}
+
     return set()
 
 
