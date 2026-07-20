@@ -1132,10 +1132,14 @@
       "active": "Actif",
       "cuda": {
         "title": "Backend CUDA",
+        "activeTitle": "Backend CUDA actif",
         "description": "Accélération GPU NVIDIA via un backend CUDA téléchargeable.",
         "downloading": "Téléchargement du backend CUDA…",
         "downloadingShort": "Téléchargement…",
         "updating": "Mise à jour…"
+      },
+      "activeBackend": {
+        "description": "L'accélération GPU est actuellement activée."
       },
       "restart": {
         "ready": "Serveur redémarré avec succès",
@@ -1167,9 +1171,33 @@
         "downloadStart": "Échec du démarrage du téléchargement",
         "restartFailed": "Échec du redémarrage",
         "switchCpu": "Échec du basculement vers CPU",
-        "deleteCuda": "Échec de la suppression du backend CUDA"
+        "deleteCuda": "Échec de la suppression du backend CUDA",
+        "deleteRocm": "Échec de la suppression du backend ROCm"
       },
-      "footer": "Voicebox détecte et utilise automatiquement le meilleur GPU disponible sur votre système. Sur les Mac Apple Silicon, le backend MLX fonctionne nativement sur le Neural Engine et le GPU via Metal Performance Shaders (MPS), sans configuration supplémentaire. Sur Windows et Linux avec GPU NVIDIA, vous pouvez télécharger un backend CUDA optionnel pour l'inférence accélérée par le matériel. AMD ROCm, Intel XPU et DirectML sont également pris en charge là où disponibles via PyTorch. Quand aucun GPU n'est détecté, Voicebox utilise le CPU — tous les moteurs fonctionnent, mais plus lentement."
+      "footer": "Voicebox détecte et utilise automatiquement le meilleur GPU disponible sur votre système. Sur les Mac Apple Silicon, le backend MLX fonctionne nativement sur le Neural Engine et le GPU via Metal Performance Shaders (MPS), sans configuration supplémentaire. Sur Windows, vous pouvez télécharger des backends optionnels CUDA (NVIDIA) ou ROCm (AMD) pour l'inférence accélérée par le matériel. Intel XPU et DirectML sont également pris en charge là où disponibles via PyTorch. Quand aucun GPU n'est détecté, Voicebox utilise le CPU — tous les moteurs fonctionnent, mais plus lentement.",
+      "rocm": {
+        "title": "Backend AMD ROCm",
+        "activeTitle": "Backend ROCm actif",
+        "description": "Accélération GPU AMD via un backend ROCm téléchargeable.",
+        "downloading": "Téléchargement du backend ROCm…",
+        "downloadingShort": "Téléchargement…",
+        "updating": "Mise à jour…"
+      },
+      "downloadRocm": {
+        "title": "Télécharger le backend AMD ROCm",
+        "description": "~2-3 Go à télécharger. Nécessite un GPU AMD Radeon avec support ROCm.",
+        "button": "Télécharger"
+      },
+      "switchToRocm": {
+        "title": "Passer au backend ROCm",
+        "description": "Le backend ROCm est téléchargé et prêt. Redémarrez pour activer.",
+        "button": "Redémarrer"
+      },
+      "removeRocm": {
+        "title": "Supprimer le backend ROCm",
+        "description": "Supprimez le binaire ROCm téléchargé pour libérer de l'espace disque.",
+        "button": "Supprimer"
+      }
     },
     "logs": {
       "title": "Journaux du serveur",
