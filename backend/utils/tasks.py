@@ -67,6 +67,19 @@ class TaskManager:
     def get_active_downloads(self) -> List[DownloadTask]:
         """Get all active downloads."""
         return list(self._active_downloads.values())
+
+    def get_pending_downloads(self) -> List[DownloadTask]:
+        """Get downloads that are still in flight.
+
+        Excludes errored tasks, which stay in the active list so the
+        error/retry UI can show them but must not be reported as
+        "downloading" by /models/status.
+        """
+        return [
+            task
+            for task in self._active_downloads.values()
+            if task.status in ("downloading", "extracting")
+        ]
     
     def get_active_generations(self) -> List[GenerationTask]:
         """Get all active generations."""

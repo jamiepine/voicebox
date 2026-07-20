@@ -264,6 +264,9 @@ fn apply_effect(app: &AppHandle, effect: Effect) {
                         let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
                     }
                 }
+                // Skip on Linux: aborts if the window was never realized
+                // (see show_dictate_window in main.rs).
+                #[cfg(not(target_os = "linux"))]
                 let _ = window.set_ignore_cursor_events(false);
                 // Deliberately no set_focus() — taking key focus would yank
                 // it out of whatever app the user was typing in, which is

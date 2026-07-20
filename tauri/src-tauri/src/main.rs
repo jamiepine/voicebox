@@ -112,6 +112,10 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
             let _ = window.set_position(PhysicalPosition::new(x, y));
         }
     }
+    // Skip on Linux: tao's CursorIgnoreEvents handler unwraps the GdkWindow,
+    // which is None until the window is first shown, aborting the process.
+    // The click-through toggle is a macOS workaround and is never set on Linux.
+    #[cfg(not(target_os = "linux"))]
     let _ = window.set_ignore_cursor_events(false);
     let _ = window.show();
 }
@@ -1421,6 +1425,9 @@ pub fn run() {
                 let handle_for_hide = app.handle().clone();
                 app.handle().listen("dictate:hide", move |_event| {
                     if let Some(window) = handle_for_hide.get_webview_window(DICTATE_WINDOW_LABEL) {
+                        // Skip on Linux: aborts if the window was never realized
+                        // (see show_dictate_window).
+                        #[cfg(not(target_os = "linux"))]
                         let _ = window.set_ignore_cursor_events(true);
                         let _ = window.set_position(PhysicalPosition::new(-10_000, -10_000));
                         let _ = window.hide();
