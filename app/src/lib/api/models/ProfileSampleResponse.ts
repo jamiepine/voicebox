@@ -10,4 +10,5 @@ export type ProfileSampleResponse = {
   profile_id: string;
   audio_path: string;
   reference_text: string;
+  sort_order: number;
 };

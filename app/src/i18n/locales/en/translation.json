@@ -369,7 +369,7 @@
     "editTranscription": "Edit transcription",
     "deleteSample": "Delete sample",
     "addSample": "Add Sample",
-    "note": "Note: A single 30-second sample is the sweet spot. Quality may decrease with multiple samples. In a future update samples might be interchangeable and tagged for varying styles of the same voice.",
+    "note": "Add multiple samples to improve voice quality — more diverse recordings produce better results. Samples are automatically combined.",
     "deleteDialog": {
       "title": "Delete Sample",
       "description": "Are you sure you want to delete this audio sample? This action cannot be undone.",

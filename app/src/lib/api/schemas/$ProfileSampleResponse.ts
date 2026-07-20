@@ -21,5 +21,9 @@ export const $ProfileSampleResponse = {
       type: 'string',
       isRequired: true,
     },
+    sort_order: {
+      type: 'number',
+      isRequired: true,
+    },
   },
 } as const;

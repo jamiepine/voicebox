@@ -4,8 +4,7 @@ import json as _json
 import logging
 import shutil
 import uuid
-from datetime import datetime
-from pathlib import Path
+from datetime import UTC, datetime
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -120,9 +119,7 @@ def validate_profile_engine(profile, engine: str) -> None:
         if not preset_engine or not preset_voice_id:
             raise ValueError(f"Preset profile {profile.id} is missing preset engine metadata")
         if preset_engine != engine:
-            raise ValueError(
-                f"Preset profile {profile.id} only supports engine '{preset_engine}', not '{engine}'"
-            )
+            raise ValueError(f"Preset profile {profile.id} only supports engine '{preset_engine}', not '{engine}'")
         return
 
     if voice_type == "designed":
@@ -183,8 +180,8 @@ async def create_profile(
         design_prompt=data.design_prompt,
         default_engine=default_engine,
         personality=data.personality,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
     db.add(db_profile)
@@ -222,9 +219,7 @@ async def add_profile_sample(
         raise ValueError(f"Profile {profile_id} not found")
 
     # Validate and load audio in a single pass, off the event loop
-    is_valid, error_msg, audio, sr = await asyncio.to_thread(
-        validate_and_load_reference_audio, audio_path
-    )
+    is_valid, error_msg, audio, sr = await asyncio.to_thread(validate_and_load_reference_audio, audio_path)
     if not is_valid:
         raise ValueError(f"Invalid reference audio: {error_msg}")
 
@@ -235,16 +230,25 @@ async def add_profile_sample(
     dest_path = profile_dir / f"{sample_id}.wav"
     await asyncio.to_thread(save_audio, audio, str(dest_path), sr)
 
+    # Assign sort_order = max(existing) + 1 so each new sample appends at
+    # the end rather than landing at 0 (which would make all samples tie for
+    # the top position and produce non-deterministic ordering).
+    from sqlalchemy import func as _func
+
+    max_order = db.query(_func.max(DBProfileSample.sort_order)).filter_by(profile_id=profile_id).scalar()
+    next_order = (max_order or 0) + 1
+
     db_sample = DBProfileSample(
         id=sample_id,
         profile_id=profile_id,
         audio_path=config.to_storage_path(dest_path),
         reference_text=reference_text,
+        sort_order=next_order,
     )
 
     db.add(db_sample)
 
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(db_sample)
@@ -291,11 +295,7 @@ def get_profile_orm_by_name_or_id(
     row = db.query(DBVoiceProfile).filter(DBVoiceProfile.id == name_or_id).first()
     if row is not None:
         return row
-    return (
-        db.query(DBVoiceProfile)
-        .filter(func.lower(DBVoiceProfile.name) == name_or_id.lower())
-        .first()
-    )
+    return db.query(DBVoiceProfile).filter(func.lower(DBVoiceProfile.name) == name_or_id.lower()).first()
 
 
 async def get_profile_samples(
@@ -385,7 +385,9 @@ async def update_profile(
     preset_engine = getattr(profile, "preset_engine", None)
     preset_voice_id = getattr(profile, "preset_voice_id", None)
     design_prompt = getattr(profile, "design_prompt", None)
-    default_engine = data.default_engine if data.default_engine is not None else getattr(profile, "default_engine", None)
+    default_engine = (
+        data.default_engine if data.default_engine is not None else getattr(profile, "default_engine", None)
+    )
 
     validation_error = _validate_profile_fields(
         voice_type=voice_type,
@@ -403,7 +405,7 @@ async def update_profile(
     profile.personality = data.personality
     if data.default_engine is not None:
         profile.default_engine = data.default_engine or None  # empty string → NULL
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(profile)
@@ -571,7 +573,7 @@ async def create_voice_prompt_for_profile(
         raise ValueError(f"Engine '{engine}' does not support cloned voice profiles")
 
     # ── Cloned profiles: create from audio samples ──
-    samples = db.query(DBProfileSample).filter_by(profile_id=profile_id).all()
+    samples = db.query(DBProfileSample).filter_by(profile_id=profile_id).order_by(DBProfileSample.sort_order).all()
 
     if not samples:
         raise ValueError(f"No samples found for profile {profile_id}")
@@ -672,7 +674,7 @@ async def upload_avatar(
     process_avatar(image_path, str(output_path))
 
     profile.avatar_path = config.to_storage_path(output_path)
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(profile)
@@ -703,7 +705,7 @@ async def delete_avatar(
         avatar_path.unlink()
 
     profile.avatar_path = None
-    profile.updated_at = datetime.utcnow()
+    profile.updated_at = datetime.now(UTC)
 
     db.commit()
 

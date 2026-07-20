@@ -43,10 +43,13 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_profile_samples(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
+    _add_performance_indexes(engine, tables)
 
 
 # -- helpers ---------------------------------------------------------------
+
 
 def _get_columns(inspector, table: str) -> set[str]:
     return {col["name"] for col in inspector.get_columns(table)}
@@ -62,6 +65,7 @@ def _add_column(engine, table: str, column_sql: str, label: str) -> None:
 
 # -- per-table migrations --------------------------------------------------
 
+
 def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
     if "story_items" not in tables:
         return
@@ -73,15 +77,15 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
         logger.info("Migrating story_items: removing position column, using start_time_ms")
         with engine.connect() as conn:
             if "start_time_ms" not in columns:
-                conn.execute(text(
-                    "ALTER TABLE story_items ADD COLUMN start_time_ms INTEGER DEFAULT 0"
-                ))
-                result = conn.execute(text("""
+                conn.execute(text("ALTER TABLE story_items ADD COLUMN start_time_ms INTEGER DEFAULT 0"))
+                result = conn.execute(
+                    text("""
                     SELECT si.id, si.story_id, si.position, g.duration
                     FROM story_items si
                     JOIN generations g ON si.generation_id = g.id
                     ORDER BY si.story_id, si.position
-                """))
+                """)
+                )
                 current_story_id = None
                 current_time_ms = 0
                 for item_id, story_id, _position, duration in result.fetchall():
@@ -96,7 +100,8 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
                 conn.commit()
 
             # Recreate table without the position column (SQLite lacks DROP COLUMN)
-            conn.execute(text("""
+            conn.execute(
+                text("""
                 CREATE TABLE story_items_new (
                     id VARCHAR PRIMARY KEY,
                     story_id VARCHAR NOT NULL,
@@ -110,13 +115,16 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
                     FOREIGN KEY (story_id) REFERENCES stories(id),
                     FOREIGN KEY (generation_id) REFERENCES generations(id)
                 )
-            """))
-            conn.execute(text("""
+            """)
+            )
+            conn.execute(
+                text("""
                 INSERT INTO story_items_new (id, story_id, generation_id, start_time_ms, track, trim_start_ms, trim_end_ms, version_id, created_at)
                 SELECT id, story_id, generation_id, start_time_ms,
                     COALESCE(track, 0), COALESCE(trim_start_ms, 0), COALESCE(trim_end_ms, 0), version_id, created_at
                 FROM story_items
-            """))
+            """)
+            )
             conn.execute(text("DROP TABLE story_items"))
             conn.execute(text("ALTER TABLE story_items_new RENAME TO story_items"))
             conn.commit()
@@ -292,13 +300,55 @@ def _supports_drop_column(engine) -> bool:
     return tuple(int(p) for p in sqlite3.sqlite_version.split(".")[:3]) >= (3, 35, 0)
 
 
+def _migrate_profile_samples(engine, inspector, tables: set[str]) -> None:
+    if "profile_samples" not in tables:
+        return
+    columns = _get_columns(inspector, "profile_samples")
+    if "sort_order" not in columns:
+        _add_column(engine, "profile_samples", "sort_order INTEGER NOT NULL DEFAULT 0", "sort_order")
+        with engine.connect() as conn:
+            conn.execute(
+                text("CREATE INDEX IF NOT EXISTS ix_profile_samples_sort_order ON profile_samples (sort_order)")
+            )
+            conn.commit()
+
+
+def _add_performance_indexes(engine, tables: set[str]) -> None:
+    """Add query-performance indexes that were missing from the initial schema.
+
+    Each CREATE INDEX is wrapped in IF NOT EXISTS so this is safe to call on
+    every startup against both new and existing databases.
+    """
+    indexes = [
+        # History page: filter/sort by profile, status, created_at
+        ("generations", "ix_generations_profile_id", "profile_id"),
+        ("generations", "ix_generations_status", "status"),
+        ("generations", "ix_generations_created_at", "created_at"),
+        ("generations", "ix_generations_is_favorited", "is_favorited"),
+        # Version lookups per generation
+        ("generation_versions", "ix_generation_versions_generation_id", "generation_id"),
+        # Story item lookups per story
+        ("story_items", "ix_story_items_story_id", "story_id"),
+        # Capture list sorted by date
+        ("captures", "ix_captures_created_at", "created_at"),
+        # Sample lookups per profile
+        ("profile_samples", "ix_profile_samples_profile_id", "profile_id"),
+    ]
+    with engine.connect() as conn:
+        for table, index_name, column in indexes:
+            if table not in tables:
+                continue
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {table} ({column})"))
+        conn.commit()
+
+
 def _normalize_storage_paths(engine, tables: set[str]) -> None:
     """Normalize stored file paths to be relative to the configured data dir."""
     from pathlib import Path
 
-    from ..config import get_data_dir, to_storage_path, resolve_storage_path
+    from ..config import get_data_dir, resolve_storage_path, to_storage_path
 
-    data_dir = get_data_dir()
+    get_data_dir()
 
     path_columns = [
         ("generations", "audio_path"),
@@ -312,9 +362,7 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         for table, column in path_columns:
             if table not in tables:
                 continue
-            rows = conn.execute(
-                text(f"SELECT id, {column} FROM {table} WHERE {column} IS NOT NULL")
-            ).fetchall()
+            rows = conn.execute(text(f"SELECT id, {column} FROM {table} WHERE {column} IS NOT NULL")).fetchall()
             for row_id, path_val in rows:
                 if not path_val:
                     continue

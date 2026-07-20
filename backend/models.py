@@ -71,9 +71,16 @@ class ProfileSampleResponse(BaseModel):
     profile_id: str
     audio_path: str
     reference_text: str
+    sort_order: int = 0
 
     class Config:
         from_attributes = True
+
+
+class SampleReorderRequest(BaseModel):
+    """Request model for reordering profile samples."""
+
+    sample_ids: list[str]
 
 
 class GenerationRequest(BaseModel):
