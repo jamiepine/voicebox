@@ -1,7 +1,13 @@
 # MLX-specific dependencies (Apple Silicon only)
 # These should only be installed on aarch64-apple-darwin platforms
 
-mlx>=0.30.0
+# Pin below 0.31: mlx 0.31.x made GPU streams thread-local, which breaks
+# mlx-lm / mlx-audio inference run from a worker thread (the backend calls
+# them via asyncio.to_thread) with:
+#   RuntimeError: There is no Stream(gpu, N) in current thread.
+# Models load fine but generation/transcription 500s. 0.30.4 is the floor
+# required by mlx-lm 0.31.1; 0.30.6 is the current 0.30.x tip and works.
+mlx>=0.30.4,<0.31
 
 # miniaudio is a runtime dep of mlx-audio's STT path (mlx_audio.stt).
 # mlx-audio itself is installed --no-deps (see comment below), so we
