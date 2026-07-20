@@ -445,7 +445,7 @@
       "name": "이름",
       "namePlaceholder": "내 프리셋…",
       "description": "설명",
-      "descriptionPlaceholder": "이 프리셋이做什么을 설명해 주세요…"
+      "descriptionPlaceholder": "이 프리셋이 무엇을 하는지 설명해 주세요…"
     },
     "preview": {
       "label": "미리보기",
@@ -1091,10 +1091,14 @@
       "active": "활성",
       "cuda": {
         "title": "CUDA 백엔드",
+        "activeTitle": "CUDA 백엔드 활성",
         "description": "다운로드 가능한 CUDA 백엔드를 통한 NVIDIA GPU 가속.",
         "downloading": "CUDA 백엔드 다운로드 중…",
         "downloadingShort": "다운로드 중…",
         "updating": "업데이트 중…"
+      },
+      "activeBackend": {
+        "description": "GPU 가속이 현재 활성화되어 있습니다."
       },
       "restart": {
         "ready": "서버가 성공적으로 재시작되었습니다",
@@ -1126,9 +1130,33 @@
         "downloadStart": "다운로드 시작 실패",
         "restartFailed": "재시작 실패",
         "switchCpu": "CPU 전환 실패",
-        "deleteCuda": "CUDA 백엔드 삭제 실패"
+        "deleteCuda": "CUDA 백엔드 삭제 실패",
+        "deleteRocm": "ROCm 백엔드 삭제 실패"
       },
-      "footer": "Voicebox는 시스템에서 사용 가능한 최고의 GPU를 자동으로 감지하여 사용합니다. Apple Silicon Mac에서는 Metal Performance Shaders(MPS)를 통해 MLX 백엔드가 Neural Engine과 GPU에서 기본 실행되며 추가 설정이 필요하지 않습니다. Windows와 Linux에서 NVIDIA GPU가 있는 경우 선택적 CUDA 백엔드를 다운로드하여 하드웨어 가속 추론을 사용할 수 있습니다. AMD ROCm, Intel XPU, DirectML도 PyTorch를 통해 지원됩니다. GPU가 감지되지 않으면 Voicebox가 CPU로 대체됩니다 — 모든 엔진이 작동하지만 더 느립니다."
+      "footer": "Voicebox는 시스템에서 사용 가능한 최고의 GPU를 자동으로 감지하여 사용합니다. Apple Silicon Mac에서는 Metal Performance Shaders(MPS)를 통해 MLX 백엔드가 Neural Engine과 GPU에서 기본 실행되며 추가 설정이 필요하지 않습니다. Windows에서는 선택적 CUDA(NVIDIA) 또는 ROCm(AMD) 백엔드를 다운로드하여 하드웨어 가속 추론을 사용할 수 있습니다. Intel XPU와 DirectML도 PyTorch를 통해 지원됩니다. GPU가 감지되지 않으면 Voicebox가 CPU로 대체됩니다 — 모든 엔진이 작동하지만 더 느립니다.",
+      "rocm": {
+        "title": "AMD ROCm 백엔드",
+        "activeTitle": "ROCm 백엔드 활성",
+        "description": "다운로드 가능한 ROCm 백엔드를 통한 AMD GPU 가속.",
+        "downloading": "ROCm 백엔드 다운로드 중…",
+        "downloadingShort": "다운로드 중…",
+        "updating": "업데이트 중…"
+      },
+      "downloadRocm": {
+        "title": "AMD ROCm 백엔드 다운로드",
+        "description": "약 2~3GB를 다운로드합니다. ROCm을 지원하는 AMD Radeon GPU가 필요합니다.",
+        "button": "다운로드"
+      },
+      "switchToRocm": {
+        "title": "ROCm 백엔드로 전환",
+        "description": "ROCm 백엔드가 다운로드되어 준비되었습니다. 활성화하려면 재시작하세요.",
+        "button": "재시작"
+      },
+      "removeRocm": {
+        "title": "ROCm 백엔드 제거",
+        "description": "다운로드된 ROCm 바이너리를 삭제하여 디스크 공간을 확보합니다.",
+        "button": "제거"
+      }
     },
     "logs": {
       "title": "서버 로그",
