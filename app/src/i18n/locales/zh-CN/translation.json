@@ -827,6 +827,47 @@
           "profiles": "声音列表",
           "history": "历史生成"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "跨设备端到端加密备份与同步。",
+        "connectedToast": {
+          "title": "已连接到 Voicebox Cloud",
+          "description": "已关联为 {{name}}。"
+        },
+        "signInTimedOut": {
+          "title": "登录超时",
+          "description": "浏览器登录未完成。请重试。"
+        },
+        "continueInBrowser": {
+          "title": "请在浏览器中继续",
+          "description": "授权此设备后返回此处。"
+        },
+        "signInFailedTitle": "无法开始登录",
+        "disconnectedToast": {
+          "title": "已断开连接",
+          "description": "此设备已取消关联。密钥在您的账户中撤销之前仍然有效。"
+        },
+        "disconnectFailedTitle": "无法断开连接",
+        "account": {
+          "connected": "已连接",
+          "account": "账户",
+          "linkedAs": "已关联为 {{name}}{{keyPrefix}}",
+          "thisDevice": "此设备",
+          "logInHint": "登录以备份和同步您的捕获内容与生成内容。"
+        },
+        "actions": {
+          "disconnecting": "正在断开连接…",
+          "disconnect": "断开连接",
+          "waitingForBrowser": "正在等待浏览器…",
+          "opening": "正在打开…",
+          "logInWithBrowser": "通过浏览器登录"
+        },
+        "manage": {
+          "title": "管理",
+          "description": "在您的账户中撤销此设备、添加 API 密钥或管理账单。",
+          "openDashboard": "打开账户面板 ↗"
+        }
       }
     },
     "generation": {

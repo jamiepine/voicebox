@@ -827,6 +827,47 @@
           "profiles": "Lister les voix",
           "history": "Générations passées"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "Sauvegarde et synchronisation chiffrées de bout en bout sur tous vos appareils.",
+        "connectedToast": {
+          "title": "Connecté à Voicebox Cloud",
+          "description": "Lié en tant que {{name}}."
+        },
+        "signInTimedOut": {
+          "title": "Délai de connexion dépassé",
+          "description": "La connexion via le navigateur n'a pas abouti. Réessayez."
+        },
+        "continueInBrowser": {
+          "title": "Continuez dans votre navigateur",
+          "description": "Autorisez cet appareil, puis revenez ici."
+        },
+        "signInFailedTitle": "Impossible de démarrer la connexion",
+        "disconnectedToast": {
+          "title": "Déconnecté",
+          "description": "Cet appareil n'est plus lié. La clé reste valide jusqu'à ce qu'elle soit révoquée depuis votre compte."
+        },
+        "disconnectFailedTitle": "Impossible de se déconnecter",
+        "account": {
+          "connected": "Connecté",
+          "account": "Compte",
+          "linkedAs": "Lié en tant que {{name}}{{keyPrefix}}",
+          "thisDevice": "cet appareil",
+          "logInHint": "Connectez-vous pour sauvegarder et synchroniser vos captures et générations."
+        },
+        "actions": {
+          "disconnecting": "Déconnexion…",
+          "disconnect": "Déconnecter",
+          "waitingForBrowser": "En attente du navigateur…",
+          "opening": "Ouverture…",
+          "logInWithBrowser": "Se connecter via le navigateur"
+        },
+        "manage": {
+          "title": "Gérer",
+          "description": "Révoquez cet appareil, ajoutez des clés API ou gérez la facturation depuis votre compte.",
+          "openDashboard": "Ouvrir le tableau de bord du compte ↗"
+        }
       }
     },
     "generation": {

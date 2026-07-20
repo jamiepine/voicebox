@@ -827,6 +827,47 @@
           "profiles": "ボイス一覧",
           "history": "過去の生成"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "デバイス間でエンドツーエンド暗号化されたバックアップと同期。",
+        "connectedToast": {
+          "title": "Voicebox Cloud に接続しました",
+          "description": "{{name}} としてリンクされました。"
+        },
+        "signInTimedOut": {
+          "title": "サインインがタイムアウトしました",
+          "description": "ブラウザでのサインインが完了しませんでした。もう一度お試しください。"
+        },
+        "continueInBrowser": {
+          "title": "ブラウザで続行してください",
+          "description": "このデバイスを認証してから、ここに戻ってください。"
+        },
+        "signInFailedTitle": "サインインを開始できませんでした",
+        "disconnectedToast": {
+          "title": "切断されました",
+          "description": "このデバイスのリンクは解除されました。キーはアカウントで取り消すまで有効です。"
+        },
+        "disconnectFailedTitle": "切断できませんでした",
+        "account": {
+          "connected": "接続済み",
+          "account": "アカウント",
+          "linkedAs": "{{name}} としてリンク済み{{keyPrefix}}",
+          "thisDevice": "このデバイス",
+          "logInHint": "ログインしてキャプチャと生成をバックアップ・同期しましょう。"
+        },
+        "actions": {
+          "disconnecting": "切断中…",
+          "disconnect": "切断",
+          "waitingForBrowser": "ブラウザを待っています…",
+          "opening": "開いています…",
+          "logInWithBrowser": "ブラウザでログイン"
+        },
+        "manage": {
+          "title": "管理",
+          "description": "アカウントからこのデバイスを取り消したり、APIキーを追加したり、請求を管理したりできます。",
+          "openDashboard": "アカウントダッシュボードを開く ↗"
+        }
       }
     },
     "generation": {

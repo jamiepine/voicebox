@@ -827,6 +827,47 @@
           "profiles": "聲音清單",
           "history": "歷史生成"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "跨裝置端對端加密備份與同步。",
+        "connectedToast": {
+          "title": "已連接到 Voicebox Cloud",
+          "description": "已關聯為 {{name}}。"
+        },
+        "signInTimedOut": {
+          "title": "登入逾時",
+          "description": "瀏覽器登入未完成。請再試一次。"
+        },
+        "continueInBrowser": {
+          "title": "請在瀏覽器中繼續",
+          "description": "授權此裝置後返回此處。"
+        },
+        "signInFailedTitle": "無法開始登入",
+        "disconnectedToast": {
+          "title": "已中斷連接",
+          "description": "此裝置已取消關聯。金鑰在您的帳戶中撤銷之前仍然有效。"
+        },
+        "disconnectFailedTitle": "無法中斷連接",
+        "account": {
+          "connected": "已連接",
+          "account": "帳戶",
+          "linkedAs": "已關聯為 {{name}}{{keyPrefix}}",
+          "thisDevice": "此裝置",
+          "logInHint": "登入以備份並同步您的擷取內容與生成內容。"
+        },
+        "actions": {
+          "disconnecting": "正在中斷連接…",
+          "disconnect": "中斷連接",
+          "waitingForBrowser": "正在等待瀏覽器…",
+          "opening": "正在開啟…",
+          "logInWithBrowser": "透過瀏覽器登入"
+        },
+        "manage": {
+          "title": "管理",
+          "description": "在您的帳戶中撤銷此裝置、新增 API 金鑰或管理帳單。",
+          "openDashboard": "開啟帳戶面板 ↗"
+        }
       }
     },
     "generation": {
