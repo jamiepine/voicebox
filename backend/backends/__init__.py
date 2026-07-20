@@ -228,11 +228,17 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
     if backend_type == "mlx":
         repo_1_7b = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
         repo_0_6b = "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-bf16"
+        repo_1_7b_4bit = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit"
+        repo_0_6b_4bit = "mlx-community/Qwen3-TTS-12Hz-0.6B-Base-4bit"
     else:
         repo_1_7b = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         repo_0_6b = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
+        repo_1_7b_4bit = None
+        repo_0_6b_4bit = None
 
-    return [
+    _languages = ["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"]
+
+    configs = [
         ModelConfig(
             model_name="qwen-tts-1.7B",
             display_name="Qwen TTS 1.7B",
@@ -241,7 +247,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             model_size="1.7B",
             size_mb=3500,
             supports_instruct=False,  # Base model drops instruct silently
-            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+            languages=_languages,
         ),
         ModelConfig(
             model_name="qwen-tts-0.6B",
@@ -251,9 +257,36 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             model_size="0.6B",
             size_mb=1200,
             supports_instruct=False,
-            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+            languages=_languages,
         ),
     ]
+
+    # 4-bit quantized variants — MLX only, ~2-3x faster on Apple Silicon
+    if backend_type == "mlx":
+        configs.extend([
+            ModelConfig(
+                model_name="qwen-tts-1.7B-4bit",
+                display_name="Qwen TTS 1.7B ⚡ Fast (4-bit)",
+                engine="qwen",
+                hf_repo_id=repo_1_7b_4bit,
+                model_size="1.7B-4bit",
+                size_mb=1100,
+                supports_instruct=False,
+                languages=_languages,
+            ),
+            ModelConfig(
+                model_name="qwen-tts-0.6B-4bit",
+                display_name="Qwen TTS 0.6B ⚡ Fast (4-bit)",
+                engine="qwen",
+                hf_repo_id=repo_0_6b_4bit,
+                model_size="0.6B-4bit",
+                size_mb=400,
+                supports_instruct=False,
+                languages=_languages,
+            ),
+        ])
+
+    return configs
 
 
 def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
