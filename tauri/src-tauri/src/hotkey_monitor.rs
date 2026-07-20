@@ -264,6 +264,14 @@ fn apply_effect(app: &AppHandle, effect: Effect) {
                         let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
                     }
                 }
+                // Undoes the click-through toggle from the hide-cycle.
+                // Skipped on Linux/X11: this is the very first call on a
+                // freshly-built window on a cold-start hotkey trigger, and
+                // tao's set_ignore_cursor_events unwraps a None GDK window
+                // for an unrealized window, aborting the process (#873).
+                // Linux never sets click-through in the first place, so
+                // there's nothing to undo.
+                #[cfg(not(target_os = "linux"))]
                 let _ = window.set_ignore_cursor_events(false);
                 // Deliberately no set_focus() — taking key focus would yank
                 // it out of whatever app the user was typing in, which is

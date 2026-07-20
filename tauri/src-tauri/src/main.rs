@@ -112,6 +112,13 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
             let _ = window.set_position(PhysicalPosition::new(x, y));
         }
     }
+    // Undoes the click-through toggle set by the `dictate:hide` handler.
+    // Skipped on Linux/X11: this can be the very first call on a
+    // freshly-built (unrealized) window, and tao's set_ignore_cursor_events
+    // unwraps a None GDK window there, aborting the process (#873). Linux
+    // never sets click-through in the first place (see the hide handler),
+    // so there's nothing to undo.
+    #[cfg(not(target_os = "linux"))]
     let _ = window.set_ignore_cursor_events(false);
     let _ = window.show();
 }
@@ -1421,6 +1428,16 @@ pub fn run() {
                 let handle_for_hide = app.handle().clone();
                 app.handle().listen("dictate:hide", move |_event| {
                     if let Some(window) = handle_for_hide.get_webview_window(DICTATE_WINDOW_LABEL) {
+                        // tao's set_ignore_cursor_events unwraps the GDK
+                        // window on Linux/X11, which is None for a
+                        // transparent window that hasn't been realized (or,
+                        // per upstream #873, sometimes even after) — calling
+                        // it aborts the whole process. Skip it there; the
+                        // off-screen parking below plus `hide()` already
+                        // stop the pill from being a click target, so the
+                        // click-through toggle (a macOS-only workaround, see
+                        // above) is unnecessary on Linux anyway.
+                        #[cfg(not(target_os = "linux"))]
                         let _ = window.set_ignore_cursor_events(true);
                         let _ = window.set_position(PhysicalPosition::new(-10_000, -10_000));
                         let _ = window.hide();
@@ -1648,5 +1665,16 @@ pub fn run() {
 }
 
 fn main() {
+    // WebKitGTK's DMA-BUF renderer cannot allocate GBM buffers on the
+    // NVIDIA proprietary driver (DRM_IOCTL_MODE_CREATE_DUMB is denied),
+    // which leaves every webview permanently blank. Disable it before
+    // any webview is created, unless the user has set it themselves.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
+        && std::path::Path::new("/proc/driver/nvidia/version").exists()
+    {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+
     run();
 }
