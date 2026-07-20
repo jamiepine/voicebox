@@ -13,6 +13,7 @@ See E2E_MODEL_TEST_DESIGN.md for the full design.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import platform
@@ -25,13 +26,11 @@ import tempfile
 import threading
 import time
 from collections import deque
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 import httpx
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_DIR = REPO_ROOT / "backend"
@@ -42,26 +41,27 @@ RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
 # ── Test matrix ──────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class MatrixRow:
-    label: str            # human-readable (appears in report)
-    engine: str           # /generate engine
-    model_size: Optional[str]  # /generate model_size (None = omit)
-    profile_kind: str     # "cloned" | "preset_kokoro" | "preset_qwen_cv"
-    model_name: str       # /models/status key for cache lookup
+    label: str  # human-readable (appears in report)
+    engine: str  # /generate engine
+    model_size: str | None  # /generate model_size (None = omit)
+    profile_kind: str  # "cloned" | "preset_kokoro" | "preset_qwen_cv"
+    model_name: str  # /models/status key for cache lookup
 
 
 MATRIX: list[MatrixRow] = [
-    MatrixRow("qwen 1.7B",              "qwen",              "1.7B", "cloned",          "qwen-tts-1.7B"),
-    MatrixRow("qwen 0.6B",              "qwen",              "0.6B", "cloned",          "qwen-tts-0.6B"),
-    MatrixRow("qwen_custom_voice 1.7B", "qwen_custom_voice", "1.7B", "preset_qwen_cv",  "qwen-custom-voice-1.7B"),
-    MatrixRow("qwen_custom_voice 0.6B", "qwen_custom_voice", "0.6B", "preset_qwen_cv",  "qwen-custom-voice-0.6B"),
-    MatrixRow("luxtts",                 "luxtts",            None,   "cloned",          "luxtts"),
-    MatrixRow("chatterbox",             "chatterbox",        None,   "cloned",          "chatterbox-tts"),
-    MatrixRow("chatterbox_turbo",       "chatterbox_turbo",  None,   "cloned",          "chatterbox-turbo"),
-    MatrixRow("tada 1B",                "tada",              "1B",   "cloned",          "tada-1b"),
-    MatrixRow("tada 3B",                "tada",              "3B",   "cloned",          "tada-3b-ml"),
-    MatrixRow("kokoro",                 "kokoro",            None,   "preset_kokoro",   "kokoro"),
+    MatrixRow("qwen 1.7B", "qwen", "1.7B", "cloned", "qwen-tts-1.7B"),
+    MatrixRow("qwen 0.6B", "qwen", "0.6B", "cloned", "qwen-tts-0.6B"),
+    MatrixRow("qwen_custom_voice 1.7B", "qwen_custom_voice", "1.7B", "preset_qwen_cv", "qwen-custom-voice-1.7B"),
+    MatrixRow("qwen_custom_voice 0.6B", "qwen_custom_voice", "0.6B", "preset_qwen_cv", "qwen-custom-voice-0.6B"),
+    MatrixRow("luxtts", "luxtts", None, "cloned", "luxtts"),
+    MatrixRow("chatterbox", "chatterbox", None, "cloned", "chatterbox-tts"),
+    MatrixRow("chatterbox_turbo", "chatterbox_turbo", None, "cloned", "chatterbox-turbo"),
+    MatrixRow("tada 1B", "tada", "1B", "cloned", "tada-1b"),
+    MatrixRow("tada 3B", "tada", "3B", "cloned", "tada-3b-ml"),
+    MatrixRow("kokoro", "kokoro", None, "preset_kokoro", "kokoro"),
 ]
 
 TEXT = "The quick brown fox jumps over the lazy dog."
@@ -72,26 +72,28 @@ HEALTH_TIMEOUT = 120
 
 # ── Result record ────────────────────────────────────────────────────
 
+
 @dataclass
 class ModelResult:
     label: str
     engine: str
-    model_size: Optional[str]
-    status: str                      # "passed" | "failed" | "timeout"
-    was_cached: Optional[bool] = None
-    generation_id: Optional[str] = None
+    model_size: str | None
+    status: str  # "passed" | "failed" | "timeout"
+    was_cached: bool | None = None
+    generation_id: str | None = None
     elapsed_seconds: float = 0.0
-    audio_duration: Optional[float] = None
-    audio_path: Optional[str] = None
-    audio_bytes: Optional[int] = None
-    error: Optional[str] = None
-    http_status: Optional[int] = None
-    server_log_tail: Optional[list[str]] = None
+    audio_duration: float | None = None
+    audio_path: str | None = None
+    audio_bytes: int | None = None
+    error: str | None = None
+    http_status: int | None = None
+    server_log_tail: list[str] | None = None
 
 
 # ── Binary resolution ────────────────────────────────────────────────
 
-def find_binary() -> Optional[Path]:
+
+def find_binary() -> Path | None:
     """Return the first existing binary in priority order, or None."""
     is_win = platform.system() == "Windows"
     exe = ".exe" if is_win else ""
@@ -123,23 +125,28 @@ def build_binary() -> Path:
 
 # ── Server spawn + log capture ───────────────────────────────────────
 
+
 class ServerProcess:
     def __init__(self, binary: Path, port: int, data_dir: Path, log_path: Path):
         self.binary = binary
         self.port = port
         self.data_dir = data_dir
         self.log_path = log_path
-        self.proc: Optional[subprocess.Popen] = None
+        self.proc: subprocess.Popen | None = None
         self._log_buffer: deque[str] = deque(maxlen=500)
-        self._reader_thread: Optional[threading.Thread] = None
+        self._reader_thread: threading.Thread | None = None
 
     def start(self) -> None:
         args = [
             str(self.binary),
-            "--host", "127.0.0.1",
-            "--port", str(self.port),
-            "--data-dir", str(self.data_dir),
-            "--parent-pid", str(os.getpid()),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(self.port),
+            "--data-dir",
+            str(self.data_dir),
+            "--parent-pid",
+            str(os.getpid()),
         ]
         print(f"[spawn] {' '.join(args)}", flush=True)
         self._log_fh = open(self.log_path, "w", encoding="utf-8", errors="replace")
@@ -156,7 +163,8 @@ class ServerProcess:
         self._reader_thread.start()
 
     def _pump_logs(self) -> None:
-        assert self.proc is not None and self.proc.stdout is not None
+        assert self.proc is not None
+        assert self.proc.stdout is not None
         for line in self.proc.stdout:
             self._log_buffer.append(line.rstrip("\n"))
             self._log_fh.write(line)
@@ -189,16 +197,12 @@ class ServerProcess:
         except subprocess.TimeoutExpired:
             print("[shutdown] server didn't exit cleanly, killing", flush=True)
             self.proc.kill()
-            try:
+            with contextlib.suppress(subprocess.TimeoutExpired):
                 self.proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
         if self._reader_thread is not None:
             self._reader_thread.join(timeout=2)
-        try:
+        with contextlib.suppress(Exception):
             self._log_fh.close()
-        except Exception:
-            pass
 
 
 def pick_free_port() -> int:
@@ -210,6 +214,7 @@ def pick_free_port() -> int:
 
 
 # ── HTTP helpers ─────────────────────────────────────────────────────
+
 
 def wait_for_health(base_url: str, server: ServerProcess, timeout: int) -> None:
     deadline = time.time() + timeout
@@ -227,7 +232,7 @@ def wait_for_health(base_url: str, server: ServerProcess, timeout: int) -> None:
     raise TimeoutError(f"Server did not become healthy within {timeout}s")
 
 
-def get_model_cached(client: httpx.Client, base_url: str, model_name: str) -> Optional[bool]:
+def get_model_cached(client: httpx.Client, base_url: str, model_name: str) -> bool | None:
     try:
         r = client.get(f"{base_url}/models/status", timeout=30.0)
         r.raise_for_status()
@@ -240,11 +245,14 @@ def get_model_cached(client: httpx.Client, base_url: str, model_name: str) -> Op
 
 
 def create_cloned_profile(client: httpx.Client, base_url: str, wav_path: Path, reference_text: str) -> str:
-    r = client.post(f"{base_url}/profiles", json={
-        "name": "e2e-cloned",
-        "voice_type": "cloned",
-        "language": "en",
-    })
+    r = client.post(
+        f"{base_url}/profiles",
+        json={
+            "name": "e2e-cloned",
+            "voice_type": "cloned",
+            "language": "en",
+        },
+    )
     r.raise_for_status()
     profile_id = r.json()["id"]
 
@@ -260,13 +268,16 @@ def create_cloned_profile(client: httpx.Client, base_url: str, wav_path: Path, r
 
 
 def create_preset_profile(client: httpx.Client, base_url: str, name: str, engine: str, voice_id: str) -> str:
-    r = client.post(f"{base_url}/profiles", json={
-        "name": name,
-        "voice_type": "preset",
-        "language": "en",
-        "preset_engine": engine,
-        "preset_voice_id": voice_id,
-    })
+    r = client.post(
+        f"{base_url}/profiles",
+        json={
+            "name": name,
+            "voice_type": "preset",
+            "language": "en",
+            "preset_engine": engine,
+            "preset_voice_id": voice_id,
+        },
+    )
     r.raise_for_status()
     return r.json()["id"]
 
@@ -331,7 +342,7 @@ def run_one_generation(
 
 def fetch_audio_info(
     client: httpx.Client, base_url: str, generation_id: str, data_dir: Path
-) -> tuple[Optional[str], Optional[int]]:
+) -> tuple[str | None, int | None]:
     """Return (audio_path, audio_bytes) for a completed generation.
 
     Server stores audio_path relative to data_dir; resolve it to get a size.
@@ -355,6 +366,7 @@ def fetch_audio_info(
 
 
 # ── Report writers ───────────────────────────────────────────────────
+
 
 def write_reports(
     output_dir: Path,
@@ -423,6 +435,7 @@ def write_reports(
 
 # ── Main ─────────────────────────────────────────────────────────────
 
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Voicebox E2E model generation test")
     p.add_argument("--binary", type=Path, help="Path to voicebox-server binary (overrides auto-detect)")
@@ -474,8 +487,7 @@ def resolve_reference(args: argparse.Namespace) -> tuple[Path, str]:
         txt_path = wav.with_suffix(".txt")
         if not txt_path.exists():
             raise FileNotFoundError(
-                f"Reference transcription not found: {txt_path}\n"
-                f"Create it next to the WAV, or pass --reference-text."
+                f"Reference transcription not found: {txt_path}\nCreate it next to the WAV, or pass --reference-text."
             )
         text = txt_path.read_text().strip()
     if not text:
@@ -504,8 +516,8 @@ def main() -> int:
 
     # Reference audio (only required if any cloning row is in the matrix)
     needs_reference = any(r.profile_kind == "cloned" for r in rows)
-    ref_wav: Optional[Path] = None
-    ref_text: Optional[str] = None
+    ref_wav: Path | None = None
+    ref_text: str | None = None
     if needs_reference:
         try:
             ref_wav, ref_text = resolve_reference(args)
@@ -518,14 +530,14 @@ def main() -> int:
     # Tempdir + log path
     data_dir = Path(tempfile.mkdtemp(prefix="voicebox-e2e-"))
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     log_path = args.output_dir / f"server-{ts}.log"
 
     port = args.port or pick_free_port()
     base_url = f"http://127.0.0.1:{port}"
 
     server = ServerProcess(binary=binary, port=port, data_dir=data_dir, log_path=log_path)
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     results: list[ModelResult] = []
 
     try:
@@ -536,12 +548,13 @@ def main() -> int:
 
         with httpx.Client(timeout=30.0) as client:
             # Profile setup (only create what's needed)
-            cloned_profile_id: Optional[str] = None
-            kokoro_profile_id: Optional[str] = None
-            qwen_cv_profile_id: Optional[str] = None
+            cloned_profile_id: str | None = None
+            kokoro_profile_id: str | None = None
+            qwen_cv_profile_id: str | None = None
             needed_kinds = {r.profile_kind for r in rows}
             if "cloned" in needed_kinds:
-                assert ref_wav is not None and ref_text is not None
+                assert ref_wav is not None
+                assert ref_text is not None
                 print("[profile] creating cloned profile...", flush=True)
                 cloned_profile_id = create_cloned_profile(client, base_url, ref_wav, ref_text)
             if "preset_kokoro" in needed_kinds:
@@ -581,9 +594,7 @@ def main() -> int:
                     result.audio_duration = payload.get("duration")
                     result.error = payload.get("error")
                     if status == "completed" and result.generation_id:
-                        audio_path, audio_bytes = fetch_audio_info(
-                            client, base_url, result.generation_id, data_dir
-                        )
+                        audio_path, audio_bytes = fetch_audio_info(client, base_url, result.generation_id, data_dir)
                         result.audio_path = audio_path
                         result.audio_bytes = audio_bytes
                         if audio_bytes is not None and audio_bytes == 0:
@@ -604,11 +615,14 @@ def main() -> int:
                 result.elapsed_seconds = round(time.time() - t0, 2)
                 if result.status != "passed":
                     result.server_log_tail = server.log_tail(100)
-                print(f"[run] {row.label} → {result.status} in {result.elapsed_seconds}s"
-                      + (f" ({result.error})" if result.error else ""), flush=True)
+                print(
+                    f"[run] {row.label} → {result.status} in {result.elapsed_seconds}s"
+                    + (f" ({result.error})" if result.error else ""),
+                    flush=True,
+                )
                 results.append(result)
     finally:
-        finished_at = datetime.now(timezone.utc)
+        finished_at = datetime.now(UTC)
         server.stop()
         if not args.keep_data_dir:
             shutil.rmtree(data_dir, ignore_errors=True)

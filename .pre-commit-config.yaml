@@ -1,0 +1,72 @@
+repos:
+  # ── Python: ruff lint + format ─────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.12
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  # ── General file hygiene ───────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(bun\.lock|.*\.snap)$
+      - id: end-of-file-fixer
+        exclude: ^(bun\.lock|.*\.snap)$
+      - id: check-yaml
+        args: [--unsafe]
+      - id: check-json
+        exclude: ^(tsconfig.*\.json|.*\.json5)$
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # ── Frontend: Biome lint + format ─────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: Biome lint + format
+        language: system
+        entry: bun run check:fix
+        pass_filenames: false
+        files: \.(ts|tsx|js|jsx|json|css)$
+        exclude: ^(bun\.lock|node_modules/)
+
+      - id: tsc-check
+        name: TypeScript typecheck
+        language: system
+        entry: bun run typecheck
+        pass_filenames: false
+        files: \.(ts|tsx)$
+        exclude: ^node_modules/
+
+  # ── Tests ─────────────────────────────────────────────────────────────────
+  - repo: local
+    hooks:
+      - id: pytest-unit
+        name: Python unit tests
+        entry: bash -c 'cd backend && python -m pytest tests/unit -x -q --tb=short'
+        language: system
+        pass_filenames: false
+        types: [python]
+
+      - id: pytest-integration
+        name: Python integration tests
+        entry: bash -c 'cd backend && python -m pytest tests/integration -x -q --tb=short'
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-commit]
+
+      - id: vitest
+        name: Frontend unit tests
+        entry: bash -c 'cd app && bun run test:run'
+        language: system
+        pass_filenames: false
+        types: [ts, tsx]

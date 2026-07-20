@@ -13,27 +13,89 @@ Thank you for your interest in contributing to Voicebox! This document provides 
 
 ### Prerequisites
 
+- **macOS** (Apple Silicon recommended for the MLX backend) — Windows and Linux are also supported
+- **macOS**: [Homebrew](https://brew.sh) — used by `make install-system`
+- **Linux**: `apt-get`, `dnf`, or `pacman` — `make install-system` detects and uses whichever is present
+
+### Quick setup with Make (recommended for new contributors)
+
+The `Makefile` at the repo root is the single entry point. It detects your OS and uses the right package manager automatically.
+
+#### macOS
+
+```bash
+git clone https://github.com/jamiepine/voicebox.git
+cd voicebox
+
+make install             # installs Homebrew packages, Python venv, and JS deps
+make pre-commit-install  # wire up git hooks
+make dev-backend         # start Python API  (terminal 1)
+make dev-frontend        # start Tauri app   (terminal 2)
+```
+
+#### Linux (Ubuntu/Debian)
+
+```bash
+make install   # uses apt-get automatically
+```
+
+#### Linux (Fedora/RHEL)
+
+```bash
+make install   # uses dnf automatically
+```
+
+Run `make help` for the full list of targets.
+
+### Running tests
+
+```bash
+make test              # all tests (backend + frontend)
+make test-unit         # fast unit tests only (no I/O)
+make test-integration  # integration tests (real SQLite)
+```
+
+Skip the integration gate for fast WIP commits:
+
+```bash
+SKIP=pytest-integration git commit -m "your message"
+```
+
+### Alternative: just (power-user task runner)
+
+For platform-specific workflows (Windows CUDA builds, release packaging, etc.), use [just](https://github.com/casey/just):
+
+```bash
+brew install just   # or: cargo install just
+just setup          # equivalent to make install
+just dev            # backend + desktop in one command
+just --list         # see all available recipes
+```
+
+### Manual prerequisites (if not using `make install-system`)
+
 - **[Bun](https://bun.sh)** - Fast JavaScript runtime and package manager
   ```bash
   curl -fsSL https://bun.sh/install | bash
   ```
 
-- **[Python 3.11+](https://python.org)** - For backend development
+- **[Python 3.12](https://python.org)** - Recommended for widest ML package compatibility
   ```bash
-  python --version  # Should be 3.11 or higher
+  brew install python@3.12        # macOS
+  sudo apt-get install python3.12 # Ubuntu/Debian
+  sudo dnf install python3.12     # Fedora/RHEL
   ```
 
-- **[Rust](https://rustup.rs)** - For Tauri desktop app (installed automatically by Tauri CLI)
+- **[Rust](https://rustup.rs)** - For the Tauri desktop app
   ```bash
-  rustc --version  # Check if installed
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
   ```
+
 - **[Tauri Prerequisites](https://v2.tauri.app/start/prerequisites)** - Tauri-specific system dependencies (varies by OS).
 
 - **Git** - Version control
 
-### Development Setup
-
-Install [just](https://github.com/casey/just) (`brew install just`, `cargo install just`, or `winget install Casey.Just`), then:
+### Development Setup (manual)
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/voicebox.git
@@ -138,7 +200,9 @@ This script:
 
 **Requirements:** Install `webp` and `ffmpeg`:
 ```bash
-brew install webp ffmpeg
+brew install webp ffmpeg                              # macOS
+sudo apt-get install -y ffmpeg webp                   # Ubuntu/Debian
+sudo dnf install -y ffmpeg libwebp-tools              # Fedora/RHEL
 ```
 
 > **Note:** Run this before committing new images or videos to keep the repository size small.
@@ -301,10 +365,52 @@ When adding new API endpoints:
 
 ## Testing
 
-Currently, testing is primarily manual. When adding tests:
+The project enforces automated tests as pre-commit gates. When you run `git commit`, the following run automatically:
 
-- **Backend**: Use pytest for Python tests
-- **Frontend**: Use Vitest for React component tests
+1. Python unit tests (`backend/tests/unit/`) — fast, no I/O, pure logic
+2. Python integration tests (`backend/tests/integration/`) — real SQLite in-memory DB, no external network
+3. Frontend Vitest tests (`app/src/`)
+
+To run tests manually:
+
+```bash
+# Backend unit tests
+cd backend && python -m pytest tests/unit -x -q
+
+# Backend integration tests
+cd backend && python -m pytest tests/integration -x -q
+
+# All backend tests
+cd backend && python -m pytest tests/ -x -q
+
+# Frontend tests (non-watch)
+cd app && bun run test:run
+```
+
+### Skipping the integration gate for fast commits
+
+When you need to commit a work-in-progress that doesn't affect server logic (e.g. docs, CSS tweaks), you can skip the integration tests:
+
+```bash
+SKIP=pytest-integration git commit -m "your message"
+```
+
+To skip multiple hooks:
+
+```bash
+SKIP=pytest-integration,vitest git commit -m "your message"
+```
+
+To bypass all hooks entirely (use sparingly):
+
+```bash
+git commit --no-verify -m "your message"
+```
+
+### Adding new tests
+
+- **Backend**: Use pytest for Python tests — place fast, pure-logic tests in `backend/tests/unit/`, and tests that need a real SQLite DB or filesystem in `backend/tests/integration/`
+- **Frontend**: Use Vitest for React component and utility tests in `app/src/`
 - **E2E**: Use Playwright for end-to-end tests (future)
 
 ## Pull Request Process

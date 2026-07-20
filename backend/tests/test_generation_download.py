@@ -7,14 +7,14 @@ the model is already cached.
 
 import asyncio
 import json
-import httpx
-from typing import List, Dict, Optional
 from datetime import datetime
+
+import httpx
 
 
 async def monitor_sse_stream(model_name: str, timeout: int = 120):
     """Monitor SSE stream for a model during generation."""
-    events: List[Dict] = []
+    events: list[dict] = []
     url = f"http://localhost:8000/models/progress/{model_name}"
 
     print(f"[{_timestamp()}] Connecting to SSE endpoint: {url}")
@@ -54,7 +54,7 @@ async def monitor_sse_stream(model_name: str, timeout: int = 120):
                     elif line.startswith(": heartbeat"):
                         print(f"[{timestamp}] ♥ heartbeat")
 
-    except asyncio.TimeoutError:
+    except TimeoutError:
         print(f"[{_timestamp()}] SSE monitoring timed out")
     except Exception as e:
         print(f"[{_timestamp()}] SSE error: {e}")
@@ -91,15 +91,14 @@ async def trigger_generation(profile_id: str, text: str, model_size: str = "1.7B
                 print(f"  Generation ID: {result.get('id')}")
                 print(f"  Duration: {result.get('duration', 0):.2f}s")
                 return True, result
-            elif response.status_code == 202:
+            if response.status_code == 202:
                 # Model is being downloaded
                 result = response.json()
                 print(f"[{_timestamp()}] → Model download in progress")
                 print(f"  Detail: {result}")
                 return False, result
-            else:
-                print(f"[{_timestamp()}] ✗ Error: {response.text}")
-                return False, None
+            print(f"[{_timestamp()}] ✗ Error: {response.text}")
+            return False, None
 
     except Exception as e:
         print(f"[{_timestamp()}] ✗ Exception: {e}")

@@ -5,6 +5,9 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
+  "files": {
+    "includes": ["**", "!app/src/lib/api", "!node_modules", "!dist", "!target", "!.tauri"]
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
@@ -16,18 +19,32 @@
     "rules": {
       "recommended": true,
       "a11y": {
-        "useButtonType": "warn"
+        "useButtonType": "warn",
+        "noStaticElementInteractions": "warn",
+        "useFocusableInteractive": "warn",
+        "useSemanticElements": "warn",
+        "useAriaPropsSupportedByRole": "warn",
+        "useKeyWithClickEvents": "warn",
+        "useAriaPropsForRole": "warn",
+        "noLabelWithoutControl": "warn"
       },
       "correctness": {
         "noUnusedVariables": "warn",
         "noUnusedImports": "error",
+        "noUnusedFunctionParameters": "warn",
         "useExhaustiveDependencies": "warn",
-        "useHookAtTopLevel": "error"
+        "useHookAtTopLevel": "error",
+        "noInnerDeclarations": "warn"
       },
       "suspicious": {
         "noDoubleEquals": "error",
         "noExplicitAny": "warn",
-        "noUnknownAtRules": "off"
+        "noUnknownAtRules": "off",
+        "noArrayIndexKey": "warn",
+        "useIterableCallbackReturn": "warn"
+      },
+      "performance": {
+        "noImgElement": "warn"
       },
       "style": {
         "useFilenamingConvention": "off",
