@@ -1,5 +1,7 @@
 import { RouterProvider } from '@tanstack/react-router';
+import { invoke } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
 import { DictateWindow } from '@/components/DictateWindow/DictateWindow';
 import ShinyText from '@/components/ShinyText';
@@ -52,27 +54,27 @@ function isPortInUseError(error: unknown): boolean {
   );
 }
 
-const LOADING_MESSAGES = [
-  'Warming up tensors...',
-  'Calibrating synthesizer engine...',
-  'Initializing voice models...',
-  'Loading neural networks...',
-  'Preparing audio pipelines...',
-  'Optimizing waveform generators...',
-  'Tuning frequency analyzers...',
-  'Building voice embeddings...',
-  'Configuring text-to-speech cores...',
-  'Syncing audio buffers...',
-  'Establishing model connections...',
-  'Preprocessing training data...',
-  'Validating voice samples...',
-  'Compiling inference engines...',
-  'Mapping phoneme sequences...',
-  'Aligning prosody parameters...',
-  'Activating speech synthesis...',
-  'Fine-tuning acoustic models...',
-  'Preparing voice cloning matrices...',
-  'Initializing Qwen TTS framework...',
+const LOADING_MESSAGE_KEYS = [
+  'startup.loading.warmingTensors',
+  'startup.loading.calibratingSynthesizer',
+  'startup.loading.initializingVoiceModels',
+  'startup.loading.loadingNeuralNetworks',
+  'startup.loading.preparingAudioPipelines',
+  'startup.loading.optimizingWaveforms',
+  'startup.loading.tuningAnalyzers',
+  'startup.loading.buildingEmbeddings',
+  'startup.loading.configuringTts',
+  'startup.loading.syncingBuffers',
+  'startup.loading.establishingConnections',
+  'startup.loading.preprocessingData',
+  'startup.loading.validatingSamples',
+  'startup.loading.compilingEngines',
+  'startup.loading.mappingPhonemes',
+  'startup.loading.aligningProsody',
+  'startup.loading.activatingSynthesis',
+  'startup.loading.fineTuningAcoustics',
+  'startup.loading.preparingMatrices',
+  'startup.loading.initializingQwen',
 ];
 
 function App() {
@@ -89,6 +91,7 @@ function App() {
 }
 
 function MainApp() {
+  const { t, i18n } = useTranslation();
   const platform = usePlatform();
   const [serverReady, setServerReady] = useState(false);
   const [startupError, setStartupError] = useState<string | null>(null);
@@ -97,6 +100,26 @@ function MainApp() {
 
   // Automatically check for app updates on startup and show toast notifications
   useAutoUpdater({ checkOnMount: true, showToast: true });
+
+  // Keep the native macOS app menu aligned with the active UI language.
+  useEffect(() => {
+    if (!platform.metadata.isTauri) {
+      return;
+    }
+
+    const syncNativeLanguageMenu = (language: string) => {
+      invoke('sync_native_language_menu', { language }).catch((error) => {
+        console.error('Failed to sync native language menu:', error);
+      });
+    };
+
+    syncNativeLanguageMenu(i18n.resolvedLanguage ?? i18n.language);
+    i18n.on('languageChanged', syncNativeLanguageMenu);
+
+    return () => {
+      i18n.off('languageChanged', syncNativeLanguageMenu);
+    };
+  }, [i18n, platform.metadata.isTauri]);
 
   // Replay the saved chord into the Rust hotkey listener every time
   // capture_settings resolves or the user edits the chord.
@@ -218,10 +241,7 @@ function MainApp() {
         setTimeout(() => {
           clearInterval(pollInterval);
           serverStartingRef.current = false;
-          setStartupError(
-            'Could not connect to a Voicebox server within 2 minutes. ' +
-              'Please check that the server is running and try again.',
-          );
+          setStartupError(t('startup.errors.connectTimeout'));
         }, 120_000);
       });
 
@@ -242,7 +262,7 @@ function MainApp() {
     }
 
     const interval = setInterval(() => {
-      setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+      setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGE_KEYS.length);
     }, 3000);
 
     return () => clearInterval(interval);
@@ -271,7 +291,9 @@ function MainApp() {
           </div>
           {startupError ? (
             <div className="animate-fade-in-delayed max-w-md mx-auto space-y-3">
-              <p className="text-lg font-medium text-destructive">Server startup failed</p>
+              <p className="text-lg font-medium text-destructive">
+                {t('startup.errors.serverStartupFailed')}
+              </p>
               <p className="text-sm text-muted-foreground">{startupError}</p>
               <button
                 type="button"
@@ -283,13 +305,13 @@ function MainApp() {
                   window.location.reload();
                 }}
               >
-                Retry
+                {t('startup.actions.retry')}
               </button>
             </div>
           ) : (
             <div className="animate-fade-in-delayed">
               <ShinyText
-                text={LOADING_MESSAGES[loadingMessageIndex]}
+                text={t(LOADING_MESSAGE_KEYS[loadingMessageIndex])}
                 className="text-lg font-medium text-muted-foreground"
                 speed={2}
                 color="hsl(var(--muted-foreground))"
