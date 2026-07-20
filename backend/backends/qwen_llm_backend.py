@@ -19,7 +19,6 @@ from .base import (
     manual_seed,
     model_load_progress,
 )
-from ..utils.hf_offline_patch import force_offline_if_cached
 
 logger = logging.getLogger(__name__)
 
@@ -103,15 +102,19 @@ class PyTorchQwenLLMBackend:
 
         with model_load_progress(progress_model_name, is_cached):
             logger.info("Loading Qwen3 %s on %s...", model_size, self.device)
-            with force_offline_if_cached(is_cached, progress_model_name):
-                self.tokenizer = AutoTokenizer.from_pretrained(repo)
-                dtype = torch.float16 if self.device in ("cuda", "mps") else torch.float32
-                self.model = AutoModelForCausalLM.from_pretrained(
-                    repo,
-                    dtype=dtype,
-                )
-                self.model.to(self.device)
-                self.model.eval()
+            # Loads run with the process's default HF_HUB_OFFLINE state.
+            # Forcing offline for cached models flips process-global state
+            # and silently switches every concurrent download/load on other
+            # threads to offline mode (issue #841) — the same regression
+            # removed app-wide in #524/#530.
+            self.tokenizer = AutoTokenizer.from_pretrained(repo)
+            dtype = torch.float16 if self.device in ("cuda", "mps") else torch.float32
+            self.model = AutoModelForCausalLM.from_pretrained(
+                repo,
+                dtype=dtype,
+            )
+            self.model.to(self.device)
+            self.model.eval()
 
         self._current_model_size = model_size
         self.model_size = model_size
@@ -223,8 +226,8 @@ class MLXQwenLLMBackend:
 
         with model_load_progress(progress_model_name, is_cached):
             logger.info("Loading Qwen3 %s via MLX...", model_size)
-            with force_offline_if_cached(is_cached, progress_model_name):
-                loaded = mlx_load(repo)
+            # See the PyTorch loader comment — no offline forcing (issue #841).
+            loaded = mlx_load(repo)
 
         # mlx_lm.load returns (model, tokenizer) by default and
         # (model, tokenizer, config) when return_config=True.
