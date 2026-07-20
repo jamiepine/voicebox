@@ -34,7 +34,7 @@ class PyTorchTTSBackend:
 
     def _get_device(self) -> str:
         """Get the best available device."""
-        return get_torch_device(allow_xpu=True, allow_directml=True)
+        return get_torch_device(allow_xpu=True, allow_directml=True, allow_mps=True)
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
@@ -256,7 +256,7 @@ class PyTorchSTTBackend:
 
     def _get_device(self) -> str:
         """Get the best available device."""
-        return get_torch_device(allow_xpu=True, allow_directml=True)
+        return get_torch_device(allow_xpu=True, allow_directml=True, allow_mps=True)
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""

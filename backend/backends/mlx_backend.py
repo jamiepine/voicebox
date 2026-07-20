@@ -5,10 +5,26 @@ MLX backend implementation for TTS and STT using mlx-audio.
 from typing import Optional, List, Tuple
 import asyncio
 import logging
+from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# MLX's Metal command encoder/stream is thread-local: it's bound to
+# whichever thread first touches the GPU device. asyncio.to_thread() uses
+# the loop's default executor, which can (and does) hand different calls
+# to different worker threads — model load on one thread, then generate()
+# on another raises "There is no Stream(gpu, N) in current thread." Pin
+# every MLX call to the same single dedicated worker instead.
+# See https://github.com/jamiepine/voicebox/issues/699
+_mlx_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx-worker")
+
+
+def _run_on_mlx_thread(func, *args):
+    """Run ``func(*args)`` on the single dedicated MLX worker thread."""
+    loop = asyncio.get_running_loop()
+    return loop.run_in_executor(_mlx_executor, func, *args)
 
 # PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
 # This prevents mlx_audio from making network requests when models are cached
@@ -77,12 +93,14 @@ class MLXTTSBackend:
         if self.model is not None and self._current_model_size == model_size:
             return
 
-        # Unload existing model if different size requested
+        # Unload existing model if different size requested — routed
+        # through the same dedicated thread as load/generate so it stays
+        # serialized with any in-flight MLX call (see _run_on_mlx_thread).
         if self.model is not None and self._current_model_size != model_size:
-            self.unload_model()
+            await _run_on_mlx_thread(self.unload_model)
 
-        # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        # Run blocking load on the dedicated MLX thread
+        await _run_on_mlx_thread(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -258,8 +276,8 @@ class MLXTTSBackend:
 
             return audio, sample_rate
 
-        # Run blocking inference in thread pool
-        audio, sample_rate = await asyncio.to_thread(_generate_sync)
+        # Run blocking inference on the dedicated MLX thread
+        audio, sample_rate = await _run_on_mlx_thread(_generate_sync)
 
         return audio, sample_rate
 
@@ -292,8 +310,8 @@ class MLXSTTBackend:
         if self.model is not None and self.model_size == model_size:
             return
 
-        # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        # Run blocking load on the dedicated MLX thread
+        await _run_on_mlx_thread(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -363,5 +381,5 @@ class MLXSTTBackend:
             else:
                 return str(result).strip()
 
-        # Run blocking transcription in thread pool
-        return await asyncio.to_thread(_transcribe_sync)
+        # Run blocking transcription on the dedicated MLX thread
+        return await _run_on_mlx_thread(_transcribe_sync)

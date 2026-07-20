@@ -25,6 +25,7 @@ from . import TTSBackend, LANGUAGE_CODE_TO_NAME
 from .base import (
     is_model_cached,
     get_torch_device,
+    empty_device_cache,
     combine_voice_prompts as _combine_voice_prompts,
     model_load_progress,
 )
@@ -65,7 +66,7 @@ class QwenCustomVoiceBackend:
         self._current_model_size: Optional[str] = None
 
     def _get_device(self) -> str:
-        return get_torch_device(allow_xpu=True, allow_directml=True)
+        return get_torch_device(allow_xpu=True, allow_directml=True, allow_mps=True)
 
     def is_loaded(self) -> bool:
         return self.model is not None
@@ -127,8 +128,7 @@ class QwenCustomVoiceBackend:
             self.model = None
             self._current_model_size = None
 
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            empty_device_cache(self.device)
 
             logger.info("Qwen CustomVoice unloaded")
 

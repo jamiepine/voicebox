@@ -72,6 +72,14 @@ setup-python:
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
         {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        # mlx-lm and mlx-audio are installed --no-deps and separately from
+        # requirements-mlx.txt on purpose — see the NOTE at the bottom of
+        # that file. Without this step the backend silently falls back to
+        # the PyTorch backend on Apple Silicon (issue #823), and installing
+        # mlx-lm without --no-deps upgrades transformers past the
+        # requirements.txt cap and breaks qwen_tts at runtime (issue #699).
+        {{ pip }} install --no-deps mlx-lm==0.31.1
+        {{ pip }} install --no-deps mlx-audio==0.4.1
     fi
     {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
     {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q

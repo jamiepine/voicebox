@@ -209,10 +209,15 @@ class MLXQwenLLMBackend:
         if self.model is not None and self._current_model_size == model_size:
             return
 
-        if self.model is not None and self._current_model_size != model_size:
-            self.unload_model()
+        # Routed through the same dedicated MLX thread as TTS/STT — MLX's
+        # Metal stream is thread-local, so load and generate must run on
+        # one thread (see mlx_backend._run_on_mlx_thread / issue #699).
+        from .mlx_backend import _run_on_mlx_thread
 
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        if self.model is not None and self._current_model_size != model_size:
+            await _run_on_mlx_thread(self.unload_model)
+
+        await _run_on_mlx_thread(self._load_model_sync, model_size)
 
     def _load_model_sync(self, model_size: str) -> None:
         from mlx_lm import load as mlx_load
@@ -255,7 +260,9 @@ class MLXQwenLLMBackend:
         examples: Optional[list[tuple[str, str]]] = None,
     ) -> str:
         await self.load_model(model_size)
-        return await asyncio.to_thread(
+        from .mlx_backend import _run_on_mlx_thread
+
+        return await _run_on_mlx_thread(
             self._generate_sync, prompt, system, max_tokens, temperature, examples
         )
 

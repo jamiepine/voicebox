@@ -9,14 +9,42 @@ mlx>=0.30.0
 # M1 installs with `ModuleNotFoundError: miniaudio` (issue #505).
 miniaudio>=1.59
 
-# NOTE: mlx-audio is intentionally not listed here. From 0.3.1 onward it
-# declares `transformers==5.0.0rc3` / `>=5.0.0`, which conflicts with the
-# `transformers<=4.57.6` cap in requirements.txt and breaks CI's clean
-# resolver. The mlx-audio API surface we use (mlx_audio.tts.load,
-# mlx_audio.stt.load) works fine on transformers 4.57.x in practice.
+# sounddevice is a runtime dep of mlx-audio (device enumeration for its
+# playback helpers). mlx-audio 0.4.1 pins sounddevice==0.5.3 exactly; not
+# listing it here left it unresolved on a from-scratch install, which
+# doesn't crash immediately but leaves pip's resolver warning about a
+# missing dependency and mlx-audio's playback helper unusable.
+sounddevice==0.5.3
+
+# NOTE: mlx-lm and mlx-audio are intentionally not listed here — both are
+# installed separately with --no-deps (see `just setup-python` and
+# .github/workflows/release.yml), NOT via this requirements file. From
+# 0.30.0 onward mlx-lm declares `transformers>=5.0.0` (mlx-audio>=0.3.1
+# does the same), which conflicts with the `transformers<=4.57.6` cap in
+# requirements.txt. A plain `pip install -r` here would let pip resolve
+# mlx-lm freely and silently upgrade transformers past that cap, which
+# breaks the qwen_tts (PyTorch) engines at *runtime*, not install time:
+# qwen_tts's `@check_model_inputs()` call site
+# (qwen_tts/core/tokenizer_12hz/modeling_qwen3_tts_tokenizer_v2.py) uses
+# the pre-5.0 signature (a decorator factory called with no arguments).
+# transformers>=5.0 changed `check_model_inputs` to a plain decorator
+# (`check_model_inputs(func)`, no parens at the call site), so loading
+# Qwen CustomVoice through qwen_tts on the newer transformers raises
+# `TypeError: check_model_inputs() missing 1 required positional
+# argument: 'func'`.
 #
-# Install it via `pip install --no-deps mlx-audio==0.4.1` after this file
-# (see .github/workflows/release.yml). Most other mlx-audio runtime deps
-# (huggingface_hub, librosa, mlx-lm, numba, numpy, protobuf, pyloudnorm,
-# sounddevice, tqdm) are already in requirements.txt or pulled in by
-# other engines.
+# Install mlx-lm and mlx-audio via:
+#   pip install --no-deps mlx-lm==0.31.1
+#   pip install --no-deps mlx-audio==0.4.1
+# --no-deps means both packages' own `transformers>=5.0.0` requirement is
+# never consulted, so transformers stays at whatever requirements.txt
+# installed. The mlx_audio.tts/mlx_audio.stt API surface we use works
+# fine against transformers 4.57.x in practice (verified in dev and CI).
+# `just setup-python` previously installed this file's contents (mlx +
+# miniaudio + sounddevice) and stopped — mlx_lm and mlx_audio were never
+# installed at all, so the backend silently fell back to the PyTorch
+# backend on Apple Silicon instead of MLX (issue #823), and once mlx_lm
+# was installed by hand without --no-deps (the obvious fix to try), it
+# reintroduced the transformers conflict above (issue #699 is the
+# MLX-generation-side symptom of the same root cause). See the two
+# `pip install --no-deps` lines added to `just setup-python` below.
