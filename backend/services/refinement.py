@@ -118,13 +118,17 @@ class RefinementFlags:
     smart_cleanup: bool = True
     self_correction: bool = True
     preserve_technical: bool = True
+    system_prompt: str | None = None
 
     def to_dict(self) -> dict:
-        return {
+        d: dict = {
             "smart_cleanup": self.smart_cleanup,
             "self_correction": self.self_correction,
             "preserve_technical": self.preserve_technical,
         }
+        if self.system_prompt is not None:
+            d["system_prompt"] = self.system_prompt
+        return d
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "RefinementFlags":
@@ -134,6 +138,7 @@ class RefinementFlags:
             smart_cleanup=bool(data.get("smart_cleanup", True)),
             self_correction=bool(data.get("self_correction", True)),
             preserve_technical=bool(data.get("preserve_technical", True)),
+            system_prompt=data.get("system_prompt"),
         )
 
 
@@ -184,7 +189,14 @@ For example, "run npm install then cd into src slash components and edit index d
 
 
 def build_refinement_prompt(flags: RefinementFlags) -> str:
-    """Assemble the system prompt for a given flag combination."""
+    """Assemble the system prompt for a given flag combination.
+
+    If ``flags.system_prompt`` is set, it is used verbatim instead of the
+    built-in prompt — giving users full control over refinement behaviour.
+    """
+    if flags.system_prompt:
+        return flags.system_prompt
+
     sections = [_BASE_INSTRUCTIONS]
 
     if flags.smart_cleanup:
