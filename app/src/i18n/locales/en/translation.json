@@ -774,6 +774,17 @@
         "updatedTitle": "Server URL updated",
         "updatedDescription": "Connected to {{url}}"
       },
+      "serverControl": {
+        "title": "Local backend",
+        "description": "Control the bundled Voicebox server running in the background.",
+        "start": "Start",
+        "stop": "Stop",
+        "restart": "Restart",
+        "startSuccess": "Server started",
+        "stopSuccess": "Server stopped",
+        "restartSuccess": "Server restarted",
+        "failed": "Server action failed"
+      },
       "keepServerRunning": {
         "title": "Keep server running when app closes",
         "description": "The server will continue running in the background after closing the app.",
@@ -1124,7 +1135,8 @@
         "title": "Switch to CPU backend",
         "description": "Disable GPU acceleration. You can re-download the GPU backend later.",
         "button": "Switch"
-      },      "remove": {
+      },
+      "remove": {
         "title": "Remove CUDA backend",
         "description": "Delete the downloaded CUDA binary to free disk space.",
         "button": "Remove"

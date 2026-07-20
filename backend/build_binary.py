@@ -6,13 +6,14 @@ Usage:
     python build_binary.py --cuda    # Build CUDA-enabled server binary
 """
 
-import PyInstaller.__main__
 import argparse
 import logging
 import os
 import platform
 import sys
 from pathlib import Path
+
+import PyInstaller.__main__
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,18 @@ def build_server(cuda=False, rocm=False):
     """
     if cuda and rocm:
         raise ValueError("Cannot build with both CUDA and ROCm support")
+
+    # PyInstaller resolves transitive DLLs using PATH. On Windows, third-party
+    # toolchains such as LLVM can put an older MSVCP140.dll ahead of the current
+    # system VC++ runtime, producing a binary that crashes during extraction.
+    # Prefer the Windows runtime directory while collecting dependencies.
+    if platform.system() == "Windows":
+        system_root = Path(os.environ.get("SYSTEMROOT", r"C:\Windows"))
+        system32 = str(system_root / "System32")
+        path_entries = os.environ.get("PATH", "").split(os.pathsep)
+        os.environ["PATH"] = os.pathsep.join(
+            [system32, *(entry for entry in path_entries if entry.lower() != system32.lower())]
+        )
 
     backend_dir = Path(__file__).parent
 
@@ -665,7 +678,6 @@ def build_server(cuda=False, rocm=False):
                 check=True,
             )
 
-
     logger.info("Binary built in %s", backend_dir / "dist" / binary_name)
 
 
@@ -781,4 +793,3 @@ if __name__ == "__main__":
         build_shim()
     else:
         build_server(cuda=cli_args.cuda, rocm=cli_args.rocm)
-

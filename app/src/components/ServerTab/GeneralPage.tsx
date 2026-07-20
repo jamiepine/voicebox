@@ -1,5 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AlertCircle, ArrowUpRight, Book, Download, Loader2, RefreshCw } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowUpRight,
+  Book,
+  Download,
+  Loader2,
+  Play,
+  RefreshCw,
+  Square,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Trans, useTranslation } from 'react-i18next';
@@ -36,8 +45,11 @@ export function GeneralPage() {
   const setKeepServerRunningOnClose = useServerStore((state) => state.setKeepServerRunningOnClose);
   const mode = useServerStore((state) => state.mode);
   const setMode = useServerStore((state) => state.setMode);
+  const customModelsDir = useServerStore((state) => state.customModelsDir);
   const { toast } = useToast();
-  const { data: health, isLoading, error: healthError } = useServerHealth();
+  const { data: health, isLoading, error: healthError, refetch: refetchHealth } = useServerHealth();
+  const [serverAction, setServerAction] = useState<'start' | 'stop' | 'restart' | null>(null);
+  const serverOnline = Boolean(health) && !healthError;
 
   const resolver = useMemo(
     () => zodResolver(makeConnectionSchema(t('settings.general.serverUrl.invalidUrl'))),
@@ -68,6 +80,38 @@ export function GeneralPage() {
       title: t('settings.general.serverUrl.updatedTitle'),
       description: t('settings.general.serverUrl.updatedDescription', { url: data.serverUrl }),
     });
+  }
+
+  async function runServerAction(action: 'start' | 'stop' | 'restart') {
+    setServerAction(action);
+    try {
+      if (action === 'start') {
+        const url = await platform.lifecycle.startServer(false, customModelsDir);
+        setServerUrl(url);
+        window.__voiceboxServerStartedByApp = true;
+      } else if (action === 'stop') {
+        await platform.lifecycle.stopServer();
+        window.__voiceboxServerStartedByApp = false;
+      } else {
+        const url = await platform.lifecycle.restartServer(customModelsDir);
+        setServerUrl(url);
+        window.__voiceboxServerStartedByApp = true;
+      }
+
+      await refetchHealth();
+      toast({
+        title: t(`settings.general.serverControl.${action}Success`),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toast({
+        title: t('settings.general.serverControl.failed'),
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setServerAction(null);
+    }
   }
 
   return (
@@ -140,6 +184,58 @@ export function GeneralPage() {
             </form>
           </Form>
         </SettingRow>
+
+        {platform.metadata.isTauri && mode === 'local' && (
+          <SettingRow
+            title={t('settings.general.serverControl.title')}
+            description={t('settings.general.serverControl.description')}
+            action={
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => runServerAction('start')}
+                  disabled={serverAction !== null || serverOnline}
+                >
+                  {serverAction === 'start' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                  {t('settings.general.serverControl.start')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => runServerAction('restart')}
+                  disabled={serverAction !== null || !serverOnline}
+                >
+                  {serverAction === 'restart' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  {t('settings.general.serverControl.restart')}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => runServerAction('stop')}
+                  disabled={serverAction !== null || !serverOnline}
+                >
+                  {serverAction === 'stop' ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Square className="h-3.5 w-3.5" />
+                  )}
+                  {t('settings.general.serverControl.stop')}
+                </Button>
+              </div>
+            }
+          />
+        )}
 
         <SettingRow
           title={t('settings.general.keepServerRunning.title')}
