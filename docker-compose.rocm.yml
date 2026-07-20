@@ -1,0 +1,36 @@
+---
+# ROCm (AMD GPU) overlay for Voicebox
+#
+#   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
+#
+# Requires ROCm drivers on the host:
+# https://rocm.docs.amd.com/projects/install-on-linux
+# RDNA4 (RX 9000): export ROCM_VERSION=7.2 (default 6.3 covers RDNA1-3).
+
+services:
+  voicebox:
+    build:
+      context: .
+      args:
+        PYTORCH_VARIANT: rocm
+        ROCM_VERSION: ${ROCM_VERSION:-6.3}
+
+    devices:
+      - /dev/kfd
+      - /dev/dri
+
+    environment:
+      # HSA_OVERRIDE_GFX_VERSION forces the ROCm runtime to treat the GPU as a
+      # specific GFX version when auto-detection fails or the GPU is newer than
+      # the ROCm release. app.py sets 10.3.0 (RDNA2) by default; override here
+      # for your GPU family:
+      #   RDNA4 / RX 9000 series:              12.0.0
+      #                                           (requires ROCM_VERSION=7.2)
+      #   RDNA3 / RX 7000 series / Strix Halo: 11.0.0
+      #   RDNA2 / RX 6000 series:              10.3.0
+      #   RDNA1 / RX 5000 series:              10.1.0
+      #   Vega / GCN5:                          9.0.0
+      - HSA_OVERRIDE_GFX_VERSION=${HSA_OVERRIDE_GFX_VERSION:-}
+
+      # Tune the ROCm memory allocator
+      - PYTORCH_HIP_ALLOC_CONF=garbage_collection_threshold:0.8,max_split_size_mb:512

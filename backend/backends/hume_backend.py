@@ -146,7 +146,15 @@ class HumeTadaBackend:
             )
 
             # Determine dtype — use bf16 on CUDA/XPU for ~50% memory savings
-            if device == "cuda" and torch.cuda.is_bf16_supported():
+            # On ROCm/AMD, torch.cuda.is_bf16_supported() works via the HIP abstraction,
+            # but we wrap it defensively in case an older build lacks the symbol.
+            _bf16_ok = False
+            if device == "cuda":
+                try:
+                    _bf16_ok = torch.cuda.is_bf16_supported()
+                except Exception:
+                    _bf16_ok = False
+            if _bf16_ok:
                 model_dtype = torch.bfloat16
             elif device == "xpu":
                 # Intel Arc (Alchemist+) supports bf16 natively

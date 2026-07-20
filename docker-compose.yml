@@ -1,3 +1,7 @@
+# Voicebox — CPU build (default)
+# For AMD ROCm GPU acceleration use the overlay:
+#   docker compose -f docker-compose.yml -f docker-compose.rocm.yml up --build
+
 services:
   voicebox:
     build: .

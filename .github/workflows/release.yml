@@ -340,3 +340,64 @@ jobs:
           name: voicebox-server-cuda-windows
           path: backend/dist/voicebox-server-cuda/
           retention-days: 7
+
+  build-rocm-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          # ROCm wheels are cp312-cp312-specific — build_binary.py --rocm enforces this.
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r backend/requirements.txt
+          pip install --no-deps chatterbox-tts
+          pip install --no-deps hume-tada
+
+      - name: Build ROCm server binary (onedir)
+        shell: bash
+        working-directory: backend
+        # build_binary.py --rocm pulls the official AMD Radeon torch + rocm_sdk
+        # wheels (rocm-rel-7.2.1) itself when ROCm torch is not already present,
+        # then restores the dev torch afterwards.
+        run: python build_binary.py --rocm
+
+      - name: Package into server core + ROCm libs archives
+        shell: bash
+        run: |
+          python scripts/package_rocm.py \
+            backend/dist/voicebox-server-rocm/ \
+            --output release-assets/ \
+            --rocm-libs-version rocm7.2-v1 \
+            --torch-compat ">=2.9.0,<2.10.0"
+
+      - name: Upload archives to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-assets/voicebox-server-rocm.tar.gz
+            release-assets/voicebox-server-rocm.tar.gz.sha256
+            release-assets/rocm-libs-rocm7.2-v1.tar.gz
+            release-assets/rocm-libs-rocm7.2-v1.tar.gz.sha256
+            release-assets/rocm-libs.json
+          draft: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload onedir as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicebox-server-rocm-windows
+          path: backend/dist/voicebox-server-rocm/
+          retention-days: 7

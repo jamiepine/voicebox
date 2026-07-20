@@ -24,6 +24,10 @@ class WebLifecycle implements PlatformLifecycle {
     // No-op for web
   }
 
+  async setBackendOverride(_backend?: string | null): Promise<void> {
+    // No-op for web - backend variant is managed externally
+  }
+
   async setupWindowCloseHandler(): Promise<void> {
     // No-op for web - no window close handling needed
   }

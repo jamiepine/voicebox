@@ -1,6 +1,6 @@
 # Voicebox Project Status & Roadmap
 
-> Last updated: 2026-06-27 | Current version: **v0.5.0** | 402 open issues | 88 open PRs | 1.3M downloads · 34.8k stars
+> Last updated: 2026-07-02 | Current version: **v0.5.0** | 402 open issues | 88 open PRs | 1.3M downloads · 34.8k stars
 
 ---
 
@@ -239,7 +239,7 @@ Shipped 2026-04-25 (PR #544). Voicebox went from a voice-cloning studio to a ful
 | Engine sprawl cleanup | issue #419 | First-class vs experimental TTS backends distinction |
 | Frontend tech-debt burn-down | issue #421 | Biome + a11y debt before gating CI |
 | Docker registry auto-publish | PR #463, issue #453 | ghcr.io image on tag push |
-| New model research | `voicebox-new-models` branch | Evaluating Fish Speech, XTTS-v2, Pocket TTS, VibeVoice, Fish Audio S2, index-tts2 |
+| New model research | `voicebox-new-models` branch | Evaluating Fish Speech, XTTS-v2, Pocket TTS, VibeVoice, Fish Audio S2, index-tts2. **2026-06-27 sweep** added dots.tts, LongCat-AudioDiT, SoproTTS, NeuTTS, Nemotron/Cohere STT — see Landscape → New Candidate Sweep |
 
 ### TTS Engine Comparison
 
@@ -605,6 +605,43 @@ Notable:
 4. **Instruct support fills a real gap** (#173, #224, #303). Qwen CustomVoice partially addresses it with preset speakers; zero-shot clone-with-instruct is still unmet.
 5. **Long-form + streaming are user-requested** (#363, #365, #464). Candidates with native streaming (Pocket TTS, Fish Speech) get extra weight.
 
+### New Candidate Sweep (2026-06-27)
+
+A follow-up deep-research pass, filtered against everything already tracked — the shipped engines plus MOSS-TTS-Nano, Pocket TTS, IndicF5, VibeVoice, Voxtral, Fish/Fish Audio, XTTS-v2, index-tts2, VoxCPM2, OmniVoice, MioTTS, Oolel, Faster-Qwen, Orpheus/Sesame, MiniMax, RVC, Parakeet, Qwen3-ASR, Moshi, GLM-4-Voice, Qwen2.5-Omni — kept only where a **newer sibling/variant** changes the evaluation. Same criteria as the 04-18 cycle: cross-platform, PyPI/clean packaging, permissive license, quality, instruct/style control, long-form, streaming.
+
+**Top new TTS candidates**
+
+| Candidate | Add as | Why it matters | Caveat |
+|-----------|--------|----------------|--------|
+| **[dots.tts](https://github.com/rednote-hilab/dots.tts)** (soar / mf) | **Top new TTS candidate** | 2B fully-continuous end-to-end autoregressive TTS, 48 kHz AudioVAE output, zero-shot cloning via prompt audio/text, Apache-2.0 code+checkpoints, MeanFlow-distilled variant for low latency. Freshest "serious clone engine" not yet on the roadmap. | Git-source install with constraints, not clean PyPI. Needs Windows/macOS packaging + VRAM/CPU smoke test; probably experimental until platform gating exists. |
+| **[MOSS-TTS family](https://github.com/OpenMOSS/MOSS-TTS)** / v1.5 / Local-Transformer-v1.5 | **Upgrade the MOSS-Nano entry into a MOSS family epic** | We track only Nano, but MOSS now spans MOSS-TTS, TTSD (long multi-speaker dialogue), VoiceGenerator (text-prompt voice design), TTS-Realtime, SoundEffect. v1.5 adds broader languages, long-reference cloning, pause control, 48 kHz stereo, MLX/vLLM support, Apache-2.0. | Full 4B/8B variants aren't the lightweight Nano win. Treat as several engines/features, not one checkbox. |
+| **[LongCat-AudioDiT](https://arxiv.org/html/2603.29339v1)** | **High-priority Apple Silicon candidate** | 3.5B non-autoregressive diffusion TTS in waveform latent space, zero-shot cloning, already has an MLX conversion usable via `mlx_audio` — unusually aligned with our Apple Silicon base. | zh/en only, not realtime. Quality play, not low-latency agent speech. |
+| **[SoproTTS](https://github.com/samuel-vitorino/sopro)** | **Lightweight CPU/streaming cloned TTS** | 135M zero-shot cloning, `pip install -U sopro`, streaming + non-streaming APIs, 3–12s reference, claimed 250 ms TTFA / 0.05 RTF on M3 CPU. Strong local-first/low-maintenance fit. | English-focused, self-described as inconsistent — quality-test before promoting past experimental. |
+| **[NeuTTS Air / Nano](https://github.com/neuphonic/neutts)** | **GGUF/on-device cloned TTS** | On-device instant cloning, GGUF-ready, ~3s reference, laptop/phone/Pi targets. Air is Apache-2.0. | Needs a GGUF/llama.cpp-style wrapper, not a normal PyTorch backend. Nano has a separate NeuTTS Open License — split needs review. |
+| **[X-Voice](https://github.com/sunnyxrxrx/X-Voice)** | **Small multilingual clone** | 0.4B multilingual zero-shot cloning, 30 languages, IPA-style unified rep, claims no prompt-transcript requirement — targets a real cloning-UX pain point. | Verify license, packaging, production-readiness of weights/code. |
+| **[FireRedTTS-2](https://huggingface.co/FireRedTeam/FireRedTTS2)** | **Stories / podcast / multi-speaker** | Apache-2.0 long-form streaming, 3-min / 4-speaker dialogue, cross-lingual code-switching cloning, low first-packet latency. | Stories-editor engine more than a general default. Needs platform/VRAM testing. |
+| **[Maya1](https://huggingface.co/maya-research/maya1)** | **Expressive English voice-design** | 3B Apache-2.0, voice design, streaming, emotion/style tags, vLLM-compatible, 24 kHz, single-GPU. Good "voice personalities" / game-dialogue fit. | English-only, 16 GB+ VRAM — platform gating required. |
+
+**MOSS is now a family, not one checkbox.** The single `MOSS-TTS-Nano` row above should become an epic: keep Nano as the CPU-friendly model, and track v1.5 / Local-Transformer-v1.5, Realtime, TTSD, VoiceGenerator, and SoundEffect as siblings under it.
+
+**STT / capture candidates** (feed the planned streaming-transcription roadmap)
+
+| Candidate | Add as | Why it matters | Caveat |
+|-----------|--------|----------------|--------|
+| **[Nemotron 3.5 ASR Streaming 0.6B](https://huggingface.co/mlx-community/nemotron-3.5-asr-streaming-0.6b)** | **Top new STT candidate** | Cache-aware streaming FastConformer-RNNT, 40 language-locales, punctuation/caps, language-ID conditioning, MLX conversion path — strongest fit for planned streaming transcription. | NVIDIA-origin; verify license + non-CUDA (MLX/CPU) performance. |
+| **[Cohere Transcribe 03-2026](https://huggingface.co/blog/CohereLabs/cohere-transcribe-03-2026-release)** | **High-quality offline STT** | 2B Apache-2.0, 14 languages, ONNX/INT8 exports across CPU / Apple Silicon / GPU. Cleanest-looking offline `/transcribe` + captures candidate. | Less clearly a streaming dictation model than Nemotron. |
+| **[ARK-ASR 3B / 0.6B](https://huggingface.co/AutoArk-AI/ARK-ASR-3B)** | **Multilingual STT watch** | New family, broad European/Asian coverage, strong leaderboard claims, INT8 ONNX for edge. | Very new; likely `trust_remote_code`. Validate stability first. |
+| **[IBM Granite Speech 4.1 2B / NAR](https://huggingface.co/ibm-granite/granite-speech-4.1-2b)** | **ASR + speech translation** | Compact multilingual ASR + bidirectional speech translation (en/fr/de/es/pt/ja); NAR variant for latency-sensitive work. | More compelling if we expand into translation, not just dictation. |
+
+**Watch-list / blocked** (license or platform work must land first): LEMAS-TTS, Supertonic 3, KugelAudio, GLM-TTS, KittenTTS, TinyTTS (preset/on-device, not cloning); Sarashina2.2, Higgs Audio v3, T5Gemma-TTS, Step-Audio-EditX, MisoTTS (non-commercial terms or CUDA-heavy); MegaTTS3 (incomplete WaveVAE encoder distribution); PFluxTTS, LongCat-Next (paper-only / too broad). **Low-hanging Qwen-family variants:** `Qwen3-TTS-VoiceDesign` (fills text-to-voice-design with minimal churn) and ZipVoice/ZipVoice-Dialog (only if it brings zh-en/dialogue behavior our shipped LuxTTS doesn't already expose).
+
+**Roadmap patch from this sweep** (reflected in Tier 3 below):
+1. Replace the `MOSS-TTS-Nano` checkbox with a **MOSS-TTS family** epic (Nano tracked separately as the CPU model).
+2. New Tier-3 TTS candidates, in order: **dots.tts → LongCat-AudioDiT → SoproTTS → NeuTTS → X-Voice → FireRedTTS-2 → Maya1**.
+3. New STT expansion candidates, in order: **Nemotron 3.5 → Cohere Transcribe → ARK-ASR → Granite Speech**.
+4. Keep Sarashina2.2, Higgs v3, T5Gemma, Step-Audio-EditX, MisoTTS, MegaTTS3, PFluxTTS blocked/watch-only.
+5. **Do platform gating (bottleneck #6 / `ModelConfig.requires`) before shipping GPU-only engines** — Maya1, Step-Audio-EditX, MisoTTS, and probably dots.tts stay experimental until it exists.
+
 ### Adding a New Engine (Now Straightforward)
 
 With the model config registry and shared `EngineModelSelector` component, adding a new TTS engine requires:
@@ -688,9 +725,11 @@ The two-month gap means the highest-leverage work isn't new code — it's review
 
 ### Tier 3 — Future Engines (cross-platform preferred)
 
+Committed ordering (04-18 cycle), then the 2026-06-27 sweep additions. See Landscape → New Candidate Sweep for full rationale.
+
 | Priority | Item | Notes |
 |----------|------|-------|
-| 1 | **MOSS-TTS-Nano** | 0.1B, Apache 2.0, 4-core CPU realtime, 48 kHz stereo, streaming, 20 langs, released 2026-04-13. Best alignment with our criteria. Verify install ergonomics before committing. |
+| 1 | **MOSS-TTS family** (was MOSS-TTS-Nano) | Nano first: 0.1B, Apache 2.0, 4-core CPU realtime, 48 kHz stereo, streaming, 20 langs. Best alignment with our criteria. Then track v1.5 / Realtime / TTSD / VoiceGenerator / SoundEffect as siblings under one epic. |
 | 2 | **Pocket TTS** (Kyutai) | CPU-first 100M model. MIT. Fills streaming gap without CUDA dependency. Several European langs added by Feb 2026. |
 | 3 | **IndicF5** | Fills Indian-language gap (#339). Closes many language-request issues. |
 | 4 | **VibeVoice** (Microsoft, #172) | 1.5B, long-form multi-speaker (up to 90 min, 4 speakers). Strong Stories-editor fit. |
@@ -699,6 +738,25 @@ The two-month gap means the highest-leverage work isn't new code — it's review
 | 7 | **XTTS-v2** | 17+ langs, mature pip. CPML likely kills commercial use — verify. |
 | 8 | **index-tts2** (#370) | Unvetted. |
 | — | ~~**VoxCPM2**~~ | **Backlogged** — CUDA-only upstream. Revisit when tier system ships or MPS bugs are fixed upstream. |
+| — | *New (06-27 sweep), in order* → | |
+| 9 | **dots.tts** | 2B end-to-end AR, 48 kHz, Apache-2.0 + fast MeanFlow variant. Top new candidate. Git-source install — smoke-test packaging + VRAM; likely experimental until platform gating exists. |
+| 10 | **LongCat-AudioDiT** | 3.5B diffusion, has an MLX/`mlx_audio` path — best Apple Silicon fit. zh/en only, not realtime. |
+| 11 | **SoproTTS** | 135M, `pip install sopro`, streaming, ~250 ms TTFA / 0.05 RTF on M3 CPU. Quality-test first. |
+| 12 | **NeuTTS Air/Nano** | On-device GGUF cloning, ~3s reference. Needs a GGUF wrapper; Air is Apache-2.0, Nano license split needs review. |
+| 13 | **X-Voice** | 0.4B, 30 langs, no prompt-transcript required. Verify license/packaging. |
+| 14 | **FireRedTTS-2** | Apache-2.0 long-form multi-speaker/podcast streaming. Stories-editor engine; needs VRAM testing. |
+| 15 | **Maya1** | 3B Apache-2.0 expressive voice-design, emotion tags. English-only, 16 GB+ VRAM — gate behind platform tiers. |
+
+### Tier 3b — STT / Capture Candidates (06-27 sweep)
+
+Feeds the planned streaming-transcription roadmap; Whisper alternatives.
+
+| Priority | Item | Notes |
+|----------|------|-------|
+| 1 | **Nemotron 3.5 ASR Streaming 0.6B** | Cache-aware streaming FastConformer-RNNT, 40 locales, MLX path. Strongest streaming-dictation fit. Verify license + non-CUDA perf. |
+| 2 | **Cohere Transcribe 03-2026** | 2B Apache-2.0, 14 langs, ONNX/INT8 across CPU/Apple Silicon/GPU. Cleanest offline `/transcribe` candidate. |
+| 3 | **ARK-ASR 3B / 0.6B** | Broad multilingual, INT8 ONNX for edge. Very new; likely `trust_remote_code` — validate stability. |
+| 4 | **IBM Granite Speech 4.1 2B / NAR** | ASR + speech translation (en/fr/de/es/pt/ja). Compelling if we expand into translation. |
 
 ### ~~Previously Prioritized — Now Done~~
 
