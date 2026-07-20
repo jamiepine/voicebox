@@ -107,6 +107,23 @@ curl http://localhost:17493/profiles
 curl http://localhost:17493/generate/{id}/status
 ```
 
+### GET /tts convenience endpoint
+
+`GET /tts` supports URL-query driven TTS for simple integrations.
+
+```bash
+# Default behavior: returns JSON with status/audio links
+curl "http://localhost:17493/tts?text=Hello&profile=<profile_id>"
+
+# Immediate audio mode: streams WAV bytes directly
+curl "http://localhost:17493/tts?text=Hello&profile=<profile_id>&stream=true" \
+  --output speech.wav
+```
+
+Notes:
+- `stream=true` returns `audio/wav` with chunked transfer instead of JSON.
+- If no default profile is configured, pass `profile` (or `voice`).
+
 ## Data directory
 
 ```
