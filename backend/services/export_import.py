@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..models import VoiceProfileResponse
 from ..database import VoiceProfile as DBVoiceProfile, ProfileSample as DBProfileSample, Generation as DBGeneration, GenerationVersion as DBGenerationVersion
-from .profiles import create_profile, add_profile_sample
+from .profiles import create_profile, add_profile_sample, _profile_to_response
 from ..models import VoiceProfileCreate
 from .. import config
 
@@ -82,11 +82,18 @@ def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
 
         # Create manifest.json
         manifest = {
-            "version": "1.0",
+            "version": "1.1",
             "profile": {
                 "name": profile.name,
                 "description": profile.description,
                 "language": profile.language,
+                "voice_type": profile.voice_type or "cloned",
+                "preset_engine": profile.preset_engine,
+                "preset_voice_id": profile.preset_voice_id,
+                "design_prompt": profile.design_prompt,
+                "default_engine": profile.default_engine,
+                "personality": profile.personality,
+                "effects_chain": json.loads(profile.effects_chain) if profile.effects_chain else None,
             },
             "has_avatar": has_avatar,
         }
@@ -173,8 +180,14 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
                 name=unique_name,
                 description=profile_data.get("description"),
                 language=profile_data.get("language", "en"),
+                voice_type=profile_data.get("voice_type", "cloned"),
+                preset_engine=profile_data.get("preset_engine"),
+                preset_voice_id=profile_data.get("preset_voice_id"),
+                design_prompt=profile_data.get("design_prompt"),
+                default_engine=profile_data.get("default_engine"),
+                personality=profile_data.get("personality"),
             )
-            
+
             profile = await create_profile(profile_create, db)
 
             # Extract and add samples
@@ -200,6 +213,16 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
                 except Exception as e:
                     # Avatar import is optional - continue even if it fails
                     pass
+
+            # Restore effects_chain (not settable via VoiceProfileCreate)
+            effects_chain = profile_data.get("effects_chain")
+            if effects_chain is not None:
+                db_profile = db.query(DBVoiceProfile).filter_by(id=profile.id).first()
+                if db_profile:
+                    db_profile.effects_chain = json.dumps(effects_chain)
+                    db.commit()
+                    db.refresh(db_profile)
+                    profile = _profile_to_response(db_profile)
 
             for filename, reference_text in samples_data.items():
                 # Validate filename
