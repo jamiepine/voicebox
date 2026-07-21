@@ -30,13 +30,13 @@ const ENGINE_OPTIONS = [
 ] as const;
 
 const ENGINE_DESCRIPTIONS: Record<string, string> = {
-  qwen: 'Multi-language, two sizes',
-  qwen_custom_voice: '9 preset voices, instruct control',
-  luxtts: 'Fast, English-focused',
-  chatterbox: '23 languages, incl. Hebrew',
-  chatterbox_turbo: 'English, [laugh] [cough] tags',
-  tada: 'HumeAI, 700s+ coherent audio',
-  kokoro: '82M params, CPU realtime, 8 langs',
+  qwen: 'Multilingual · voice cloning · delivery instructions',
+  qwen_custom_voice: '9 preset voices · natural-language control',
+  luxtts: 'English · fast CPU · 48 kHz · lightweight',
+  chatterbox: '23 languages incl. Arabic, Hebrew, Swahili',
+  chatterbox_turbo: 'English · [laugh] [sigh] paralinguistic tags',
+  tada: 'HumeAI · expressive · 700 s+ coherent audio',
+  kokoro: '82 M params · 50 preset voices · CPU realtime',
 };
 
 /** Engines that only support English and should force language to 'en' on select. */
@@ -45,9 +45,8 @@ const ENGLISH_ONLY_ENGINES = new Set(['luxtts', 'chatterbox_turbo']);
 /** Engines that support cloned (reference audio) profiles. */
 const CLONING_ENGINES = new Set(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada']);
 
-function getAvailableOptions(selectedProfile?: VoiceProfileResponse | null) {
-  if (!selectedProfile) return ENGINE_OPTIONS;
-  return ENGINE_OPTIONS.filter((opt) => isProfileCompatibleWithEngine(selectedProfile, opt.engine));
+function getAvailableOptions() {
+  return ENGINE_OPTIONS;
 }
 
 function getSelectValue(engine: string, modelSize?: string): string {
@@ -117,7 +116,7 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
   const engine = form.watch('engine') || 'qwen';
   const modelSize = form.watch('modelSize');
   const selectValue = getSelectValue(engine, modelSize);
-  const availableOptions = getAvailableOptions(selectedProfile);
+  const availableOptions = getAvailableOptions();
 
   const currentEngineAvailable = availableOptions.some((opt) => opt.value === selectValue);
 
@@ -139,12 +138,29 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
           <SelectValue />
         </SelectTrigger>
       </FormControl>
-      <SelectContent>
-        {availableOptions.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value} className={itemClass}>
-            {opt.label}
-          </SelectItem>
-        ))}
+      <SelectContent side={compact ? 'top' : undefined}>
+        {availableOptions.map((opt) => {
+          const isDisabled =
+            selectedProfile != null &&
+            !isProfileCompatibleWithEngine(selectedProfile, opt.engine);
+          return (
+            <SelectItem
+              key={opt.value}
+              value={opt.value}
+              className={itemClass}
+              disabled={isDisabled}
+            >
+              <div className="flex flex-col">
+                <span>{opt.label}</span>
+                <span className="text-[10px] text-muted-foreground leading-tight">
+                  {isDisabled
+                    ? 'Incompatible with this profile'
+                    : (ENGINE_DESCRIPTIONS[opt.engine] ?? '')}
+                </span>
+              </div>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );
