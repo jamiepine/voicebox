@@ -138,6 +138,7 @@ export function CapturesPage() {
   const allowAutoPaste = settings?.allow_auto_paste ?? true;
   const defaultVoiceId = settings?.default_playback_voice_id ?? null;
   const hotkeyEnabled = settings?.hotkey_enabled ?? false;
+  const keepMicWarm = settings?.keep_mic_warm ?? false;
   const pushToTalkKeys = settings?.chord_push_to_talk_keys ?? defaultChordKeys('push');
   const toggleToTalkKeys = settings?.chord_toggle_to_talk_keys ?? defaultChordKeys('toggle');
 
@@ -220,6 +221,22 @@ export function CapturesPage() {
           />
           <InputMonitoringNotice enabled={hotkeyEnabled} />
         </div>
+
+        <SettingRow
+          title={t('settings.captures.dictation.keepMicWarm.title')}
+          description={t('settings.captures.dictation.keepMicWarm.description')}
+          htmlFor="keepMicWarm"
+          action={
+            <Toggle
+              id="keepMicWarm"
+              checked={keepMicWarm}
+              disabled={!hotkeyEnabled}
+              onCheckedChange={(v) => {
+                update({ keep_mic_warm: v });
+              }}
+            />
+          }
+        />
 
         <SettingRow
           title={t('settings.captures.dictation.pushToTalk.title')}

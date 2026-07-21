@@ -3,7 +3,6 @@ MLX backend implementation for TTS and STT using mlx-audio.
 """
 
 from typing import Optional, List, Tuple
-import asyncio
 import logging
 import numpy as np
 from pathlib import Path
@@ -19,6 +18,7 @@ ensure_original_qwen_config_cached()
 
 from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
 from .base import is_model_cached, combine_voice_prompts as _combine_voice_prompts, model_load_progress
+from ..services.mlx_thread import run_on_mlx_thread, clear_mlx_cache
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 
 
@@ -63,6 +63,22 @@ class MLXTTSBackend:
             weight_extensions=(".safetensors", ".bin", ".npz"),
         )
 
+    def _ensure_loaded_sync(self, model_size: Optional[str]):
+        """Load the model if the requested size isn't already resident.
+
+        Runs on the MLX worker thread so it stays serialized with generation.
+        """
+        if model_size is None:
+            model_size = self.model_size
+
+        if self.model is not None and self._current_model_size == model_size:
+            return
+
+        if self.model is not None and self._current_model_size != model_size:
+            self.unload_model()
+
+        self._load_model_sync(model_size)
+
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the MLX TTS model.
@@ -70,22 +86,14 @@ class MLXTTSBackend:
         Args:
             model_size: Model size to load (1.7B or 0.6B)
         """
-        if model_size is None:
-            model_size = self.model_size
-
-        # If already loaded with correct size, return
-        if self.model is not None and self._current_model_size == model_size:
-            return
-
-        # Unload existing model if different size requested
-        if self.model is not None and self._current_model_size != model_size:
-            self.unload_model()
-
-        # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        await run_on_mlx_thread(self._ensure_loaded_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
+
+    async def unload(self):
+        """Free the model, serialized onto the MLX worker thread."""
+        await run_on_mlx_thread(self.unload_model)
 
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
@@ -110,6 +118,7 @@ class MLXTTSBackend:
             del self.model
             self.model = None
             self._current_model_size = None
+            clear_mlx_cache()
             logger.info("MLX TTS model unloaded")
 
     async def create_voice_prompt(
@@ -187,8 +196,6 @@ class MLXTTSBackend:
         Returns:
             Tuple of (audio_array, sample_rate)
         """
-        await self.load_model_async(None)
-
         logger.info("Generating audio for text: %s", text)
 
         def _generate_sync():
@@ -258,8 +265,13 @@ class MLXTTSBackend:
 
             return audio, sample_rate
 
-        # Run blocking inference in thread pool
-        audio, sample_rate = await asyncio.to_thread(_generate_sync)
+        # Load-if-needed and inference run as one job on the MLX worker so a
+        # concurrent unload or different-size load can't land between them.
+        def _load_and_generate():
+            self._ensure_loaded_sync(None)
+            return _generate_sync()
+
+        audio, sample_rate = await run_on_mlx_thread(_load_and_generate)
 
         return audio, sample_rate
 
@@ -279,12 +291,10 @@ class MLXSTTBackend:
         hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
         return is_model_cached(hf_repo, weight_extensions=(".safetensors", ".bin", ".npz"))
 
-    async def load_model_async(self, model_size: Optional[str] = None):
-        """
-        Lazy load the MLX Whisper model.
+    def _ensure_loaded_sync(self, model_size: Optional[str]):
+        """Load the model if the requested size isn't already resident.
 
-        Args:
-            model_size: Model size (tiny, base, small, medium, large)
+        Runs on the MLX worker thread so it stays serialized with transcription.
         """
         if model_size is None:
             model_size = self.model_size
@@ -292,11 +302,23 @@ class MLXSTTBackend:
         if self.model is not None and self.model_size == model_size:
             return
 
-        # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        self._load_model_sync(model_size)
+
+    async def load_model_async(self, model_size: Optional[str] = None):
+        """
+        Lazy load the MLX Whisper model.
+
+        Args:
+            model_size: Model size (tiny, base, small, medium, large)
+        """
+        await run_on_mlx_thread(self._ensure_loaded_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
+
+    async def unload(self):
+        """Free the model, serialized onto the MLX worker thread."""
+        await run_on_mlx_thread(self.unload_model)
 
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
@@ -319,6 +341,7 @@ class MLXSTTBackend:
         if self.model is not None:
             del self.model
             self.model = None
+            clear_mlx_cache()
             logger.info("MLX Whisper model unloaded")
 
     async def transcribe(
@@ -338,8 +361,6 @@ class MLXSTTBackend:
         Returns:
             Transcribed text
         """
-        await self.load_model_async(model_size)
-
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
             # MLX Whisper transcription using generate method
@@ -363,5 +384,10 @@ class MLXSTTBackend:
             else:
                 return str(result).strip()
 
-        # Run blocking transcription in thread pool
-        return await asyncio.to_thread(_transcribe_sync)
+        # Load-if-needed and transcription run as one job on the MLX worker so
+        # a concurrent unload or load can't land between them.
+        def _load_and_transcribe():
+            self._ensure_loaded_sync(model_size)
+            return _transcribe_sync()
+
+        return await run_on_mlx_thread(_load_and_transcribe)

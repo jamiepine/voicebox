@@ -66,7 +66,7 @@ async def unload_model():
     from ..services import tts
 
     try:
-        tts.unload_tts_model()
+        await tts.unload_tts_model()
         return {"message": "Model unloaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -82,7 +82,7 @@ async def unload_model_by_name(model_name: str):
         raise HTTPException(status_code=400, detail=f"Unknown model: {model_name}")
 
     try:
-        was_loaded = unload_model_by_config(config)
+        was_loaded = await unload_model_by_config(config)
         if not was_loaded:
             return {"message": f"Model {model_name} is not loaded"}
         return {"message": f"Model {model_name} unloaded successfully"}
@@ -457,7 +457,7 @@ async def delete_model(model_name: str):
     hf_repo_id = config.hf_repo_id
 
     try:
-        unload_model_by_config(config)
+        await unload_model_by_config(config)
 
         cache_dir = hf_constants.HF_HUB_CACHE
         repo_cache_dir = Path(cache_dir) / ("models--" + hf_repo_id.replace("/", "--"))

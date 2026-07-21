@@ -21,7 +21,7 @@ COPY app/ ./app/
 COPY web/ ./web/
 
 # Strip workspaces not needed for web build, and fix trailing comma
-RUN sed -i '/"tauri"/d; /"landing"/d' package.json && \
+RUN sed -i '/"tauri"/d' package.json && \
     sed -i -z 's/,\n  ]/\n  ]/' package.json
 RUN bun install --no-save
 # Build frontend (skip tsc — upstream has pre-existing type errors)

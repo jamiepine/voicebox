@@ -360,15 +360,15 @@ async def _run_shutdown() -> None:
     """Unload models on lifespan exit."""
     logger.info("Voicebox server shutting down...")
     try:
-        tts.unload_tts_model()
+        await tts.unload_tts_model()
     except Exception:
         logger.exception("Failed to unload TTS model")
     try:
-        transcribe.unload_whisper_model()
+        await transcribe.unload_whisper_model()
     except Exception:
         logger.exception("Failed to unload Whisper model")
     try:
-        llm.unload_llm_model()
+        await llm.unload_llm_model()
     except Exception:
         logger.exception("Failed to unload LLM model")
 

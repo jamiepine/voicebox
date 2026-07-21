@@ -887,6 +887,10 @@
           "title": "Global shortcut",
           "description": "Hold the shortcut to record from anywhere on your machine. Release to transcribe."
         },
+        "keepMicWarm": {
+          "title": "Keep microphone ready",
+          "description": "Hold the microphone open while dictation is enabled so the first words are never clipped. The macOS microphone indicator stays lit while it's on."
+        },
         "pushToTalk": {
           "title": "Push-to-talk shortcut",
           "description": "Hold these keys anywhere on your system to record. Release to stop and transcribe.",

@@ -5,18 +5,15 @@
   "workspaces": [
     "app",
     "tauri",
-    "web",
-    "landing"
+    "web"
   ],
   "scripts": {
     "dev": "bun run setup:dev && cd tauri && bun run tauri dev",
     "dev:web": "cd web && bun run dev",
-    "dev:landing": "cd landing && bun run dev",
     "dev:server": "uvicorn backend.main:app --reload --port 17493",
     "setup:dev": "bun run scripts/setup-dev-sidecar.js",
     "build": "./scripts/build-server.sh && cd tauri && bun run tauri build",
     "build:web": "cd web && bun run build",
-    "build:landing": "cd landing && bun run build",
     "build:release": "./scripts/prepare-release.sh",
     "generate:api": "./scripts/generate-api.sh",
     "generate:keys": "cd tauri && bun tauri signer generate -w ~/.tauri/voicebox.key",

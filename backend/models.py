@@ -258,6 +258,7 @@ class CaptureSettingsResponse(BaseModel):
     allow_auto_paste: bool = True
     default_playback_voice_id: Optional[str] = None
     hotkey_enabled: bool = False
+    keep_mic_warm: bool = False
     chord_push_to_talk_keys: List[str] = Field(
         default_factory=default_push_to_talk_chord
     )
@@ -282,6 +283,7 @@ class CaptureSettingsUpdate(BaseModel):
     allow_auto_paste: Optional[bool] = None
     default_playback_voice_id: Optional[str] = None
     hotkey_enabled: Optional[bool] = None
+    keep_mic_warm: Optional[bool] = None
     chord_push_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
     chord_toggle_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
 

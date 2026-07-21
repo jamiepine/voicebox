@@ -210,6 +210,10 @@ class CaptureSettings(Base):
     # "Voicebox would like to receive keystrokes from any application" dialog
     # before they've even opened the Captures tab.
     hotkey_enabled = Column(Boolean, nullable=False, default=False)
+    # Hold the microphone open while dictation is enabled so push-to-talk
+    # doesn't clip the first words. Off by default — when on, the OS mic-in-use
+    # indicator stays lit the whole time dictation is enabled.
+    keep_mic_warm = Column(Boolean, nullable=False, default=False)
     # Lists of keytap key names (e.g. "MetaRight", "ControlRight"). Right-hand
     # modifiers by default so they don't collide with left-hand shortcuts.
     chord_push_to_talk_keys = Column(

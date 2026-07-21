@@ -9,7 +9,6 @@ cd "$(dirname "$0")/.."
 
 # Directories to process
 DIRS=(
-  "landing/public"
   "docs/public"
 )
 

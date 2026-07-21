@@ -213,6 +213,10 @@ export interface CaptureSettings {
   /** Whether the global keyboard hotkey is armed. Off by default — turning
    *  this on triggers the macOS Input Monitoring TCC prompt. */
   hotkey_enabled: boolean;
+  /** Hold the mic open while dictation is enabled so push-to-talk doesn't clip
+   *  the first words. Off by default — when on, the OS mic indicator stays lit
+   *  the whole time dictation is enabled. */
+  keep_mic_warm: boolean;
   /** keytap key names. Defaults are platform-specific right-hand modifiers. */
   chord_push_to_talk_keys: string[];
   /** keytap key names. Toggle adds Space to the platform-specific PTT chord. */

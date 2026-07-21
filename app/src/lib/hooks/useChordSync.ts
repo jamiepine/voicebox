@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
-import { useEffect } from 'react';
+import { emit, listen } from '@tauri-apps/api/event';
+import { useEffect, useRef } from 'react';
 import { useDictationReadiness } from '@/lib/hooks/useDictationReadiness';
 import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { usePlatform } from '@/platform/PlatformContext';
@@ -30,21 +31,45 @@ export function useChordSync() {
   const { settings } = useCaptureSettings();
   const { canRecord } = useDictationReadiness();
   const enabled = settings?.hotkey_enabled;
+  const keepMicWarm = settings?.keep_mic_warm;
   const pushKeys = settings?.chord_push_to_talk_keys;
   const toggleKeys = settings?.chord_toggle_to_talk_keys;
+
+  // Latest warm state, so the dictate window's mount-time request can be
+  // answered even between the dep-driven emits below.
+  const shouldWarmRef = useRef(false);
+
+  // The floating dictate window holds the mic warm ahead of the first chord to
+  // avoid clipping, but it's a separate webview with no view of settings. Mirror
+  // the decision to it: warm only when dictation is armed AND the user enabled
+  // "keep microphone ready". Gating here is what stops the always-mounted pill
+  // from opening the mic — or prompting for access — when the user hasn't asked.
+  useEffect(() => {
+    if (!platform.metadata.isTauri) return;
+    const unlisten = listen('dictate:warm-request', () => {
+      emit('dictate:warm', shouldWarmRef.current).catch(() => {});
+    });
+    return () => {
+      unlisten.then((fn) => fn()).catch(() => {});
+    };
+  }, [platform.metadata.isTauri]);
 
   useEffect(() => {
     if (!platform.metadata.isTauri) return;
     if (enabled === undefined || !pushKeys || !toggleKeys) return;
     const shouldArm = enabled && canRecord;
+    const shouldWarm = shouldArm && (keepMicWarm ?? false);
+    shouldWarmRef.current = shouldWarm;
     const command = shouldArm ? 'enable_hotkey' : 'disable_hotkey';
     const args = shouldArm ? { pushToTalk: pushKeys, toggleToTalk: toggleKeys } : {};
     invoke(command, args).catch((err) => {
       console.warn(`[chord-sync] ${command} failed:`, err);
     });
+    emit('dictate:warm', shouldWarm).catch(() => {});
   }, [
     platform.metadata.isTauri,
     enabled,
+    keepMicWarm,
     canRecord,
     // Stringify so a referentially-new array with the same content
     // doesn't fire a redundant invoke on every settings refetch.

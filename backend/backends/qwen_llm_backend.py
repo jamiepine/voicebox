@@ -19,6 +19,7 @@ from .base import (
     manual_seed,
     model_load_progress,
 )
+from ..services.mlx_thread import run_on_mlx_thread, clear_mlx_cache
 
 logger = logging.getLogger(__name__)
 
@@ -205,7 +206,11 @@ class MLXQwenLLMBackend:
             weight_extensions=(".safetensors", ".bin", ".npz"),
         )
 
-    async def load_model(self, model_size: Optional[str] = None) -> None:
+    def _ensure_loaded_sync(self, model_size: Optional[str]) -> None:
+        """Load the model if the requested size isn't already resident.
+
+        Runs on the MLX worker thread so it stays serialized with generation.
+        """
         if model_size is None:
             model_size = self.model_size
 
@@ -215,7 +220,14 @@ class MLXQwenLLMBackend:
         if self.model is not None and self._current_model_size != model_size:
             self.unload_model()
 
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        self._load_model_sync(model_size)
+
+    async def load_model(self, model_size: Optional[str] = None) -> None:
+        await run_on_mlx_thread(self._ensure_loaded_sync, model_size)
+
+    async def unload(self) -> None:
+        """Free the model, serialized onto the MLX worker thread."""
+        await run_on_mlx_thread(self.unload_model)
 
     def _load_model_sync(self, model_size: str) -> None:
         from mlx_lm import load as mlx_load
@@ -246,6 +258,7 @@ class MLXQwenLLMBackend:
         self.model = None
         self.tokenizer = None
         self._current_model_size = None
+        clear_mlx_cache()
         logger.info("Qwen3 (MLX) unloaded")
 
     async def generate(
@@ -257,10 +270,13 @@ class MLXQwenLLMBackend:
         model_size: Optional[str] = None,
         examples: Optional[list[tuple[str, str]]] = None,
     ) -> str:
-        await self.load_model(model_size)
-        return await asyncio.to_thread(
-            self._generate_sync, prompt, system, max_tokens, temperature, examples
-        )
+        # Load-if-needed and inference run as one job on the MLX worker so a
+        # concurrent unload or different-size load can't land between them.
+        def _load_and_generate() -> str:
+            self._ensure_loaded_sync(model_size)
+            return self._generate_sync(prompt, system, max_tokens, temperature, examples)
+
+        return await run_on_mlx_thread(_load_and_generate)
 
     def _generate_sync(
         self,

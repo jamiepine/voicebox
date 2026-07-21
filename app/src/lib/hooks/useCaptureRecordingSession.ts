@@ -54,11 +54,15 @@ const SHORT_RECORDING_MESSAGE = 'Recording too short, canceled';
 export type CapturePillState = PillState | 'hidden';
 
 export interface UseCaptureRecordingSessionOptions {
+  /** Keep the microphone stream open between dictations when explicitly
+   * enabled. Off by default so normal recorders release the device. */
+  keepMicWarm?: boolean;
   /**
    * Fired after a capture row is created on the server. Callers can use this
    * to select the new capture or emit a Tauri event to a sibling window.
+   * ``context`` is whatever was passed to ``startRecording`` for this take.
    */
-  onCaptureCreated?: (capture: CaptureResponse) => void;
+  onCaptureCreated?: (capture: CaptureResponse, context?: unknown) => void;
   /**
    * Fired with the final delivered text — refined if ``auto_refine`` was on
    * for this capture, raw transcript otherwise. Used by the floating
@@ -66,12 +70,14 @@ export interface UseCaptureRecordingSessionOptions {
    *
    * ``allowAutoPaste`` snapshots the setting at chord-start so a refine that
    * lands after the user flips the toggle still uses the value the capture
-   * was created under.
+   * was created under. ``context`` is the value passed to ``startRecording``
+   * for this take, so overlapping dictations can't cross their targets.
    */
   onFinalText?: (
     text: string,
     capture: CaptureResponse,
     allowAutoPaste: boolean,
+    context?: unknown,
   ) => void;
 }
 
@@ -82,12 +88,14 @@ export interface UseCaptureRecordingSessionResult {
   isRecording: boolean;
   isUploading: boolean;
   isRefining: boolean;
-  startRecording: () => void;
+  startRecording: (context?: unknown) => void;
   stopRecording: () => void;
   toggleRecording: () => void;
   dismissError: () => void;
   uploadFile: (file: File, source: CaptureSource) => void;
   refine: (captureId: string) => void;
+  prewarm: () => Promise<void>;
+  releaseWarm: () => void;
 }
 
 /**
@@ -123,10 +131,13 @@ export function useCaptureRecordingSession(
   const onFinalTextRef = useRef(options.onFinalText);
   onFinalTextRef.current = options.onFinalText;
 
-  // Snapshot of ``allow_auto_paste`` from the capture-create response —
-  // held so the refine onSuccess (which only sees the plain CaptureResponse)
-  // can still pass the original setting through to onFinalText.
-  const allowAutoPasteRef = useRef<boolean>(true);
+  // Per-capture recording context and its ``allow_auto_paste`` snapshot, keyed
+  // by capture id so a refine that resolves after another dictation started
+  // still delivers to the right target with the setting the capture was created
+  // under. Populated on capture-create and consumed once the final text lands.
+  const captureDeliveryRef = useRef<Map<string, { context: unknown; allowAutoPaste: boolean }>>(
+    new Map(),
+  );
 
   const clearRestTimer = useCallback(() => {
     if (restTimerRef.current !== null) {
@@ -192,20 +203,34 @@ export function useCaptureRecordingSession(
       queryClient.invalidateQueries({ queryKey: ['captures'] });
       broadcastUpdated(captureId);
       if (pillStateRef.current === 'refining') scheduleHidePill();
+      const delivery = captureDeliveryRef.current.get(captureId);
+      captureDeliveryRef.current.delete(captureId);
       const finalText = data.transcript_refined ?? data.transcript_raw;
       if (finalText) {
-        onFinalTextRef.current?.(finalText, data, allowAutoPasteRef.current);
+        onFinalTextRef.current?.(
+          finalText,
+          data,
+          delivery?.allowAutoPaste ?? true,
+          delivery?.context,
+        );
       }
     },
-    onError: (err: Error) => {
+    onError: (err: Error, captureId) => {
+      captureDeliveryRef.current.delete(captureId);
       showError(err.message || 'Refinement failed');
     },
   });
 
   const uploadMutation = useMutation({
-    mutationFn: async ({ file, source }: { file: File; source: CaptureSource }) =>
-      apiClient.createCapture(file, { source }),
-    onSuccess: (capture) => {
+    mutationFn: async ({
+      file,
+      source,
+    }: {
+      file: File;
+      source: CaptureSource;
+      context?: unknown;
+    }) => apiClient.createCapture(file, { source }),
+    onSuccess: (capture, { context }) => {
       queryClient.setQueryData<CaptureListResponse>(['captures'], (prev) => {
         if (!prev) return prev;
         if (prev.items.some((c) => c.id === capture.id)) return prev;
@@ -213,9 +238,12 @@ export function useCaptureRecordingSession(
       });
       queryClient.invalidateQueries({ queryKey: ['captures'] });
       broadcastCreated(capture);
-      onCaptureCreatedRef.current?.(capture);
-      allowAutoPasteRef.current = capture.allow_auto_paste;
+      onCaptureCreatedRef.current?.(capture, context);
       if (capture.auto_refine) {
+        captureDeliveryRef.current.set(capture.id, {
+          context,
+          allowAutoPaste: capture.allow_auto_paste,
+        });
         setPillState('refining');
         refineMutation.mutate(capture.id);
       } else {
@@ -225,6 +253,7 @@ export function useCaptureRecordingSession(
             capture.transcript_raw,
             capture,
             capture.allow_auto_paste,
+            context,
           );
         }
       }
@@ -249,8 +278,11 @@ export function useCaptureRecordingSession(
     startRecording: beginAudioRecording,
     stopRecording,
     error: recordError,
+    prewarm,
+    releaseWarm,
   } = useAudioRecording({
-    onRecordingComplete: (blob, recordedDuration) => {
+    keepWarm: options.keepMicWarm ?? false,
+    onRecordingComplete: (blob, recordedDuration, context) => {
       // Trigger-happy tap — MediaRecorder hasn't emitted a usable chunk yet
       // so the blob is empty or unparseable. Surface it as a transient pill
       // so the user sees their recording was recognised and canceled.
@@ -268,7 +300,7 @@ export function useCaptureRecordingSession(
       const file = new File([blob], `dictation-${Date.now()}.${extension}`, {
         type: blob.type,
       });
-      uploadMutation.mutate({ file, source: 'dictation' });
+      uploadMutation.mutate({ file, source: 'dictation', context });
     },
   });
 
@@ -278,13 +310,16 @@ export function useCaptureRecordingSession(
     }
   }, [recordError, showError]);
 
-  const startRecording = useCallback(() => {
-    if (isRecording) return;
-    clearRestTimer();
-    setFrozenElapsedMs(0);
-    setPillState('recording');
-    beginAudioRecording();
-  }, [isRecording, beginAudioRecording, clearRestTimer]);
+  const startRecording = useCallback(
+    (context?: unknown) => {
+      if (isRecording) return;
+      clearRestTimer();
+      setFrozenElapsedMs(0);
+      setPillState('recording');
+      beginAudioRecording(context);
+    },
+    [isRecording, beginAudioRecording, clearRestTimer],
+  );
 
   const toggleRecording = useCallback(() => {
     if (isRecording) {
@@ -324,5 +359,7 @@ export function useCaptureRecordingSession(
     dismissError,
     uploadFile,
     refine,
+    prewarm,
+    releaseWarm,
   };
 }

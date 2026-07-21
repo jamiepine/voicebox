@@ -133,7 +133,7 @@ bun run convert:assets
 This script:
 - Converts PNG → WebP (better compression, same quality)
 - Converts MOV → WebM (VP9 codec, smaller file size)
-- Processes files in `landing/public/` and `docs/public/`
+- Processes files in `docs/public/`
 - **Deletes original files** after successful conversion
 
 **Requirements:** Install `webp` and `ffmpeg`:

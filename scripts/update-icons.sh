@@ -10,8 +10,6 @@ EXPORTS_DIR="tauri/assets/voicebox_exports"
 ICON_BUNDLE="tauri/assets/voicebox.icon"
 ASSETS_DIR="$ICON_BUNDLE/Assets"
 ICONS_DIR="tauri/src-tauri/icons"
-LANDING_LOGO="landing/public/voicebox-logo.png"
-LANDING_PUBLIC="landing/public"
 SOURCE_ICON="$EXPORTS_DIR/voicebox-iOS-Dark-1024x1024@1x.png"
 
 echo "🎨 Updating all Voicebox icons from exports..."
@@ -172,32 +170,6 @@ sips -s format png -z 192 192 "$SOURCE_ICON" --out "$ICONS_DIR/android/mipmap-xx
 sips -s format png -z 192 192 "$SOURCE_ICON" --out "$ICONS_DIR/android/mipmap-xxxhdpi/ic_launcher_round.png" 2>/dev/null
 sips -s format png -z 192 192 "$SOURCE_ICON" --out "$ICONS_DIR/android/mipmap-xxxhdpi/ic_launcher_foreground.png" 2>/dev/null
 
-# Landing Page Logo & Favicon
-echo "Generating landing page logo..."
-mkdir -p "$LANDING_PUBLIC"
-sips -s format png -z 1024 1024 "$SOURCE_ICON" --out "$LANDING_LOGO" 2>/dev/null
-
-echo "Generating landing page favicon..."
-# Generate favicon.png (32x32 is standard for favicons)
-sips -s format png -z 32 32 "$SOURCE_ICON" --out "$LANDING_PUBLIC/favicon.png" 2>/dev/null
-
-# Generate proper multi-size favicon.ico using ImageMagick if available
-if command -v convert &> /dev/null; then
-  # Create temporary PNG files at different sizes for ICO
-  sips -s format png -z 16 16 "$SOURCE_ICON" --out /tmp/favicon-16.png 2>/dev/null
-  sips -s format png -z 32 32 "$SOURCE_ICON" --out /tmp/favicon-32.png 2>/dev/null
-  # Combine into proper multi-size ICO file
-  convert /tmp/favicon-16.png /tmp/favicon-32.png "$LANDING_PUBLIC/favicon.ico" 2>/dev/null
-  rm -f /tmp/favicon-16.png /tmp/favicon-32.png 2>/dev/null
-  echo "  ✓ Generated proper multi-size favicon.ico"
-else
-  # Fallback: skip ICO if ImageMagick not available (PNG will be used)
-  echo "  ⚠ ImageMagick not found - skipping favicon.ico (using favicon.png instead)"
-fi
-
-# Also generate apple-touch-icon (180x180 for iOS)
-sips -s format png -z 180 180 "$SOURCE_ICON" --out "$LANDING_PUBLIC/apple-touch-icon.png" 2>/dev/null
-
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "✅ All icons updated successfully!"
@@ -210,7 +182,5 @@ echo "  ✓ Windows Square logos"
 echo "  ✓ Windows icon.ico (multi-size)"
 echo "  ✓ iOS AppIcons (18 sizes)"
 echo "  ✓ Android mipmap icons (5 densities)"
-echo "  ✓ Landing page logo"
-echo "  ✓ Landing page favicon"
 echo ""
 echo "Next: Rebuild the app with 'cd tauri && bun run tauri build'"

@@ -547,7 +547,21 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
             )
 
 
-def unload_model_by_config(config: ModelConfig) -> bool:
+async def unload_backend(backend) -> None:
+    """Free a backend's model, serialized onto the MLX worker when it has one.
+
+    MLX backends expose an async ``unload`` that runs the free on the dedicated
+    MLX thread so it can't collide with an in-flight load/generate. Other
+    backends only carry the synchronous ``unload_model``.
+    """
+    unload = getattr(backend, "unload", None)
+    if unload is not None:
+        await unload()
+    else:
+        backend.unload_model()
+
+
+async def unload_model_by_config(config: ModelConfig) -> bool:
     """Unload a model given its config. Returns True if it was loaded, False otherwise."""
     from . import get_tts_backend_for_engine
     from ..services import tts, transcribe, llm as llm_service
@@ -555,7 +569,7 @@ def unload_model_by_config(config: ModelConfig) -> bool:
     if config.engine == "whisper":
         whisper_model = transcribe.get_whisper_model()
         if whisper_model.is_loaded() and whisper_model.model_size == config.model_size:
-            transcribe.unload_whisper_model()
+            await unload_backend(whisper_model)
             return True
         return False
 
@@ -563,7 +577,7 @@ def unload_model_by_config(config: ModelConfig) -> bool:
         backend = llm_service.get_llm_model()
         loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
         if backend.is_loaded() and loaded_size == config.model_size:
-            backend.unload_model()
+            await unload_backend(backend)
             return True
         return False
 
@@ -571,7 +585,7 @@ def unload_model_by_config(config: ModelConfig) -> bool:
         tts_model = tts.get_tts_model()
         loaded_size = getattr(tts_model, "_current_model_size", None) or getattr(tts_model, "model_size", None)
         if tts_model.is_loaded() and loaded_size == config.model_size:
-            tts.unload_tts_model()
+            await unload_backend(tts_model)
             return True
         return False
 
@@ -579,14 +593,14 @@ def unload_model_by_config(config: ModelConfig) -> bool:
         backend = get_tts_backend_for_engine(config.engine)
         loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
         if backend.is_loaded() and loaded_size == config.model_size:
-            backend.unload_model()
+            await unload_backend(backend)
             return True
         return False
 
     # All other TTS engines
     backend = get_tts_backend_for_engine(config.engine)
     if backend.is_loaded():
-        backend.unload_model()
+        await unload_backend(backend)
         return True
     return False
 

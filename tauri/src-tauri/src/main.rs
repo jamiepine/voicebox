@@ -57,7 +57,139 @@ fn build_dictate_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewW
         window.set_position(PhysicalPosition::new(x, y))?;
     }
 
+    // Make the pill able to float over other apps' native fullscreen Spaces.
+    #[cfg(target_os = "macos")]
+    apply_fullscreen_overlay_behavior(&window);
+
     Ok(window)
+}
+
+// `object_setClass` — reclass a live object. Not re-exported by `objc`.
+#[cfg(target_os = "macos")]
+extern "C" {
+    fn object_setClass(
+        obj: *mut objc::runtime::Object,
+        cls: *const objc::runtime::Class,
+    ) -> *const objc::runtime::Class;
+}
+
+/// `canBecomeKeyWindow` override for the pill panel. Borderless NSPanels
+/// refuse key status by default, and WebKit rejects `getUserMedia` from a
+/// document whose window can never become key — so recording silently fails.
+/// Returning YES restores capture; the panel stays non-activating, so showing
+/// it never steals focus from the app being dictated into.
+#[cfg(target_os = "macos")]
+extern "C" fn pill_panel_can_become_key(
+    _this: &objc::runtime::Object,
+    _sel: objc::runtime::Sel,
+) -> objc::runtime::BOOL {
+    objc::runtime::YES
+}
+
+/// Lazily-registered NSPanel subclass for the dictate pill: key-capable (for
+/// WebKit media capture) while remaining a panel (for fullscreen-Space join).
+#[cfg(target_os = "macos")]
+fn pill_panel_class() -> &'static objc::runtime::Class {
+    use objc::declare::ClassDecl;
+    use objc::runtime::{Class, Object, Sel, BOOL};
+    use objc::{class, sel, sel_impl};
+    static INIT: std::sync::Once = std::sync::Once::new();
+    INIT.call_once(|| {
+        let superclass = class!(NSPanel);
+        let mut decl =
+            ClassDecl::new("VoiceboxPillPanel", superclass).expect("register VoiceboxPillPanel");
+        unsafe {
+            decl.add_method(
+                sel!(canBecomeKeyWindow),
+                pill_panel_can_become_key as extern "C" fn(&Object, Sel) -> BOOL,
+            );
+        }
+        decl.register();
+    });
+    Class::get("VoiceboxPillPanel").expect("VoiceboxPillPanel registered")
+}
+
+/// Convert the dictate pill's NSWindow into a key-capable NSPanel and set the
+/// collection behavior + window level required to appear over another app's
+/// native macOS fullscreen Space.
+///
+/// A regular (Dock-icon) app's plain NSWindow is never admitted to a foreign
+/// fullscreen Space regardless of collection-behavior flags or window level;
+/// an NSPanel with the same flags is. NSPanel adds no instance variables over
+/// NSWindow, so re-classing the live object is safe (the tauri-nspanel plugin
+/// uses the same technique). Idempotent via an `isKindOfClass` guard. Runs on
+/// the main thread because AppKit window mutation is main-thread-only.
+#[cfg(target_os = "macos")]
+pub fn apply_fullscreen_overlay_behavior(window: &tauri::WebviewWindow) {
+    let w = window.clone();
+    let dispatched = window.run_on_main_thread(move || {
+        use objc::runtime::{Object, NO, YES};
+        use objc::{class, msg_send, sel, sel_impl};
+
+        // NSWindowCollectionBehavior bit flags.
+        const CAN_JOIN_ALL_SPACES: u64 = 1 << 0;
+        const STATIONARY: u64 = 1 << 4;
+        const FULL_SCREEN_AUXILIARY: u64 = 1 << 8; // the flag stock Tauri never sets
+        const NONACTIVATING_PANEL: u64 = 1 << 7; // NSWindowStyleMaskNonactivatingPanel
+        // NSScreenSaverWindowLevel — floats above fullscreen app content.
+        const OVERLAY_WINDOW_LEVEL: i64 = 1000;
+
+        let ns_window = match w.ns_window() {
+            Ok(ptr) => ptr as *mut Object,
+            Err(e) => {
+                eprintln!("apply_fullscreen_overlay_behavior: ns_window() failed: {e}");
+                return;
+            }
+        };
+        if ns_window.is_null() {
+            return;
+        }
+        // SAFETY: ns_window is a valid, non-null NSWindow* owned by Tauri for
+        // the lifetime of the webview window; all selectors are standard AppKit
+        // calls and we are on the main thread.
+        unsafe {
+            let is_panel: objc::runtime::BOOL =
+                msg_send![ns_window, isKindOfClass: class!(NSPanel)];
+            if is_panel == NO {
+                object_setClass(ns_window, pill_panel_class());
+                let style: u64 = msg_send![ns_window, styleMask];
+                let _: () = msg_send![ns_window, setStyleMask: style | NONACTIVATING_PANEL];
+                let _: () = msg_send![ns_window, setHidesOnDeactivate: NO];
+                let _: () = msg_send![ns_window, setBecomesKeyOnlyIfNeeded: YES];
+                let _: () = msg_send![ns_window, setFloatingPanel: YES];
+            }
+            // Preserve behavior bits installed by Tauri/Tao instead of
+            // replacing them wholesale when adding the fullscreen flags.
+            let current_behavior: u64 = msg_send![ns_window, collectionBehavior];
+            let behavior =
+                current_behavior | CAN_JOIN_ALL_SPACES | FULL_SCREEN_AUXILIARY | STATIONARY;
+            let _: () = msg_send![ns_window, setCollectionBehavior: behavior];
+            let _: () = msg_send![ns_window, setLevel: OVERLAY_WINDOW_LEVEL];
+        }
+    });
+    if let Err(e) = dispatched {
+        eprintln!("apply_fullscreen_overlay_behavior: main-thread dispatch failed: {e}");
+    }
+}
+
+/// Order the pill front over whatever Space is active. `orderFrontRegardless`
+/// works even though the app is inactive (it always is mid-dictation — the
+/// user is typing in some other app). Called right after `window.show()`.
+#[cfg(target_os = "macos")]
+pub fn force_order_front(window: &tauri::WebviewWindow) {
+    let w = window.clone();
+    let _ = window.run_on_main_thread(move || {
+        use objc::runtime::Object;
+        use objc::{msg_send, sel, sel_impl};
+        if let Ok(ptr) = w.ns_window() {
+            let ns_window = ptr as *mut Object;
+            if !ns_window.is_null() {
+                unsafe {
+                    let _: () = msg_send![ns_window, orderFrontRegardless];
+                }
+            }
+        }
+    });
 }
 
 /// Position, undo click-through, and show the dictate pill window.
@@ -118,6 +250,8 @@ pub fn show_dictate_window(app: &tauri::AppHandle) {
     #[cfg(not(target_os = "linux"))]
     let _ = window.set_ignore_cursor_events(false);
     let _ = window.show();
+    #[cfg(target_os = "macos")]
+    force_order_front(&window);
 }
 
 const LEGACY_PORT: u16 = 8000;
@@ -1214,6 +1348,7 @@ fn open_input_monitoring_settings(app: tauri::AppHandle) -> Result<(), String> {
 /// Returns `true` when the paste sequence completed end-to-end.
 #[command]
 async fn paste_final_text(
+    app: tauri::AppHandle,
     text: String,
     focus: focus_capture::FocusSnapshot,
 ) -> Result<bool, String> {
@@ -1227,14 +1362,55 @@ async fn paste_final_text(
         );
     }
 
-    focus_capture::activate_pid(focus.pid)?;
-    tokio::time::sleep(std::time::Duration::from_millis(POST_ACTIVATE_SETTLE_MS)).await;
+    // Only re-activate the target when the user actually left it. When it is
+    // still frontmost (the common case — the dictate pill is non-activating,
+    // and in a fullscreen Space the target never loses frontmost), activation
+    // is a no-op; on macOS 26 fullscreen Spaces `activate` returns NO for an
+    // already-frontmost app, which would otherwise abort the paste entirely.
+    #[cfg(target_os = "macos")]
+    let already_front = focus_capture::frontmost_pid() == Some(focus.pid);
+    #[cfg(not(target_os = "macos"))]
+    let already_front = false;
+
+    if !already_front {
+        focus_capture::activate_pid(focus.pid)?;
+        tokio::time::sleep(std::time::Duration::from_millis(POST_ACTIVATE_SETTLE_MS)).await;
+    }
 
     let snapshot = clipboard::save_clipboard()?;
     let after_write = clipboard::write_text(&text)?;
 
+    // Order the pill out for the synthetic ⌘V. The pill is a key-capable
+    // panel (WebKit needs that for getUserMedia), and over a fullscreen Space
+    // it holds key focus Spotlight-style — the keystroke would land in the
+    // pill instead of the target app. Hidden it can't swallow keys; restored
+    // immediately after so the webview never suspends between dictations.
+    #[cfg(target_os = "macos")]
+    let pill = app.get_webview_window(DICTATE_WINDOW_LABEL);
+    #[cfg(target_os = "macos")]
+    if let Some(ref w) = pill {
+        if let Err(e) = w.hide() {
+            // Never emit Cmd+V while the key-capable pill may still own focus.
+            // Undo our clipboard write when it is still safe, then abort.
+            if matches!(
+                clipboard::current_change_count(),
+                Ok(current) if current == after_write
+            ) {
+                clipboard::restore_clipboard(&snapshot)?;
+            }
+            return Err(format!("Failed to hide dictate window before paste: {e}"));
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+    }
+
     let paste_result = synthetic_keys::send_paste();
     tokio::time::sleep(std::time::Duration::from_millis(PASTE_CONSUME_MS)).await;
+
+    #[cfg(target_os = "macos")]
+    if let Some(ref w) = pill {
+        let _ = w.show();
+        force_order_front(w);
+    }
 
     let safe_to_restore = matches!(
         clipboard::current_change_count(),
