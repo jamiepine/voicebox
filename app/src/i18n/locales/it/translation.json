@@ -832,6 +832,47 @@
           "profiles": "Elenca voci",
           "history": "Generazioni passate"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "Backup e sincronizzazione crittografati end-to-end su tutti i tuoi dispositivi.",
+        "connectedToast": {
+          "title": "Connesso a Voicebox Cloud",
+          "description": "Collegato come {{name}}."
+        },
+        "signInTimedOut": {
+          "title": "Accesso scaduto",
+          "description": "L'accesso dal browser non è stato completato. Riprova."
+        },
+        "continueInBrowser": {
+          "title": "Continua nel tuo browser",
+          "description": "Autorizza questo dispositivo, poi torna qui."
+        },
+        "signInFailedTitle": "Impossibile avviare l'accesso",
+        "disconnectedToast": {
+          "title": "Disconnesso",
+          "description": "Questo dispositivo non è più collegato. La chiave resta valida finché non la revochi dal tuo account."
+        },
+        "disconnectFailedTitle": "Impossibile disconnettersi",
+        "account": {
+          "connected": "Connesso",
+          "account": "Account",
+          "linkedAs": "Collegato come {{name}}{{keyPrefix}}",
+          "thisDevice": "questo dispositivo",
+          "logInHint": "Accedi per eseguire il backup e sincronizzare le tue registrazioni e generazioni."
+        },
+        "actions": {
+          "disconnecting": "Disconnessione…",
+          "disconnect": "Disconnetti",
+          "waitingForBrowser": "In attesa del browser…",
+          "opening": "Apertura…",
+          "logInWithBrowser": "Accedi tramite browser"
+        },
+        "manage": {
+          "title": "Gestisci",
+          "description": "Revoca questo dispositivo, aggiungi chiavi API o gestisci la fatturazione dal tuo account.",
+          "openDashboard": "Apri la dashboard dell'account ↗"
+        }
       }
     },
     "generation": {
