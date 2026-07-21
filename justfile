@@ -17,8 +17,8 @@ pip := if os() == "windows" { venv_bin / "pip.exe" } else { venv_bin / "pip" }
 # Shell selection: use powershell on Windows, bash elsewhere
 set windows-shell := ["powershell", "-NoProfile", "-Command"]
 
-# Detect best python for venv creation (platform-aware)
-system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
+# Detect Python 3.12 for venv creation (platform-aware)
+system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || echo python3` }
 
 # ─── Setup ────────────────────────────────────────────────────────────
 
@@ -32,14 +32,23 @@ setup: setup-python setup-js
 setup-python:
     #!/usr/bin/env bash
     set -euo pipefail
+    if [ -d "{{ venv }}" ]; then
+        PYTHON_CMD="{{ python }}"
+    else
+        PYTHON_CMD="{{ system_python }}"
+    fi
+    PY_VERSION=$($PYTHON_CMD -c "import platform; print(platform.python_version())")
+    case "$PY_VERSION" in
+        3.12.*) ;;
+        *)
+            echo "Error: Voicebox requires Python 3.12; found Python $PY_VERSION."
+            echo "kokoro>=0.9.4 requires Python <3.13. Recreate {{ venv }} with Python 3.12."
+            exit 1
+            ;;
+    esac
     if [ ! -d "{{ venv }}" ]; then
         echo "Creating Python virtual environment..."
-        PY_MINOR=$({{ system_python }} -c "import sys; print(sys.version_info[1])")
-        if [ "$PY_MINOR" -gt 13 ]; then
-            echo "Warning: Python 3.$PY_MINOR detected. ML packages may not be compatible."
-            echo "Recommended: brew install python@3.12"
-        fi
-        {{ system_python }} -m venv {{ venv }}
+        $PYTHON_CMD -m venv {{ venv }}
     fi
     echo "Installing Python dependencies..."
     {{ pip }} install --upgrade pip -q
@@ -85,13 +94,16 @@ setup-python:
 
 [windows]
 setup-python:
+    $pythonCmd = if (Test-Path "{{ venv }}") { "{{ python }}" } else { "{{ system_python }}" }; \
+    $pyVersion = & $pythonCmd -c "import platform; print(platform.python_version())"; \
+    if (-not $pyVersion.StartsWith("3.12.")) { \
+        Write-Error "Voicebox requires Python 3.12; found Python $pyVersion."; \
+        Write-Host "kokoro>=0.9.4 requires Python <3.13. Recreate {{ venv }} with Python 3.12."; \
+        exit 1; \
+    }; \
     if (-not (Test-Path "{{ venv }}")) { \
         Write-Host "Creating Python virtual environment..."; \
-        $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
-        if ([int]$pyMinor -gt 13) { \
-            Write-Host "Warning: Python 3.$pyMinor detected. ML packages may not be compatible."; \
-        }; \
-        & {{ system_python }} -m venv {{ venv }}; \
+        & $pythonCmd -m venv {{ venv }}; \
     }
     Write-Host "Installing Python dependencies..."
     & "{{ python }}" -m pip install --upgrade pip -q
