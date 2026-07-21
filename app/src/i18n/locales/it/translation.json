@@ -158,7 +158,7 @@
       "inputMonitoring": {
         "title": "Concedi il Monitoraggio input per attivare la scorciatoia globale",
         "body": "Voicebox richiede <path>Impostazioni di Sistema → Privacy e Sicurezza → Monitoraggio input</path> per rilevare la tua combinazione di dettatura. L'opzione è attiva, ma macOS sta bloccando gli eventi della tastiera finché non lo consenti.",
-        "openSettings": "Opzioni Impostazioni",
+        "openSettings": "Apri Impostazioni",
         "recheck": "L'ho abilitato",
         "rechecking": "Verifica in corso…",
         "stillMissing": "Non ancora rilevato. Di solito macOS richiede la chiusura e la riapertura di Voicebox dopo aver attivato il permesso."
