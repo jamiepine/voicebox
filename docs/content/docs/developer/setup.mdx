@@ -283,7 +283,23 @@ bun run tauri dev
     - Check if port 17493 is available
   </Accordion>
 
-  <Accordion title="Tauri build fails">
+  <Accordion title="Tauri build fails on Linux (alsa-sys / libasound not found)">
+    The `alsa-sys` crate requires the ALSA development headers, which are not installed by default on Ubuntu/Debian. Install them before running `just setup`:
+
+    ```bash
+    sudo apt-get install -y libasound2-dev
+    ```
+
+    On Fedora/RHEL:
+
+    ```bash
+    sudo dnf install -y alsa-lib-devel
+    ```
+
+    After installing, re-run `just setup` and `just dev`.
+  </Accordion>
+
+  <Accordion title="Tauri build fails (general)">
     - Ensure Rust is installed: `rustc --version`
     - Clean the build: `cd tauri/src-tauri && cargo clean`
     - Try rebuilding: `just dev`
