@@ -13,6 +13,7 @@ import { ModelsTab } from '@/components/ModelsTab/ModelsTab';
 import { AboutPage } from '@/components/ServerTab/AboutPage';
 import { CapturesPage } from '@/components/ServerTab/CapturesPage';
 import { ChangelogPage } from '@/components/ServerTab/ChangelogPage';
+import { ConversationPage } from '@/components/ServerTab/ConversationPage';
 import { GeneralPage } from '@/components/ServerTab/GeneralPage';
 import { GenerationPage } from '@/components/ServerTab/GenerationPage';
 import { GpuPage } from '@/components/ServerTab/GpuPage';
@@ -160,6 +161,12 @@ const settingsCapturesRoute = createRoute({
   component: CapturesPage,
 });
 
+const settingsConversationRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: '/conversation',
+  component: ConversationPage,
+});
+
 const settingsMCPRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: '/mcp',
@@ -211,6 +218,7 @@ const routeTree = rootRoute.addChildren([
     settingsGeneralRoute,
     settingsGenerationRoute,
     settingsCapturesRoute,
+    settingsConversationRoute,
     settingsMCPRoute,
     settingsGpuRoute,
     settingsLogsRoute,

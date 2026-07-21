@@ -34,3 +34,16 @@ async def update_generation_settings_endpoint(
     db: Session = Depends(get_db),
 ):
     return settings_service.update_generation_settings(db, patch.model_dump(exclude_unset=True))
+
+
+@router.get("/conversation", response_model=models.ConversationSettingsResponse)
+async def get_conversation_settings_endpoint(db: Session = Depends(get_db)):
+    return settings_service.get_conversation_settings(db)
+
+
+@router.put("/conversation", response_model=models.ConversationSettingsResponse)
+async def update_conversation_settings_endpoint(
+    patch: models.ConversationSettingsUpdate,
+    db: Session = Depends(get_db),
+):
+    return settings_service.update_conversation_settings(db, patch.model_dump(exclude_unset=True))
