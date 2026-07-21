@@ -284,11 +284,13 @@ def _speak_response(
 async def _transcribe_file(
     path: Path, language: str | None, model: str | None
 ) -> dict[str, Any]:
-    from ..backends import WHISPER_HF_REPOS
+    from ..backends import WHISPER_HF_REPOS, transcribe_with_metadata
+    from ..languages import normalize_capture_language
     from ..services import transcribe as transcribe_service
     from ..utils.audio import load_audio
 
     whisper = transcribe_service.get_whisper_model()
+    language = normalize_capture_language(language)
     model_size = model or whisper.model_size
     valid = list(WHISPER_HF_REPOS.keys())
     if model_size not in valid:
@@ -308,10 +310,12 @@ async def _transcribe_file(
             "Voicebox → Settings → Models to download it first."
         )
 
-    text = await whisper.transcribe(str(path), language, model_size)
+    transcription = await transcribe_with_metadata(
+        whisper, str(path), language, model_size
+    )
     return {
-        "text": text,
+        "text": transcription.text,
         "duration": duration,
-        "language": language,
+        "language": transcription.language,
         "model": model_size,
     }

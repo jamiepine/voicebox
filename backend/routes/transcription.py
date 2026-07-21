@@ -7,6 +7,8 @@ from pathlib import Path
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from .. import models
+from ..backends import transcribe_with_metadata
+from ..languages import normalize_capture_language
 from ..services import transcribe
 from ..services.task_queue import create_background_task
 from ..utils.tasks import get_task_manager
@@ -39,6 +41,7 @@ async def transcribe_audio(
         from ..utils.audio import load_audio
         from ..backends import WHISPER_HF_REPOS
 
+        language = normalize_capture_language(language)
         audio, sr = await asyncio.to_thread(load_audio, tmp_path)
         duration = len(audio) / sr
 
@@ -76,15 +79,20 @@ async def transcribe_audio(
                 },
             )
 
-        text = await whisper_model.transcribe(tmp_path, language, model_size)
+        transcription = await transcribe_with_metadata(
+            whisper_model, tmp_path, language, model_size
+        )
 
         return models.TranscriptionResponse(
-            text=text,
+            text=transcription.text,
             duration=duration,
+            language=transcription.language,
         )
 
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

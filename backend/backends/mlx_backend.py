@@ -17,7 +17,13 @@ from ..utils.hf_offline_patch import patch_huggingface_hub_offline, ensure_origi
 patch_huggingface_hub_offline()
 ensure_original_qwen_config_cached()
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
+from . import (
+    LANGUAGE_CODE_TO_NAME,
+    STTBackend,
+    TTSBackend,
+    TranscriptionResult,
+    WHISPER_HF_REPOS,
+)
 from .base import is_model_cached, combine_voice_prompts as _combine_voice_prompts, model_load_progress
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 
@@ -327,6 +333,15 @@ class MLXSTTBackend:
         language: Optional[str] = None,
         model_size: Optional[str] = None,
     ) -> str:
+        result = await self.transcribe_with_metadata(audio_path, language, model_size)
+        return result.text
+
+    async def transcribe_with_metadata(
+        self,
+        audio_path: str,
+        language: Optional[str] = None,
+        model_size: Optional[str] = None,
+    ) -> TranscriptionResult:
         """
         Transcribe audio to text.
 
@@ -336,7 +351,7 @@ class MLXSTTBackend:
             model_size: Optional model size override
 
         Returns:
-            Transcribed text
+            Transcribed text and resolved language
         """
         await self.load_model_async(model_size)
 
@@ -353,15 +368,26 @@ class MLXSTTBackend:
             # regression this revert fixes (issue #462).
             result = self.model.generate(str(audio_path), **decode_options)
 
-            # Extract text from result
+            # mlx-audio's Whisper output carries the detected language when
+            # auto-detection is used. Preserve it instead of collapsing the
+            # result to a bare string.
             if isinstance(result, str):
-                return result.strip()
+                text = result
+                detected_language = language
             elif isinstance(result, dict):
-                return result.get("text", "").strip()
+                text = result.get("text", "")
+                detected_language = result.get("language") or language
             elif hasattr(result, "text"):
-                return result.text.strip()
+                text = result.text
+                detected_language = getattr(result, "language", None) or language
             else:
-                return str(result).strip()
+                text = str(result)
+                detected_language = language
+
+            return TranscriptionResult(
+                text=text.strip(),
+                language=detected_language,
+            )
 
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)

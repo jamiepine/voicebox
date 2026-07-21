@@ -21,6 +21,15 @@ import numpy as np
 DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
 
+
+@dataclass(frozen=True)
+class TranscriptionResult:
+    """Text and language metadata returned by an STT backend."""
+
+    text: str
+    language: Optional[str] = None
+
+
 from ..utils.platform_detect import get_backend_type
 
 LANGUAGE_CODE_TO_NAME = {
@@ -154,6 +163,15 @@ class STTBackend(Protocol):
         """
         ...
 
+    async def transcribe_with_metadata(
+        self,
+        audio_path: str,
+        language: Optional[str] = None,
+        model_size: Optional[str] = None,
+    ) -> TranscriptionResult:
+        """Transcribe audio and return text with the resolved language."""
+        ...
+
     def unload_model(self) -> None:
         """Unload model to free memory."""
         ...
@@ -161,6 +179,26 @@ class STTBackend(Protocol):
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         ...
+
+
+async def transcribe_with_metadata(
+    backend: STTBackend,
+    audio_path: str,
+    language: Optional[str] = None,
+    model_size: Optional[str] = None,
+) -> TranscriptionResult:
+    """Use STT metadata when available while retaining legacy backends."""
+    metadata_method = getattr(backend, "transcribe_with_metadata", None)
+    if callable(metadata_method):
+        result = await metadata_method(audio_path, language, model_size)
+        if isinstance(result, TranscriptionResult):
+            return result
+        if isinstance(result, str):
+            return TranscriptionResult(text=result.strip(), language=language)
+        raise TypeError("STT metadata method returned an unsupported result")
+
+    text = await backend.transcribe(audio_path, language, model_size)
+    return TranscriptionResult(text=text.strip(), language=language)
 
 
 @runtime_checkable

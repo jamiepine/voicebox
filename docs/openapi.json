@@ -1289,6 +1289,17 @@
           "duration": {
             "type": "number",
             "title": "Duration"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
           }
         },
         "type": "object",

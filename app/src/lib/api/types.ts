@@ -258,6 +258,7 @@ export interface TranscriptionRequest {
 export interface TranscriptionResponse {
   text: string;
   duration: number;
+  language?: string | null;
 }
 
 export interface HealthResponse {

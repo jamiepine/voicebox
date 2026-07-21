@@ -18,7 +18,9 @@ import soundfile as sf
 from sqlalchemy.orm import Session
 
 from .. import config
+from ..backends import transcribe_with_metadata
 from ..database import Capture as DBCapture
+from ..languages import normalize_capture_language
 from ..models import CaptureResponse, RefinementFlagsModel
 from ..utils.audio import load_audio
 from .refinement import RefinementFlags, refine_transcript
@@ -67,6 +69,7 @@ async def create_capture(
     db: Session,
 ) -> CaptureResponse:
     """Persist raw audio, run STT, store the row."""
+    language = normalize_capture_language(language)
     if source not in VALID_SOURCES:
         raise ValueError(f"Invalid source '{source}'. Must be one of {sorted(VALID_SOURCES)}")
 
@@ -119,15 +122,17 @@ async def create_capture(
 
         whisper = get_whisper_model()
         resolved_stt = stt_model or whisper.model_size
-        transcript = await whisper.transcribe(str(audio_path), language, resolved_stt)
+        transcription = await transcribe_with_metadata(
+            whisper, str(audio_path), language, resolved_stt
+        )
 
         row = DBCapture(
             id=capture_id,
             audio_path=config.to_storage_path(audio_path),
             source=source,
-            language=language,
+            language=transcription.language,
             duration_ms=duration_ms,
-            transcript_raw=transcript,
+            transcript_raw=transcription.text,
             stt_model=resolved_stt,
         )
         db.add(row)
@@ -195,6 +200,7 @@ async def refine_capture(
         row.transcript_raw or "",
         flags,
         model_size=model_size,
+        language=row.language,
     )
 
     row.transcript_refined = refined
@@ -211,6 +217,7 @@ async def retranscribe_capture(
     language: Optional[str],
     db: Session,
 ) -> Optional[CaptureResponse]:
+    language = normalize_capture_language(language)
     row = db.query(DBCapture).filter(DBCapture.id == capture_id).first()
     if not row:
         return None
@@ -221,12 +228,13 @@ async def retranscribe_capture(
 
     whisper = get_whisper_model()
     resolved_stt = stt_model or whisper.model_size
-    transcript = await whisper.transcribe(str(resolved), language, resolved_stt)
+    transcription = await transcribe_with_metadata(
+        whisper, str(resolved), language, resolved_stt
+    )
 
-    row.transcript_raw = transcript
+    row.transcript_raw = transcription.text
     row.stt_model = resolved_stt
-    if language:
-        row.language = language
+    row.language = transcription.language
     # Refined text is stale after a fresh STT pass — force a re-refine.
     row.transcript_refined = None
     row.llm_model = None

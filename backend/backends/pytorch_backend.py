@@ -10,7 +10,13 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
+from . import (
+    LANGUAGE_CODE_TO_NAME,
+    STTBackend,
+    TTSBackend,
+    TranscriptionResult,
+    WHISPER_HF_REPOS,
+)
 from .base import (
     is_model_cached,
     get_torch_device,
@@ -21,6 +27,14 @@ from .base import (
 )
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 from ..utils.audio import load_audio
+
+
+def whisper_language_code_from_token_id(generation_config, token_id: int) -> Optional[str]:
+    """Resolve a Whisper language token ID to its canonical language code."""
+    for token, candidate_id in getattr(generation_config, "lang_to_id", {}).items():
+        if candidate_id == token_id and token.startswith("<|") and token.endswith("|>"):
+            return token[2:-2]
+    return None
 
 
 class PyTorchTTSBackend:
@@ -320,6 +334,15 @@ class PyTorchSTTBackend:
         language: Optional[str] = None,
         model_size: Optional[str] = None,
     ) -> str:
+        result = await self.transcribe_with_metadata(audio_path, language, model_size)
+        return result.text
+
+    async def transcribe_with_metadata(
+        self,
+        audio_path: str,
+        language: Optional[str] = None,
+        model_size: Optional[str] = None,
+    ) -> TranscriptionResult:
         """
         Transcribe audio to text.
 
@@ -329,7 +352,7 @@ class PyTorchSTTBackend:
             model_size: Optional model size override
 
         Returns:
-            Transcribed text
+            Transcribed text and resolved language
         """
         await self.load_model_async(model_size)
 
@@ -350,9 +373,23 @@ class PyTorchSTTBackend:
             )
             inputs = inputs.to(self.device)
 
-            # Generate transcription
-            # If language is provided, force it; otherwise let Whisper auto-detect
+            # Resolve the language before generation so auto-detection can be
+            # persisted alongside the transcript instead of being discarded.
+            resolved_language = language
+            if resolved_language is None:
+                language_token = self.model.detect_language(
+                    input_features=inputs["input_features"],
+                    generation_config=self.model.generation_config,
+                )[0].item()
+                resolved_language = whisper_language_code_from_token_id(
+                    self.model.generation_config,
+                    language_token,
+                )
+
             generate_kwargs = {}
+            # Preserve Whisper's existing auto-detection behavior during
+            # generation. The separately detected code above is metadata only;
+            # force a decoder language solely when the caller requested one.
             if language:
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
                     language=language,
@@ -372,7 +409,10 @@ class PyTorchSTTBackend:
                 skip_special_tokens=True,
             )[0]
 
-            return transcription.strip()
+            return TranscriptionResult(
+                text=transcription.strip(),
+                language=resolved_language,
+            )
 
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)

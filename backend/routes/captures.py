@@ -222,6 +222,8 @@ async def retranscribe_capture_endpoint(
         )
     except FileNotFoundError as e:
         raise HTTPException(status_code=410, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.exception("Retranscribe failed for capture %s", capture_id)
         raise HTTPException(status_code=500, detail=str(e))

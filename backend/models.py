@@ -2,7 +2,7 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,6 +10,15 @@ from .utils.capture_chords import (
     default_push_to_talk_chord,
     default_toggle_to_talk_chord,
 )
+from .languages import normalize_capture_language
+
+
+def _validate_capture_language_setting(language: str | None) -> str | None:
+    """Canonicalize requests while preserving the public ``auto`` sentinel."""
+    if language is None:
+        return None
+    normalized = normalize_capture_language(language)
+    return "auto" if normalized is None else normalized
 
 
 class VoiceProfileCreate(BaseModel):
@@ -180,6 +189,7 @@ class TranscriptionResponse(BaseModel):
 
     text: str
     duration: float
+    language: Optional[str] = None
 
 
 class RefinementFlagsModel(BaseModel):
@@ -242,7 +252,12 @@ class CaptureRetranscribeRequest(BaseModel):
     """Request to re-run STT on a capture's audio with a different model."""
 
     model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
-    language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
+    language: Optional[str] = None
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str | None) -> str | None:
+        return _validate_capture_language_setting(value)
 
 
 class CaptureSettingsResponse(BaseModel):
@@ -284,6 +299,11 @@ class CaptureSettingsUpdate(BaseModel):
     hotkey_enabled: Optional[bool] = None
     chord_push_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
     chord_toggle_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
+
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, value: str | None) -> str | None:
+        return _validate_capture_language_setting(value)
 
 
 class GenerationSettingsResponse(BaseModel):

@@ -8,4 +8,5 @@
 export type TranscriptionResponse = {
   text: string;
   duration: number;
+  language?: string | null;
 };
