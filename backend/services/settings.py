@@ -12,6 +12,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from ..database import CaptureSettings as DBCaptureSettings
+from ..database import ConversationSettings as DBConversationSettings
 from ..database import GenerationSettings as DBGenerationSettings
 from ..utils.capture_chords import (
     default_push_to_talk_chord,
@@ -84,6 +85,29 @@ def get_generation_settings(db: Session) -> DBGenerationSettings:
 
 def update_generation_settings(db: Session, patch: dict[str, Any]) -> DBGenerationSettings:
     row = _get_or_create_generation_row(db)
+    _apply_patch(row, patch)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def _get_or_create_conversation_row(db: Session) -> DBConversationSettings:
+    row = db.query(DBConversationSettings).filter(DBConversationSettings.id == SINGLETON_ID).first()
+    if row is None:
+        row = DBConversationSettings(id=SINGLETON_ID)
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def get_conversation_settings(db: Session) -> DBConversationSettings:
+    """Return the conversation settings row, creating it with defaults if missing."""
+    return _get_or_create_conversation_row(db)
+
+
+def update_conversation_settings(db: Session, patch: dict[str, Any]) -> DBConversationSettings:
+    row = _get_or_create_conversation_row(db)
     _apply_patch(row, patch)
     db.commit()
     db.refresh(row)

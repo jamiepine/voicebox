@@ -280,6 +280,20 @@ class MCPClientBinding(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class ConversationSettings(Base):
+    """Singleton settings for the BYO-LLM conversational voice mode."""
+
+    __tablename__ = "conversation_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    enabled = Column(Boolean, nullable=False, default=False)
+    llm_endpoint = Column(String, nullable=True)       # e.g. http://localhost:11434/v1
+    llm_api_key = Column(String, nullable=True)        # optional; blank = no auth
+    llm_model = Column(String, nullable=True)          # e.g. llama3, gpt-4o-mini
+    system_prompt_prefix = Column(Text, nullable=True)  # prepended before profile personality
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Capture(Base):
     """A single voice input capture (dictation, recording, or uploaded file).
 

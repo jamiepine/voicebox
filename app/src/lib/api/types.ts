@@ -560,3 +560,35 @@ export interface CloudStatus {
   connected_at: string | null;
   dashboard_url: string;
 }
+
+/* ─── Conversation (BYO-LLM voice agent) ─────────────────────────────── */
+
+export interface ConversationSettings {
+  enabled: boolean;
+  llm_endpoint: string | null;
+  llm_api_key: string | null;
+  llm_model: string | null;
+  system_prompt_prefix: string | null;
+}
+
+export type ConversationSettingsUpdate = Partial<ConversationSettings>;
+
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ConversationTurnRequest {
+  profile_id: string;
+  user_message: string;
+  history: ConversationMessage[];
+  language?: string;
+  engine?: string;
+  model_size?: string;
+}
+
+export interface ConversationTurnResponse {
+  assistant_text: string;
+  generation_id: string | null;
+  audio_url: string | null;
+}

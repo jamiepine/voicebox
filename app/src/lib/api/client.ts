@@ -53,6 +53,10 @@ import type {
   MCPClientBindingUpsert,
   CloudLoginStartResponse,
   CloudStatus,
+  ConversationSettings,
+  ConversationSettingsUpdate,
+  ConversationTurnRequest,
+  ConversationTurnResponse,
 } from './types';
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
@@ -517,6 +521,24 @@ class ApiClient {
     return this.request<GenerationSettings>('/settings/generation', {
       method: 'PUT',
       body: JSON.stringify(patch),
+    });
+  }
+
+  async getConversationSettings(): Promise<ConversationSettings> {
+    return this.request<ConversationSettings>('/settings/conversation');
+  }
+
+  async updateConversationSettings(patch: ConversationSettingsUpdate): Promise<ConversationSettings> {
+    return this.request<ConversationSettings>('/settings/conversation', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    });
+  }
+
+  async conversationTurn(request: ConversationTurnRequest): Promise<ConversationTurnResponse> {
+    return this.request<ConversationTurnResponse>('/conversation/turn', {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
   }
 

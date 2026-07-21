@@ -3,12 +3,15 @@ import { apiClient } from '@/lib/api/client';
 import type {
   CaptureSettings,
   CaptureSettingsUpdate,
+  ConversationSettings,
+  ConversationSettingsUpdate,
   GenerationSettings,
   GenerationSettingsUpdate,
 } from '@/lib/api/types';
 
 const CAPTURE_SETTINGS_KEY = ['settings', 'captures'] as const;
 const GENERATION_SETTINGS_KEY = ['settings', 'generation'] as const;
+const CONVERSATION_SETTINGS_KEY = ['settings', 'conversation'] as const;
 
 /**
  * Hook for capture/refine defaults. Reads from the server and writes partial
@@ -95,6 +98,49 @@ export function useGenerationSettings() {
     },
     onSettled: (data) => {
       if (data) queryClient.setQueryData(GENERATION_SETTINGS_KEY, data);
+    },
+  });
+
+  return {
+    settings: query.data,
+    isLoading: query.isLoading,
+    update: mutation.mutate,
+  };
+}
+
+/**
+ * Hook for BYO-LLM conversation mode settings. Same optimistic pattern.
+ */
+export function useConversationSettings() {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: CONVERSATION_SETTINGS_KEY,
+    queryFn: () => apiClient.getConversationSettings(),
+    staleTime: Infinity,
+  });
+
+  const mutation = useMutation({
+    mutationFn: (patch: ConversationSettingsUpdate) =>
+      apiClient.updateConversationSettings(patch),
+    onMutate: async (patch) => {
+      await queryClient.cancelQueries({ queryKey: CONVERSATION_SETTINGS_KEY });
+      const previous = queryClient.getQueryData<ConversationSettings>(CONVERSATION_SETTINGS_KEY);
+      if (previous) {
+        queryClient.setQueryData<ConversationSettings>(CONVERSATION_SETTINGS_KEY, {
+          ...previous,
+          ...patch,
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _patch, ctx) => {
+      if (ctx?.previous) {
+        queryClient.setQueryData(CONVERSATION_SETTINGS_KEY, ctx.previous);
+      }
+    },
+    onSettled: (data) => {
+      if (data) queryClient.setQueryData(CONVERSATION_SETTINGS_KEY, data);
     },
   });
 

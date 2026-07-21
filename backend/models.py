@@ -307,6 +307,55 @@ class GenerationSettingsUpdate(BaseModel):
     autoplay_on_generate: Optional[bool] = None
 
 
+class ConversationSettingsResponse(BaseModel):
+    """Server-persisted settings for BYO-LLM conversational voice mode."""
+
+    enabled: bool = False
+    llm_endpoint: Optional[str] = None
+    llm_api_key: Optional[str] = None
+    llm_model: Optional[str] = None
+    system_prompt_prefix: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ConversationSettingsUpdate(BaseModel):
+    """Partial update for conversation settings — every field is optional."""
+
+    enabled: Optional[bool] = None
+    llm_endpoint: Optional[str] = Field(None, max_length=500)
+    llm_api_key: Optional[str] = Field(None, max_length=500)
+    llm_model: Optional[str] = Field(None, max_length=200)
+    system_prompt_prefix: Optional[str] = Field(None, max_length=2000)
+
+
+class ConversationMessage(BaseModel):
+    """A single message in a conversation history."""
+
+    role: str  # "user" or "assistant"
+    content: str
+
+
+class ConversationTurnRequest(BaseModel):
+    """Request for one conversational turn: user_message → LLM reply → TTS."""
+
+    profile_id: str
+    user_message: str = Field(..., min_length=1, max_length=4000)
+    history: List[ConversationMessage] = Field(default_factory=list, max_length=50)
+    language: str = Field(default="en")
+    engine: Optional[str] = Field(default="qwen")
+    model_size: Optional[str] = Field(default="1.7B")
+
+
+class ConversationTurnResponse(BaseModel):
+    """Response for one conversational turn."""
+
+    assistant_text: str
+    generation_id: Optional[str] = None
+    audio_url: Optional[str] = None
+
+
 class MCPClientBindingResponse(BaseModel):
     """Per-MCP-client voice binding — what voice / engine the server should
     use when a given client_id calls voicebox.speak without args, plus an
