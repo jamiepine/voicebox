@@ -56,9 +56,9 @@ def client(tmp_path, monkeypatch):
         connect_args={"check_same_thread": False},
     )
     Base.metadata.create_all(bind=engine)
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    testing_session_local = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-    session = TestingSessionLocal()
+    session = testing_session_local()
     profile = VoiceProfile(id="profile-1", name="Test Profile")
     session.add(profile)
 
@@ -114,7 +114,7 @@ def client(tmp_path, monkeypatch):
     app.include_router(audio_router)
 
     def override_get_db():
-        db = TestingSessionLocal()
+        db = testing_session_local()
         try:
             yield db
         finally:
