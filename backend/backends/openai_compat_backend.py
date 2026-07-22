@@ -185,4 +185,13 @@ def _extract_content(data: dict, url: str) -> str:
         content = first.get("text")
     if content is None:
         raise ValueError(f"No content in response from {url}: {data!r}")
+    if not isinstance(content, str):
+        # Vision-capable and tool-use servers sometimes return the content as
+        # an array of typed parts instead of a bare string. Refinement /
+        # personality are text-only paths, so surface a clear error instead
+        # of tripping ``AttributeError`` on ``.strip()`` and burying the
+        # shape mismatch.
+        raise ValueError(
+            f"Unexpected content type {type(content).__name__} in response from {url}: {data!r}"
+        )
     return content.strip()

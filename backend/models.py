@@ -2,8 +2,8 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_validator
+from typing import Any, Optional, List
 from datetime import datetime
 
 from .utils.capture_chords import (
@@ -266,7 +266,36 @@ class CaptureSettingsResponse(BaseModel):
     )
     custom_llm_endpoint: Optional[str] = None
     custom_llm_model: Optional[str] = None
-    custom_llm_api_key: Optional[str] = None
+    # Provider credential — write-only. The response reports whether one is
+    # configured but never echoes the value, so the settings API can't be
+    # used to exfiltrate stored keys and the frontend can't rehydrate them
+    # into React state where a browser cache could pick them up.
+    custom_llm_api_key_configured: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _mask_custom_llm_api_key(cls, data: Any) -> Any:
+        """Replace the raw ``custom_llm_api_key`` with a boolean ``_configured`` flag.
+
+        Runs before field validation so the stored credential is never
+        materialised on a Response instance, even in memory. Accepts both
+        SQLAlchemy ORM rows (``from_attributes=True`` path) and plain dicts
+        so tests that construct the model directly get the same treatment.
+        """
+        if isinstance(data, dict):
+            raw_key = data.pop("custom_llm_api_key", None)
+            data.setdefault("custom_llm_api_key_configured", bool(raw_key))
+            return data
+        # ORM row — build a snapshot dict, drop the secret, and hand the
+        # rest to Pydantic. ``from_attributes`` won't reach the raw
+        # attribute anymore because the returned dict wins.
+        columns = getattr(getattr(data, "__table__", None), "columns", None)
+        if columns is None:
+            return data
+        snapshot = {c.name: getattr(data, c.name, None) for c in columns}
+        raw_key = snapshot.pop("custom_llm_api_key", None)
+        snapshot["custom_llm_api_key_configured"] = bool(raw_key)
+        return snapshot
 
     class Config:
         from_attributes = True

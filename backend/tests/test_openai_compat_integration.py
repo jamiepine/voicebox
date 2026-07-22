@@ -110,26 +110,40 @@ async def test_backend_generates_non_empty_response():
 
 
 async def test_backend_respects_examples_history():
-    """Few-shot examples reach the endpoint as proper user/assistant turns."""
+    """Few-shot examples reach the endpoint as proper user/assistant turns.
+
+    Uses an arbitrary mapping (``ping → PONG``, ``foo → BAR``) so a passing
+    assertion actually proves the examples were serialised into the
+    request. A non-empty translation would still pass if ``examples``
+    were silently dropped; the model has to have seen the pattern to
+    return the mapped token on a novel input.
+    """
     backend = OpenAICompatLLMBackend(
         endpoint=_endpoint(),
         model=_model(),
         api_key=_api_key(),
     )
     reply = await backend.generate(
-        prompt="hola",
+        prompt="baz",
         system=(
-            "You are a translation bot. Reply with the single-word English "
-            "translation of the user's message and nothing else."
+            "You are a lookup function. Respond with exactly one uppercase word "
+            "matching the mapping shown in the examples and nothing else."
         ),
-        max_tokens=16,
+        max_tokens=8,
         temperature=0.0,
         examples=[
-            ("bonjour", "hello"),
-            ("guten tag", "hello"),
+            ("ping", "PONG"),
+            ("foo", "BAR"),
         ],
     )
-    assert reply.strip(), "Endpoint returned an empty translation"
+    stripped = reply.strip().upper()
+    # The model may add punctuation; check that the mapped-shape token
+    # ("QUX" is the natural next entry after PONG/BAR) leads the reply.
+    assert stripped, "Endpoint returned an empty response to a few-shot prompt"
+    assert stripped.startswith(("QUX", "BAZ")), (
+        f"Reply {reply!r} doesn't look like it followed the example mapping — "
+        "the ``examples`` field may have been dropped in transit."
+    )
 
 
 async def test_dispatch_returns_openai_compat_when_config_set():
