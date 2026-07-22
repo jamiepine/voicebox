@@ -242,6 +242,58 @@ export type CaptureSettingsUpdate = Partial<
   custom_llm_api_key?: string | null;
 };
 
+// --- POST /speak/stream ---------------------------------------------------
+//
+// Request body for the SSE streaming variant of /speak. Shape mirrors the
+// backend Pydantic ``SpeakStreamRequest`` — same profile / engine /
+// personality resolution as /speak plus a chunk sizer.
+export interface StreamingSpeakRequest {
+  text: string;
+  profile?: string;
+  engine?: string;
+  personality?: boolean;
+  language?: string;
+  max_chunk_chars?: number;
+}
+
+// SSE frame shapes. The ``type`` discriminator lets the client route a
+// parsed frame to the correct handler without a schema lookup.
+export interface SpeakStreamMeta {
+  type: 'meta';
+  generation_id: string;
+  sample_rate: number;
+  channels: number;
+  streaming_llm: boolean;
+}
+
+export interface SpeakStreamAudio {
+  type: 'audio';
+  sentence_index: number;
+  /** Base64-encoded raw PCM float32 samples, little-endian, single channel. */
+  pcm_base64: string;
+  text: string;
+}
+
+export interface SpeakStreamComplete {
+  type: 'complete';
+  generation_id: string;
+  duration: number;
+  audio_path?: string | null;
+}
+
+export interface SpeakStreamError {
+  type: 'error';
+  generation_id?: string | null;
+  message: string;
+}
+
+/** Discriminated union of every frame the ``/speak/stream`` route emits. */
+export type SpeakStreamEvent =
+  | SpeakStreamMeta
+  | SpeakStreamAudio
+  | SpeakStreamComplete
+  | SpeakStreamError;
+
 /**
  * One row in the dictation readiness checklist. ``model_name`` is the
  * canonical id understood by ``POST /models/download`` so the UI can wire a
