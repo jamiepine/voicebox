@@ -9,9 +9,10 @@ Short text (≤ max_chunk_chars) uses the single-shot fast path with zero
 overhead.
 """
 
+import asyncio
 import logging
 import re
-from typing import List, Tuple
+from typing import AsyncIterator, List, Tuple
 
 import numpy as np
 
@@ -102,6 +103,37 @@ def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) 
         remaining = remaining[split_pos + 1 :]
 
     return chunks
+
+
+def _find_first_sentence_end(text: str) -> int:
+    """Return the index of the *first* sentence-ending punctuation in ``text``.
+
+    Mirror of :func:`_find_last_sentence_end` but scans forward instead of
+    backward — used by the streaming pipeline, which needs to flush the
+    earliest complete sentence as soon as it lands so the TTS backend can
+    start on it while the LLM keeps generating.
+    """
+    ascii_positions: List[int] = []
+    for m in re.finditer(r"[.!?](?:\s|$)", text):
+        pos = m.start()
+        char = text[pos]
+        if char == ".":
+            word_start = pos - 1
+            while word_start >= 0 and text[word_start].isalpha():
+                word_start -= 1
+            word = text[word_start + 1 : pos].lower()
+            if word in _ABBREVIATIONS:
+                continue
+            if word_start >= 0 and text[word_start].isdigit():
+                continue
+        if _inside_bracket_tag(text, pos):
+            continue
+        ascii_positions.append(pos)
+
+    cjk_positions = [m.start() for m in re.finditer(r"[。！？]", text)]
+
+    all_positions = ascii_positions + cjk_positions
+    return min(all_positions) if all_positions else -1
 
 
 def _find_last_sentence_end(text: str) -> int:
@@ -294,6 +326,172 @@ async def generate_chunked(
         audio_chunks.append(np.asarray(chunk_audio, dtype=np.float32))
         if sample_rate is None:
             sample_rate = chunk_sr
+
+    audio = concatenate_audio_chunks(audio_chunks, sample_rate, crossfade_ms=crossfade_ms)
+    return audio, sample_rate
+
+
+async def stream_sentences(
+    llm_stream: AsyncIterator[str],
+    max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+) -> AsyncIterator[str]:
+    """Buffer an LLM text stream and emit one complete sentence at a time.
+
+    Consumes ``llm_stream`` (typically ``LLMBackend.generate_stream``), keeps
+    a rolling text buffer, and yields as soon as a sentence-ending
+    punctuation lands inside it. If the buffer ever exceeds
+    ``max_chunk_chars`` without a sentence end, it flushes at a clause
+    boundary or whitespace so a runaway generation can't stall the TTS
+    pipeline forever. Trailing text (no punctuation on the last chunk)
+    is flushed at end-of-stream.
+    """
+    buffer = ""
+    async for delta in llm_stream:
+        if not delta:
+            continue
+        buffer += delta
+
+        while True:
+            # Preferred: a real sentence boundary.
+            end = _find_first_sentence_end(buffer)
+            if end != -1:
+                sentence = buffer[: end + 1].strip()
+                buffer = buffer[end + 1 :]
+                if sentence:
+                    yield sentence
+                continue
+
+            # Fallback: buffer got too long without punctuation. Cut at
+            # a clause boundary (or whitespace) so the TTS backend keeps
+            # moving even when the LLM produces one long run-on line.
+            if len(buffer) < max_chunk_chars:
+                break
+
+            segment = buffer[:max_chunk_chars]
+            cut = _find_last_clause_boundary(segment)
+            if cut == -1:
+                cut = segment.rfind(" ")
+            if cut == -1:
+                cut = _safe_hard_cut(segment, max_chunk_chars)
+
+            sentence = buffer[: cut + 1].strip()
+            buffer = buffer[cut + 1 :]
+            if sentence:
+                yield sentence
+
+    tail = buffer.strip()
+    if tail:
+        yield tail
+
+
+async def generate_streaming_from_sentences(
+    backend,
+    sentence_stream: AsyncIterator[str],
+    voice_prompt: dict,
+    language: str = "en",
+    seed: int | None = None,
+    instruct: str | None = None,
+    trim_fn=None,
+) -> AsyncIterator[Tuple[np.ndarray, int]]:
+    """Fire per-sentence TTS as sentences arrive; yield ordered audio chunks.
+
+    Each sentence is dispatched to ``backend.generate`` as an
+    ``asyncio.create_task`` the moment it lands, so sentence *N+1*'s TTS
+    starts running while sentence *N*'s audio is still being awaited by the
+    caller. The tasks are awaited in submission order, so the yielded
+    ``(audio, sample_rate)`` tuples arrive in the same order the sentences
+    were produced — the caller doesn't have to reorder anything.
+    """
+    pending: List[asyncio.Task] = []
+    index = 0
+
+    async def _drain_ready() -> AsyncIterator[Tuple[np.ndarray, int]]:
+        while pending and pending[0].done():
+            task = pending.pop(0)
+            audio, sr = task.result()
+            if trim_fn is not None:
+                audio = trim_fn(audio, sr)
+            yield np.asarray(audio, dtype=np.float32), sr
+
+    async for sentence in sentence_stream:
+        # Vary the seed per sentence to avoid correlated RNG artefacts but
+        # keep it deterministic for a given (seed, sentence-index).
+        chunk_seed = (seed + index) if seed is not None else None
+        pending.append(
+            asyncio.create_task(
+                backend.generate(sentence, voice_prompt, language, chunk_seed, instruct)
+            )
+        )
+        index += 1
+
+        async for out in _drain_ready():
+            yield out
+
+    for task in pending:
+        audio, sr = await task
+        if trim_fn is not None:
+            audio = trim_fn(audio, sr)
+        yield np.asarray(audio, dtype=np.float32), sr
+
+
+async def generate_streaming_chunked(
+    llm_backend,
+    tts_backend,
+    prompt: str,
+    voice_prompt: dict,
+    *,
+    system: str | None = None,
+    llm_max_tokens: int = 512,
+    llm_temperature: float = 0.7,
+    llm_model_size: str | None = None,
+    llm_examples: list[tuple[str, str]] | None = None,
+    language: str = "en",
+    seed: int | None = None,
+    instruct: str | None = None,
+    max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    crossfade_ms: int = 50,
+    trim_fn=None,
+) -> Tuple[np.ndarray, int]:
+    """End-to-end LLM stream → per-sentence TTS → concatenated audio.
+
+    Pulls text from ``llm_backend.generate_stream``, batches into sentences,
+    dispatches each sentence to ``tts_backend.generate`` as an asyncio task,
+    then concatenates the ordered audio chunks with a crossfade to remove
+    boundary clicks. First-audio-latency drops to roughly the LLM's
+    time-to-first-sentence plus one TTS chunk instead of the sum of the
+    two, which is the whole point of the streaming path.
+    """
+    llm_stream = llm_backend.generate_stream(
+        prompt,
+        system=system,
+        max_tokens=llm_max_tokens,
+        temperature=llm_temperature,
+        model_size=llm_model_size,
+        examples=llm_examples,
+    )
+    sentence_stream = stream_sentences(llm_stream, max_chunk_chars=max_chunk_chars)
+
+    audio_chunks: List[np.ndarray] = []
+    sample_rate: int | None = None
+    async for audio, sr in generate_streaming_from_sentences(
+        tts_backend,
+        sentence_stream,
+        voice_prompt,
+        language=language,
+        seed=seed,
+        instruct=instruct,
+        trim_fn=trim_fn,
+    ):
+        audio_chunks.append(audio)
+        if sample_rate is None:
+            sample_rate = sr
+
+    if sample_rate is None:
+        # Streaming produced no audio (empty LLM output). Callers that
+        # already validate against empty LLM output will have caught this
+        # upstream; returning an empty array keeps the type honest for
+        # anyone who didn't.
+        return np.array([], dtype=np.float32), 0
 
     audio = concatenate_audio_chunks(audio_chunks, sample_rate, crossfade_ms=crossfade_ms)
     return audio, sample_rate
