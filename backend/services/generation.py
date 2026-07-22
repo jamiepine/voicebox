@@ -102,7 +102,7 @@ async def run_generation(
             and getattr(llm_backend, "supports_streaming", lambda: False)()
         )
         if streaming_available:
-            audio, sample_rate = await _run_streaming_personality_generation(
+            audio, sample_rate, spoken_text = await _run_streaming_personality_generation(
                 llm_backend=llm_backend,
                 tts_backend=tts_model,
                 personality_prompt=personality_prompt,
@@ -112,6 +112,12 @@ async def run_generation(
                 max_chunk_chars=max_chunk_chars,
                 crossfade_ms=crossfade_ms,
             )
+            # The generations row was created with ``data.text`` (the raw
+            # user input) because the personality rewrite happens inside
+            # the streaming pipeline — patch the row with what was
+            # actually spoken so History matches the audio.
+            if spoken_text:
+                await _update_generation_text(generation_id, spoken_text, bg_db)
         else:
             audio, sample_rate = await generate_chunked(
                 tts_model, text, voice_prompt, **gen_kwargs
@@ -215,8 +221,9 @@ async def _run_streaming_personality_generation(
     sentence_stream = stream_sentences(llm_stream, max_chunk_chars=resolved_max_chunk)
 
     audio_chunks = []
+    sentence_texts: list[str] = []
     sample_rate: Optional[int] = None
-    async for audio, sr, _sentence in generate_streaming_from_sentences(
+    async for audio, sr, sentence in generate_streaming_from_sentences(
         tts_backend,
         sentence_stream,
         voice_prompt,
@@ -226,6 +233,7 @@ async def _run_streaming_personality_generation(
         trim_fn=gen_kwargs.get("trim_fn"),
     ):
         audio_chunks.append(audio)
+        sentence_texts.append(sentence)
         if sample_rate is None:
             sample_rate = sr
 
@@ -233,7 +241,30 @@ async def _run_streaming_personality_generation(
         raise ValueError("Streaming LLM produced no output; nothing to speak.")
 
     audio = concatenate_audio_chunks(audio_chunks, sample_rate, crossfade_ms=resolved_crossfade)
-    return audio, sample_rate
+    # Return the rewritten text alongside audio so the caller can persist
+    # what was actually spoken — otherwise History would keep the raw
+    # user input, which disagrees with the audio on personality paths.
+    spoken_text = " ".join(s for s in sentence_texts if s).strip()
+    return audio, sample_rate, spoken_text
+
+
+async def _update_generation_text(generation_id: str, text: str, db) -> None:
+    """Patch the persisted ``generations.text`` after a streaming personality run.
+
+    ``history.update_generation_status`` only writes status / error / audio_path
+    / duration, so we go direct on the row rather than growing that signature
+    for a personality-path corner case.
+    """
+    from ..database import Generation as DBGeneration
+
+    def _sync() -> None:
+        row = db.query(DBGeneration).filter_by(id=generation_id).first()
+        if row is None:
+            return
+        row.text = text
+        db.commit()
+
+    await asyncio.to_thread(_sync)
 
 
 def _notify_speak_end(generation_id: str, *, status: str) -> None:
