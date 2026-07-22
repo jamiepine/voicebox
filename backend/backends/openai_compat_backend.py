@@ -35,6 +35,18 @@ class OpenAICompatLLMBackend:
         api_key: Optional[str] = None,
         timeout: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     ):
+        """Configure the backend for a specific remote endpoint.
+
+        Args:
+            endpoint: Full base URL up to and including the ``/v1``
+                segment (trailing slash tolerated).
+            model: Model name to send in every request's ``model`` field.
+            api_key: Optional bearer token; empty string treated the same
+                as ``None`` so a blank UI field disables auth.
+            timeout: Per-request timeout in seconds. Defaults to two
+                minutes so slow remote hosts don't cut off long
+                generations.
+        """
         # Strip a trailing slash so callers can pass either
         # ``http://host:port/v1`` or ``http://host:port/v1/``.
         self.endpoint = endpoint.rstrip("/")
@@ -50,8 +62,13 @@ class OpenAICompatLLMBackend:
         self._current_model_size = model
 
     def is_loaded(self) -> bool:
-        # A remote endpoint is always "loaded" from this process's point of
-        # view — no local weights to page in.
+        """Return ``True`` unconditionally — the remote server owns model state.
+
+        Voicebox's shared plumbing polls ``is_loaded`` to decide whether
+        to show a "downloading model…" progress bar; since a remote
+        endpoint has nothing to page in from this process's point of
+        view, the answer is always yes.
+        """
         return True
 
     async def load_model(self, model_size: Optional[str] = None) -> None:  # noqa: ARG002
@@ -71,6 +88,20 @@ class OpenAICompatLLMBackend:
         model_size: Optional[str] = None,  # noqa: ARG002 — kept for protocol parity
         examples: Optional[list[tuple[str, str]]] = None,
     ) -> str:
+        """Post one non-streaming chat completion and return the assistant text.
+
+        Mirrors ``LLMBackend.generate`` — the same call signature the
+        built-in Qwen backends use — so refinement and personality
+        services can swap between local and remote transparently.
+        ``model_size`` is accepted for protocol parity but ignored:
+        remote model selection is pinned at construction time.
+
+        Raises:
+            httpx.HTTPStatusError: The remote returned a non-2xx status.
+            httpx.RequestError: Transport failure (timeout, DNS, TLS).
+            ValueError: The response was well-formed HTTP but carried no
+                content in either the chat or legacy completion shapes.
+        """
         messages = _build_messages(prompt, system, examples)
         payload = {
             "model": self.model,
@@ -113,6 +144,14 @@ def _build_messages(
     system: Optional[str],
     examples: Optional[list[tuple[str, str]]],
 ) -> list[dict]:
+    """Assemble the ``messages`` array for a chat completion request.
+
+    Optional system prompt and few-shot ``(user, assistant)`` pairs are
+    laid out in the order the OpenAI protocol expects: system first,
+    then example turns, then the fresh user prompt. Small models pattern-
+    match on inline examples in the system prompt but generalise from
+    structured turns, so refinement passes examples through this path.
+    """
     messages: list[dict] = []
     if system:
         messages.append({"role": "system", "content": system})
@@ -125,6 +164,14 @@ def _build_messages(
 
 
 def _extract_content(data: dict, url: str) -> str:
+    """Pull the assistant text out of a parsed chat-completion response.
+
+    Prefers the modern ``choices[0].message.content`` field but falls
+    back to the legacy ``choices[0].text`` layout for servers that still
+    return the text-completion shape from the chat endpoint. Raises
+    ``ValueError`` when neither field is present so the failure surfaces
+    with the offending URL and payload for debugging.
+    """
     choices = data.get("choices") or []
     if not choices:
         raise ValueError(f"No choices in response from {url}: {data!r}")
