@@ -9,7 +9,7 @@ and STT engines.
 
 import asyncio
 import logging
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 from . import LLMBackend, DEFAULT_LLM_MAX_TOKENS, DEFAULT_LLM_TEMPERATURE
 from .base import (
@@ -145,6 +145,35 @@ class PyTorchQwenLLMBackend:
             self._generate_sync, prompt, system, max_tokens, temperature, examples
         )
 
+    async def generate_stream(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
+        temperature: float = DEFAULT_LLM_TEMPERATURE,
+        model_size: Optional[str] = None,
+        examples: Optional[list[tuple[str, str]]] = None,
+    ) -> AsyncIterator[str]:
+        """Fallback that yields the full generate() result as a single chunk.
+
+        Adding a real token-by-token stream to transformers.generate would
+        require a TextIteratorStreamer + threading dance; leaving that to
+        a follow-up keeps the fallback surface small while consumers still
+        get the same content, just without overlap benefit.
+        """
+        text = await self.generate(
+            prompt,
+            system=system,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model_size=model_size,
+            examples=examples,
+        )
+        yield text
+
+    def supports_streaming(self) -> bool:
+        return False
+
     def _generate_sync(
         self,
         prompt: str,
@@ -261,6 +290,35 @@ class MLXQwenLLMBackend:
         return await asyncio.to_thread(
             self._generate_sync, prompt, system, max_tokens, temperature, examples
         )
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
+        temperature: float = DEFAULT_LLM_TEMPERATURE,
+        model_size: Optional[str] = None,
+        examples: Optional[list[tuple[str, str]]] = None,
+    ) -> AsyncIterator[str]:
+        """Fallback yielding the full generate() result as a single chunk.
+
+        mlx_lm has a token-by-token generator API but hooking it up would
+        require re-implementing the ``mlx_generate`` convenience wrapper.
+        Left to a follow-up; the single-chunk fallback keeps the
+        surface uniform for now.
+        """
+        text = await self.generate(
+            prompt,
+            system=system,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model_size=model_size,
+            examples=examples,
+        )
+        yield text
+
+    def supports_streaming(self) -> bool:
+        return False
 
     def _generate_sync(
         self,

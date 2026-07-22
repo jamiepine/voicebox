@@ -14,7 +14,7 @@ from ..utils import hf_offline_patch  # noqa: F401
 
 import threading
 from dataclasses import dataclass, field
-from typing import Protocol, Optional, Tuple, List
+from typing import AsyncIterator, Protocol, Optional, Tuple, List
 from typing_extensions import runtime_checkable
 import numpy as np
 
@@ -187,6 +187,35 @@ class LLMBackend(Protocol):
         pattern-match on inline system-prompt examples (echoing them
         verbatim for unrelated inputs), but treat structured turns as
         data and generalize instead. Used by the refinement service.
+        """
+        ...
+
+    def generate_stream(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
+        temperature: float = DEFAULT_LLM_TEMPERATURE,
+        model_size: Optional[str] = None,
+        examples: Optional[list[tuple[str, str]]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream the assistant reply as text deltas.
+
+        For OpenAI-compatible remote endpoints this yields per-token
+        deltas as they arrive. Backends without a true streaming path
+        (the built-in Qwen3 loaders) fall back to a single yield of the
+        full generate() result — consumers get the same content and can
+        treat the iterator uniformly, they just won't see any overlap
+        benefit until the underlying backend gains real streaming.
+        """
+        ...
+
+    def supports_streaming(self) -> bool:
+        """Whether the backend produces incremental deltas from generate_stream.
+
+        Callers use this to decide whether spinning up a per-sentence TTS
+        pipeline is worth the coordination overhead vs. running the
+        existing sequential generate → chunked TTS path.
         """
         ...
 
