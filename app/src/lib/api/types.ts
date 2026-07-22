@@ -225,10 +225,22 @@ export interface CaptureSettings {
    */
   custom_llm_endpoint: string | null;
   custom_llm_model: string | null;
-  custom_llm_api_key: string | null;
+  /**
+   * Whether a custom LLM API key is currently stored on the server. The raw
+   * key value never rides the response — this flag replaces it — so the
+   * settings UI can show a "Configured" indicator without letting the
+   * frontend rehydrate the secret into state or leak it to a browser cache.
+   * Writes still go through ``CaptureSettingsUpdate.custom_llm_api_key``.
+   */
+  custom_llm_api_key_configured: boolean;
 }
 
-export type CaptureSettingsUpdate = Partial<CaptureSettings>;
+export type CaptureSettingsUpdate = Partial<
+  Omit<CaptureSettings, 'custom_llm_api_key_configured'>
+> & {
+  /** Write-only: setting this to a non-empty string stores it, ``null`` clears it. */
+  custom_llm_api_key?: string | null;
+};
 
 /**
  * One row in the dictation readiness checklist. ``model_name`` is the

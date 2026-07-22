@@ -143,7 +143,10 @@ export function CapturesPage() {
   const toggleToTalkKeys = settings?.chord_toggle_to_talk_keys ?? defaultChordKeys('toggle');
   const customLlmEndpointSaved = settings?.custom_llm_endpoint ?? '';
   const customLlmModelSaved = settings?.custom_llm_model ?? '';
-  const customLlmApiKeySaved = settings?.custom_llm_api_key ?? '';
+  // The server no longer returns the API key value; it reports whether one
+  // is stored via ``custom_llm_api_key_configured``. Anything sitting in
+  // React state below is a freshly-typed key that hasn't been sent yet.
+  const customLlmApiKeyConfigured = Boolean(settings?.custom_llm_api_key_configured);
   const customLlmActive = Boolean(customLlmEndpointSaved && customLlmModelSaved);
 
   const [chordEditor, setChordEditor] = useState<'push' | 'toggle' | null>(null);
@@ -153,7 +156,10 @@ export function CapturesPage() {
   // re-render on every keystroke while the user types out a URL or token.
   const [customLlmEndpointDraft, setCustomLlmEndpointDraft] = useState(customLlmEndpointSaved);
   const [customLlmModelDraft, setCustomLlmModelDraft] = useState(customLlmModelSaved);
-  const [customLlmApiKeyDraft, setCustomLlmApiKeyDraft] = useState(customLlmApiKeySaved);
+  // Write-only field: the input is blank on load even when a key is stored,
+  // and clears itself after a successful save so the raw value never lingers
+  // in React state where a browser cache or dev-tools inspection could grab it.
+  const [customLlmApiKeyDraft, setCustomLlmApiKeyDraft] = useState('');
 
   useEffect(() => {
     setCustomLlmEndpointDraft(customLlmEndpointSaved);
@@ -161,9 +167,6 @@ export function CapturesPage() {
   useEffect(() => {
     setCustomLlmModelDraft(customLlmModelSaved);
   }, [customLlmModelSaved]);
-  useEffect(() => {
-    setCustomLlmApiKeyDraft(customLlmApiKeySaved);
-  }, [customLlmApiKeySaved]);
 
   const commitCustomLlmEndpoint = useCallback(() => {
     const next = customLlmEndpointDraft.trim();
@@ -178,14 +181,18 @@ export function CapturesPage() {
     }
   }, [customLlmModelDraft, customLlmModelSaved, update]);
   const commitCustomLlmApiKey = useCallback(() => {
-    // The API key can legitimately contain leading/trailing punctuation for
-    // some providers, so we only trim when the whole field is whitespace.
     const trimmed = customLlmApiKeyDraft.trim();
-    const next = trimmed ? customLlmApiKeyDraft : '';
-    if (next !== customLlmApiKeySaved) {
-      update({ custom_llm_api_key: next || null });
-    }
-  }, [customLlmApiKeyDraft, customLlmApiKeySaved, update]);
+    if (!trimmed) return;
+    // Fire-and-forget the key, then wipe it from state so nothing else in
+    // the tree can read it back. The server flag flips to `configured=true`
+    // on the next settings query.
+    update({ custom_llm_api_key: customLlmApiKeyDraft });
+    setCustomLlmApiKeyDraft('');
+  }, [customLlmApiKeyDraft, update]);
+  const clearCustomLlmApiKey = useCallback(() => {
+    setCustomLlmApiKeyDraft('');
+    update({ custom_llm_api_key: null });
+  }, [update]);
 
   useEffect(() => {
     fetch(`${serverUrl}/health/filesystem`)
@@ -501,6 +508,9 @@ export function CapturesPage() {
           description={t('settings.captures.refinement.customEndpoint.description')}
         >
           <div className="space-y-2 max-w-lg">
+            <label htmlFor="customLlmEndpoint" className="block text-xs font-medium text-muted-foreground">
+              {t('settings.captures.refinement.customEndpoint.endpointLabel')}
+            </label>
             <Input
               id="customLlmEndpoint"
               type="url"
@@ -511,7 +521,11 @@ export function CapturesPage() {
               disabled={!autoRefine}
               autoComplete="off"
               spellCheck={false}
+              aria-label={t('settings.captures.refinement.customEndpoint.endpointLabel')}
             />
+            <label htmlFor="customLlmModel" className="block text-xs font-medium text-muted-foreground pt-1">
+              {t('settings.captures.refinement.customEndpoint.modelLabel')}
+            </label>
             <Input
               id="customLlmModel"
               type="text"
@@ -522,18 +536,45 @@ export function CapturesPage() {
               disabled={!autoRefine || !customLlmEndpointDraft}
               autoComplete="off"
               spellCheck={false}
+              aria-label={t('settings.captures.refinement.customEndpoint.modelLabel')}
             />
-            <Input
-              id="customLlmApiKey"
-              type="password"
-              placeholder={t('settings.captures.refinement.customEndpoint.apiKeyPlaceholder')}
-              value={customLlmApiKeyDraft}
-              onChange={(e) => setCustomLlmApiKeyDraft(e.target.value)}
-              onBlur={commitCustomLlmApiKey}
-              disabled={!autoRefine || !customLlmEndpointDraft}
-              autoComplete="off"
-              spellCheck={false}
-            />
+            <label htmlFor="customLlmApiKey" className="block text-xs font-medium text-muted-foreground pt-1">
+              {t('settings.captures.refinement.customEndpoint.apiKeyLabel')}
+              {customLlmApiKeyConfigured ? (
+                <span className="ml-2 text-[10px] uppercase tracking-wide text-emerald-600">
+                  {t('settings.captures.refinement.customEndpoint.apiKeyConfigured')}
+                </span>
+              ) : null}
+            </label>
+            <div className="flex gap-2">
+              <Input
+                id="customLlmApiKey"
+                type="password"
+                placeholder={
+                  customLlmApiKeyConfigured
+                    ? t('settings.captures.refinement.customEndpoint.apiKeyPlaceholderReplace')
+                    : t('settings.captures.refinement.customEndpoint.apiKeyPlaceholder')
+                }
+                value={customLlmApiKeyDraft}
+                onChange={(e) => setCustomLlmApiKeyDraft(e.target.value)}
+                onBlur={commitCustomLlmApiKey}
+                disabled={!autoRefine || !customLlmEndpointDraft}
+                autoComplete="new-password"
+                spellCheck={false}
+                aria-label={t('settings.captures.refinement.customEndpoint.apiKeyLabel')}
+                className="flex-1"
+              />
+              {customLlmApiKeyConfigured && (
+                <button
+                  type="button"
+                  onClick={clearCustomLlmApiKey}
+                  className="text-xs text-muted-foreground hover:text-destructive px-2 py-1 border border-border rounded-md"
+                  aria-label={t('settings.captures.refinement.customEndpoint.apiKeyClear')}
+                >
+                  {t('settings.captures.refinement.customEndpoint.apiKeyClear')}
+                </button>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {customLlmActive
                 ? t('settings.captures.refinement.customEndpoint.statusRemote', {
@@ -639,8 +680,14 @@ export function CapturesPage() {
             <li className="flex gap-2.5">
               <Lock className="h-4 w-4 shrink-0 mt-0.5 text-accent" />
               <span className="leading-relaxed">
-                <span className="text-foreground font-medium">{t('settings.captures.sidebar.local.title')}</span>{' '}
-                {t('settings.captures.sidebar.local.body')}
+                <span className="text-foreground font-medium">
+                  {customLlmActive
+                    ? t('settings.captures.sidebar.remote.title')
+                    : t('settings.captures.sidebar.local.title')}
+                </span>{' '}
+                {customLlmActive
+                  ? t('settings.captures.sidebar.remote.body', { endpoint: customLlmEndpointSaved })
+                  : t('settings.captures.sidebar.local.body')}
               </span>
             </li>
             <li className="flex gap-2.5">
