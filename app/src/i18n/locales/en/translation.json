@@ -986,11 +986,17 @@
         "customEndpoint": {
           "title": "Custom LLM endpoint (advanced)",
           "description": "Delegate refinement and personality rewrites to any OpenAI-compatible server — llama.cpp, vLLM, LM Studio, LocalAI, Ollama's shim, or the OpenAI API itself. Leave blank to use the built-in Qwen3.",
+          "endpointLabel": "Endpoint URL",
           "endpointPlaceholder": "http://localhost:8090/v1",
+          "modelLabel": "Model name",
           "modelPlaceholder": "Model name (e.g. qwen3-4b)",
+          "apiKeyLabel": "API key",
           "apiKeyPlaceholder": "API key (optional)",
+          "apiKeyPlaceholderReplace": "Enter a new key to replace the stored one",
+          "apiKeyConfigured": "Stored",
+          "apiKeyClear": "Clear",
           "statusBuiltin": "Using the built-in Qwen3 model selected above.",
-          "statusRemote": "Sending every refinement to {{endpoint}}."
+          "statusRemote": "Sending every refinement and personality rewrite to {{endpoint}}."
         }
       },
       "playback": {
@@ -1028,6 +1034,10 @@
         "local": {
           "title": "Fully local.",
           "body": "Whisper and the refinement LLM run on your hardware. No cloud, no accounts, your voice never leaves the machine."
+        },
+        "remote": {
+          "title": "Refinement runs remotely.",
+          "body": "Whisper still transcribes on your hardware, but refined transcripts and personality rewrites are sent to {{endpoint}}. Voice audio itself never leaves the machine."
         },
         "playAs": {
           "title": "Play as any voice.",
