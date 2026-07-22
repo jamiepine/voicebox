@@ -217,6 +217,15 @@ export interface CaptureSettings {
   chord_push_to_talk_keys: string[];
   /** keytap key names. Toggle adds Space to the platform-specific PTT chord. */
   chord_toggle_to_talk_keys: string[];
+  /**
+   * Optional OpenAI-compatible endpoint that overrides the built-in Qwen3
+   * LLM for refinement / personality rewriting. When set, backend calls hit
+   * `POST {custom_llm_endpoint}/chat/completions` with the model named by
+   * ``custom_llm_model``; leaving it null keeps the on-device Qwen path.
+   */
+  custom_llm_endpoint: string | null;
+  custom_llm_model: string | null;
+  custom_llm_api_key: string | null;
 }
 
 export type CaptureSettingsUpdate = Partial<CaptureSettings>;
