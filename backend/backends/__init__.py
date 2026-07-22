@@ -752,7 +752,7 @@ def set_llm_config(
     model: Optional[str],
     api_key: Optional[str],
 ) -> None:
-    """Update the runtime custom-LLM endpoint config.
+    """Update the runtime custom-LLM endpoint config atomically.
 
     Called from the settings service whenever the user writes to the
     ``custom_llm_endpoint`` / ``custom_llm_model`` / ``custom_llm_api_key``
@@ -760,23 +760,25 @@ def set_llm_config(
     strings or ``None`` clears the config and reverts subsequent
     ``get_llm_backend()`` calls to the built-in Qwen3 path.
 
-    A change drops any cached OpenAI-compat backend so the next call
-    rebuilds against the new URL / model rather than reusing a stale one.
+    The write, the change detection, and the cache invalidation all run
+    under ``_llm_backends_lock`` so a concurrent ``get_llm_backend()``
+    can't sample the endpoint/model/key mid-update and end up talking
+    to a stale URL with fresh credentials (or vice versa).
     """
     global _custom_llm_endpoint, _custom_llm_model, _custom_llm_api_key
     endpoint = endpoint or None
     model = model or None
     api_key = api_key or None
-    changed = (
-        endpoint != _custom_llm_endpoint
-        or model != _custom_llm_model
-        or api_key != _custom_llm_api_key
-    )
-    _custom_llm_endpoint = endpoint
-    _custom_llm_model = model
-    _custom_llm_api_key = api_key
-    if changed:
-        with _llm_backends_lock:
+    with _llm_backends_lock:
+        changed = (
+            endpoint != _custom_llm_endpoint
+            or model != _custom_llm_model
+            or api_key != _custom_llm_api_key
+        )
+        _custom_llm_endpoint = endpoint
+        _custom_llm_model = model
+        _custom_llm_api_key = api_key
+        if changed:
             _llm_backends.pop("openai_compat", None)
 
 
@@ -787,30 +789,35 @@ def get_llm_backend() -> LLMBackend:
     ``set_llm_config()``, returns an ``OpenAICompatLLMBackend`` targeting
     that endpoint; otherwise falls back to the platform-specific Qwen3
     backend (MLX on Apple Silicon, PyTorch elsewhere).
+
+    The config snapshot, cache lookup, and (if needed) backend
+    construction all happen inside ``_llm_backends_lock`` so a request
+    can't race a ``set_llm_config()`` write and end up talking to a
+    prior endpoint using fresh credentials, or the reverse.
     """
-    if _custom_llm_endpoint and _custom_llm_model:
-        return _get_openai_compat_backend()
-    return get_llm_backend_for_engine("qwen_llm")
+    from .openai_compat_backend import OpenAICompatLLMBackend
 
-
-def _get_openai_compat_backend() -> LLMBackend:
-    """Return the cached OpenAI-compat backend, creating it on first call."""
-    cached = _llm_backends.get("openai_compat")
-    if cached is not None:
-        return cached
     with _llm_backends_lock:
-        cached = _llm_backends.get("openai_compat")
-        if cached is not None:
-            return cached
-        from .openai_compat_backend import OpenAICompatLLMBackend
+        endpoint = _custom_llm_endpoint
+        model = _custom_llm_model
+        api_key = _custom_llm_api_key
+        if endpoint and model:
+            cached = _llm_backends.get("openai_compat")
+            if cached is not None:
+                return cached
+            backend = OpenAICompatLLMBackend(
+                endpoint=endpoint,
+                model=model,
+                api_key=api_key,
+            )
+            _llm_backends["openai_compat"] = backend
+            return backend
 
-        backend = OpenAICompatLLMBackend(
-            endpoint=_custom_llm_endpoint,
-            model=_custom_llm_model,
-            api_key=_custom_llm_api_key,
-        )
-        _llm_backends["openai_compat"] = backend
-        return backend
+    # No custom config — hand off to the Qwen dispatch, which has its own
+    # lock and can take multiple seconds to load a model. Do that outside
+    # ``_llm_backends_lock`` so a slow model load doesn't block concurrent
+    # ``set_llm_config()`` writes.
+    return get_llm_backend_for_engine("qwen_llm")
 
 
 def get_llm_backend_for_engine(engine: str) -> LLMBackend:
