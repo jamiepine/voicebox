@@ -20,8 +20,11 @@ COPY package.json bun.lock CHANGELOG.md ./
 COPY app/ ./app/
 COPY web/ ./web/
 
-# Strip workspaces not needed for web build, and fix trailing comma
-RUN sed -i '/"tauri"/d; /"landing"/d' package.json && \
+# Normalize line endings first (a Windows CRLF checkout would otherwise
+# defeat the `-z 's/,\n  ]/…/'` match below, since it's LF-anchored), then
+# strip workspaces not needed for web build, and fix trailing comma
+RUN sed -i 's/\r$//' package.json && \
+    sed -i '/"tauri"/d; /"landing"/d' package.json && \
     sed -i -z 's/,\n  ]/\n  ]/' package.json
 RUN bun install --no-save
 # Build frontend (skip tsc — upstream has pre-existing type errors)
@@ -100,7 +103,11 @@ EXPOSE 17493
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
     CMD curl -f http://localhost:17493/health || exit 1
 
-# Entrypoint joins GPU groups then drops to the voicebox user
+# Entrypoint joins GPU groups then drops to the voicebox user.
+# Normalize CRLF (a Windows checkout otherwise leaves the shebang as
+# `#!/bin/sh\r`, which Linux can't resolve — reported as a misleading
+# "no such file or directory" even though the file exists).
 COPY --chmod=755 scripts/rocm-entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "17493"]
