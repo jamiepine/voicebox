@@ -13,8 +13,9 @@ The user configures ``custom_llm_endpoint`` / ``custom_llm_model`` /
 built-in Qwen3 backend.
 """
 
+import json
 import logging
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 import httpx
 
@@ -137,6 +138,108 @@ class OpenAICompatLLMBackend:
             data = response.json()
 
         return _extract_content(data, url)
+
+    async def generate_stream(
+        self,
+        prompt: str,
+        system: Optional[str] = None,
+        max_tokens: int = DEFAULT_LLM_MAX_TOKENS,
+        temperature: float = DEFAULT_LLM_TEMPERATURE,
+        model_size: Optional[str] = None,  # noqa: ARG002 — kept for protocol parity
+        examples: Optional[list[tuple[str, str]]] = None,
+    ) -> AsyncIterator[str]:
+        """Stream the assistant reply as text deltas via OpenAI SSE.
+
+        Each yielded string is the ``delta.content`` field of one chunk.
+        Consumers accumulate these to reconstruct the full reply; the
+        streaming TTS pipeline in ``chunked_tts`` uses the accumulator
+        to fire per-sentence TTS as soon as a sentence boundary lands.
+        """
+        messages = _build_messages(prompt, system, examples)
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": True,
+        }
+        headers = {
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+
+        url = f"{self.endpoint}/chat/completions"
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            try:
+                async with client.stream("POST", url, headers=headers, json=payload) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        delta = _parse_sse_delta(line)
+                        if delta is _SSE_DONE:
+                            break
+                        if delta:
+                            yield delta
+            except httpx.HTTPStatusError as exc:
+                body_preview = ""
+                try:
+                    body_preview = (await exc.response.aread()).decode("utf-8", "replace")[:500]
+                except Exception:
+                    pass
+                logger.error(
+                    "OpenAI-compat streaming endpoint %s returned %d: %s",
+                    url,
+                    exc.response.status_code,
+                    body_preview,
+                )
+                raise
+            except httpx.RequestError as exc:
+                logger.error("OpenAI-compat streaming endpoint %s request failed: %s", url, exc)
+                raise
+
+    def supports_streaming(self) -> bool:
+        return True
+
+
+# Sentinel returned by ``_parse_sse_delta`` when the terminal ``[DONE]``
+# marker arrives — an in-band value distinct from "no content to yield".
+_SSE_DONE = object()
+
+
+def _parse_sse_delta(line: str) -> object:
+    """Extract ``delta.content`` from a single SSE line.
+
+    Returns:
+      - ``_SSE_DONE`` when the terminal ``data: [DONE]`` marker arrives.
+      - An empty string on lines with no useful payload (comments,
+        keep-alives, role-only deltas, blank frames) — callers should skip.
+      - The delta content string otherwise.
+    """
+    if not line or not line.startswith("data:"):
+        # Comments start with ``:`` (keep-alive heartbeats) or the line
+        # is a blank separator between events; nothing to yield.
+        return ""
+
+    payload = line[5:].strip()
+    if payload == "[DONE]":
+        return _SSE_DONE
+    if not payload:
+        return ""
+
+    try:
+        chunk = json.loads(payload)
+    except json.JSONDecodeError:
+        logger.debug("Ignoring malformed SSE frame: %s", payload[:120])
+        return ""
+
+    choices = chunk.get("choices") or []
+    if not choices:
+        return ""
+
+    delta = choices[0].get("delta") or {}
+    content = delta.get("content")
+    return content if isinstance(content, str) else ""
 
 
 def _build_messages(
