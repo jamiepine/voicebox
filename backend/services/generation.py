@@ -42,13 +42,25 @@ async def run_generation(
     max_chunk_chars: Optional[int] = None,
     crossfade_ms: Optional[int] = None,
     version_id: Optional[str] = None,
+    personality_prompt: Optional[str] = None,
 ) -> None:
     """Execute TTS inference and persist the result.
 
     This is the single entry point for all background generation work.
     It is designed to be enqueued via ``services.task_queue.enqueue_generation``.
+
+    When ``personality_prompt`` is set and the active LLM backend supports
+    streaming, ``text`` is treated as the user's input and the LLM is
+    streamed into per-sentence TTS jobs — first-audio-latency drops from
+    (LLM_time + TTS_time) to roughly max(LLM_time, TTS_time). Backends
+    without a real stream fall back to the sequential path.
     """
-    from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
+    from ..backends import (
+        get_llm_backend,
+        get_tts_backend_for_engine,
+        load_engine_model,
+        engine_needs_trim,
+    )
     from ..utils.chunked_tts import generate_chunked
     from ..utils.audio import normalize_audio, save_audio, trim_tts_output
 
@@ -84,7 +96,26 @@ async def run_generation(
         if crossfade_ms is not None:
             gen_kwargs["crossfade_ms"] = crossfade_ms
 
-        audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
+        llm_backend = get_llm_backend()
+        streaming_available = bool(
+            personality_prompt
+            and getattr(llm_backend, "supports_streaming", lambda: False)()
+        )
+        if streaming_available:
+            audio, sample_rate = await _run_streaming_personality_generation(
+                llm_backend=llm_backend,
+                tts_backend=tts_model,
+                personality_prompt=personality_prompt,
+                user_text=text,
+                voice_prompt=voice_prompt,
+                gen_kwargs=gen_kwargs,
+                max_chunk_chars=max_chunk_chars,
+                crossfade_ms=crossfade_ms,
+            )
+        else:
+            audio, sample_rate = await generate_chunked(
+                tts_model, text, voice_prompt, **gen_kwargs
+            )
 
         # --- Normalize (generate and regenerate always; retry skips) -----
         if normalize or mode == "regenerate":
@@ -149,6 +180,60 @@ async def run_generation(
     finally:
         task_manager.complete_generation(generation_id)
         bg_db.close()
+
+
+async def _run_streaming_personality_generation(
+    *,
+    llm_backend,
+    tts_backend,
+    personality_prompt: str,
+    user_text: str,
+    voice_prompt: dict,
+    gen_kwargs: dict,
+    max_chunk_chars: Optional[int],
+    crossfade_ms: Optional[int],
+) -> tuple:
+    """Drive the LLM stream → per-sentence TTS pipeline for the personality path.
+
+    Kept out of :func:`run_generation` so the sequential-path body stays
+    readable — this is the concurrent branch, and it needs a handful of
+    imports the sequential path doesn't touch.
+    """
+    from .personality import rewrite_as_profile_stream
+    from ..utils.chunked_tts import (
+        DEFAULT_MAX_CHUNK_CHARS,
+        concatenate_audio_chunks,
+        generate_streaming_from_sentences,
+        stream_sentences,
+    )
+    import numpy as np
+
+    resolved_max_chunk = max_chunk_chars if max_chunk_chars is not None else DEFAULT_MAX_CHUNK_CHARS
+    resolved_crossfade = crossfade_ms if crossfade_ms is not None else 50
+
+    llm_stream = rewrite_as_profile_stream(personality_prompt, user_text)
+    sentence_stream = stream_sentences(llm_stream, max_chunk_chars=resolved_max_chunk)
+
+    audio_chunks = []
+    sample_rate: Optional[int] = None
+    async for audio, sr in generate_streaming_from_sentences(
+        tts_backend,
+        sentence_stream,
+        voice_prompt,
+        language=gen_kwargs.get("language", "en"),
+        seed=gen_kwargs.get("seed"),
+        instruct=gen_kwargs.get("instruct"),
+        trim_fn=gen_kwargs.get("trim_fn"),
+    ):
+        audio_chunks.append(audio)
+        if sample_rate is None:
+            sample_rate = sr
+
+    if sample_rate is None:
+        raise ValueError("Streaming LLM produced no output; nothing to speak.")
+
+    audio = concatenate_audio_chunks(audio_chunks, sample_rate, crossfade_ms=resolved_crossfade)
+    return audio, sample_rate
 
 
 def _notify_speak_end(generation_id: str, *, status: str) -> None:
