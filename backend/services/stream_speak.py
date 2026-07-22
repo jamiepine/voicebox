@@ -212,7 +212,13 @@ async def stream_speak_events(
             models.SpeakStreamComplete(
                 generation_id=generation_id,
                 duration=len(final_audio) / sample_rate,
-                audio_path=str(final_path),
+                # Match the ``audio_path`` shape the generations row was
+                # persisted with (storage-relative, via
+                # ``config.to_storage_path``) so a client looking the row
+                # up by ``generation_id`` finds the same path in both
+                # places rather than an absolute filesystem path here and
+                # a storage-relative one in History.
+                audio_path=config.to_storage_path(final_path),
             ).model_dump()
         )
         yield _sse_done()
