@@ -78,15 +78,29 @@ async def generate_speech(
 
     text = data.text
     source = "manual"
+    personality_prompt: str | None = None
     if data.personality and getattr(profile, "personality", None):
-        try:
-            llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-        text = llm_result.text.strip()
-        if not text:
-            raise HTTPException(status_code=500, detail="LLM produced empty output; nothing to speak.")
-        source = "personality_speak"
+        # When the active LLM backend can stream, defer the rewrite into
+        # the background task so it can overlap with per-sentence TTS.
+        # Otherwise materialise the full rewrite up-front (existing path)
+        # so the DB row records the actual spoken text before enqueueing.
+        from ..backends import get_llm_backend
+
+        llm_backend = get_llm_backend()
+        if getattr(llm_backend, "supports_streaming", lambda: False)():
+            personality_prompt = profile.personality
+            source = "personality_speak"
+        else:
+            try:
+                llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e))
+            text = llm_result.text.strip()
+            if not text:
+                raise HTTPException(
+                    status_code=500, detail="LLM produced empty output; nothing to speak."
+                )
+            source = "personality_speak"
 
     generation = await history.create_generation(
         profile_id=data.profile_id,
@@ -139,6 +153,7 @@ async def generate_speech(
             mode="generate",
             max_chunk_chars=data.max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
+            personality_prompt=personality_prompt,
         )
     )
 
