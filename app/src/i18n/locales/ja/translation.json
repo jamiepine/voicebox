@@ -692,7 +692,9 @@
     "button": {
       "generate": "音声を生成",
       "generating": "生成中…",
-      "selectFirst": "まずボイスプロファイルを選択してください"
+      "selectFirst": "まずボイスプロファイルを選択してください",
+      "streamSpeak": "ストリーミングで話す (β)",
+      "streamStop": "ストリーミング停止"
     },
     "instruct": {
       "show": "デリバリー指示を表示",

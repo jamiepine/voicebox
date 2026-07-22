@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useMatchRoute } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Dices, Loader2, SlidersHorizontal, Sparkles, Wand2 } from 'lucide-react';
+import { AudioLines, Dices, Loader2, SlidersHorizontal, Sparkles, Square, Wand2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,8 @@ import { apiClient } from '@/lib/api/client';
 import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
+import { useStreamingSpeak } from '@/lib/hooks/useStreamingSpeak';
+import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { useStory } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
 import { useGenerationStore } from '@/stores/generationStore';
@@ -97,6 +99,24 @@ export function FloatingGenerateBox({
       return preset?.effects_chain;
     },
   });
+
+  // Streaming speak — SSE variant that ships audio as it renders. Only
+  // shown when the user has wired a custom OpenAI-compatible LLM endpoint
+  // AND the selected profile has a personality to rewrite through, since
+  // that's the only mode where the LLM+TTS overlap wins any latency.
+  const { settings: captureSettings } = useCaptureSettings();
+  const {
+    state: streamState,
+    speak: streamSpeak,
+    abort: streamAbort,
+  } = useStreamingSpeak();
+  const streamingConfigured = Boolean(
+    captureSettings?.custom_llm_endpoint && captureSettings?.custom_llm_model,
+  );
+  const streamingAvailable =
+    streamingConfigured && Boolean(selectedProfile?.personality?.trim());
+  const streamingActive =
+    streamState.status === 'connecting' || streamState.status === 'streaming';
 
   // Click away handler to collapse the box
   useEffect(() => {
@@ -468,6 +488,63 @@ export function FloatingGenerateBox({
                         </Button>
                         <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
                           {t('generation.instruct.tooltip')}
+                        </span>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                  {streamingAvailable && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <div className="group relative">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          disabled={!selectedProfileId || !form.watch('text')?.trim()}
+                          onClick={() => {
+                            if (streamingActive) {
+                              streamAbort();
+                              return;
+                            }
+                            const values = form.getValues();
+                            streamSpeak({
+                              text: values.text,
+                              profile: selectedProfileId ?? undefined,
+                              engine: values.engine,
+                              language: values.language,
+                              personality: true,
+                            });
+                          }}
+                          className={cn(
+                            'h-10 w-10 rounded-full transition-all duration-200',
+                            streamingActive
+                              ? 'bg-accent text-accent-foreground border border-accent hover:bg-accent/90'
+                              : 'bg-card border border-border hover:bg-background/50',
+                          )}
+                          aria-label={
+                            streamingActive
+                              ? t('generation.button.streamStop')
+                              : t('generation.button.streamSpeak')
+                          }
+                          aria-pressed={streamingActive}
+                        >
+                          {streamingActive ? (
+                            <Square className="h-4 w-4" />
+                          ) : (
+                            <AudioLines className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
+                          {streamingActive
+                            ? t('generation.button.streamStop')
+                            : t('generation.button.streamSpeak')}
                         </span>
                       </div>
                     </motion.div>
