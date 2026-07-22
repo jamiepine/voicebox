@@ -213,6 +213,11 @@ _custom_llm_endpoint: Optional[str] = None
 _custom_llm_model: Optional[str] = None
 _custom_llm_api_key: Optional[str] = None
 
+# ``_llm_backends`` key for the singleton OpenAI-compat backend. Extracted
+# so ``set_llm_config`` (cache invalidation) and ``get_llm_backend`` (cache
+# lookup + on-miss install) can't drift on the string literal.
+_OPENAI_COMPAT_CACHE_KEY = "openai_compat"
+
 # Supported TTS engines — keyed by engine name, value is the backend class import path.
 # The factory function uses this for the if/elif chain; the model configs live on the backend classes.
 TTS_ENGINES = {
@@ -779,7 +784,7 @@ def set_llm_config(
         _custom_llm_model = model
         _custom_llm_api_key = api_key
         if changed:
-            _llm_backends.pop("openai_compat", None)
+            _llm_backends.pop(_OPENAI_COMPAT_CACHE_KEY, None)
 
 
 def get_llm_backend() -> LLMBackend:
@@ -802,7 +807,7 @@ def get_llm_backend() -> LLMBackend:
         model = _custom_llm_model
         api_key = _custom_llm_api_key
         if endpoint and model:
-            cached = _llm_backends.get("openai_compat")
+            cached = _llm_backends.get(_OPENAI_COMPAT_CACHE_KEY)
             if cached is not None:
                 return cached
             backend = OpenAICompatLLMBackend(
@@ -810,13 +815,15 @@ def get_llm_backend() -> LLMBackend:
                 model=model,
                 api_key=api_key,
             )
-            _llm_backends["openai_compat"] = backend
+            _llm_backends[_OPENAI_COMPAT_CACHE_KEY] = backend
             return backend
 
-    # No custom config — hand off to the Qwen dispatch, which has its own
-    # lock and can take multiple seconds to load a model. Do that outside
-    # ``_llm_backends_lock`` so a slow model load doesn't block concurrent
-    # ``set_llm_config()`` writes.
+    # No custom config — hand off to the Qwen dispatch. ``get_llm_backend_for_engine``
+    # reuses this exact ``_llm_backends_lock`` (see its body below), and
+    # ``threading.Lock`` is non-reentrant, so this call MUST run after the
+    # ``with`` block above has released the lock — nesting it inside would
+    # self-deadlock the calling thread. Doing it here also means a slow
+    # model load doesn't block concurrent ``set_llm_config()`` writes.
     return get_llm_backend_for_engine("qwen_llm")
 
 
