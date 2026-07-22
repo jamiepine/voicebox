@@ -218,6 +218,14 @@ class CaptureSettings(Base):
     chord_toggle_to_talk_keys = Column(
         JSON, nullable=False, default=default_toggle_to_talk_chord
     )
+    # Optional OpenAI-compatible endpoint that overrides the built-in Qwen3
+    # LLM for refinement / personality rewriting. When ``custom_llm_endpoint``
+    # is set, the backend layer delegates every LLM call to this URL instead
+    # of running Qwen locally; leaving it null keeps the on-device path and
+    # the ``llm_model`` size selector above.
+    custom_llm_endpoint = Column(String, nullable=True)
+    custom_llm_model = Column(String, nullable=True)
+    custom_llm_api_key = Column(String, nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 

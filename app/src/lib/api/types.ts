@@ -217,9 +217,82 @@ export interface CaptureSettings {
   chord_push_to_talk_keys: string[];
   /** keytap key names. Toggle adds Space to the platform-specific PTT chord. */
   chord_toggle_to_talk_keys: string[];
+  /**
+   * Optional OpenAI-compatible endpoint that overrides the built-in Qwen3
+   * LLM for refinement / personality rewriting. When set, backend calls hit
+   * `POST {custom_llm_endpoint}/chat/completions` with the model named by
+   * ``custom_llm_model``; leaving it null keeps the on-device Qwen path.
+   */
+  custom_llm_endpoint: string | null;
+  custom_llm_model: string | null;
+  /**
+   * Whether a custom LLM API key is currently stored on the server. The raw
+   * key value never rides the response — this flag replaces it — so the
+   * settings UI can show a "Configured" indicator without letting the
+   * frontend rehydrate the secret into state or leak it to a browser cache.
+   * Writes still go through ``CaptureSettingsUpdate.custom_llm_api_key``.
+   */
+  custom_llm_api_key_configured: boolean;
 }
 
-export type CaptureSettingsUpdate = Partial<CaptureSettings>;
+export type CaptureSettingsUpdate = Partial<
+  Omit<CaptureSettings, 'custom_llm_api_key_configured'>
+> & {
+  /** Write-only: setting this to a non-empty string stores it, ``null`` clears it. */
+  custom_llm_api_key?: string | null;
+};
+
+// --- POST /speak/stream ---------------------------------------------------
+//
+// Request body for the SSE streaming variant of /speak. Shape mirrors the
+// backend Pydantic ``SpeakStreamRequest`` — same profile / engine /
+// personality resolution as /speak plus a chunk sizer.
+export interface StreamingSpeakRequest {
+  text: string;
+  profile?: string;
+  engine?: string;
+  personality?: boolean;
+  language?: string;
+  max_chunk_chars?: number;
+}
+
+// SSE frame shapes. The ``type`` discriminator lets the client route a
+// parsed frame to the correct handler without a schema lookup.
+export interface SpeakStreamMeta {
+  type: 'meta';
+  generation_id: string;
+  sample_rate: number;
+  channels: number;
+  streaming_llm: boolean;
+}
+
+export interface SpeakStreamAudio {
+  type: 'audio';
+  sentence_index: number;
+  /** Base64-encoded raw PCM float32 samples, little-endian, single channel. */
+  pcm_base64: string;
+  text: string;
+}
+
+export interface SpeakStreamComplete {
+  type: 'complete';
+  generation_id: string;
+  duration: number;
+  audio_path?: string | null;
+}
+
+export interface SpeakStreamError {
+  type: 'error';
+  generation_id?: string | null;
+  message: string;
+}
+
+/** Discriminated union of every frame the ``/speak/stream`` route emits. */
+export type SpeakStreamEvent =
+  | SpeakStreamMeta
+  | SpeakStreamAudio
+  | SpeakStreamComplete
+  | SpeakStreamError;
 
 /**
  * One row in the dictation readiness checklist. ``model_name`` is the
