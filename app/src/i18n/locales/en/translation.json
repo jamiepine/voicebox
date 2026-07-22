@@ -982,6 +982,15 @@
         "preserveTechnical": {
           "title": "Preserve technical terms",
           "description": "Keep code identifiers, command names, and acronyms exactly as spoken. Turn on when you dictate into a code prompt."
+        },
+        "customEndpoint": {
+          "title": "Custom LLM endpoint (advanced)",
+          "description": "Delegate refinement and personality rewrites to any OpenAI-compatible server — llama.cpp, vLLM, LM Studio, LocalAI, Ollama's shim, or the OpenAI API itself. Leave blank to use the built-in Qwen3.",
+          "endpointPlaceholder": "http://localhost:8090/v1",
+          "modelPlaceholder": "Model name (e.g. qwen3-4b)",
+          "apiKeyPlaceholder": "API key (optional)",
+          "statusBuiltin": "Using the built-in Qwen3 model selected above.",
+          "statusRemote": "Sending every refinement to {{endpoint}}."
         }
       },
       "playback": {
