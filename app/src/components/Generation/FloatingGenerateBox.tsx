@@ -508,7 +508,11 @@ export function FloatingGenerateBox({
                 </AnimatePresence>
 
                 <AnimatePresence>
-                  {streamingAvailable && (
+                  {/* Keep the button mounted while a stream is active — otherwise
+                      clearing the text field or switching to a profile without
+                      a personality would remove the only in-place way to stop
+                      audio that ``useStreamingSpeak`` has already scheduled. */}
+                  {(streamingAvailable || streamingActive) && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -520,7 +524,12 @@ export function FloatingGenerateBox({
                           type="button"
                           variant="ghost"
                           size="icon"
-                          disabled={!selectedProfileId || !form.watch('text')?.trim()}
+                          // Validation only matters when starting a new stream;
+                          // an active stream must always be abortable.
+                          disabled={
+                            !streamingActive &&
+                            (!selectedProfileId || !form.watch('text')?.trim())
+                          }
                           onClick={() => {
                             if (streamingActive) {
                               streamAbort();
