@@ -977,6 +977,15 @@
         "preserveTechnical": {
           "title": "専門用語を保持",
           "description": "コードの識別子、コマンド名、頭字語を発話どおりに保持します。コード入力欄にディクテーションするときに有効にしてください。"
+        },
+        "customEndpoint": {
+          "title": "カスタム LLM エンドポイント (上級)",
+          "description": "リファインとパーソナリティの書き換えを、任意の OpenAI 互換サーバー (llama.cpp、vLLM、LM Studio、LocalAI、Ollama の互換 API、OpenAI API 自体など) に委譲します。空欄のままなら内蔵の Qwen3 を使います。",
+          "endpointPlaceholder": "http://localhost:8090/v1",
+          "modelPlaceholder": "モデル名 (例: qwen3-4b)",
+          "apiKeyPlaceholder": "API キー (任意)",
+          "statusBuiltin": "上で選んだ内蔵 Qwen3 モデルを使用しています",
+          "statusRemote": "リファインを {{endpoint}} に送信しています"
         }
       },
       "playback": {
