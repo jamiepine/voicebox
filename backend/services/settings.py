@@ -74,7 +74,34 @@ def update_capture_settings(db: Session, patch: dict[str, Any]) -> DBCaptureSett
     _apply_patch(row, patch)
     db.commit()
     db.refresh(row)
+    _sync_llm_backend_config(row)
     return row
+
+
+def _sync_llm_backend_config(row: DBCaptureSettings) -> None:
+    """Push the persisted custom-LLM endpoint into the backend module state.
+
+    Called after every capture-settings write and once on startup from
+    ``bootstrap_llm_backend_config``. Keeps the runtime dispatch in
+    ``backends.get_llm_backend()`` in sync with what the DB row holds so
+    the user's next refinement / personality call routes to the new URL
+    without a restart.
+    """
+    # Imported inline to avoid a circular import at module load — the
+    # backends package pulls in HF patches that in turn import services.
+    from .. import backends
+
+    backends.set_llm_config(
+        endpoint=row.custom_llm_endpoint,
+        model=row.custom_llm_model,
+        api_key=row.custom_llm_api_key,
+    )
+
+
+def bootstrap_llm_backend_config(db: Session) -> None:
+    """Seed the backend LLM config from the persisted row on server startup."""
+    row = _get_or_create_capture_row(db)
+    _sync_llm_backend_config(row)
 
 
 def get_generation_settings(db: Session) -> DBGenerationSettings:

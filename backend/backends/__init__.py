@@ -205,6 +205,14 @@ _stt_backend: Optional[STTBackend] = None
 _llm_backends: dict[str, LLMBackend] = {}
 _llm_backends_lock = threading.Lock()
 
+# Custom OpenAI-compatible LLM endpoint config, seeded from persisted
+# capture settings on startup and refreshed whenever the settings service
+# writes an update. Empty strings and None both mean "unset" and fall back
+# to the built-in Qwen3 backend.
+_custom_llm_endpoint: Optional[str] = None
+_custom_llm_model: Optional[str] = None
+_custom_llm_api_key: Optional[str] = None
+
 # Supported TTS engines — keyed by engine name, value is the backend class import path.
 # The factory function uses this for the if/elif chain; the model configs live on the backend classes.
 TTS_ENGINES = {
@@ -739,9 +747,70 @@ def get_stt_backend() -> STTBackend:
     return _stt_backend
 
 
+def set_llm_config(
+    endpoint: Optional[str],
+    model: Optional[str],
+    api_key: Optional[str],
+) -> None:
+    """Update the runtime custom-LLM endpoint config.
+
+    Called from the settings service whenever the user writes to the
+    ``custom_llm_endpoint`` / ``custom_llm_model`` / ``custom_llm_api_key``
+    fields, and once on startup with the persisted row. Passing empty
+    strings or ``None`` clears the config and reverts subsequent
+    ``get_llm_backend()`` calls to the built-in Qwen3 path.
+
+    A change drops any cached OpenAI-compat backend so the next call
+    rebuilds against the new URL / model rather than reusing a stale one.
+    """
+    global _custom_llm_endpoint, _custom_llm_model, _custom_llm_api_key
+    endpoint = endpoint or None
+    model = model or None
+    api_key = api_key or None
+    changed = (
+        endpoint != _custom_llm_endpoint
+        or model != _custom_llm_model
+        or api_key != _custom_llm_api_key
+    )
+    _custom_llm_endpoint = endpoint
+    _custom_llm_model = model
+    _custom_llm_api_key = api_key
+    if changed:
+        with _llm_backends_lock:
+            _llm_backends.pop("openai_compat", None)
+
+
 def get_llm_backend() -> LLMBackend:
-    """Get or create the default Qwen3 LLM backend based on platform."""
+    """Get or create the active LLM backend.
+
+    When a custom OpenAI-compatible endpoint has been configured via
+    ``set_llm_config()``, returns an ``OpenAICompatLLMBackend`` targeting
+    that endpoint; otherwise falls back to the platform-specific Qwen3
+    backend (MLX on Apple Silicon, PyTorch elsewhere).
+    """
+    if _custom_llm_endpoint and _custom_llm_model:
+        return _get_openai_compat_backend()
     return get_llm_backend_for_engine("qwen_llm")
+
+
+def _get_openai_compat_backend() -> LLMBackend:
+    """Return the cached OpenAI-compat backend, creating it on first call."""
+    cached = _llm_backends.get("openai_compat")
+    if cached is not None:
+        return cached
+    with _llm_backends_lock:
+        cached = _llm_backends.get("openai_compat")
+        if cached is not None:
+            return cached
+        from .openai_compat_backend import OpenAICompatLLMBackend
+
+        backend = OpenAICompatLLMBackend(
+            endpoint=_custom_llm_endpoint,
+            model=_custom_llm_model,
+            api_key=_custom_llm_api_key,
+        )
+        _llm_backends["openai_compat"] = backend
+        return backend
 
 
 def get_llm_backend_for_engine(engine: str) -> LLMBackend:
@@ -775,7 +844,11 @@ def get_llm_backend_for_engine(engine: str) -> LLMBackend:
 def reset_backends():
     """Reset backend instances (useful for testing)."""
     global _tts_backend, _tts_backends, _stt_backend, _llm_backends
+    global _custom_llm_endpoint, _custom_llm_model, _custom_llm_api_key
     _tts_backend = None
     _tts_backends.clear()
     _stt_backend = None
     _llm_backends.clear()
+    _custom_llm_endpoint = None
+    _custom_llm_model = None
+    _custom_llm_api_key = None

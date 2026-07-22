@@ -264,6 +264,9 @@ class CaptureSettingsResponse(BaseModel):
     chord_toggle_to_talk_keys: List[str] = Field(
         default_factory=default_toggle_to_talk_chord
     )
+    custom_llm_endpoint: Optional[str] = None
+    custom_llm_model: Optional[str] = None
+    custom_llm_api_key: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -284,6 +287,9 @@ class CaptureSettingsUpdate(BaseModel):
     hotkey_enabled: Optional[bool] = None
     chord_push_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
     chord_toggle_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
+    custom_llm_endpoint: Optional[str] = None
+    custom_llm_model: Optional[str] = None
+    custom_llm_api_key: Optional[str] = None
 
 
 class GenerationSettingsResponse(BaseModel):
