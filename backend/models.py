@@ -3,7 +3,7 @@ Pydantic models for request/response validation.
 """
 
 from pydantic import BaseModel, Field, model_validator
-from typing import Any, Optional, List
+from typing import Any, Literal, Optional, List
 from datetime import datetime
 
 from .utils.capture_chords import (
@@ -400,6 +400,82 @@ class SpeakRequest(BaseModel):
         None,
         pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
     )
+
+
+class SpeakStreamRequest(BaseModel):
+    """Body for POST /speak/stream — like SpeakRequest, plus a chunk sizer.
+
+    Kept separate from ``SpeakRequest`` so the streaming route can grow
+    stream-only knobs without polluting the fire-and-forget /speak
+    contract. Everything else mirrors the plain /speak body.
+    """
+
+    text: str = Field(..., min_length=1, max_length=10000)
+    profile: Optional[str] = Field(None)
+    engine: Optional[str] = Field(
+        None,
+        pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+    )
+    personality: Optional[bool] = Field(None)
+    language: Optional[str] = Field(
+        None,
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+    )
+    max_chunk_chars: int = Field(default=800, ge=100, le=5000)
+
+
+# --- SSE event shapes ------------------------------------------------------
+#
+# These live server-side only — each is JSON-serialised into the ``data:``
+# field of an SSE frame. The ``type`` discriminator lets the client route
+# frames to the right handler (audio decoder, completion callback, error
+# toast) without a schema-per-frame lookup.
+
+
+class SpeakStreamMeta(BaseModel):
+    """First event sent — metadata the client needs before any audio."""
+
+    type: Literal["meta"] = "meta"
+    generation_id: str
+    sample_rate: int
+    channels: int = 1
+    # Which of the two backend paths produced the stream. Useful for the
+    # client to display an "LLM streaming enabled" hint and for
+    # observability — the sequential path emits the same event shape but
+    # ships a single audio chunk at the end.
+    streaming_llm: bool
+
+
+class SpeakStreamAudioChunk(BaseModel):
+    """One sentence's worth of audio, base64-encoded PCM float32."""
+
+    type: Literal["audio"] = "audio"
+    sentence_index: int
+    # Base64-encoded raw float32 PCM samples, little-endian, single channel.
+    # The client decodes with ``atob`` → ``Uint8Array`` → ``Float32Array`` →
+    # ``AudioBuffer`` and schedules against ``audioCtx.currentTime`` so
+    # sentence boundaries land gap-lessly.
+    pcm_base64: str
+    # Sentence text this audio was rendered from, echoed back so the client
+    # can subtitle progressively without re-running the LLM.
+    text: str
+
+
+class SpeakStreamComplete(BaseModel):
+    """Terminal event before ``[DONE]`` — final generation record + duration."""
+
+    type: Literal["complete"] = "complete"
+    generation_id: str
+    duration: float
+    audio_path: Optional[str] = None
+
+
+class SpeakStreamError(BaseModel):
+    """Streamed error — sent instead of ``complete`` when generation fails."""
+
+    type: Literal["error"] = "error"
+    generation_id: Optional[str] = None
+    message: str
 
 
 class LLMGenerateRequest(BaseModel):

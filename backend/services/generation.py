@@ -216,7 +216,7 @@ async def _run_streaming_personality_generation(
 
     audio_chunks = []
     sample_rate: Optional[int] = None
-    async for audio, sr in generate_streaming_from_sentences(
+    async for audio, sr, _sentence in generate_streaming_from_sentences(
         tts_backend,
         sentence_stream,
         voice_prompt,

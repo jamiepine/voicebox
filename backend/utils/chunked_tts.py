@@ -392,34 +392,41 @@ async def generate_streaming_from_sentences(
     seed: int | None = None,
     instruct: str | None = None,
     trim_fn=None,
-) -> AsyncIterator[Tuple[np.ndarray, int]]:
-    """Fire per-sentence TTS as sentences arrive; yield ordered audio chunks.
+) -> AsyncIterator[Tuple[np.ndarray, int, str]]:
+    """Fire per-sentence TTS as sentences arrive; yield ordered ``(audio, sr, sentence)``.
 
     Each sentence is dispatched to ``backend.generate`` as an
     ``asyncio.create_task`` the moment it lands, so sentence *N+1*'s TTS
-    starts running while sentence *N*'s audio is still being awaited by the
-    caller. The tasks are awaited in submission order, so the yielded
-    ``(audio, sample_rate)`` tuples arrive in the same order the sentences
-    were produced — the caller doesn't have to reorder anything.
+    starts running while sentence *N*'s audio is still being awaited by
+    the caller. The tasks are awaited in submission order, so the
+    yielded tuples arrive in the same order the sentences were produced
+    — the caller doesn't have to reorder anything.
+
+    The sentence text is echoed back alongside its audio so downstream
+    consumers (SSE-to-client streaming, progressive subtitles) don't
+    have to duplicate the buffer logic to keep them in sync.
     """
-    pending: List[asyncio.Task] = []
+    pending: List[Tuple[str, asyncio.Task]] = []
     index = 0
 
-    async def _drain_ready() -> AsyncIterator[Tuple[np.ndarray, int]]:
-        while pending and pending[0].done():
-            task = pending.pop(0)
+    async def _drain_ready() -> AsyncIterator[Tuple[np.ndarray, int, str]]:
+        while pending and pending[0][1].done():
+            sent, task = pending.pop(0)
             audio, sr = task.result()
             if trim_fn is not None:
                 audio = trim_fn(audio, sr)
-            yield np.asarray(audio, dtype=np.float32), sr
+            yield np.asarray(audio, dtype=np.float32), sr, sent
 
     async for sentence in sentence_stream:
         # Vary the seed per sentence to avoid correlated RNG artefacts but
         # keep it deterministic for a given (seed, sentence-index).
         chunk_seed = (seed + index) if seed is not None else None
         pending.append(
-            asyncio.create_task(
-                backend.generate(sentence, voice_prompt, language, chunk_seed, instruct)
+            (
+                sentence,
+                asyncio.create_task(
+                    backend.generate(sentence, voice_prompt, language, chunk_seed, instruct)
+                ),
             )
         )
         index += 1
@@ -427,11 +434,11 @@ async def generate_streaming_from_sentences(
         async for out in _drain_ready():
             yield out
 
-    for task in pending:
+    for sent, task in pending:
         audio, sr = await task
         if trim_fn is not None:
             audio = trim_fn(audio, sr)
-        yield np.asarray(audio, dtype=np.float32), sr
+        yield np.asarray(audio, dtype=np.float32), sr, sent
 
 
 async def generate_streaming_chunked(
@@ -473,7 +480,7 @@ async def generate_streaming_chunked(
 
     audio_chunks: List[np.ndarray] = []
     sample_rate: int | None = None
-    async for audio, sr in generate_streaming_from_sentences(
+    async for audio, sr, _sentence in generate_streaming_from_sentences(
         tts_backend,
         sentence_stream,
         voice_prompt,
