@@ -692,7 +692,9 @@
     "button": {
       "generate": "Generate speech",
       "generating": "Generating…",
-      "selectFirst": "Select a voice profile first"
+      "selectFirst": "Select a voice profile first",
+      "streamSpeak": "Speak with streaming (β)",
+      "streamStop": "Stop streaming"
     },
     "instruct": {
       "show": "Show delivery instructions",
