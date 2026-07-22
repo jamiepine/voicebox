@@ -97,23 +97,39 @@ async def stream_speak_events(
         )
         streaming_llm = can_stream_llm
 
+        # Materialise the text that TTS will actually render, so the
+        # generations row stored below matches the audio on disk. On the
+        # personality paths that means the rewritten reply; on the plain
+        # path it's the caller's own text unchanged.
         if can_stream_llm:
             llm_stream = rewrite_as_profile_stream(profile_personality, text)
+            # Every branch runs through ``stream_sentences`` so long
+            # inputs stay chunked to ``max_chunk_chars`` instead of
+            # falling into a single oversized ``backend.generate`` call
+            # on the fallback paths.
             sentence_stream = stream_sentences(llm_stream, max_chunk_chars=max_chunk_chars)
         elif personality and profile_personality:
-            # Personality requested but the LLM can't stream — fall back to
-            # the non-streaming rewrite, then treat the whole reply as a
-            # single sentence stream so the SSE contract stays uniform.
+            # Personality requested but the LLM can't stream — fall back
+            # to the non-streaming rewrite, then pipe the whole reply
+            # through the same sentence splitter so TTS still runs one
+            # sentence at a time.
             from .personality import rewrite_as_profile
 
             rewritten = await rewrite_as_profile(profile_personality, text)
-            sentence_stream = _single_sentence_stream(rewritten.text.strip())
+            sentence_stream = stream_sentences(
+                _as_single_chunk(rewritten.text.strip()),
+                max_chunk_chars=max_chunk_chars,
+            )
         else:
-            sentence_stream = _single_sentence_stream(text)
+            sentence_stream = stream_sentences(
+                _as_single_chunk(text),
+                max_chunk_chars=max_chunk_chars,
+            )
 
         trim_fn = trim_tts_output if engine_needs_trim(engine) else None
 
         audio_chunks: list[np.ndarray] = []
+        sentence_texts: list[str] = []
         sample_rate: Optional[int] = None
         sentence_index = 0
 
@@ -136,6 +152,7 @@ async def stream_speak_events(
                 )
 
             audio_chunks.append(audio)
+            sentence_texts.append(sentence)
             pcm_b64 = base64.b64encode(np.asarray(audio, dtype=np.float32).tobytes()).decode("ascii")
             yield _sse_data(
                 models.SpeakStreamAudioChunk(
@@ -160,6 +177,12 @@ async def stream_speak_events(
         final_path = config.get_generations_dir() / f"{generation_id}.wav"
         save_audio(final_audio, str(final_path), sample_rate)
 
+        # The persisted ``text`` has to match what was actually spoken —
+        # ``data.text`` is the raw user input, so on the personality path
+        # it would disagree with the audio otherwise. Join what the
+        # streaming pipeline handed to TTS.
+        spoken_text = " ".join(s for s in sentence_texts if s).strip() or text
+
         # Persist a generations row so History reflects streamed speech
         # the same way fire-and-forget /speak does. Failing to persist
         # is non-fatal — the audio is already on disk and the client has
@@ -169,7 +192,7 @@ async def stream_speak_events(
             try:
                 await history.create_generation(
                     profile_id=profile_id,
-                    text=text,
+                    text=spoken_text,
                     language=language,
                     audio_path=config.to_storage_path(final_path),
                     duration=len(final_audio) / sample_rate,
@@ -205,11 +228,12 @@ async def stream_speak_events(
         yield _sse_done()
 
 
-async def _single_sentence_stream(text: str) -> AsyncIterator[str]:
-    """Wrap a fully-materialised string as a one-element async sentence iterator.
+async def _as_single_chunk(text: str) -> AsyncIterator[str]:
+    """Adapt a materialised string into a one-element async iterator.
 
-    Lets the non-streaming personality path and the plain no-personality
-    path share the SSE emitter loop without duplicating branch logic.
+    Feeds the plain and non-streaming-personality paths into
+    ``stream_sentences`` so long inputs still get sentence-level chunking
+    instead of collapsing into one oversized TTS call.
     """
     cleaned = text.strip()
     if cleaned:

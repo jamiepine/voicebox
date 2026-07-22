@@ -384,6 +384,18 @@ async def stream_sentences(
         yield tail
 
 
+STREAMING_TTS_CONCURRENCY = 2
+"""Cap for per-sentence TTS tasks running against one backend.
+
+Backends only guard model loading, not concurrent inference; without a
+cap a long LLM run can queue dozens of ``backend.generate`` coroutines
+against the same GPU/CPU worker and starve the process. Two in flight
+keeps sentence N+1 warm while the caller consumes sentence N without
+letting a burst pile up. Tunable by callers via the ``concurrency``
+parameter below.
+"""
+
+
 async def generate_streaming_from_sentences(
     backend,
     sentence_stream: AsyncIterator[str],
@@ -392,20 +404,30 @@ async def generate_streaming_from_sentences(
     seed: int | None = None,
     instruct: str | None = None,
     trim_fn=None,
+    concurrency: int = STREAMING_TTS_CONCURRENCY,
 ) -> AsyncIterator[Tuple[np.ndarray, int, str]]:
     """Fire per-sentence TTS as sentences arrive; yield ordered ``(audio, sr, sentence)``.
 
-    Each sentence is dispatched to ``backend.generate`` as an
-    ``asyncio.create_task`` the moment it lands, so sentence *N+1*'s TTS
-    starts running while sentence *N*'s audio is still being awaited by
-    the caller. The tasks are awaited in submission order, so the
-    yielded tuples arrive in the same order the sentences were produced
-    — the caller doesn't have to reorder anything.
+    Sentence *N+1*'s TTS starts while sentence *N*'s audio is still being
+    awaited by the caller, but the semaphore keeps at most ``concurrency``
+    tasks in flight so a burst of sentences from a fast LLM doesn't fan
+    out into dozens of parallel ``backend.generate`` calls. Tasks are
+    still awaited in submission order, so the yielded tuples arrive in
+    the same order the sentences were produced — callers don't have to
+    reorder anything.
 
-    The sentence text is echoed back alongside its audio so downstream
-    consumers (SSE-to-client streaming, progressive subtitles) don't
-    have to duplicate the buffer logic to keep them in sync.
+    On generator close / cancellation the ``finally`` block cancels every
+    outstanding task and waits for them so we never leak orphan work into
+    the event loop.
     """
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _run_tts(sentence: str, chunk_seed: int | None):
+        async with semaphore:
+            return await backend.generate(
+                sentence, voice_prompt, language, chunk_seed, instruct
+            )
+
     pending: List[Tuple[str, asyncio.Task]] = []
     index = 0
 
@@ -417,28 +439,35 @@ async def generate_streaming_from_sentences(
                 audio = trim_fn(audio, sr)
             yield np.asarray(audio, dtype=np.float32), sr, sent
 
-    async for sentence in sentence_stream:
-        # Vary the seed per sentence to avoid correlated RNG artefacts but
-        # keep it deterministic for a given (seed, sentence-index).
-        chunk_seed = (seed + index) if seed is not None else None
-        pending.append(
-            (
-                sentence,
-                asyncio.create_task(
-                    backend.generate(sentence, voice_prompt, language, chunk_seed, instruct)
-                ),
+    try:
+        async for sentence in sentence_stream:
+            # Vary the seed per sentence to avoid correlated RNG artefacts
+            # but keep it deterministic for a given (seed, sentence-index).
+            chunk_seed = (seed + index) if seed is not None else None
+            pending.append((sentence, asyncio.create_task(_run_tts(sentence, chunk_seed))))
+            index += 1
+
+            async for out in _drain_ready():
+                yield out
+
+        for sent, task in pending:
+            audio, sr = await task
+            if trim_fn is not None:
+                audio = trim_fn(audio, sr)
+            yield np.asarray(audio, dtype=np.float32), sr, sent
+        pending.clear()
+    finally:
+        # Consumer stopped early / cancellation raised — kill outstanding
+        # TTS work rather than orphaning it, then drain the coroutines so
+        # ``CancelledError`` propagates cleanly.
+        if pending:
+            for _, task in pending:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(
+                *(task for _, task in pending), return_exceptions=True
             )
-        )
-        index += 1
-
-        async for out in _drain_ready():
-            yield out
-
-    for sent, task in pending:
-        audio, sr = await task
-        if trim_fn is not None:
-            audio = trim_fn(audio, sr)
-        yield np.asarray(audio, dtype=np.float32), sr, sent
+            pending.clear()
 
 
 async def generate_streaming_chunked(

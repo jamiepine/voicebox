@@ -118,6 +118,19 @@ export function FloatingGenerateBox({
   const streamingActive =
     streamState.status === 'connecting' || streamState.status === 'streaming';
 
+  // Surface mid-stream faults through the shared toast — otherwise the
+  // streaming button just flips back to idle and the user has no idea
+  // whether their utterance failed or finished silently.
+  useEffect(() => {
+    if (streamState.status !== 'error') return;
+    toast({
+      title: t('generation.button.streamErrorTitle'),
+      description:
+        streamState.error ?? t('generation.button.streamErrorFallback'),
+      variant: 'destructive',
+    });
+  }, [streamState.status, streamState.error, toast, t]);
+
   // Click away handler to collapse the box
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
