@@ -80,6 +80,11 @@ export function useStreamingSpeak() {
   const abortRef = useRef<AbortController | null>(null);
   const activeSourcesRef = useRef<AudioBufferSourceNode[]>([]);
   const playingIndexRef = useRef<number>(-1);
+  // Server PCM sample rate from the meta frame — the AudioBuffer's third
+  // argument must describe the data's rate (e.g. 24000 Hz TTS output), not
+  // the AudioContext's device rate (44.1/48 kHz on most hardware). Getting
+  // this wrong makes the audio play at ~2× speed with the wrong pitch.
+  const serverSampleRateRef = useRef<number | null>(null);
 
   const _teardown = useCallback(() => {
     if (abortRef.current) {
@@ -105,6 +110,7 @@ export function useStreamingSpeak() {
     }
     nextStartTimeRef.current = 0;
     playingIndexRef.current = -1;
+    serverSampleRateRef.current = null;
   }, []);
 
   // Clean up on unmount so a mid-stream navigation doesn't leave an
@@ -148,6 +154,7 @@ export function useStreamingSpeak() {
 
       const handleEvent = (event: SpeakStreamEvent) => {
         if (event.type === 'meta') {
+          serverSampleRateRef.current = event.sample_rate;
           setState((prev) => ({
             ...prev,
             status: 'streaming',
@@ -164,11 +171,12 @@ export function useStreamingSpeak() {
           const pcm = _base64ToFloat32(event.pcm_base64);
           if (pcm.length === 0) return;
 
-          // ``sample_rate`` was pinned on the meta frame; fall back to
-          // the AudioContext's rate if a client somehow skipped meta.
-          const sampleRate =
-            audioCtx.sampleRate === 0 ? 24000 : audioCtx.sampleRate;
-          const buffer = audioCtx.createBuffer(1, pcm.length, sampleRateOrDefault(audioCtx, 24000));
+          // The AudioBuffer's third argument must describe the *data's*
+          // rate; Web Audio resamples on playback to the device rate.
+          // Prefer the meta frame's sample_rate; fall back to a sensible
+          // default only if a caller ever produces audio before meta.
+          const bufferSampleRate = serverSampleRateRef.current ?? 24000;
+          const buffer = audioCtx.createBuffer(1, pcm.length, bufferSampleRate);
           buffer.copyToChannel(pcm, 0);
 
           const source = audioCtx.createBufferSource();
@@ -176,7 +184,9 @@ export function useStreamingSpeak() {
           source.connect(audioCtx.destination);
 
           const startAt = Math.max(audioCtx.currentTime, nextStartTimeRef.current);
-          const chunkDuration = pcm.length / (buffer.sampleRate || sampleRate);
+          // Duration must use the same rate the buffer was created with,
+          // otherwise ``nextStartTime`` drifts and the gapless chain breaks.
+          const chunkDuration = pcm.length / bufferSampleRate;
 
           const scheduledIndex = event.sentence_index;
           source.onended = () => {
@@ -285,6 +295,3 @@ function _base64ToFloat32(b64: string): Float32Array {
   return new Float32Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 4);
 }
 
-function sampleRateOrDefault(ctx: AudioContext, fallback: number): number {
-  return ctx.sampleRate > 0 ? ctx.sampleRate : fallback;
-}

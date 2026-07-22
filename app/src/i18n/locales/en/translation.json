@@ -694,7 +694,9 @@
       "generating": "Generating…",
       "selectFirst": "Select a voice profile first",
       "streamSpeak": "Speak with streaming (β)",
-      "streamStop": "Stop streaming"
+      "streamStop": "Stop streaming",
+      "streamErrorTitle": "Streaming speak failed",
+      "streamErrorFallback": "Something went wrong mid-stream."
     },
     "instruct": {
       "show": "Show delivery instructions",

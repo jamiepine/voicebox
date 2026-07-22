@@ -694,7 +694,9 @@
       "generating": "生成中…",
       "selectFirst": "まずボイスプロファイルを選択してください",
       "streamSpeak": "ストリーミングで話す (β)",
-      "streamStop": "ストリーミング停止"
+      "streamStop": "ストリーミング停止",
+      "streamErrorTitle": "ストリーミングでの発話に失敗",
+      "streamErrorFallback": "ストリーミング中に問題が発生しました"
     },
     "instruct": {
       "show": "デリバリー指示を表示",
