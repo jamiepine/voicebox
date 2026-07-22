@@ -30,6 +30,7 @@ pub fn key_from_str(name: &str) -> Option<Key> {
         "ShiftLeft" => Key::ShiftLeft,
         "ShiftRight" => Key::ShiftRight,
         "CapsLock" => Key::CapsLock,
+        "Function" => Key::Function,
 
         // Whitespace / navigation
         "Space" => Key::Space,
