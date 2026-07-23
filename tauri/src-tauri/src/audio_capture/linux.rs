@@ -193,7 +193,6 @@ fn is_monitor_alias_name(name: &str) -> bool {
         || lower.contains(":monitor")
         || lower.contains("monitor:")
         || lower.contains(" monitor")
-        || lower.contains("monitor")
 }
 
 fn classify_direct_monitor_device(
