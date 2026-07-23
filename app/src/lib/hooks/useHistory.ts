@@ -47,12 +47,14 @@ export function useExportGeneration() {
     mutationFn: async ({ generationId, text }: { generationId: string; text: string }) => {
       const blob = await apiClient.exportGeneration(generationId);
 
-      // Create safe filename from text
+      // Create safe filename from text. Append a short id so exports of
+      // similarly-worded generations don't collide on the same filename
+      // (the first 30 chars are frequently identical).
       const safeText = text
         .substring(0, 30)
         .replace(/[^a-z0-9]/gi, '-')
         .toLowerCase();
-      const filename = `generation-${safeText}.voicebox.zip`;
+      const filename = `generation-${safeText}-${generationId.substring(0, 8)}.voicebox.zip`;
 
       await platform.filesystem.saveFile(filename, blob, [
         {
@@ -73,12 +75,14 @@ export function useExportGenerationAudio() {
     mutationFn: async ({ generationId, text }: { generationId: string; text: string }) => {
       const blob = await apiClient.exportGenerationAudio(generationId);
 
-      // Create safe filename from text
+      // Create safe filename from text. Append a short id so exports of
+      // similarly-worded generations don't collide on the same filename
+      // (the first 30 chars are frequently identical).
       const safeText = text
         .substring(0, 30)
         .replace(/[^a-z0-9]/gi, '-')
         .toLowerCase();
-      const filename = `${safeText}.wav`;
+      const filename = `${safeText}-${generationId.substring(0, 8)}.wav`;
 
       await platform.filesystem.saveFile(filename, blob, [
         {
