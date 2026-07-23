@@ -25,27 +25,30 @@ function getDateLocale() {
   }
 }
 
-export function formatDate(date: string | Date): string {
-  let dateObj: Date;
-  if (typeof date === 'string') {
-    const dateStr = date.trim();
-    if (!dateStr.includes('Z') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) {
-      dateObj = new Date(`${dateStr}Z`);
-    } else {
-      dateObj = new Date(dateStr);
-    }
-  } else {
-    dateObj = date;
+// Backend timestamps are naive UTC (Python `datetime.utcnow()`), serialized
+// without a timezone suffix. Per the ES spec such date-only/date-time strings
+// are parsed as *local* time, so we append `Z` to force UTC when no timezone
+// is present. Used by every server-timestamp formatter for consistency.
+function parseServerDate(date: string | Date): Date {
+  if (typeof date !== 'string') {
+    return date;
   }
+  const dateStr = date.trim();
+  if (!dateStr.includes('Z') && !dateStr.match(/[+-]\d{2}:\d{2}$/)) {
+    return new Date(`${dateStr}Z`);
+  }
+  return new Date(dateStr);
+}
 
-  return formatDistance(dateObj, new Date(), {
+export function formatDate(date: string | Date): string {
+  return formatDistance(parseServerDate(date), new Date(), {
     addSuffix: true,
     locale: getDateLocale(),
   }).replace(/^about /i, '');
 }
 
 export function formatAbsoluteDate(date: string | Date): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  const dateObj = parseServerDate(date);
   return dateObj.toLocaleString(i18n.language, {
     month: 'short',
     day: 'numeric',
