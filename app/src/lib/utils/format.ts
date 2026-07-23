@@ -26,9 +26,11 @@ function getDateLocale() {
 }
 
 // Backend timestamps are naive UTC (Python `datetime.utcnow()`), serialized
-// without a timezone suffix. Per the ES spec such date-only/date-time strings
-// are parsed as *local* time, so we append `Z` to force UTC when no timezone
-// is present. Used by every server-timestamp formatter for consistency.
+// as a timezone-less date-time string (e.g. "2026-07-23T10:00:00"). Per the
+// ES spec such date-time strings are parsed as *local* time (unlike date-only
+// strings such as "2026-07-23", which are parsed as UTC), so we append `Z` to
+// force UTC when no timezone is present. Used by every server-timestamp
+// formatter for consistency.
 function parseServerDate(date: string | Date): Date {
   if (typeof date !== 'string') {
     return date;
