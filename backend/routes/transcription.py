@@ -35,12 +35,24 @@ async def transcribe_audio(
             tmp.write(chunk)
         tmp_path = tmp.name
 
+    stt_path = tmp_path
     try:
-        from ..utils.audio import load_audio
+        from ..utils.audio import load_audio, save_audio
         from ..backends import WHISPER_HF_REPOS
 
         audio, sr = await asyncio.to_thread(load_audio, tmp_path)
         duration = len(audio) / sr
+
+        # The STT backend (mlx_audio.stt -> miniaudio) only decodes
+        # WAV/FLAC/MP3/Vorbis, so browser recordings uploaded as WebM/Opus
+        # fail with "unsupported file format" (issue: web-mode dictation).
+        # librosa already decoded the file above (it falls back to
+        # audioread/ffmpeg for exotic containers), so re-encode that PCM to a
+        # temp WAV and hand *that* to Whisper. WAV inputs pass through
+        # unchanged.
+        if file_suffix != ".wav":
+            stt_path = f"{tmp_path}.stt.wav"
+            await asyncio.to_thread(save_audio, audio, stt_path, sr)
 
         whisper_model = transcribe.get_whisper_model()
         model_size = model if model else whisper_model.model_size
@@ -76,7 +88,7 @@ async def transcribe_audio(
                 },
             )
 
-        text = await whisper_model.transcribe(tmp_path, language, model_size)
+        text = await whisper_model.transcribe(stt_path, language, model_size)
 
         return models.TranscriptionResponse(
             text=text,
@@ -89,3 +101,5 @@ async def transcribe_audio(
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         Path(tmp_path).unlink(missing_ok=True)
+        if stt_path != tmp_path:
+            Path(stt_path).unlink(missing_ok=True)
