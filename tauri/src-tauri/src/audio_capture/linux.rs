@@ -66,13 +66,36 @@ fn find_monitor_source_via_pactl() -> Option<String> {
     None
 }
 
+/// Find a cpal input device whose name matches the given PulseAudio source name.
+///
+/// cpal's PulseAudio host enumerates Pulse/PipeWire sources (including `.monitor`
+/// sources) as input devices named after the Pulse source. Selecting the device
+/// by name lets us target the monitor directly without touching the process-wide
+/// `PULSE_SOURCE` environment variable (which is not thread-safe on Unix).
+fn find_cpal_device_by_name(host: &cpal::Host, source_name: &str) -> Option<cpal::Device> {
+    let devices = host.input_devices().ok()?;
+    for d in devices {
+        if let Ok(name) = d.name() {
+            if name == source_name {
+                eprintln!(
+                    "Linux audio capture: Matched monitor source to cpal device by name: {}",
+                    name
+                );
+                return Some(d);
+            }
+        }
+    }
+    None
+}
+
 /// Start capturing system audio on Linux using PulseAudio monitor sources.
 ///
 /// On modern Linux with PulseAudio or PipeWire, we first try to detect the
-/// monitor source via `pactl` and set the `PULSE_SOURCE` environment variable.
-/// This tells PulseAudio's ALSA plugin to use the monitor as the default input
-/// source for this process. If `pactl` is unavailable, we fall back to searching
-/// cpal device names for "monitor".
+/// monitor source via `pactl` and then select the matching cpal input device by
+/// name. This targets the monitor directly, avoiding the process-wide
+/// `PULSE_SOURCE` environment variable (which is not thread-safe on Unix and is
+/// marked `unsafe` in Rust 2024). If `pactl` is unavailable, we fall back to
+/// searching cpal device names for "monitor".
 pub async fn start_capture(
     state: &AudioCaptureState,
     max_duration_secs: u32,
@@ -101,39 +124,58 @@ pub async fn start_capture(
 
     // Spawn capture on a dedicated thread
     thread::spawn(move || {
-        // Try to set PULSE_SOURCE to a monitor before initializing cpal.
-        // This tells PulseAudio/PipeWire's ALSA plugin to use the monitor
-        // as the default input source for this process.
+        // Detect the monitor source name via pactl (if available). We select the
+        // matching cpal device by name rather than setting the process-wide
+        // PULSE_SOURCE env var, which is not thread-safe on Unix.
         let monitor_source = find_monitor_source_via_pactl();
-        if let Some(ref source_name) = monitor_source {
-            eprintln!(
-                "Linux audio capture: Setting PULSE_SOURCE={}",
-                source_name
-            );
-            std::env::set_var("PULSE_SOURCE", source_name);
-        }
 
         let host = cpal::default_host();
 
         // Select the capture device.
-        // If PULSE_SOURCE was set, the default input device IS the monitor.
-        // Otherwise, fall back to searching device names for "monitor".
-        let device = if monitor_source.is_some() {
-            // PULSE_SOURCE was set — default input IS the monitor now
-            match host.default_input_device() {
-                Some(d) => {
-                    let name = d.name().unwrap_or_default();
-                    eprintln!(
-                        "Linux audio capture: Using PULSE_SOURCE monitor device: {}",
-                        name
-                    );
-                    d
-                }
+        // If a monitor source was detected, try to match it to a cpal device by
+        // name. Otherwise, fall back to searching device names for "monitor".
+        let device = if let Some(ref source_name) = monitor_source {
+            eprintln!(
+                "Linux audio capture: Selecting monitor source by name: {}",
+                source_name
+            );
+            match find_cpal_device_by_name(&host, source_name) {
+                Some(d) => d,
                 None => {
-                    let error_msg = "No audio input device available".to_string();
-                    eprintln!("{}", error_msg);
-                    *error_arc.lock().unwrap() = Some(error_msg);
-                    return;
+                    // The pactl monitor name didn't map to a cpal device
+                    // (e.g. name mismatch across backends). Fall back to any
+                    // device whose name contains "monitor", then default input.
+                    eprintln!(
+                        "Linux audio capture: No cpal device named '{}', searching for a monitor device",
+                        source_name
+                    );
+                    let mut monitor_device = None;
+                    if let Ok(devices) = host.input_devices() {
+                        for d in devices {
+                            if let Ok(name) = d.name() {
+                                if name.to_lowercase().contains("monitor") {
+                                    eprintln!(
+                                        "Linux audio capture: Found monitor device by name: {}",
+                                        name
+                                    );
+                                    monitor_device = Some(d);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    match monitor_device {
+                        Some(d) => d,
+                        None => match host.default_input_device() {
+                            Some(d) => d,
+                            None => {
+                                let error_msg = "No audio input device available".to_string();
+                                eprintln!("{}", error_msg);
+                                *error_arc.lock().unwrap() = Some(error_msg);
+                                return;
+                            }
+                        },
+                    }
                 }
             }
         } else {
