@@ -4,10 +4,14 @@
 //! pipeline so the focused app performs its native paste action against
 //! whatever the clipboard module has just staged.
 //!
-//! - **macOS** — Cmd down, V down with Cmd flag, V up with Cmd flag, Cmd
-//!   up via `CGEventPost` at `kCGHIDEventTap`. Accessibility permission is
-//!   load-bearing: without it the system swallows the events silently, so
-//!   callers must gate on [`crate::accessibility::is_trusted`].
+//! - **macOS** — Cmd down with Cmd flag, V down with Cmd flag, V up with
+//!   Cmd flag, Cmd up via `CGEventPost` at `kCGHIDEventTap`. The Cmd-down
+//!   event carries the Command flag so its `flagsChanged` representation
+//!   matches hardware — Electron/Chromium tracks modifier state from that
+//!   flag and drops the paste otherwise (see the note on the event table).
+//!   Accessibility permission is load-bearing: without it the system
+//!   swallows the events silently, so callers must gate on
+//!   [`crate::accessibility::is_trusted`].
 //! - **Windows** — Ctrl down, V down, V up, Ctrl up via `SendInput`. No
 //!   permission gate, but UAC/UIPI blocks delivery into elevated target
 //!   windows when we run non-elevated — nothing we can do short of also
@@ -101,7 +105,18 @@ pub fn send_paste() -> Result<(), String> {
         let _source_guard = scopeguard::guard(source, |s| CFRelease(s as *const c_void));
 
         let events = [
-            (KEYCODE_LEFT_CMD, true, 0),
+            // The Cmd-down event must carry the Command flag itself. On real
+            // hardware the Cmd keyDown is a flagsChanged event whose flags
+            // already include Command; Chromium/Electron builds its tracked
+            // modifier state from that flag. Posting Cmd-down with flags = 0
+            // leaves that tracker showing "Command up", so the following V —
+            // even though its own flags carry Command — matches neither the
+            // Cmd+V accelerator (tracker says no modifier) nor plain-text
+            // insertion (event flags say Command), and Electron drops it
+            // silently. AppKit reads the V event's own flags and pastes
+            // regardless, which is why native apps worked but Electron
+            // targets (Slack, VS Code) silently no-op'd.
+            (KEYCODE_LEFT_CMD, true, K_CG_EVENT_FLAG_MASK_COMMAND),
             (v_keycode, true, K_CG_EVENT_FLAG_MASK_COMMAND),
             (v_keycode, false, K_CG_EVENT_FLAG_MASK_COMMAND),
             (KEYCODE_LEFT_CMD, false, 0),
