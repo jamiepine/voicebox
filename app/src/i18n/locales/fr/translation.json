@@ -851,6 +851,10 @@
         "title": "Lecture automatique",
         "description": "Lire automatiquement l'audio lorsqu'une génération est terminée."
       },
+      "audioKeepAlive": {
+        "title": "Maintenir la session audio active",
+        "description": "Empêche l'audio de devenir muet après un changement d'application. Désactivez cette option si les haut-parleurs de votre Mac émettent un souffle lorsque Voicebox est inactif."
+      },
       "folder": {
         "title": "Dossier des générations",
         "description": "Où les fichiers audio générés sont stockés sur le disque.",

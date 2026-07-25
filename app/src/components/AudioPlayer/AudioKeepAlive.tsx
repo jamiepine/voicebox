@@ -34,6 +34,10 @@ function buildSilentWavUrl(seconds = 1, sampleRate = 8000): string {
   return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
 }
 
+export function shouldMountAudioKeepAlive(isTauri: boolean, enabled: boolean): boolean {
+  return isTauri && enabled;
+}
+
 export function AudioKeepAlive() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 

@@ -851,6 +851,10 @@
         "title": "생성 시 자동 재생",
         "description": "생성이 완료되면 자동으로 오디오를 재생합니다."
       },
+      "audioKeepAlive": {
+        "title": "오디오 세션 활성 상태 유지",
+        "description": "다른 앱으로 전환한 후 오디오가 나오지 않는 현상을 방지합니다. Voicebox가 유휴 상태일 때 Mac 스피커에서 잡음이 들리면 이 옵션을 끄세요."
+      },
       "folder": {
         "title": "생성물 폴더",
         "description": "생성된 오디오 파일이 저장되는 위치입니다.",

@@ -856,6 +856,10 @@
         "title": "Autoplay on generate",
         "description": "Automatically play audio when a generation completes."
       },
+      "audioKeepAlive": {
+        "title": "Keep audio session active",
+        "description": "Prevents audio from going silent after switching apps. Disable this if your Mac speakers hiss while Voicebox is idle."
+      },
       "folder": {
         "title": "Generations folder",
         "description": "Where generated audio files are stored on disk.",

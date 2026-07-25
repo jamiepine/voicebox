@@ -851,6 +851,10 @@
         "title": "生成後自動播放",
         "description": "生成完成後自動播放音訊。"
       },
+      "audioKeepAlive": {
+        "title": "保持音訊工作階段作用中",
+        "description": "防止切換應用程式後音訊無聲。如果 Voicebox 閒置時 Mac 揚聲器發出嘶嘶聲，請關閉此選項。"
+      },
       "folder": {
         "title": "生成資料夾",
         "description": "生成的音訊檔案在磁碟上的儲存位置。",

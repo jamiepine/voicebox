@@ -856,6 +856,10 @@
         "title": "Riproduzione automatica alla generazione",
         "description": "Riproduci automaticamente l'audio al completamento di una generazione."
       },
+      "audioKeepAlive": {
+        "title": "Mantieni attiva la sessione audio",
+        "description": "Impedisce che l'audio si interrompa dopo il passaggio a un'altra app. Disattiva questa opzione se gli altoparlanti del Mac emettono un fruscio mentre Voicebox è inattivo."
+      },
       "folder": {
         "title": "Cartella delle generazioni",
         "description": "Cartella del disco in cui vengono memorizzati i file audio generati.",
