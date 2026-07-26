@@ -22,6 +22,7 @@ from .voicebox_client import VoiceboxError
 log = logging.getLogger(__name__)
 
 MIN_UTTERANCE_CHARS = 2
+HANDLER_KEY = "vctalk"
 
 
 class VCTalkController:
@@ -31,10 +32,6 @@ class VCTalkController:
         self.agent = agent
         # guild_id -> channel to log conversation turns to
         self._active: dict[int, discord.abc.Messageable | None] = {}
-        # guild_id -> (session, handler) currently attached, so start() can
-        # tell a live session from a stale one (e.g. after a disconnect that
-        # skipped /vctalk stop) and stop() can detach exactly the right handler.
-        self._handlers: dict[int, tuple[object, object]] = {}
 
     async def start(
         self,
@@ -46,25 +43,17 @@ class VCTalkController:
     ) -> None:
         session = await self.sessions.join(voice_channel, language=language)
         self._active[guild.id] = text_log_channel
-
-        existing = self._handlers.get(guild.id)
-        if existing is not None and existing[0] is session:
-            return
-
-        if existing is not None:
-            existing[0].remove_handler(existing[1])  # type: ignore[attr-defined]
-
-        handler = self._make_handler(guild.id)
-        session.add_handler(handler)
-        self._handlers[guild.id] = (session, handler)
+        # Registering under a stable key makes this idempotent, and the key
+        # is carried across a session replaced by a reconnect.
+        session.add_handler(HANDLER_KEY, self._make_handler(guild.id))
 
     async def stop(self, guild_id: int) -> bool:
         if guild_id not in self._active:
             return False
         del self._active[guild_id]
-        existing = self._handlers.pop(guild_id, None)
-        if existing is not None:
-            existing[0].remove_handler(existing[1])  # type: ignore[attr-defined]
+        session = self.sessions.get(guild_id)
+        if session is not None:
+            session.remove_handler(HANDLER_KEY)
         return True
 
     def _make_handler(self, guild_id: int):

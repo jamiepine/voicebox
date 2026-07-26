@@ -362,7 +362,7 @@ Full API documentation available at `http://127.0.0.1:17493/docs`.
 
 ### Integrations
 
-- [**VoxGuard** (`integrations/discord-bot`)](integrations/discord-bot/README.md) — a Discord bot built on the Voicebox API: real-time voice-channel moderation, voice-message moderation, raid detection, and an Ollama-backed server agent that can hold a live spoken conversation in a cloned voice.
+- [**VoxGuard** (`integrations/discord-bot`)](integrations/discord-bot/README.md) — a full-featured Discord bot built on the Voicebox API: real-time voice-channel moderation, voice-message moderation, a moderation case system, text automod, raid and anti-nuke protection, levelling with voice XP, tickets, starboard, giveaways, an Ollama-backed server agent that holds live spoken conversations in a cloned voice, and a web dashboard for stats and error logs.
 
 ---
 

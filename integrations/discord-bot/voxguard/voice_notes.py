@@ -60,7 +60,12 @@ class VoiceNoteModerator:
         if not text.strip():
             return
 
-        matches = matcher.scan(text, min_confidence=config.get("voice", {}).get("min_confidence", 0.55))
+        # Voice notes get their own threshold, falling back to the live-voice
+        # one so a guild that only tuned `voice` keeps consistent behaviour.
+        min_confidence = cfg.get(
+            "min_confidence", config.get("voice", {}).get("min_confidence", 0.55)
+        )
+        matches = matcher.scan(text, min_confidence=min_confidence)
         if not matches:
             return
 

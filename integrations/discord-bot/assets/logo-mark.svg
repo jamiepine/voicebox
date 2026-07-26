@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="VoxGuard">
+  <title>VoxGuard</title>
+  <defs>
+    <linearGradient id="vgShield" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="45%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#22D3EE"/>
+    </linearGradient>
+    <linearGradient id="vgWave" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#C7D2FE"/>
+    </linearGradient>
+    <linearGradient id="vgSheen" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="vgGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="14" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="vgClip">
+      <path d="M256 34 L452 108 V282 C452 388 256 478 256 478 C256 478 60 388 60 282 V108 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Outer shield -->
+  <path d="M256 34 L452 108 V282 C452 388 256 478 256 478 C256 478 60 388 60 282 V108 Z"
+        fill="url(#vgShield)"/>
+
+  <!-- Inner bevel: a darker plate so the waveform reads as engraved -->
+  <path d="M256 74 L414 134 V280 C414 362 256 436 256 436 C256 436 98 362 98 280 V134 Z"
+        fill="#0B1020" fill-opacity="0.82"/>
+
+  <!-- Top-left sheen for depth -->
+  <g clip-path="url(#vgClip)">
+    <path d="M256 34 L452 108 V282 C452 388 256 478 256 478 C256 478 60 388 60 282 V108 Z"
+          fill="url(#vgSheen)"/>
+  </g>
+
+  <!-- Waveform: seven bars, symmetric, centre-weighted -->
+  <g fill="url(#vgWave)" filter="url(#vgGlow)">
+    <rect x="140" y="238" width="22" height="44"  rx="11"/>
+    <rect x="178" y="212" width="22" height="96"  rx="11"/>
+    <rect x="216" y="180" width="22" height="160" rx="11"/>
+    <rect x="254" y="158" width="22" height="204" rx="11"/>
+    <rect x="292" y="180" width="22" height="160" rx="11"/>
+    <rect x="330" y="212" width="22" height="96"  rx="11"/>
+    <rect x="368" y="238" width="22" height="44"  rx="11"/>
+  </g>
+</svg>

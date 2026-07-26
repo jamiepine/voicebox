@@ -106,16 +106,33 @@ class RoamController:
 
 
 def _split(text: str, limit: int) -> list[str]:
+    """Split into <=limit chunks on word boundaries, never yielding an empty one."""
     if len(text) <= limit:
         return [text]
-    chunks, current = [], []
+
+    chunks: list[str] = []
+    current: list[str] = []
     length = 0
+
     for word in text.split(" "):
-        if length + len(word) + 1 > limit:
+        # A single word longer than the limit (a URL, a code blob) can't be
+        # placed on a line — hard-split it rather than emitting an oversized
+        # chunk that Discord would reject.
+        while len(word) > limit:
+            if current:
+                chunks.append(" ".join(current))
+                current, length = [], 0
+            chunks.append(word[:limit])
+            word = word[limit:]
+        if not word:
+            continue
+
+        if current and length + len(word) + 1 > limit:
             chunks.append(" ".join(current))
             current, length = [], 0
         current.append(word)
         length += len(word) + 1
+
     if current:
         chunks.append(" ".join(current))
     return chunks

@@ -206,29 +206,37 @@ class AICmds(commands.Cog):
         self,
         interaction: discord.Interaction,
         enabled: bool,
-        manage: bool = False,
-        moderate: bool = False,
+        manage: bool | None = None,
+        moderate: bool | None = None,
     ) -> None:
         runtime = self.bot.runtime
         config = runtime.config(interaction.guild.id)
         config["roam"]["enabled"] = enabled
-        tiers = ["chat"]
-        if manage:
-            tiers.append("manage")
-        if moderate:
-            tiers.append("moderate")
-        config["roam"]["tiers"] = tiers
+
+        # Tri-state on purpose: omitting `manage`/`moderate` preserves what
+        # the guild already granted. Defaulting them to False would silently
+        # revoke tiers every time someone toggled roam off and on again.
+        tiers = {t for t in config["roam"].get("tiers") or ["chat"]}
+        tiers.add("chat")
+        for name, value in (("manage", manage), ("moderate", moderate)):
+            if value is True:
+                tiers.add(name)
+            elif value is False:
+                tiers.discard(name)
+
+        ordered = [t for t in ("chat", "manage", "moderate") if t in tiers]
+        config["roam"]["tiers"] = ordered
         runtime.save_config(interaction.guild.id, config)
 
         warning = ""
-        if moderate:
+        if "moderate" in tiers:
             warning = (
                 "\n⚠️ Moderation tools are enabled — the AI can time out, kick, and ban based on "
                 "its own judgement of the conversation. Destructive actions still require an "
                 "admin's approval unless you disable that with `/roam configure`."
             )
         await interaction.response.send_message(
-            f"Roam is now **{'on' if enabled else 'off'}**. Tiers: {', '.join(tiers)}.{warning}"
+            f"Roam is now **{'on' if enabled else 'off'}**. Tiers: {', '.join(ordered)}.{warning}"
         )
 
     @roam.command(name="channels", description="Restrict roam to specific channels (empty = everywhere).")

@@ -120,7 +120,11 @@ class VoiceSession:
         self.channel_id = voice_client.channel.id
 
         self._buffers: dict[int, audio.SpeakerBuffer] = {}
-        self._handlers: list[UtteranceHandler] = []
+        # Keyed by feature name ("moderation", "vctalk") rather than held as a
+        # bare list: keys survive a session being replaced after a reconnect,
+        # and they let a feature ask "am I already attached?" without keeping
+        # its own guild bookkeeping that can drift out of sync with reality.
+        self._handlers: dict[str, UtteranceHandler] = {}
         self._flusher: asyncio.Task | None = None
         self._semaphore = asyncio.Semaphore(MAX_INFLIGHT)
         self._pending: set[asyncio.Task] = set()
@@ -155,12 +159,19 @@ class VoiceSession:
         self._pending.clear()
         self._buffers.clear()
 
-    def add_handler(self, handler: UtteranceHandler) -> None:
-        self._handlers.append(handler)
+    def add_handler(self, key: str, handler: UtteranceHandler) -> None:
+        """Attach (or replace) the handler registered under `key`."""
+        self._handlers[key] = handler
 
-    def remove_handler(self, handler: UtteranceHandler) -> None:
-        if handler in self._handlers:
-            self._handlers.remove(handler)
+    def remove_handler(self, key: str) -> bool:
+        return self._handlers.pop(key, None) is not None
+
+    def has_handler(self, key: str) -> bool:
+        return key in self._handlers
+
+    @property
+    def handlers(self) -> dict[str, UtteranceHandler]:
+        return dict(self._handlers)
 
     @property
     def handler_count(self) -> int:
@@ -254,11 +265,11 @@ class VoiceSession:
             duration=duration,
         )
 
-        for handler in list(self._handlers):
+        for key, handler in list(self._handlers.items()):
             try:
                 await handler(utterance)
             except Exception:
-                log.exception("Utterance handler failed")
+                log.exception("Utterance handler %r failed", key)
 
 
 class SessionManager:
@@ -276,6 +287,7 @@ class SessionManager:
     ) -> VoiceSession:
         guild_id = channel.guild.id
         existing = self._sessions.get(guild_id)
+        carried: dict[str, UtteranceHandler] = {}
 
         if existing is not None:
             client = existing.voice_client
@@ -285,10 +297,17 @@ class SessionManager:
                 await client.move_to(channel)
                 existing.channel_id = channel.id
                 return existing
+            # The old session's client dropped (reconnect, kick, network
+            # blip). Its registered handlers still represent what the guild
+            # asked for, so carry them onto the replacement rather than
+            # silently coming back deaf.
+            carried = existing.handlers
             await self.leave(guild_id)
 
         client = await channel.connect(cls=voice_recv.VoiceRecvClient, timeout=30.0)
         session = VoiceSession(client, self.voicebox, language=language)
+        for key, handler in carried.items():
+            session.add_handler(key, handler)
         session.start()
         self._sessions[guild_id] = session
         return session

@@ -27,13 +27,12 @@ ACTION_CHOICES = [
 ESCALATE_CHOICES = [c for c in ACTION_CHOICES if c.value != "warn"]
 
 
+HANDLER_KEY = "moderation"
+
+
 class VoiceMod(commands.Cog):
     def __init__(self, bot: "VoxGuardBot") -> None:
         self.bot = bot
-        # Guilds whose voice session already has the moderation handler
-        # attached — /join can be called again (e.g. to move channels) and
-        # must not stack a second handler, which would double-enforce.
-        self._moderation_guilds: set[int] = set()
 
     # -- /join, /leave --------------------------------------------------
 
@@ -59,16 +58,15 @@ class VoiceMod(commands.Cog):
             await interaction.followup.send(f"Couldn't join: {exc}")
             return
 
-        if interaction.guild.id not in self._moderation_guilds:
-            session.add_handler(self._make_moderation_handler(interaction.guild.id))
-            self._moderation_guilds.add(interaction.guild.id)
+        # Idempotent: re-running /join to move channels replaces the handler
+        # under the same key rather than stacking a second one.
+        session.add_handler(HANDLER_KEY, self._make_moderation_handler(interaction.guild.id))
         await interaction.followup.send(f"Joined {channel.mention} and started listening.")
 
     @app_commands.command(name="leave", description="Leave the current voice channel and stop listening.")
     @require_operator()
     async def leave(self, interaction: discord.Interaction) -> None:
         left = await self.bot.runtime.sessions.leave(interaction.guild.id)
-        self._moderation_guilds.discard(interaction.guild.id)
         await self.bot.vctalk.stop(interaction.guild.id)
         self.bot.runtime.vctalk_active.pop(interaction.guild.id, None)
         await interaction.response.send_message(
@@ -90,7 +88,10 @@ class VoiceMod(commands.Cog):
 
             if config["voice"].get("console_transcript", True):
                 who = member.display_name if member else utterance.user_id
-                print(f"[voice:{guild.name}/{channel_name}] {who}: {utterance.text}")
+                # Logged, not printed: this is other people's speech, and it
+                # should honour the same level/format/filtering as everything
+                # else rather than going straight to stdout.
+                log.info("[voice:%s/%s] %s: %s", guild.name, channel_name, who, utterance.text)
 
             matcher = self.bot.runtime.matchers.get(guild_id, "voice")
             if not len(matcher) or member is None:

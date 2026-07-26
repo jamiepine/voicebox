@@ -35,6 +35,16 @@ class OllamaError(RuntimeError):
     pass
 
 
+def _wrap_network(exc: Exception, what: str) -> OllamaError:
+    """Normalise aiohttp transport failures into OllamaError.
+
+    Callers (ServerAgent.respond in particular) catch OllamaError to degrade
+    gracefully. A bare ClientConnectorError or TimeoutError would escape that
+    handler and surface as an unhandled crash in an event callback.
+    """
+    return OllamaError(f"{what}: {type(exc).__name__}: {exc}")
+
+
 class OllamaClient:
     def __init__(self, host: str, model: str, *, auto_install: bool = False) -> None:
         self.host = host.rstrip("/")
@@ -138,8 +148,12 @@ class OllamaClient:
             await self.ensure_server()
 
             sess = await self._sess()
-            async with sess.get(f"{self.host}/api/tags") as r:
-                tags = await r.json() if r.status == 200 else {"models": []}
+            try:
+                async with sess.get(f"{self.host}/api/tags") as r:
+                    tags = await r.json() if r.status == 200 else {"models": []}
+            except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+                raise _wrap_network(exc, "could not list Ollama models") from exc
+
             have = {m.get("name", "") for m in tags.get("models", [])}
             # `llama3.1:8b` and a bare `llama3.1` refer to the same pull.
             if model in have or f"{model}:latest" in have:
@@ -148,29 +162,32 @@ class OllamaClient:
 
             log.info("Pulling Ollama model '%s' (first run — this may take a while)...", model)
             last_pct = -1
-            async with sess.post(
-                f"{self.host}/api/pull", json={"model": model, "stream": True}
-            ) as r:
-                if r.status != 200:
-                    raise OllamaError(f"pull failed ({r.status}): {(await r.text())[:300]}")
-                async for raw in r.content:
-                    if not raw.strip():
-                        continue
-                    try:
-                        event = json.loads(raw)
-                    except json.JSONDecodeError:
-                        continue
-                    if error := event.get("error"):
-                        raise OllamaError(f"pull failed: {error}")
-                    total, done = event.get("total"), event.get("completed")
-                    if total and done:
-                        pct = int(done / total * 100)
-                        if pct >= last_pct + 10:
-                            last_pct = pct
-                            message = f"Pulling {model}: {pct}%"
-                            log.info(message)
-                            if on_progress:
-                                await _maybe_await(on_progress(message))
+            try:
+                async with sess.post(
+                    f"{self.host}/api/pull", json={"model": model, "stream": True}
+                ) as r:
+                    if r.status != 200:
+                        raise OllamaError(f"pull failed ({r.status}): {(await r.text())[:300]}")
+                    async for raw in r.content:
+                        if not raw.strip():
+                            continue
+                        try:
+                            event = json.loads(raw)
+                        except json.JSONDecodeError:
+                            continue
+                        if error := event.get("error"):
+                            raise OllamaError(f"pull failed: {error}")
+                        total, done = event.get("total"), event.get("completed")
+                        if total and done:
+                            pct = int(done / total * 100)
+                            if pct >= last_pct + 10:
+                                last_pct = pct
+                                message = f"Pulling {model}: {pct}%"
+                                log.info(message)
+                                if on_progress:
+                                    await _maybe_await(on_progress(message))
+            except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+                raise _wrap_network(exc, f"pull of '{model}' failed") from exc
 
             self._ready_models.add(model)
             log.info("Model '%s' ready.", model)
@@ -202,10 +219,13 @@ class OllamaClient:
         if json_mode:
             body["format"] = "json"
 
-        async with sess.post(f"{self.host}/api/chat", json=body) as r:
-            if r.status != 200:
-                raise OllamaError(f"chat failed ({r.status}): {(await r.text())[:300]}")
-            payload = await r.json()
+        try:
+            async with sess.post(f"{self.host}/api/chat", json=body) as r:
+                if r.status != 200:
+                    raise OllamaError(f"chat failed ({r.status}): {(await r.text())[:300]}")
+                payload = await r.json()
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError) as exc:
+            raise _wrap_network(exc, "chat request failed") from exc
 
         message = payload.get("message") or {}
         message.setdefault("role", "assistant")

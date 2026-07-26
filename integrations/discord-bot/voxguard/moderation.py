@@ -54,7 +54,11 @@ class Enforcer:
         scope_cfg = config.get(scope, {})
         top = matches[0]
 
-        immune = guardrails.is_immune(member, config)
+        # Counted before the guardrail checks: the dashboard should show what
+        # the filter caught, not only what it was allowed to act on.
+        self.store.bump_metric(guild.id, "voice_flags")
+
+        immune = guardrails.may_action(member, config)
         if not immune:
             outcome = Outcome("skipped", f"No action — {immune.reason}.", False)
             await self._log(guild, config, scope, member, matches, transcript, source, outcome)
@@ -76,7 +80,9 @@ class Enforcer:
         if action == "warn":
             count = self.store.warning_count(guild.id, member.id, scope) + 1
             limit = int(scope_cfg.get("warn_limit", 3))
-            if count >= limit:
+            # Escalate only once the limit has been *exceeded*, so a limit of 3
+            # delivers three warnings and escalates on the fourth offense.
+            if count > limit:
                 action = scope_cfg.get("escalate_to", "timeout")
                 detail = f"Warning limit reached ({count}/{limit}) — escalating to {action}."
             else:

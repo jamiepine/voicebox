@@ -45,8 +45,14 @@ def is_operator(member: discord.abc.User, guild: discord.Guild, owner_ids: set[i
     return bool(perms and (perms.administrator or perms.manage_guild))
 
 
-def is_immune(member: discord.Member, config: dict) -> Verdict:
-    """Is this member shielded from automated enforcement?"""
+def may_action(member: discord.Member, config: dict) -> Verdict:
+    """May automated enforcement act on this member?
+
+    Truthy means "go ahead"; falsy carries the reason they're shielded. Named
+    positively on purpose — an `is_immune()` that returns False when someone
+    *is* immune inverts at every call site and makes an accidental
+    enforcement bypass a one-character mistake.
+    """
     guard = config.get("guardrails", {})
 
     if member.bot:
@@ -94,37 +100,52 @@ def can_action(guild: discord.Guild, member: discord.Member, action: str) -> Ver
 
 
 class RateLimiter:
-    """Per-guild circuit breaker over automated actions.
+    """Per-guild, per-actor circuit breaker over automated actions.
 
-    Counts are kept in memory and backed by the audit table, so a restart
-    mid-storm doesn't hand the bot a fresh budget.
+    Budgets are tracked separately for each actor ("voice-mod", "roam", ...)
+    because they have independent limits and independent failure modes: a
+    runaway word list should pause the voice filter without also disarming
+    the agent, and vice versa.
+
+    Counts are backed by the audit table, so a restart mid-storm doesn't hand
+    the bot a fresh budget.
     """
 
     def __init__(self, store: Store) -> None:
         self.store = store
-        self._tripped: dict[int, float] = {}
+        self._tripped: dict[tuple[int, str], float] = {}
 
-    def is_tripped(self, guild_id: int) -> bool:
-        until = self._tripped.get(guild_id)
+    def is_tripped(self, guild_id: int, actor: str = "auto") -> bool:
+        key = (guild_id, actor)
+        until = self._tripped.get(key)
         if until is None:
             return False
         if time.time() >= until:
-            del self._tripped[guild_id]
+            del self._tripped[key]
             return False
         return True
 
-    def trip(self, guild_id: int, minutes: int = 30) -> None:
-        self._tripped[guild_id] = time.time() + minutes * 60
+    def any_tripped(self, guild_id: int) -> list[str]:
+        """Actors currently paused in this guild — for status display."""
+        now = time.time()
+        return [actor for (gid, actor), until in self._tripped.items() if gid == guild_id and now < until]
 
-    def reset(self, guild_id: int) -> None:
-        self._tripped.pop(guild_id, None)
+    def trip(self, guild_id: int, actor: str = "auto", minutes: int = 30) -> None:
+        self._tripped[(guild_id, actor)] = time.time() + minutes * 60
+
+    def reset(self, guild_id: int, actor: str | None = None) -> None:
+        if actor is not None:
+            self._tripped.pop((guild_id, actor), None)
+            return
+        for key in [k for k in self._tripped if k[0] == guild_id]:
+            del self._tripped[key]
 
     def check(self, guild_id: int, config: dict, actor: str = "auto") -> Verdict:
-        if self.is_tripped(guild_id):
+        if self.is_tripped(guild_id, actor):
             return Verdict(
                 False,
-                "enforcement is paused — the hourly action limit was hit. "
-                "Review the word list, then re-enable with `/guard resume`.",
+                f"`{actor}` enforcement is paused — its hourly action limit was hit. "
+                "Review the configuration, then re-enable with `/guard resume`.",
             )
 
         limit = int(config.get("guardrails", {}).get("max_actions_per_hour", 20))
@@ -133,11 +154,11 @@ class RateLimiter:
 
         used = self.store.audit_count_since(guild_id, time.time() - 3600, actor=actor)
         if used >= limit:
-            self.trip(guild_id)
+            self.trip(guild_id, actor)
             return Verdict(
                 False,
-                f"hourly automated-action limit ({limit}) reached — enforcement paused. "
-                "This usually means a word list is matching far more than intended.",
+                f"hourly automated-action limit ({limit}) reached for `{actor}` — paused. "
+                "This usually means a rule is matching far more than intended.",
             )
         return ALLOWED
 

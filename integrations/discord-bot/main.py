@@ -18,7 +18,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from voxguard.bot import VoxGuardBot
-from voxguard.checks import on_app_command_error
 from voxguard.config import Settings
 from voxguard.runtime import Runtime
 
@@ -57,7 +56,6 @@ async def amain() -> None:
         log.warning("The AI agent (/personality-ai, /vctalk, /roam) won't work until this is fixed.")
 
     bot = VoxGuardBot(settings, runtime)
-    bot.tree.on_error = on_app_command_error
 
     try:
         async with bot:

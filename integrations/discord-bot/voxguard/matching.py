@@ -49,6 +49,30 @@ _REPEATS = re.compile(r"(.)\1+")
 MIN_FUZZY_LEN = 5
 FUZZY_THRESHOLD = 88
 
+# Operator-supplied `re:` patterns run against every transcript line, so a
+# pathological one stalls the whole voice pipeline. These bounds reject the
+# shapes that cause catastrophic backtracking rather than trying to detect it
+# at match time.
+MAX_REGEX_LEN = 200
+# A quantifier applied to an already-quantified group — (a+)+, (a*)* , (\d+)*
+# and friends — is the classic exponential-backtracking construct.
+_NESTED_QUANTIFIER = re.compile(r"\([^)]*[+*][^)]*\)\s*[+*{]")
+# Text scanned per line is bounded anyway, but cap it so a very long
+# transcript can't multiply a merely-slow pattern into a stall.
+MAX_REGEX_INPUT = 2000
+
+
+def safe_regex(pattern: str) -> re.Pattern[str] | None:
+    """Compile an operator-supplied pattern, or None if it looks unsafe."""
+    if not pattern or len(pattern) > MAX_REGEX_LEN:
+        return None
+    if _NESTED_QUANTIFIER.search(pattern):
+        return None
+    try:
+        return re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        return None
+
 
 @dataclass(frozen=True)
 class Term:
@@ -100,14 +124,19 @@ class Matcher:
     def __init__(self, blocked: list[Term], allowed: list[Term] | None = None) -> None:
         self.blocked = blocked
         self.allowed = allowed or []
+        # Patterns refused as unsafe, surfaced by `/blacklist list` so an
+        # operator finds out rather than silently getting no matches.
+        self.rejected: list[str] = []
         self._compiled: list[tuple[Term, re.Pattern[str] | None, str, str]] = []
         for term in blocked:
             if term.kind == "regex":
-                try:
-                    self._compiled.append((term, re.compile(term.text, re.IGNORECASE), "", ""))
-                except re.error:
-                    # A bad user-supplied pattern shouldn't take the matcher down.
+                compiled = safe_regex(term.text)
+                if compiled is None:
+                    # A bad or dangerous pattern shouldn't take the matcher
+                    # down, nor stall every transcript line that follows.
+                    self.rejected.append(term.text)
                     continue
+                self._compiled.append((term, compiled, "", ""))
             else:
                 norm = normalize(term.text)
                 if not norm:
@@ -148,7 +177,7 @@ class Matcher:
             if term.kind == "regex":
                 if pattern is None:
                     continue
-                hit = pattern.search(text)
+                hit = pattern.search(text[:MAX_REGEX_INPUT])
                 if hit:
                     offer(
                         Match(term.text, term.kind, term.severity, hit.group(0), 1.0, "regex")

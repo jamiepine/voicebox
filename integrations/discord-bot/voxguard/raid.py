@@ -65,8 +65,14 @@ class RaidDetector:
         self.store = store
         self.limiter = limiter
         self._joins: dict[int, deque[Joiner]] = {}
+        # Guilds currently locked down (timed or indefinite).
+        self._locked: set[int] = set()
+        # Subset of the above with an automatic lift time.
         self._lockdowns: dict[int, float] = {}
         self._last_alert: dict[int, float] = {}
+        # Verification level in force before a lockdown raised it, so lifting
+        # restores what the guild actually had rather than assuming `medium`.
+        self._prev_verification: dict[int, discord.VerificationLevel] = {}
 
     # -- scoring ------------------------------------------------------------
 
@@ -147,10 +153,10 @@ class RaidDetector:
         if action in ("alert", "lockdown"):
             if action == "lockdown":
                 minutes = int(cfg.get("lockdown_minutes", 15))
-                ok, note = await self.lockdown(guild, True, reason=f"raid score {event.score}")
+                _, note = await self.lockdown(
+                    guild, True, reason=f"raid score {event.score}", minutes=minutes
+                )
                 report.append(note)
-                if ok:
-                    self._lockdowns[guild.id] = time.time() + minutes * 60
             return report
 
         # kick / ban only touch the accounts in the detection window, and
@@ -160,7 +166,7 @@ class RaidDetector:
             member = guild.get_member(joiner.user_id)
             if member is None:
                 continue
-            if not guardrails.is_immune(member, config):
+            if not guardrails.may_action(member, config):
                 skipped += 1
                 continue
             if not guardrails.can_action(guild, member, action):
@@ -182,9 +188,19 @@ class RaidDetector:
         return report
 
     async def lockdown(
-        self, guild: discord.Guild, on: bool, *, reason: str = "raid response"
+        self,
+        guild: discord.Guild,
+        on: bool,
+        *,
+        reason: str = "raid response",
+        minutes: int | None = None,
     ) -> tuple[bool, str]:
-        """Deny @everyone send/connect across the server, or restore it."""
+        """Deny @everyone send/connect across the server, or restore it.
+
+        Expiry bookkeeping lives here rather than in the caller so that every
+        route into a lockdown — the automatic raid response and the manual
+        `/raid lockdown` command alike — gets the same auto-lift behaviour.
+        """
         everyone = guild.default_role
         changed, failed = 0, 0
 
@@ -202,21 +218,38 @@ class RaidDetector:
             except discord.HTTPException:
                 failed += 1
 
+        # Only touch verification level if it would actually be a raise, and
+        # remember what it was so lifting restores the guild's own setting.
         try:
-            await guild.edit(
-                verification_level=(
-                    discord.VerificationLevel.high if on else discord.VerificationLevel.medium
-                ),
-                reason=reason,
-            )
+            if on:
+                current = guild.verification_level
+                if current < discord.VerificationLevel.high:
+                    self._prev_verification[guild.id] = current
+                    await guild.edit(
+                        verification_level=discord.VerificationLevel.high, reason=reason
+                    )
+            else:
+                previous = self._prev_verification.pop(guild.id, None)
+                if previous is not None:
+                    await guild.edit(verification_level=previous, reason=reason)
         except discord.HTTPException:
             pass
 
-        if not on:
+        if on:
+            self._locked.add(guild.id)
+            if minutes:
+                self._lockdowns[guild.id] = time.time() + minutes * 60
+            else:
+                # Indefinite until someone runs /raid lift.
+                self._lockdowns.pop(guild.id, None)
+        else:
+            self._locked.discard(guild.id)
             self._lockdowns.pop(guild.id, None)
 
         state = "Locked down" if on else "Lifted lockdown on"
         note = f"{state} {changed} channel(s)."
+        if on and minutes:
+            note += f" Auto-lifts in {minutes} minutes."
         if failed:
             note += f" {failed} could not be changed (missing permissions)."
         self.store.audit(guild.id, "raid", "lockdown_on" if on else "lockdown_off", None, note)
@@ -227,4 +260,4 @@ class RaidDetector:
         return [gid for gid, until in self._lockdowns.items() if now >= until]
 
     def is_locked_down(self, guild_id: int) -> bool:
-        return guild_id in self._lockdowns
+        return guild_id in self._locked

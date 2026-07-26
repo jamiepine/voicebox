@@ -27,6 +27,11 @@ class Settings:
     ollama_model: str
     auto_install_ollama: bool
     data_dir: Path
+    dashboard_enabled: bool = False
+    dashboard_host: str = "127.0.0.1"
+    dashboard_port: int = 8420
+    dashboard_token: str = ""
+    dashboard_public_url: str = ""
     owner_ids: set[int] = field(default_factory=set)
     dev_guild_id: int | None = None
     log_level: str = "INFO"
@@ -41,6 +46,25 @@ class Settings:
         data_dir = Path(os.environ.get("VOXGUARD_DATA_DIR", "./data")).expanduser().resolve()
         data_dir.mkdir(parents=True, exist_ok=True)
 
+        dashboard_on = os.environ.get("VOXGUARD_DASHBOARD", "0") == "1"
+        dashboard_token = os.environ.get("VOXGUARD_DASHBOARD_TOKEN", "").strip()
+        host = os.environ.get("VOXGUARD_DASHBOARD_HOST", "127.0.0.1").strip()
+        port = int(os.environ.get("VOXGUARD_DASHBOARD_PORT", "8420") or 8420)
+
+        # The dashboard exposes moderation history and error logs, so it does
+        # not start without a token. Refusing here beats booting an
+        # unauthenticated stats page onto a public interface.
+        if dashboard_on and not dashboard_token:
+            raise SystemExit(
+                "VOXGUARD_DASHBOARD=1 requires VOXGUARD_DASHBOARD_TOKEN to be set.\n"
+                "Generate one with:  python -c \"import secrets;print(secrets.token_urlsafe(32))\""
+            )
+        if dashboard_on and host not in ("127.0.0.1", "localhost") and len(dashboard_token) < 32:
+            raise SystemExit(
+                f"Refusing to bind the dashboard to {host} with a token shorter than 32 "
+                "characters. Use a longer token, or bind to 127.0.0.1 and use an SSH tunnel."
+            )
+
         return cls(
             discord_token=token,
             voicebox_url=os.environ.get("VOICEBOX_URL", "http://127.0.0.1:17493").rstrip("/"),
@@ -50,6 +74,14 @@ class Settings:
             ollama_model=os.environ.get("OLLAMA_MODEL", "llama3.1:8b"),
             auto_install_ollama=os.environ.get("VOXGUARD_AUTO_INSTALL_OLLAMA", "0") == "1",
             data_dir=data_dir,
+            dashboard_enabled=dashboard_on,
+            dashboard_host=host,
+            dashboard_port=port,
+            dashboard_token=dashboard_token,
+            dashboard_public_url=(
+                os.environ.get("VOXGUARD_DASHBOARD_URL", "").strip()
+                or f"http://{'localhost' if host == '127.0.0.1' else host}:{port}"
+            ),
             owner_ids=_ids(os.environ.get("VOXGUARD_OWNER_IDS")),
             dev_guild_id=int(dev_guild) if dev_guild.isdigit() else None,
             log_level=os.environ.get("VOXGUARD_LOG_LEVEL", "INFO").upper(),
@@ -129,6 +161,97 @@ DEFAULT_GUILD_CONFIG: dict = {
         # executing. Turning this off is a deliberate choice, not a default.
         "require_confirm_destructive": True,
         "audit_channel_id": None,
+    },
+    # Text-channel automod, complementing the voice filter.
+    "automod": {
+        "enabled": False,
+        "log_channel_id": None,
+        "delete_on_trigger": True,
+        "rules": {
+            "invites": {"enabled": False, "action": "delete"},
+            "links": {"enabled": False, "action": "delete", "allowed_domains": []},
+            "mass_mentions": {"enabled": False, "action": "timeout", "limit": 5},
+            "spam": {"enabled": False, "action": "timeout", "messages": 5, "seconds": 5},
+            "caps": {"enabled": False, "action": "delete", "percent": 70, "min_length": 10},
+            "words": {"enabled": False, "action": "delete"},
+        },
+    },
+    # Protection against a compromised or rogue account with admin powers.
+    "antinuke": {
+        "enabled": False,
+        "alert_channel_id": None,
+        # Actions by a single moderator within the window that trip the alarm.
+        "window_seconds": 30,
+        "channel_delete_limit": 3,
+        "role_delete_limit": 3,
+        "ban_limit": 5,
+        "kick_limit": 5,
+        # strip_roles removes the actor's privileged roles; alert just reports.
+        "response": "strip_roles",
+        "whitelist": [],
+    },
+    "levels": {
+        "enabled": False,
+        "announce_channel_id": None,
+        "announce": True,
+        "xp_per_message": 15,
+        "message_cooldown_seconds": 60,
+        # Voice XP is the reason this exists on a voice bot: time spent
+        # actually talking counts, not just time parked in a channel.
+        "xp_per_voice_minute": 8,
+        "voice_requires_unmuted": True,
+        "no_xp_channels": [],
+        "stack_rewards": False,
+    },
+    "welcome": {
+        "enabled": False,
+        "channel_id": None,
+        "message": "Welcome {mention} to **{server}**! You're member #{count}.",
+        "goodbye_enabled": False,
+        "goodbye_channel_id": None,
+        "goodbye_message": "**{user}** has left the server.",
+        "autorole_ids": [],
+        "dm_message": None,
+    },
+    "logging": {
+        "enabled": False,
+        "channel_id": None,
+        "message_delete": True,
+        "message_edit": True,
+        "member_join": True,
+        "member_leave": True,
+        "member_update": False,
+        "voice_state": False,
+        "moderation": True,
+    },
+    "starboard": {
+        "enabled": False,
+        "channel_id": None,
+        "emoji": "⭐",
+        "threshold": 3,
+        "self_star": False,
+        "ignore_channels": [],
+    },
+    "tickets": {
+        "enabled": False,
+        "category_id": None,
+        "support_role_id": None,
+        "log_channel_id": None,
+        "open_message": "Thanks for opening a ticket. A staff member will be with you shortly.",
+    },
+    "threads": {
+        # Channels where every message spawns a thread automatically.
+        "auto_thread_channels": [],
+        "auto_archive_minutes": 1440,
+    },
+    # How long voice-derived and behavioural data is kept. 0 = forever.
+    # Defaults are deliberately finite: this bot records people's speech.
+    "retention": {
+        "infraction_days": 180,
+        "transcript_days": 30,
+        "conversation_days": 30,
+        "audit_days": 365,
+        "error_days": 30,
     },
     "guardrails": {
         # Roles that are never actioned by automated enforcement.

@@ -12,8 +12,13 @@ turns out to be non-consensual.
 
 from __future__ import annotations
 
+import logging
+from pathlib import PurePosixPath
+
 from .store import Store
 from .voicebox_client import Profile, VoiceboxClient
+
+log = logging.getLogger(__name__)
 
 CONSENT_PHRASE = "I OWN THIS VOICE OR HAVE PERMISSION TO CLONE IT"
 
@@ -47,6 +52,13 @@ async def clone_voice(
     if len(audio) > MAX_SAMPLE_BYTES:
         raise ConsentError(f"File too large (max {MAX_SAMPLE_BYTES // (1024 * 1024)} MB).")
 
+    suffix = PurePosixPath(filename).suffix.lower()
+    if suffix not in ALLOWED_EXTS:
+        raise ConsentError(
+            f"Unsupported audio format '{suffix or filename}'. "
+            f"Use one of: {', '.join(sorted(ALLOWED_EXTS))}"
+        )
+
     if not reference_text or not reference_text.strip():
         # No transcript supplied — Voicebox's sample endpoint requires one to
         # align the reference audio, so generate it with the same Whisper
@@ -59,8 +71,22 @@ async def clone_voice(
             )
 
     profile = await voicebox.create_profile(name, language=language)
-    await voicebox.add_sample(
-        profile.id, audio, filename=filename, reference_text=reference_text
-    )
-    store.record_consent(guild_id, profile.id, profile.name, uploader_id, attestation, filename)
+    try:
+        await voicebox.add_sample(
+            profile.id, audio, filename=filename, reference_text=reference_text
+        )
+        store.record_consent(
+            guild_id, profile.id, profile.name, uploader_id, attestation, filename
+        )
+    except Exception:
+        # Don't leave a profile behind that has no sample, or worse, a usable
+        # clone with no consent record attached to it.
+        try:
+            await voicebox.delete_profile(profile.id)
+        except Exception:
+            log.warning(
+                "Could not roll back orphaned voice profile %s after a failed clone.",
+                profile.id,
+            )
+        raise
     return profile

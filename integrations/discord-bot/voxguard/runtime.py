@@ -12,6 +12,10 @@ from dataclasses import dataclass, field
 from . import guardrails
 from .agent import ServerAgent
 from .config import Settings, merged_config
+from .features.automod import AntiNuke, TextAutomod
+from .features.community import GiveawayManager, Starboard, TicketManager, WelcomeManager
+from .features.levels import LevelEngine
+from .features.logs import EventLogger
 from .listener import SessionManager
 from .matching import Matcher, Term
 from .moderation import Enforcer
@@ -68,6 +72,15 @@ class Runtime:
     speaker: Speaker
     voice_notes: VoiceNoteModerator
     matchers: MatcherCache
+    levels: LevelEngine
+    automod: TextAutomod
+    antinuke: AntiNuke
+    events: EventLogger
+    welcome: WelcomeManager
+    starboard: Starboard
+    giveaways: GiveawayManager
+    tickets: TicketManager
+    started_at: float = field(default_factory=time.time)
     # guild_id -> channel_id the bot is actively vc-talking in
     vctalk_active: dict[int, int] = field(default_factory=dict)
     # guild_id -> monotonic time of the last unprompted roam reply per channel
@@ -112,6 +125,14 @@ class Runtime:
             speaker=speaker,
             voice_notes=voice_notes,
             matchers=matchers,
+            levels=LevelEngine(store),
+            automod=TextAutomod(store),
+            antinuke=AntiNuke(store),
+            events=EventLogger(),
+            welcome=WelcomeManager(store),
+            starboard=Starboard(store),
+            giveaways=GiveawayManager(store),
+            tickets=TicketManager(store),
         )
 
     async def aclose(self) -> None:

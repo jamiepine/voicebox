@@ -262,13 +262,13 @@ you have not done.
         proposals: list[str] = []
         content = ""
 
+        model = ctx.config.get("ai", {}).get("model")
+        exhausted = True
+
         for _ in range(MAX_TOOL_ROUNDS):
             try:
                 message = await self.ollama.chat(
-                    messages,
-                    model=ctx.config.get("ai", {}).get("model"),
-                    tools=schemas,
-                    temperature=0.85,
+                    messages, model=model, tools=schemas, temperature=0.85
                 )
             except OllamaError as exc:
                 log.warning("Ollama chat failed: %s", exc)
@@ -277,6 +277,7 @@ you have not done.
             calls = message.get("tool_calls") or []
             content = (message.get("content") or "").strip()
             if not calls:
+                exhausted = False
                 break
 
             messages.append(message)
@@ -297,6 +298,17 @@ you have not done.
                     actions.append(f"{name}: {result}")
 
                 messages.append({"role": "tool", "content": result[:1500]})
+
+        if exhausted and not content:
+            # The budget ran out while the model was still calling tools, so
+            # the last message carried calls instead of prose. Ask once more
+            # with no tools offered to turn the results into a reply, rather
+            # than leaving the user with silence after the actions ran.
+            try:
+                final = await self.ollama.chat(messages, model=model, temperature=0.85)
+                content = (final.get("content") or "").strip()
+            except OllamaError as exc:
+                log.warning("Final Ollama completion failed: %s", exc)
 
         delivery = None
         if match := DELIVERY_RE.match(content):
@@ -431,7 +443,7 @@ you have not done.
         return None
 
     def _check_target(self, ctx: AgentContext, member: discord.Member, action: str) -> str | None:
-        immune = guardrails.is_immune(member, ctx.config)
+        immune = guardrails.may_action(member, ctx.config)
         if not immune:
             return f"Refused: {immune.reason}."
         feasible = guardrails.can_action(ctx.guild, member, action)
@@ -721,7 +733,11 @@ you have not done.
                 f"({' or '.join(sorted(ALLOWED_IMAGE_HOSTS))})."
             )
         async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as r:
+            # allow_redirects=False keeps the host allowlist meaningful: a
+            # CDN URL that 302s elsewhere would otherwise bypass the check.
+            async with session.get(
+                url, timeout=aiohttp.ClientTimeout(total=30), allow_redirects=False
+            ) as r:
                 if r.status != 200:
                     return f"Failed: could not download the image ({r.status})."
                 if not (r.content_type or "").startswith("image/"):
