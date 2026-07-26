@@ -1,54 +1,23 @@
-<!-- `color` sets the default wordmark ink so the file works standalone on a
-     dark background. Inline in HTML, CSS `color` overrides it, so the same
-     asset inverts for light themes without a second file. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 220" width="900" height="220"
-     color="#E8EAF6" role="img" aria-label="VoxGuard">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 180" width="880" height="180"
+     color="#FFFFFF" role="img" aria-label="VoxGuard">
   <title>VoxGuard</title>
-  <defs>
-    <linearGradient id="lkShield" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#8B5CF6"/>
-      <stop offset="45%" stop-color="#6366F1"/>
-      <stop offset="100%" stop-color="#22D3EE"/>
-    </linearGradient>
-    <linearGradient id="lkWave" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#FFFFFF"/>
-      <stop offset="100%" stop-color="#C7D2FE"/>
-    </linearGradient>
-    <linearGradient id="lkWord" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="currentColor"/>
-      <stop offset="100%" stop-color="currentColor"/>
-    </linearGradient>
-    <linearGradient id="lkAccent" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#8B5CF6"/>
-      <stop offset="100%" stop-color="#22D3EE"/>
-    </linearGradient>
-    <filter id="lkGlow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="5" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-  </defs>
-
-  <g transform="translate(24,18) scale(0.36)">
-    <path d="M256 34 L452 108 V282 C452 388 256 478 256 478 C256 478 60 388 60 282 V108 Z"
-          fill="url(#lkShield)"/>
-    <path d="M256 74 L414 134 V280 C414 362 256 436 256 436 C256 436 98 362 98 280 V134 Z"
-          fill="#0B1020" fill-opacity="0.82"/>
-    <g fill="url(#lkWave)" filter="url(#lkGlow)">
-      <rect x="140" y="238" width="22" height="44"  rx="11"/>
-      <rect x="178" y="212" width="22" height="96"  rx="11"/>
-      <rect x="216" y="180" width="22" height="160" rx="11"/>
-      <rect x="254" y="158" width="22" height="204" rx="11"/>
-      <rect x="292" y="180" width="22" height="160" rx="11"/>
-      <rect x="330" y="212" width="22" height="96"  rx="11"/>
-      <rect x="368" y="238" width="22" height="44"  rx="11"/>
-    </g>
+  <!-- Wordmark ink follows `currentColor`, so the same file inverts for a
+       light surface without a second asset. -->
+  <g fill="currentColor">
+    <rect x="0"   y="72"  width="14" height="36"  rx="7"/>
+    <rect x="24"  y="58"  width="14" height="64"  rx="7"/>
+    <rect x="48"  y="36"  width="14" height="108" rx="7"/>
+    <rect x="72"  y="16"  width="14" height="148" rx="7"/>
+    <rect x="96"  y="32"  width="14" height="116" rx="7"/>
+    <rect x="120" y="50"  width="14" height="80"  rx="7"/>
+    <rect x="144" y="30"  width="14" height="120" rx="7"/>
+    <rect x="168" y="66"  width="14" height="48"  rx="7"/>
   </g>
 
-  <g transform="translate(228,0)" fill="currentColor">
-    <text x="0" y="128" font-family="Inter, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif"
-          font-size="96" font-weight="700" letter-spacing="-3">Vox<tspan font-weight="300">Guard</tspan></text>
-    <rect x="4" y="152" width="86" height="5" rx="2.5" fill="url(#lkAccent)"/>
-    <text x="104" y="160" font-family="Inter, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif"
-          font-size="21" font-weight="500" letter-spacing="5.5" opacity="0.62">VOICE MODERATION</text>
+  <g fill="currentColor">
+    <text x="228" y="112"
+          font-family="Inter, 'SF Pro Display', 'Helvetica Neue', Arial, system-ui, sans-serif"
+          font-size="76" font-weight="600" letter-spacing="-1.5">VOX<tspan
+          font-weight="200" letter-spacing="-0.5">GUARD</tspan></text>
   </g>
 </svg>

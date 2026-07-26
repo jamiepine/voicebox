@@ -1,6 +1,8 @@
 <p align="center">
-  <img src="assets/logo-full.svg" alt="VoxGuard" width="420">
+  <img src="assets/logo-mark.svg" alt="VoxGuard" width="96">
 </p>
+
+<h1 align="center">VoxGuard</h1>
 
 <p align="center">
   <strong>A Voicebox-powered Discord bot.</strong><br>
@@ -25,12 +27,15 @@ slash commands, enforcement, and the agent's tool loop. The AI runs locally on
 | **Voice notes** | Transcribes and moderates Discord's native voice messages |
 | **Voice cloning** | `/voiceclone` clones a voice from an uploaded sample, consent-gated |
 | **Live AI conversation** | `/vctalk` — speak to the bot in VC, it answers out loud in the cloned voice with LLM-driven emotional delivery |
+| **Spoken commands** | Say *"VoxGuard, lock the general channel"* in voice chat and it does it. Each person's spoken commands run with **their own** permissions |
+| **Voice utilities** | `/voice say`, `/voice status`, `/voice summary` (AI recap of a call), `/voice language`, `/voice transcript` |
 
 ### Moderation & security
 | | |
 |---|---|
 | **Case system** | Every ban/kick/timeout/warn gets a numbered case with reason, history and a mod log |
 | **Text automod** | Invites, links, mass mentions, flood/spam, all-caps, and word filters |
+| **AI text moderation** | The local model reads what word lists structurally miss — threats with no slur in them, scams, coordinated harassment — and classifies by category, severity and confidence |
 | **Raid detection** | Scores join bursts on rate, account age, avatars and name similarity → alert, lockdown, kick or ban |
 | **Anti-nuke** | Detects one actor mass-deleting channels/roles or mass-banning, and strips their privileged roles |
 | **Event logging** | Message edits/deletions, joins/leaves, voice activity, role changes, mod actions |
@@ -50,22 +55,31 @@ slash commands, enforcement, and the agent's tool loop. The AI runs locally on
 | **Tags, polls, info** | Canned responses, reaction polls, `/userinfo`, `/serverinfo`, `/avatar` |
 
 ### AI agent
-`/personality-ai` sets its persona and bound voice. `/roam` lets it participate in
-text channels on its own and — if you enable the tiers — manage channels and roles
-or moderate members. See [Guardrails](#guardrails) before enabling that.
+`/chat` talks to it in text. `/personality-ai` sets its persona and bound voice.
+`/roam` lets it participate in text channels on its own. It has **25 tools**
+across three tiers — send messages, remember facts, look up members, create
+channels/roles/threads, toggle bot features, edit word lists, grant XP, and (at
+the top tier) timeout, kick, ban and purge.
+
+Every route into the agent — `/chat`, `/roam`, and spoken commands — is capped by
+the **invoker's own Discord permissions**. See [Guardrails](#guardrails).
 
 ## Dashboard
 
-Set `VOXGUARD_DASHBOARD=1` and a token, and the bot serves a stats dashboard on
-`http://localhost:8420`:
+The bot serves a stats dashboard on `http://localhost:8420`:
 
-- **Overview** — servers, members reached, bans/kicks/timeouts/warnings, automod hits, error counts, moderation-actions-over-time chart, server-growth line, automod activity
+- **Overview** — servers, members reached, bans/kicks/timeouts/warnings, automod and AI-moderation hits, error counts, moderation-actions-over-time chart, server-growth line, filter activity
 - **Servers** — every server as a card with member count, total actions and which features are enabled; click through to
 - **Server detail** — per-server stats, action charts, member-join graph, the full feature matrix with each feature's live configuration, recent cases, and the XP leaderboard
 - **Error log** — every runtime failure with source, message, full traceback and counts by hour/day/week
 
-It reads live gateway state, so latency and uptime are real-time. Charts are
-hand-built SVG — no CDN, no external requests, works fully offline.
+It reads live gateway state, so latency and uptime are real-time. Monochrome
+glass UI, inline stroke icons, and hand-built SVG charts — no CDN, no external
+requests, works fully offline.
+
+Set `VOXGUARD_DASHBOARD=1` and `VOXGUARD_DASHBOARD_TOKEN` in `.env`. It binds to
+`127.0.0.1` by default; exposing it publicly requires a token of at least 32
+characters, and it refuses to start otherwise.
 
 ## Requirements
 
@@ -115,6 +129,7 @@ instantly to `VOXGUARD_DEV_GUILD_ID` if set.
 
 `/join` `/leave` `/catch` `/blacklist add|remove|list|clear`
 `/voicenotes toggle|actions` `/voiceclone` `/vctalk join|stop` `/personality-ai`
+`/voice commands|wakeword|say|status|language|transcript|summary` `/chat`
 </details>
 
 <details>
@@ -127,7 +142,8 @@ instantly to `VOXGUARD_DEV_GUILD_ID` if set.
 <details>
 <summary><strong>Protection</strong></summary>
 
-`/automod toggle|rule|allow-domain|log-channel|status` `/antinuke toggle|configure|whitelist`
+`/automod toggle|rule|allow-domain|log-channel|status`
+`/aimod toggle|configure|category|status|test` `/antinuke toggle|configure|whitelist`
 `/raid toggle|configure|lockdown|lift|status` `/guard status|dry-run|resume|immune-role|warnings|clear-warnings`
 </details>
 
@@ -170,6 +186,15 @@ stand between that and a bot that bans the wrong person off a bad transcription:
   runaway word list pauses the voice filter without disarming the agent. Resume
   with `/guard resume`.
 - **`/guard dry-run`** — detect and report everything, apply nothing.
+- **Speaking grants no authority** — spoken commands run with the intersection of
+  what the guild enabled and what the *speaker* could already do by typing. A
+  member who cannot `/ban` cannot ban by saying it out loud. Discord attributes
+  every audio packet to a user, so this is enforced per utterance.
+- **Idle chatter never gets tools** — an utterance only widens past the chat tier
+  when it both addresses the bot by name and reads like an instruction.
+- **AI moderation needs confidence** — a verdict below the confidence floor is
+  logged, never enforced, and `/aimod test` lets you tune it against real
+  examples before it acts.
 - **No privilege escalation** — the agent creates roles with zero permissions and
   refuses to hand out administrator or manage-server roles; button roles refuse
   the same.
@@ -221,9 +246,11 @@ voxguard/
   vctalk.py           live voice conversation
   voiceclone.py       consent-gated cloning
   voice_notes.py      voice-message moderation
+  voicecommands.py    wake-word routing + per-speaker authority
   features/
     levels.py         text + voice XP, rank roles
     automod.py        text rules + anti-nuke
+    ai_moderation.py  LLM content classification
     community.py      welcome, starboard, tickets, giveaways
     logs.py           event logging
   dashboard/

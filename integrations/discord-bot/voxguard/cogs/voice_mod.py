@@ -61,7 +61,18 @@ class VoiceMod(commands.Cog):
         # Idempotent: re-running /join to move channels replaces the handler
         # under the same key rather than stacking a second one.
         session.add_handler(HANDLER_KEY, self._make_moderation_handler(interaction.guild.id))
-        await interaction.followup.send(f"Joined {channel.mention} and started listening.")
+
+        # If spoken commands are enabled, this channel takes them too — the
+        # bot is already transcribing, so it costs nothing extra.
+        note = ""
+        if config["voice_commands"]["enabled"]:
+            self.bot.vctalk.attach_command_listener(interaction.guild.id)
+            words = self.bot.voice_router.wake_words(config, interaction.guild.me.display_name)
+            note = f" Say \"{words[0]}, …\" to give me spoken instructions."
+
+        await interaction.followup.send(
+            f"Joined {channel.mention} and started listening.{note}"
+        )
 
     @app_commands.command(name="leave", description="Leave the current voice channel and stop listening.")
     @require_operator()

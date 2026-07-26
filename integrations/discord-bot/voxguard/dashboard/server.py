@@ -142,6 +142,7 @@ class DashboardServer:
                 "warns": cases.get("warn", 0),
                 "voice_flags": totals.get("voice_flags", 0),
                 "automod_triggers": totals.get("automod_triggers", 0),
+                "ai_moderation_hits": totals.get("ai_moderation_hits", 0),
                 "levelups": totals.get("levelups", 0),
                 "tickets_opened": totals.get("tickets_opened", 0),
                 "errors_24h": self.store.error_count_since(now - 86400),
@@ -154,6 +155,9 @@ class DashboardServer:
                 "warns": _series(self.store.metric_series("warn", days), days),
                 "joins": _series(self.store.metric_series("member_joins", days), days),
                 "automod": _series(self.store.metric_series("automod_triggers", days), days),
+                "ai_moderation": _series(
+                    self.store.metric_series("ai_moderation_hits", days), days
+                ),
             },
             "growth": self._growth(days),
         }
@@ -208,6 +212,8 @@ class DashboardServer:
             ("Voice notes", config.get("voice_notes", {}).get("enabled")),
             ("Raid detection", config.get("raid", {}).get("enabled")),
             ("Text automod", config.get("automod", {}).get("enabled")),
+            ("AI moderation", config.get("ai_moderation", {}).get("enabled")),
+            ("Spoken commands", config.get("voice_commands", {}).get("enabled")),
             ("Anti-nuke", config.get("antinuke", {}).get("enabled")),
             ("Levelling", config.get("levels", {}).get("enabled")),
             ("Welcome", config.get("welcome", {}).get("enabled")),
@@ -229,10 +235,17 @@ class DashboardServer:
         cases = self.store.case_counts(guild_id)
         totals = self.store.metric_totals(guild_id)
 
+        # Resolve display names from the member cache so the UI shows people,
+        # not raw snowflakes. Falls back to the ID for members who left.
+        def name_of(user_id: str) -> str | None:
+            member = guild.get_member(int(user_id)) if user_id.isdigit() else None
+            return member.display_name if member else None
+
         recent = [
             {
                 "case": r["case_number"],
                 "user_id": r["user_id"],
+                "user_name": name_of(r["user_id"]),
                 "action": r["action"],
                 "reason": r["reason"],
                 "at": r["created_at"],
@@ -243,6 +256,7 @@ class DashboardServer:
         top = [
             {
                 "user_id": r["user_id"],
+                "name": name_of(r["user_id"]),
                 "xp": int(r["xp"]),
                 "messages": int(r["messages"]),
                 "voice_seconds": int(r["voice_seconds"]),
@@ -272,6 +286,7 @@ class DashboardServer:
                     "timeouts": cases.get("timeout", 0),
                     "warns": cases.get("warn", 0),
                     "automod_triggers": totals.get("automod_triggers", 0),
+                    "ai_moderation_hits": totals.get("ai_moderation_hits", 0),
                     "voice_flags": totals.get("voice_flags", 0),
                     "levelups": totals.get("levelups", 0),
                     "tickets_opened": totals.get("tickets_opened", 0),
@@ -313,6 +328,8 @@ class DashboardServer:
             ("Voice notes", "voice_notes", "enabled", "Moderates Discord voice messages"),
             ("Raid detection", "raid", "enabled", "Join-burst scoring and lockdown"),
             ("Text automod", "automod", "enabled", "Invites, links, spam, caps, mentions"),
+            ("AI text moderation", "ai_moderation", "enabled", "Local model classifies message content"),
+            ("Spoken commands", "voice_commands", "enabled", "Act on instructions spoken in voice chat"),
             ("Anti-nuke", "antinuke", "enabled", "Mass channel/role/ban protection"),
             ("Levelling", "levels", "enabled", "Text + voice XP and rank roles"),
             ("Welcome", "welcome", "enabled", "Join/leave messages and autorole"),
@@ -352,6 +369,15 @@ class DashboardServer:
             )
         if block == "roam":
             return f"tiers: {', '.join(section.get('tiers') or [])}"
+        if block == "ai_moderation":
+            actions = section.get("actions") or {}
+            return (
+                f"{len(section.get('categories') or [])} categories · "
+                f"floor {float(section.get('min_confidence', 0)):.0%} · "
+                f"severe: {actions.get('3', '-')}"
+            )
+        if block == "voice_commands":
+            return f"actions: {'allowed' if section.get('allow_actions') else 'reply only'}"
         return ""
 
     async def api_errors(self, request: web.Request) -> web.Response:

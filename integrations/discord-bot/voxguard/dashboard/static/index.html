@@ -1,53 +1,37 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>VoxGuard — Dashboard</title>
+<title>VoxGuard</title>
 <link rel="icon" href="/static/mark.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
-<!-- Sign-in ------------------------------------------------------------ -->
 <div id="gate" class="gate">
-  <form class="gate-card" id="gate-form">
+  <form class="gate-card glass" id="gate-form">
     <img src="/static/logo.svg" alt="VoxGuard" class="gate-logo">
-    <p class="gate-sub">Enter your dashboard access token to continue.</p>
+    <p class="gate-sub">Enter your access token to continue.</p>
     <input type="password" id="token" placeholder="Access token" autocomplete="current-password" required>
     <button type="submit" class="btn-primary">Sign in</button>
     <p class="gate-error" id="gate-error" hidden></p>
-    <p class="gate-hint">Set <code>VOXGUARD_DASHBOARD_TOKEN</code> in your <code>.env</code>.</p>
+    <p class="gate-hint">Set <code>VOXGUARD_DASHBOARD_TOKEN</code> in your <code>.env</code></p>
   </form>
 </div>
 
-<!-- App ---------------------------------------------------------------- -->
 <div id="app" hidden>
   <aside class="sidebar">
     <div class="brand">
       <img src="/static/mark.svg" alt="" class="brand-mark">
-      <div class="brand-text"><strong>VoxGuard</strong><span>Control Center</span></div>
+      <div class="brand-text"><strong>VoxGuard</strong><span>Control</span></div>
     </div>
 
-    <nav class="nav">
-      <button class="nav-item is-active" data-view="overview">
-        <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
-        Overview
-      </button>
-      <button class="nav-item" data-view="servers">
-        <svg viewBox="0 0 24 24"><path d="M4 5h16v4H4zm0 6h16v4H4zm0 6h16v4H4z"/></svg>
-        Servers
-      </button>
-      <button class="nav-item" data-view="errors">
-        <svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 14h-2v2h2v-2zm0-6h-2v4h2v-4z"/></svg>
-        Error Log
-        <span class="badge" id="err-badge" hidden>0</span>
-      </button>
-    </nav>
+    <nav class="nav" id="nav"></nav>
 
     <div class="side-foot">
-      <div class="status" id="bot-status"><span class="dot"></span><span id="bot-status-text">connecting…</span></div>
-      <button class="btn-ghost" id="signout">Sign out</button>
+      <div class="status" id="bot-status"><span class="dot"></span><span id="bot-status-text">connecting</span></div>
+      <button class="btn-ghost" id="signout"></button>
     </div>
   </aside>
 
@@ -58,90 +42,108 @@
         <p class="muted" id="view-sub">Live across every server</p>
       </div>
       <div class="topbar-right">
-        <select id="range" class="select">
+        <select id="range">
           <option value="7">Last 7 days</option>
           <option value="30" selected>Last 30 days</option>
           <option value="90">Last 90 days</option>
         </select>
-        <button class="btn-ghost" id="refresh" title="Refresh">
-          <svg viewBox="0 0 24 24"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6a5.9 5.9 0 0 1 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
-        </button>
+        <button class="btn-ghost" id="refresh" title="Refresh"></button>
       </div>
     </header>
 
-    <!-- Overview -->
     <section class="view" id="view-overview">
       <div class="stat-grid" id="stat-grid"></div>
       <div class="panel-grid">
-        <div class="panel span-2">
-          <div class="panel-head"><h2>Moderation actions</h2><p class="muted">Bans, kicks, timeouts and warnings over time</p></div>
+        <div class="panel glass span-2">
+          <div class="panel-head" data-icon="activity">
+            <div><h2>Moderation actions</h2><p class="muted">Bans, kicks, timeouts and warnings per day</p></div>
+          </div>
           <div id="chart-actions" class="chart"></div>
           <div class="legend" id="legend-actions"></div>
         </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Server growth</h2><p class="muted">Servers the bot is in</p></div>
+        <div class="panel glass">
+          <div class="panel-head" data-icon="trend">
+            <div><h2>Server growth</h2><p class="muted">Servers running VoxGuard</p></div>
+          </div>
           <div id="chart-growth" class="chart"></div>
         </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Automod activity</h2><p class="muted">Filter triggers per day</p></div>
+        <div class="panel glass">
+          <div class="panel-head" data-icon="shield">
+            <div><h2>Filter activity</h2><p class="muted">Automod and AI moderation hits</p></div>
+          </div>
           <div id="chart-automod" class="chart"></div>
+          <div class="legend" id="legend-filters"></div>
         </div>
-        <div class="panel span-2">
-          <div class="panel-head"><h2>Top servers</h2><p class="muted">By member count</p></div>
+        <div class="panel glass span-2">
+          <div class="panel-head" data-icon="server">
+            <div><h2>Top servers</h2><p class="muted">By member count</p></div>
+          </div>
           <div id="top-servers" class="server-strip"></div>
         </div>
       </div>
     </section>
 
-    <!-- Servers -->
     <section class="view" id="view-servers" hidden>
       <div class="toolbar">
-        <input type="search" id="server-search" class="search" placeholder="Search servers…">
+        <div class="search-wrap" id="search-wrap">
+          <input type="search" id="server-search" placeholder="Search servers">
+        </div>
       </div>
       <div class="server-grid" id="server-grid"></div>
     </section>
 
-    <!-- Single server -->
     <section class="view" id="view-guild" hidden>
-      <button class="btn-back" id="back-to-servers">&larr; All servers</button>
+      <button class="btn-back" id="back-to-servers">All servers</button>
       <div class="guild-head" id="guild-head"></div>
       <div class="stat-grid" id="guild-stats"></div>
       <div class="panel-grid">
-        <div class="panel span-2">
-          <div class="panel-head"><h2>Actions over time</h2><p class="muted">Moderation in this server</p></div>
+        <div class="panel glass span-2">
+          <div class="panel-head" data-icon="activity">
+            <div><h2>Actions over time</h2><p class="muted">Moderation in this server</p></div>
+          </div>
           <div id="guild-chart-actions" class="chart"></div>
           <div class="legend" id="guild-legend"></div>
         </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Member joins</h2><p class="muted">New members per day</p></div>
+        <div class="panel glass">
+          <div class="panel-head" data-icon="users">
+            <div><h2>Member joins</h2><p class="muted">New members per day</p></div>
+          </div>
           <div id="guild-chart-joins" class="chart"></div>
         </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Enabled features</h2><p class="muted">What's switched on here</p></div>
+        <div class="panel glass">
+          <div class="panel-head" data-icon="bolt">
+            <div><h2>Features</h2><p class="muted">Configuration in this server</p></div>
+          </div>
           <div id="guild-features" class="feature-list"></div>
         </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Recent cases</h2><p class="muted">Latest moderation actions</p></div>
+        <div class="panel glass">
+          <div class="panel-head" data-icon="file">
+            <div><h2>Recent cases</h2><p class="muted">Latest moderation actions</p></div>
+          </div>
           <div id="guild-cases" class="table-wrap"></div>
         </div>
-        <div class="panel">
-          <div class="panel-head"><h2>Top members</h2><p class="muted">By XP</p></div>
+        <div class="panel glass">
+          <div class="panel-head" data-icon="star">
+            <div><h2>Top members</h2><p class="muted">By experience</p></div>
+          </div>
           <div id="guild-leaderboard" class="table-wrap"></div>
         </div>
       </div>
     </section>
 
-    <!-- Errors -->
     <section class="view" id="view-errors" hidden>
       <div class="stat-grid" id="error-stats"></div>
-      <div class="panel">
-        <div class="panel-head"><h2>Error log</h2><p class="muted">Most recent first</p></div>
+      <div class="panel glass">
+        <div class="panel-head" data-icon="alert">
+          <div><h2>Error log</h2><p class="muted">Runtime failures, newest first</p></div>
+        </div>
         <div id="error-list" class="error-list"></div>
       </div>
     </section>
   </main>
 </div>
 
+<script src="/static/icons.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

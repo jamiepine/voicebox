@@ -113,6 +113,8 @@ DEFAULT_GUILD_CONFIG: dict = {
         # default — a full VC transcript in a text channel surprises people.
         "log_all_transcripts": False,
         "min_confidence": 0.55,
+        # None = let Whisper auto-detect.
+        "language": None,
     },
     # Discord voice-message (voice note) moderation.
     "voice_notes": {
@@ -175,6 +177,29 @@ DEFAULT_GUILD_CONFIG: dict = {
             "caps": {"enabled": False, "action": "delete", "percent": 70, "min_length": 10},
             "words": {"enabled": False, "action": "delete"},
         },
+    },
+    # LLM-based text moderation — catches what word lists structurally can't
+    # (threats with no slur in them, scams, coordinated harassment).
+    "ai_moderation": {
+        "enabled": False,
+        "log_channel_id": None,
+        "model": None,  # falls back to the guild's ai.model, then OLLAMA_MODEL
+        "categories": ["harassment", "hate", "threats", "sexual", "self_harm", "scam"],
+        # Below this confidence the verdict is logged, never enforced.
+        "min_confidence": 0.7,
+        "max_checks_per_minute": 20,
+        # Action per severity band returned by the classifier.
+        "actions": {"1": "log", "2": "delete", "3": "timeout"},
+        "timeout_minutes": 30,
+    },
+    # Spoken commands: talk in a voice channel, the bot acts on it.
+    "voice_commands": {
+        "enabled": False,
+        # Empty = the bot's display name and the bound voice profile name.
+        "wake_words": [],
+        # When false the agent will answer but never invoke a tool by voice.
+        "allow_actions": True,
+        "transcript_channel_id": None,
     },
     # Protection against a compromised or rogue account with admin powers.
     "antinuke": {

@@ -22,6 +22,23 @@ RULE_CHOICES = [
     app_commands.Choice(name="Blocked words", value="words"),
 ]
 
+AI_ACTION_CHOICES = [
+    app_commands.Choice(name="Log only", value="log"),
+    app_commands.Choice(name="Delete the message", value="delete"),
+    app_commands.Choice(name="Delete + timeout", value="timeout"),
+    app_commands.Choice(name="Delete + kick", value="kick"),
+    app_commands.Choice(name="Delete + ban", value="ban"),
+]
+
+CATEGORY_CHOICES = [
+    app_commands.Choice(name="Harassment", value="harassment"),
+    app_commands.Choice(name="Hate speech", value="hate"),
+    app_commands.Choice(name="Threats of violence", value="threats"),
+    app_commands.Choice(name="Sexual content", value="sexual"),
+    app_commands.Choice(name="Self-harm", value="self_harm"),
+    app_commands.Choice(name="Scams and phishing", value="scam"),
+]
+
 ACTION_CHOICES = [
     app_commands.Choice(name="Delete the message", value="delete"),
     app_commands.Choice(name="Delete + warn", value="warn"),
@@ -131,12 +148,12 @@ class AutomodCmds(commands.Cog):
         lines = []
         for choice in RULE_CHOICES:
             entry = cfg["rules"].get(choice.value, {})
-            mark = "🟢" if entry.get("enabled") else "⚫"
-            lines.append(f"{mark} **{choice.name}** — `{entry.get('action', 'delete')}`")
+            state = "on " if entry.get("enabled") else "off"
+            lines.append(f"{state}  {choice.name:<26} {entry.get('action', 'delete')}")
         embed = discord.Embed(
             title=f"Automod — {'enabled' if cfg['enabled'] else 'disabled'}",
-            description="\n".join(lines),
-            colour=0x5865F2 if cfg["enabled"] else 0x95A5A6,
+            description="```\n" + "\n".join(lines) + "```",
+            colour=0x2B2D31,
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -228,6 +245,143 @@ class AutomodCmds(commands.Cog):
         await interaction.response.send_message(
             f"{member.mention} {'removed from' if remove else 'added to'} the anti-nuke whitelist."
         )
+
+
+    # -- AI text moderation -------------------------------------------------
+
+    aimod = app_commands.Group(
+        name="aimod", description="AI-powered text moderation using the local model."
+    )
+
+    @aimod.command(name="toggle", description="Turn AI text moderation on or off.")
+    @require_operator()
+    async def aimod_toggle(self, interaction: discord.Interaction, enabled: bool) -> None:
+        runtime = self.bot.runtime
+        config = runtime.config(interaction.guild.id)
+        config["ai_moderation"]["enabled"] = enabled
+        runtime.save_config(interaction.guild.id, config)
+
+        note = ""
+        if enabled:
+            note = (
+                "\nMessages that get past the regex rules are classified by the local "
+                "model. Start with `/guard dry-run enabled:True` for a day and review "
+                "`/aimod status` before letting it act."
+            )
+        await interaction.response.send_message(
+            f"AI text moderation is now **{'on' if enabled else 'off'}**.{note}"
+        )
+
+    @aimod.command(name="configure", description="Tune AI moderation sensitivity and actions.")
+    @app_commands.describe(
+        min_confidence="Below this the verdict is logged, never enforced (0.5-1.0)",
+        severity_1="Action for mild violations",
+        severity_2="Action for clear violations",
+        severity_3="Action for severe violations",
+        max_per_minute="Cap on model calls per minute in this server",
+        log_channel="Where AI moderation decisions are reported",
+    )
+    @app_commands.choices(
+        severity_1=AI_ACTION_CHOICES, severity_2=AI_ACTION_CHOICES, severity_3=AI_ACTION_CHOICES
+    )
+    @require_operator()
+    async def aimod_configure(
+        self,
+        interaction: discord.Interaction,
+        min_confidence: app_commands.Range[float, 0.5, 1.0] | None = None,
+        severity_1: app_commands.Choice[str] | None = None,
+        severity_2: app_commands.Choice[str] | None = None,
+        severity_3: app_commands.Choice[str] | None = None,
+        max_per_minute: app_commands.Range[int, 1, 120] | None = None,
+        log_channel: discord.TextChannel | None = None,
+    ) -> None:
+        runtime = self.bot.runtime
+        config = runtime.config(interaction.guild.id)
+        cfg = config["ai_moderation"]
+        if min_confidence is not None:
+            cfg["min_confidence"] = float(min_confidence)
+        for level, choice in (("1", severity_1), ("2", severity_2), ("3", severity_3)):
+            if choice is not None:
+                cfg["actions"][level] = choice.value
+        if max_per_minute is not None:
+            cfg["max_checks_per_minute"] = max_per_minute
+        if log_channel is not None:
+            cfg["log_channel_id"] = log_channel.id
+        runtime.save_config(interaction.guild.id, config)
+        await interaction.response.send_message("AI moderation settings updated.")
+
+    @aimod.command(name="category", description="Enable or disable one violation category.")
+    @app_commands.choices(category=CATEGORY_CHOICES)
+    @require_operator()
+    async def aimod_category(
+        self, interaction: discord.Interaction, category: app_commands.Choice[str], enabled: bool
+    ) -> None:
+        runtime = self.bot.runtime
+        config = runtime.config(interaction.guild.id)
+        current = set(config["ai_moderation"]["categories"])
+        if enabled:
+            current.add(category.value)
+        else:
+            current.discard(category.value)
+        config["ai_moderation"]["categories"] = sorted(current)
+        runtime.save_config(interaction.guild.id, config)
+        await interaction.response.send_message(
+            f"**{category.name}** is now {'watched' if enabled else 'ignored'}."
+        )
+
+    @aimod.command(name="status", description="Show AI moderation configuration.")
+    @require_operator()
+    async def aimod_status(self, interaction: discord.Interaction) -> None:
+        cfg = self.bot.runtime.config(interaction.guild.id)["ai_moderation"]
+        watched = set(cfg["categories"])
+        lines = [
+            f"{'on ' if c.value in watched else 'off'}  {c.name}" for c in CATEGORY_CHOICES
+        ]
+        actions = cfg["actions"]
+        embed = discord.Embed(
+            title=f"AI moderation — {'enabled' if cfg['enabled'] else 'disabled'}",
+            description="```\n" + "\n".join(lines) + "```",
+            colour=0x2B2D31,
+        )
+        embed.add_field(
+            name="Actions",
+            value=(
+                f"mild: `{actions.get('1')}` · clear: `{actions.get('2')}` · "
+                f"severe: `{actions.get('3')}`"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="Confidence floor", value=f"{float(cfg['min_confidence']):.0%}", inline=True
+        )
+        embed.add_field(name="Rate cap", value=f"{cfg['max_checks_per_minute']}/min", inline=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @aimod.command(name="test", description="Run a sample message through the classifier.")
+    @require_operator()
+    async def aimod_test(self, interaction: discord.Interaction, message: str) -> None:
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        config = self.bot.runtime.config(interaction.guild.id)
+        # Force a check even if the feature is off, so it can be tuned safely.
+        probe = {**config, "ai_moderation": {**config["ai_moderation"], "enabled": True}}
+        verdict = await self.bot.runtime.ai_moderation.classify(
+            message, interaction.guild.id, probe
+        )
+        if verdict is None:
+            await interaction.followup.send(
+                "No verdict — the message was too short, the rate cap was hit, or the "
+                "model is unreachable."
+            )
+            return
+        action = self.bot.runtime.ai_moderation.action_for(verdict, probe)
+        embed = discord.Embed(title="Classifier result", colour=0x2B2D31)
+        embed.add_field(name="Violation", value=str(verdict.violation), inline=True)
+        embed.add_field(name="Category", value=verdict.category, inline=True)
+        embed.add_field(name="Severity", value=str(verdict.severity), inline=True)
+        embed.add_field(name="Confidence", value=f"{verdict.confidence:.0%}", inline=True)
+        embed.add_field(name="Would do", value=f"`{action}`", inline=True)
+        embed.add_field(name="Reason", value=verdict.reason or "—", inline=False)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot: "VoxGuardBot") -> None:

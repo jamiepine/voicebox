@@ -605,6 +605,101 @@ you have not done.
             _obj({"channel": _STR, "count": _INT}, ["channel", "count"]),
             self._t_purge,
         )
+        add(
+            "lock_channel",
+            "moderate",
+            False,
+            "Stop or allow @everyone sending in a channel. Set locked=false to unlock.",
+            _obj({"channel": _STR, "locked": {"type": "boolean"}}, ["channel", "locked"]),
+            self._t_lock_channel,
+        )
+
+        # --- feature control (manage tier) --------------------------------
+        add(
+            "create_thread",
+            "manage",
+            False,
+            "Open a thread in a text channel.",
+            _obj({"channel": _STR, "name": _STR}, ["channel", "name"]),
+            self._t_create_thread,
+        )
+        add(
+            "set_feature",
+            "manage",
+            False,
+            "Turn a bot feature on or off in this server.",
+            _obj(
+                {
+                    "feature": {
+                        "type": "string",
+                        "enum": [
+                            "voice", "voice_notes", "raid", "automod", "ai_moderation",
+                            "antinuke", "levels", "welcome", "logging", "starboard",
+                            "tickets", "voice_commands",
+                        ],
+                    },
+                    "enabled": {"type": "boolean"},
+                },
+                ["feature", "enabled"],
+            ),
+            self._t_set_feature,
+        )
+        add(
+            "add_blocked_words",
+            "manage",
+            False,
+            "Add words or phrases to the voice/text blocklist.",
+            _obj(
+                {
+                    "words": _STR,
+                    "scope": {"type": "string", "enum": ["voice", "voice_notes"]},
+                },
+                ["words"],
+            ),
+            self._t_add_blocked_words,
+        )
+        add(
+            "grant_xp",
+            "manage",
+            False,
+            "Give or take experience points from a member.",
+            _obj({"user": _STR, "amount": _INT}, ["user", "amount"]),
+            self._t_grant_xp,
+        )
+        add(
+            "set_tag",
+            "manage",
+            False,
+            "Save a reusable canned response under a short name.",
+            _obj({"name": _STR, "content": _STR}, ["name", "content"]),
+            self._t_set_tag,
+        )
+
+        # --- read-only lookups (chat tier) --------------------------------
+        add(
+            "lookup_member",
+            "chat",
+            False,
+            "Look up a member's roles, join date, level and moderation history.",
+            _obj({"user": _STR}, ["user"]),
+            self._t_lookup_member,
+        )
+        add(
+            "server_stats",
+            "chat",
+            False,
+            "Get current server statistics and which features are enabled.",
+            _obj({}, []),
+            self._t_server_stats,
+        )
+        add(
+            "list_channels",
+            "chat",
+            False,
+            "List the channels in this server, so you can refer to them accurately.",
+            _obj({}, []),
+            self._t_list_channels,
+        )
 
     async def _t_send_message(self, ctx: AgentContext, args: dict) -> str:
         channel = self._channel(ctx, args.get("channel", ""))
@@ -790,6 +885,126 @@ you have not done.
         count = max(1, min(100, int(args.get("count", 10))))
         deleted = await channel.purge(limit=count, reason="VoxGuard agent")
         return f"Deleted {len(deleted)} message(s) in #{channel.name}."
+
+    # -- feature-control tool implementations -------------------------------
+
+    async def _t_lock_channel(self, ctx: AgentContext, args: dict) -> str:
+        channel = self._channel(ctx, args.get("channel", ""))
+        if not isinstance(channel, discord.TextChannel):
+            return "Failed: that isn't a text channel."
+        locked = bool(args.get("locked", True))
+        overwrite = channel.overwrites_for(ctx.guild.default_role)
+        overwrite.send_messages = False if locked else None
+        await channel.set_permissions(
+            ctx.guild.default_role, overwrite=overwrite, reason="VoxGuard agent"
+        )
+        return f"{'Locked' if locked else 'Unlocked'} #{channel.name}."
+
+    async def _t_create_thread(self, ctx: AgentContext, args: dict) -> str:
+        channel = self._channel(ctx, args.get("channel", ""))
+        if not isinstance(channel, discord.TextChannel):
+            return "Failed: threads need a text channel."
+        name = str(args.get("name", "")).strip()[:100]
+        if not name:
+            return "Failed: a thread name is required."
+        thread = await channel.create_thread(
+            name=name, type=discord.ChannelType.public_thread, reason="VoxGuard agent"
+        )
+        self.store.bump_metric(ctx.guild.id, "threads_created")
+        return f"Created thread #{thread.name}."
+
+    async def _t_set_feature(self, ctx: AgentContext, args: dict) -> str:
+        feature = str(args.get("feature", "")).strip()
+        enabled = bool(args.get("enabled", False))
+        if feature not in ctx.config:
+            return f"Failed: no feature named '{feature}'."
+        ctx.config[feature]["enabled"] = enabled
+        self.store.save_config(ctx.guild.id, ctx.config)
+        return f"{feature.replace('_', ' ')} is now {'on' if enabled else 'off'}."
+
+    async def _t_add_blocked_words(self, ctx: AgentContext, args: dict) -> str:
+        from .matching import parse_terms
+
+        scope = str(args.get("scope", "voice"))
+        if scope not in ("voice", "voice_notes"):
+            scope = "voice"
+        terms = parse_terms(str(args.get("words", "")))
+        if not terms:
+            return "Failed: no usable terms in that input."
+        added = self.store.add_terms(ctx.guild.id, scope, terms)
+        return f"Added {added} term(s) to the {scope.replace('_', ' ')} blocklist."
+
+    async def _t_grant_xp(self, ctx: AgentContext, args: dict) -> str:
+        member = self._member(ctx, args.get("user", ""))
+        if member is None:
+            return f"Failed: no member matching '{args.get('user')}'."
+        try:
+            amount = int(args.get("amount", 0))
+        except (TypeError, ValueError):
+            return "Failed: amount must be a number."
+        amount = max(-100000, min(100000, amount))
+        total = self.store.add_xp(ctx.guild.id, member.id, amount)
+        return f"{member.display_name} now has {total:,} XP."
+
+    async def _t_set_tag(self, ctx: AgentContext, args: dict) -> str:
+        name = str(args.get("name", "")).strip()
+        content = str(args.get("content", "")).strip()
+        if not name or not content:
+            return "Failed: both a name and content are required."
+        invoker = ctx.invoker.id if ctx.invoker else 0
+        self.store.set_tag(ctx.guild.id, name, content, invoker)
+        return f"Saved the tag '{name.lower()}'."
+
+    async def _t_lookup_member(self, ctx: AgentContext, args: dict) -> str:
+        member = self._member(ctx, args.get("user", ""))
+        if member is None:
+            return f"No member matching '{args.get('user')}'."
+
+        from .features.levels import level_from_xp
+
+        row = self.store.get_level_row(ctx.guild.id, member.id)
+        cases = self.store.user_cases(ctx.guild.id, member.id, limit=5)
+        roles = [r.name for r in member.roles if not r.is_default()]
+
+        parts = [
+            f"{member.display_name} (id {member.id})",
+            f"roles: {', '.join(roles) if roles else 'none'}",
+            f"joined: {member.joined_at.date() if member.joined_at else 'unknown'}",
+        ]
+        if row:
+            parts.append(f"level {level_from_xp(int(row['xp']))} ({int(row['xp'])} XP)")
+        if cases:
+            parts.append(
+                "recent cases: "
+                + "; ".join(f"#{c['case_number']} {c['action']}" for c in cases)
+            )
+        else:
+            parts.append("no moderation history")
+        return " | ".join(parts)
+
+    async def _t_server_stats(self, ctx: AgentContext, args: dict) -> str:
+        guild = ctx.guild
+        cases = self.store.case_counts(guild.id)
+        enabled = [
+            name
+            for name in (
+                "voice", "voice_notes", "raid", "automod", "ai_moderation", "antinuke",
+                "levels", "welcome", "logging", "starboard", "tickets", "voice_commands",
+            )
+            if ctx.config.get(name, {}).get("enabled")
+        ]
+        return (
+            f"{guild.name}: {guild.member_count} members, {len(guild.channels)} channels, "
+            f"{len(guild.roles)} roles. Moderation: {cases.get('ban', 0)} bans, "
+            f"{cases.get('kick', 0)} kicks, {cases.get('timeout', 0)} timeouts, "
+            f"{cases.get('warn', 0)} warnings. "
+            f"Enabled features: {', '.join(enabled) if enabled else 'none'}."
+        )
+
+    async def _t_list_channels(self, ctx: AgentContext, args: dict) -> str:
+        text = [c.name for c in ctx.guild.text_channels[:40]]
+        voice = [c.name for c in ctx.guild.voice_channels[:20]]
+        return f"Text channels: {', '.join(text)}. Voice channels: {', '.join(voice)}."
 
 
 async def gather_safe(*coros: Awaitable[Any]) -> list[Any]:

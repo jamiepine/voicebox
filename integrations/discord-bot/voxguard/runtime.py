@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from . import guardrails
 from .agent import ServerAgent
 from .config import Settings, merged_config
+from .features.ai_moderation import AIModerator
 from .features.automod import AntiNuke, TextAutomod
 from .features.community import GiveawayManager, Starboard, TicketManager, WelcomeManager
 from .features.levels import LevelEngine
@@ -74,6 +75,7 @@ class Runtime:
     matchers: MatcherCache
     levels: LevelEngine
     automod: TextAutomod
+    ai_moderation: AIModerator
     antinuke: AntiNuke
     events: EventLogger
     welcome: WelcomeManager
@@ -127,6 +129,7 @@ class Runtime:
             matchers=matchers,
             levels=LevelEngine(store),
             automod=TextAutomod(store),
+            ai_moderation=AIModerator(ollama, store),
             antinuke=AntiNuke(store),
             events=EventLogger(),
             welcome=WelcomeManager(store),

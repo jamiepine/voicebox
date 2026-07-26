@@ -15,6 +15,7 @@ from .config import Settings
 from .roam import RoamController
 from .runtime import Runtime
 from .vctalk import VCTalkController
+from .voicecommands import VoiceCommandRouter
 from .voice_notes import is_voice_message
 
 log = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ EXTENSIONS = (
     "voxguard.cogs.automod_cmds",
     "voxguard.cogs.community_cmds",
     "voxguard.cogs.utility_cmds",
+    "voxguard.cogs.voice_cmds",
 )
 
 INTENTS = discord.Intents.default()
@@ -42,7 +44,10 @@ class VoxGuardBot(commands.Bot):
         super().__init__(command_prefix=commands.when_mentioned, intents=INTENTS)
         self.settings = settings
         self.runtime = runtime
-        self.vctalk = VCTalkController(runtime.sessions, runtime.speaker, runtime.agent)
+        self.voice_router = VoiceCommandRouter(settings.owner_ids)
+        self.vctalk = VCTalkController(
+            runtime.sessions, runtime.speaker, runtime.agent, self.voice_router
+        )
         self.vctalk.set_resolver(self._resolve_vctalk_context)
         self.roam = RoamController(runtime.agent)
         self.dashboard = None
@@ -116,25 +121,27 @@ class VoxGuardBot(commands.Bot):
         return tuple(dict.fromkeys(["chat", *tiers]))
 
     def _resolve_vctalk_context(self, guild_id: int):
+        """Supply live guild state to the voice controller.
+
+        Deliberately returns config rather than a built AgentContext: the
+        tiers depend on *who spoke*, which isn't known until the utterance
+        arrives, so the controller builds the context per turn.
+        """
         guild = self.get_guild(guild_id)
         if guild is None:
             return None
         voice_client = guild.voice_client
-        if voice_client is None:
-            return None
-        channel_id = self.runtime.vctalk_active.get(guild_id)
-        channel = guild.get_channel(channel_id) if channel_id else None
         config = self.runtime.config(guild_id)
-        ctx = AgentContext(
-            guild=guild,
-            channel=channel,
-            invoker=None,
-            config=config,
-            allowed_tiers=self.allowed_tiers(config),
-            voice_client=voice_client,
-            approval_channel=channel,
+
+        channel_id = (
+            config.get("voice_commands", {}).get("transcript_channel_id")
+            or self.runtime.vctalk_active.get(guild_id)
         )
-        return guild, ctx, voice_client
+        channel = guild.get_channel(int(channel_id)) if channel_id else None
+        if not isinstance(channel, discord.abc.Messageable):
+            channel = None
+
+        return guild, config, voice_client, channel
 
     # -- events -----------------------------------------------------------
 
@@ -153,6 +160,11 @@ class VoxGuardBot(commands.Bot):
         # Automod runs before anything that might reply, so a rule-breaking
         # message doesn't get quoted back by the agent before it's removed.
         if await self._run_automod(message, config):
+            return
+
+        # AI moderation runs second: the regex rules are free and certain, so
+        # the model only sees what they didn't already resolve.
+        if await self._run_ai_moderation(message, config):
             return
 
         await self._auto_thread(message, config)
@@ -239,6 +251,104 @@ class VoxGuardBot(commands.Bot):
                 except discord.HTTPException:
                     pass
         return bool(actions)
+
+    async def _run_ai_moderation(self, message: discord.Message, config: dict) -> bool:
+        """Classify a message with the local model. Returns True if actioned."""
+        if not isinstance(message.author, discord.Member):
+            return False
+        if not self.runtime.ai_moderation.should_check(message.content or "", config):
+            return False
+        if not guardrails.may_action(message.author, config):
+            return False
+
+        try:
+            verdict = await self.runtime.ai_moderation.classify(
+                message.content, message.guild.id, config
+            )
+        except Exception:
+            self._record_error("ai_moderation", message.guild.id)
+            return False
+
+        if verdict is None or not verdict.violation:
+            return False
+
+        action = self.runtime.ai_moderation.action_for(verdict, config)
+        if action == "none":
+            return False
+
+        cfg = config.get("ai_moderation", {})
+        dry = guardrails.dry_run(config)
+        applied: list[str] = []
+
+        self.runtime.store.bump_metric(message.guild.id, "ai_moderation_hits")
+        self.runtime.store.audit(
+            message.guild.id, "ai-mod", verdict.category, str(message.author.id),
+            f"severity={verdict.severity} confidence={verdict.confidence:.2f}",
+        )
+
+        if action != "log" and not dry:
+            limited = self.runtime.limiter.check(message.guild.id, config, actor="ai-mod")
+            if not limited:
+                action = "log"
+            else:
+                try:
+                    await message.delete()
+                    applied.append("deleted")
+                except discord.HTTPException:
+                    pass
+
+                if action in ("timeout", "kick", "ban"):
+                    feasible = guardrails.can_action(message.guild, message.author, action)
+                    if feasible:
+                        try:
+                            reason = f"AI moderation: {verdict.category} — {verdict.reason}"[:400]
+                            if action == "timeout":
+                                minutes = int(cfg.get("timeout_minutes", 30))
+                                until = dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=minutes)
+                                await message.author.timeout(until, reason=reason)
+                            elif action == "kick":
+                                await message.author.kick(reason=reason)
+                            else:
+                                await message.author.ban(reason=reason, delete_message_seconds=0)
+                            applied.append(action)
+                            self.runtime.store.add_case(
+                                message.guild.id, message.author.id, self.user.id, action, reason
+                            )
+                            self.runtime.store.bump_metric(message.guild.id, action)
+                        except discord.HTTPException:
+                            pass
+
+        channel_id = cfg.get("log_channel_id") or config.get("automod", {}).get("log_channel_id")
+        if channel_id:
+            channel = message.guild.get_channel(int(channel_id))
+            if isinstance(channel, discord.abc.Messageable):
+                embed = discord.Embed(
+                    title=f"AI moderation — {verdict.category.replace('_', ' ')}",
+                    colour=0x2B2D31,
+                )
+                embed.add_field(name="Member", value=message.author.mention, inline=True)
+                embed.add_field(name="Channel", value=message.channel.mention, inline=True)
+                embed.add_field(
+                    name="Assessment",
+                    value=f"severity {verdict.severity} · {verdict.confidence:.0%} confidence",
+                    inline=True,
+                )
+                embed.add_field(name="Reason", value=verdict.reason or "—", inline=False)
+                embed.add_field(
+                    name="Action",
+                    value=("dry run — nothing applied" if dry else ", ".join(applied) or "logged"),
+                    inline=False,
+                )
+                if message.content:
+                    embed.add_field(
+                        name="Message", value=f">>> {message.content[:500]}", inline=False
+                    )
+                try:
+                    await channel.send(embed=embed)
+                except discord.HTTPException:
+                    pass
+
+        return bool(applied)
 
     async def _auto_thread(self, message: discord.Message, config: dict) -> None:
         channels = config.get("threads", {}).get("auto_thread_channels", [])
