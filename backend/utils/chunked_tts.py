@@ -20,6 +20,8 @@ logger = logging.getLogger("voicebox.chunked-tts")
 # Default chunk size in characters.  Can be overridden per-request via
 # the ``max_chunk_chars`` field on GenerationRequest.
 DEFAULT_MAX_CHUNK_CHARS = 800
+MAX_RUNAWAY_RETRIES = 2
+MIN_RUNAWAY_RETRY_CHARS = 100
 
 # Common abbreviations that should NOT be treated as sentence endings.
 # Lowercase for case-insensitive matching.
@@ -211,6 +213,7 @@ async def generate_chunked(
     max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
     crossfade_ms: int = 50,
     trim_fn=None,
+    runaway_detector=None,
 ) -> Tuple[np.ndarray, int]:
     """Generate audio with automatic chunking for long text.
 
@@ -239,25 +242,75 @@ async def generate_chunked(
         Optional ``(audio, sample_rate) -> audio`` post-processing
         function applied to each chunk before concatenation (e.g.
         ``trim_tts_output`` for Chatterbox engines).
+    runaway_detector : callable | None
+        Optional ``(audio, sample_rate) -> bool`` detector. When it flags
+        unstable output, the affected text is split in half and retried.
 
     Returns
     -------
     (audio, sample_rate) : Tuple[np.ndarray, int]
     """
+    async def generate_one(
+        chunk_text: str,
+        chunk_seed: int | None,
+        retry_depth: int = 0,
+    ) -> tuple[np.ndarray, int]:
+        chunk_audio, chunk_sr = await backend.generate(
+            chunk_text,
+            voice_prompt,
+            language,
+            chunk_seed,
+            instruct,
+        )
+
+        if runaway_detector is not None and runaway_detector(chunk_audio, chunk_sr):
+            if retry_depth >= MAX_RUNAWAY_RETRIES or len(chunk_text) <= MIN_RUNAWAY_RETRY_CHARS:
+                raise RuntimeError(
+                    "TTS output remained unstable after retrying smaller text chunks"
+                )
+
+            retry_max_chars = max(MIN_RUNAWAY_RETRY_CHARS, len(chunk_text) // 2)
+            retry_chunks = split_text_into_chunks(chunk_text, retry_max_chars)
+            if len(retry_chunks) <= 1:
+                raise RuntimeError("Unable to split unstable TTS output for retry")
+
+            logger.warning(
+                "Detected unstable TTS output for %d chars; retrying as %d smaller chunks",
+                len(chunk_text),
+                len(retry_chunks),
+            )
+            retry_audio: list[np.ndarray] = []
+            for i, retry_text in enumerate(retry_chunks):
+                retry_seed = (
+                    chunk_seed + ((retry_depth + 1) * 1000) + i
+                    if chunk_seed is not None
+                    else None
+                )
+                audio, sample_rate = await generate_one(
+                    retry_text,
+                    retry_seed,
+                    retry_depth + 1,
+                )
+                retry_audio.append(np.asarray(audio, dtype=np.float32))
+
+            return (
+                concatenate_audio_chunks(
+                    retry_audio,
+                    sample_rate,
+                    crossfade_ms=crossfade_ms,
+                ),
+                sample_rate,
+            )
+
+        if trim_fn is not None:
+            chunk_audio = trim_fn(chunk_audio, chunk_sr)
+        return np.asarray(chunk_audio, dtype=np.float32), chunk_sr
+
     chunks = split_text_into_chunks(text, max_chunk_chars)
 
     if len(chunks) <= 1:
         # Short text — single-shot fast path
-        audio, sample_rate = await backend.generate(
-            text,
-            voice_prompt,
-            language,
-            seed,
-            instruct,
-        )
-        if trim_fn is not None:
-            audio = trim_fn(audio, sample_rate)
-        return audio, sample_rate
+        return await generate_one(text, seed)
 
     # Long text — chunked generation
     logger.info(
@@ -281,17 +334,12 @@ async def generate_chunked(
         # always produces the same output.
         chunk_seed = (seed + i) if seed is not None else None
 
-        chunk_audio, chunk_sr = await backend.generate(
+        chunk_audio, chunk_sr = await generate_one(
             chunk_text,
-            voice_prompt,
-            language,
             chunk_seed,
-            instruct,
         )
-        if trim_fn is not None:
-            chunk_audio = trim_fn(chunk_audio, chunk_sr)
 
-        audio_chunks.append(np.asarray(chunk_audio, dtype=np.float32))
+        audio_chunks.append(chunk_audio)
         if sample_rate is None:
             sample_rate = chunk_sr
 

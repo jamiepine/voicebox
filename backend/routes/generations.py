@@ -321,7 +321,13 @@ async def stream_speech(
     db: Session = Depends(get_db),
 ):
     """Generate speech and stream the WAV audio directly without saving to disk."""
-    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim
+    from ..backends import (
+        engine_needs_trim,
+        engine_retries_runaway,
+        ensure_model_cached_or_raise,
+        get_tts_backend_for_engine,
+        load_engine_model,
+    )
 
     profile = await profiles.get_profile(data.profile_id, db)
     if not profile:
@@ -347,10 +353,15 @@ async def stream_speech(
     from ..utils.chunked_tts import generate_chunked
 
     trim_fn = None
+    runaway_detector = None
     if engine_needs_trim(engine):
         from ..utils.audio import trim_tts_output
 
         trim_fn = trim_tts_output
+    if engine_retries_runaway(engine):
+        from ..utils.audio import has_tts_runaway
+
+        runaway_detector = has_tts_runaway
 
     audio, sample_rate = await generate_chunked(
         tts_model,
@@ -362,6 +373,7 @@ async def stream_speech(
         max_chunk_chars=data.max_chunk_chars,
         crossfade_ms=data.crossfade_ms,
         trim_fn=trim_fn,
+        runaway_detector=runaway_detector,
     )
 
     effects_chain_config = None
