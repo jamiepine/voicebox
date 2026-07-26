@@ -63,6 +63,7 @@ class AICmds(commands.Cog):
             return
 
         await interaction.response.defer(thinking=True)
+        consent_note = ""
 
         if voice:
             profile = await runtime.voicebox.find_profile(voice)
@@ -71,15 +72,28 @@ class AICmds(commands.Cog):
                     f"No voice profile named '{voice}'. Clone one first with `/voiceclone`."
                 )
                 return
+            # A profile created directly in Voicebox has no consent row here.
+            # That's a missing record, not evidence of misuse, so it's a
+            # warning rather than a refusal — blocking it just pushed people
+            # to re-clone the same sample through the bot to satisfy a check.
+            consent_note = ""
             if not runtime.store.has_consent(interaction.guild.id, profile.id):
+                consent_note = (
+                    "\n\nNote: this profile wasn't cloned through the bot, so there's no "
+                    "consent record for it. Only use voices you have the right to use."
+                )
+
+            if profile.voice_type == "cloned" and profile.sample_count == 0:
                 await interaction.followup.send(
-                    "That voice profile wasn't cloned through this bot, so there's no recorded "
-                    "consent for it. Only clone and use voices you have the right to use — see "
-                    "`/voiceclone`."
+                    f"**{profile.name}** is a cloned profile with no reference sample, so "
+                    "it has nothing to clone from. Add a sample in Voicebox, or run "
+                    "`/voiceclone` to create one here."
                 )
                 return
+
             ai["voice_profile_id"] = profile.id
             ai["voice_profile_name"] = profile.name
+            runtime.speaker.cache_profile(profile)
 
         if personality:
             ai["personality"] = personality[:2000]
@@ -89,7 +103,16 @@ class AICmds(commands.Cog):
             ai["emotion"] = emotion
 
         runtime.save_config(interaction.guild.id, config)
-        await interaction.followup.send("Personality updated.")
+
+        engine = ""
+        if voice:
+            resolved = await runtime.voicebox.find_profile(voice)
+            if resolved:
+                engine = (
+                    f"\nSpeaking with **{resolved.name}** via the "
+                    f"`{resolved.engine_for_speech(self.bot.settings.tts_engine)}` engine."
+                )
+        await interaction.followup.send(f"Personality updated.{engine}{consent_note}")
 
     # -- /voiceclone ----------------------------------------------------
 

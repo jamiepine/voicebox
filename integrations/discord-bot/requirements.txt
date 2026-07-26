@@ -12,3 +12,6 @@ yarl>=1.9.0
 numpy>=1.26.0
 rapidfuzz>=3.6.0
 python-dotenv>=1.0.0
+
+# Music playback (/play). Optional — the rest of the bot runs without it.
+yt-dlp>=2024.1.0

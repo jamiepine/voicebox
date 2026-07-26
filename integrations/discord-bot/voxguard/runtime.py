@@ -17,6 +17,7 @@ from .features.automod import AntiNuke, TextAutomod
 from .features.community import GiveawayManager, Starboard, TicketManager, WelcomeManager
 from .features.levels import LevelEngine
 from .features.logs import EventLogger
+from .features.music import MusicPlayer
 from .listener import SessionManager
 from .matching import Matcher, Term
 from .moderation import Enforcer
@@ -82,6 +83,7 @@ class Runtime:
     starboard: Starboard
     giveaways: GiveawayManager
     tickets: TicketManager
+    music: MusicPlayer
     started_at: float = field(default_factory=time.time)
     # guild_id -> channel_id the bot is actively vc-talking in
     vctalk_active: dict[int, int] = field(default_factory=dict)
@@ -136,6 +138,7 @@ class Runtime:
             starboard=Starboard(store),
             giveaways=GiveawayManager(store),
             tickets=TicketManager(store),
+            music=MusicPlayer(),
         )
 
     async def aclose(self) -> None:

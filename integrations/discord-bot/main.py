@@ -48,12 +48,22 @@ async def amain() -> None:
             settings.voicebox_url,
         )
 
+    # Start Ollama and pull the model up front. Doing it here rather than
+    # lazily on first use means the multi-gigabyte download happens while the
+    # operator is watching the console, not silently during someone's first
+    # /chat — which otherwise just looks like the bot hanging.
     try:
         await runtime.ollama.ensure_server()
         log.info("Ollama reachable at %s", settings.ollama_host)
+        log.info("Ensuring model '%s' is available...", settings.ollama_model)
+        await runtime.ollama.ensure_model(settings.ollama_model)
+        log.info("Model '%s' ready.", settings.ollama_model)
     except Exception as exc:
         log.warning("%s", exc)
-        log.warning("The AI agent (/personality-ai, /vctalk, /roam) won't work until this is fixed.")
+        log.warning(
+            "AI features (/chat, /talk-ai, /vctalk, /roam, /aimod) stay offline until "
+            "Ollama is reachable. Everything else works."
+        )
 
     bot = VoxGuardBot(settings, runtime)
 

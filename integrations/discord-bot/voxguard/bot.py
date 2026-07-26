@@ -20,6 +20,28 @@ from .voice_notes import is_voice_message
 
 log = logging.getLogger(__name__)
 
+
+def _chunk(text: str, limit: int) -> list[str]:
+    """Split a reply into Discord-sized pieces without dropping content."""
+    if len(text) <= limit:
+        return [text]
+    out, current = [], ""
+    for line in text.split("\n"):
+        while len(line) > limit:
+            if current:
+                out.append(current)
+                current = ""
+            out.append(line[:limit])
+            line = line[limit:]
+        if len(current) + len(line) + 1 > limit:
+            out.append(current)
+            current = line
+        else:
+            current = f"{current}\n{line}" if current else line
+    if current:
+        out.append(current)
+    return out
+
 EXTENSIONS = (
     "voxguard.cogs.voice_mod",
     "voxguard.cogs.raid_cmds",
@@ -31,6 +53,8 @@ EXTENSIONS = (
     "voxguard.cogs.community_cmds",
     "voxguard.cogs.utility_cmds",
     "voxguard.cogs.voice_cmds",
+    "voxguard.cogs.music_cmds",
+    "voxguard.cogs.talk_cmds",
 )
 
 INTENTS = discord.Intents.default()
@@ -174,11 +198,159 @@ class VoxGuardBot(commands.Bot):
         except Exception:
             self._record_error("levels", message.guild.id)
 
+        # /talk-here: relay this channel into the voice channel.
+        if await self._talk_here(message, config):
+            return
+
+        # /talk-ai: this channel is a direct line to the agent.
+        if await self._talk_ai(message, config):
+            return
+
         if self.user and self.roam.should_reply(message, config, self.user.id):
             try:
                 await self.roam.handle_message(message, config, self.allowed_tiers(config))
             except Exception:
                 self._record_error("roam", message.guild.id)
+
+
+    # -- talk-ai / talk-here ------------------------------------------------
+
+    async def _talk_ai(self, message: discord.Message, config: dict) -> bool:
+        """A channel wired directly to the agent: read, reply, act."""
+        cfg = config.get("talk_ai", {})
+        if not cfg.get("enabled") or str(message.channel.id) not in {
+            str(c) for c in cfg.get("channels", [])
+        }:
+            return False
+        content = message.clean_content.strip()
+        if not content or not isinstance(message.author, discord.Member):
+            return False
+
+        from .voicecommands import speaker_tiers
+
+        tiers = (
+            speaker_tiers(message.author, message.guild, config, self.settings.owner_ids)
+            if cfg.get("allow_actions", True)
+            else ("chat",)
+        )
+
+        ctx = AgentContext(
+            guild=message.guild,
+            channel=message.channel,
+            invoker=message.author,
+            config=config,
+            allowed_tiers=tiers,
+            approval_channel=message.channel,
+        )
+
+        try:
+            async with message.channel.typing():
+                reply = await self.runtime.agent.respond(
+                    ctx, message.author.display_name, content
+                )
+        except Exception:
+            self._record_error("talk_ai", message.guild.id)
+            return True
+
+        body = reply.text.strip()
+        if reply.actions:
+            body += ("\n\n" if body else "") + "\n".join(f"`{a}`" for a in reply.actions)
+        if reply.proposals:
+            body += ("\n\n" if body else "") + "\n".join(f"*{p}*" for p in reply.proposals)
+
+        if body:
+            for chunk in _chunk(body, 1900):
+                await message.channel.send(
+                    chunk, allowed_mentions=discord.AllowedMentions.none()
+                )
+
+        # If talk-here is also on for this channel, speak the reply too.
+        if reply.text.strip():
+            await self._speak_in_voice(message.guild, config, reply.text, reply.delivery)
+        return True
+
+    async def _talk_here(self, message: discord.Message, config: dict) -> bool:
+        """Relay a text channel into the voice channel in the cloned voice."""
+        cfg = config.get("talk_here", {})
+        if not cfg.get("enabled") or str(message.channel.id) not in {
+            str(c) for c in cfg.get("channels", [])
+        }:
+            return False
+        content = message.clean_content.strip()
+        if not content:
+            return False
+
+        voice_client = message.guild.voice_client
+        if voice_client is None or not voice_client.is_connected():
+            return False
+
+        if not cfg.get("speak_replies", True):
+            # Verbatim relay — no model in the loop.
+            await self._speak_in_voice(message.guild, config, content, None)
+            try:
+                await message.add_reaction("\N{SPEAKER WITH THREE SOUND WAVES}")
+            except discord.HTTPException:
+                pass
+            return True
+
+        if not isinstance(message.author, discord.Member):
+            return False
+
+        from .voicecommands import speaker_tiers
+
+        ctx = AgentContext(
+            guild=message.guild,
+            channel=message.channel,
+            invoker=message.author,
+            config=config,
+            allowed_tiers=speaker_tiers(
+                message.author, message.guild, config, self.settings.owner_ids
+            ),
+            voice_client=voice_client,
+            approval_channel=message.channel,
+        )
+        try:
+            async with message.channel.typing():
+                reply = await self.runtime.agent.respond(
+                    ctx, message.author.display_name, content
+                )
+        except Exception:
+            self._record_error("talk_here", message.guild.id)
+            return True
+
+        if reply.text.strip():
+            await message.channel.send(
+                reply.text[:1900], allowed_mentions=discord.AllowedMentions.none()
+            )
+            await self._speak_in_voice(message.guild, config, reply.text, reply.delivery)
+        return True
+
+    async def _speak_in_voice(
+        self, guild: discord.Guild, config: dict, text: str, delivery: str | None
+    ) -> None:
+        """Speak text in the guild's voice channel using the bound clone."""
+        voice_client = guild.voice_client
+        profile_id = config.get("ai", {}).get("voice_profile_id")
+        if voice_client is None or not voice_client.is_connected() or not profile_id:
+            return
+        # Don't talk over music.
+        if voice_client.is_playing() and guild.id in self.runtime.music._players:
+            player = self.runtime.music.player(guild.id)
+            if player.current is not None:
+                return
+        try:
+            from .voicebox_client import VoiceboxError
+
+            await self.runtime.speaker.speak(
+                voice_client,
+                profile_id,
+                text,
+                instruct=delivery if config.get("ai", {}).get("emotion", True) else None,
+            )
+        except VoiceboxError as exc:
+            log.warning("talk speech failed in guild=%s: %s", guild.id, exc)
+        except Exception:
+            self._record_error("talk_speak", guild.id)
 
     async def _run_automod(self, message: discord.Message, config: dict) -> bool:
         """Returns True if the message was actioned."""

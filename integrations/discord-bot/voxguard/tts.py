@@ -30,6 +30,12 @@ class Speaker:
     def __init__(self, voicebox: VoiceboxClient) -> None:
         self.voicebox = voicebox
         self._locks: dict[int, asyncio.Lock] = {}
+        # Cached profile metadata so engine resolution doesn't cost an HTTP
+        # round-trip on every spoken line.
+        self._profiles: dict[str, object] = {}
+
+    def cache_profile(self, profile) -> None:  # noqa: ANN001
+        self._profiles[profile.id] = profile
 
     def _lock(self, guild_id: int) -> asyncio.Lock:
         lock = self._locks.get(guild_id)
@@ -58,6 +64,7 @@ class Speaker:
             language=language,
             instruct=instruct,
             personality=personality,
+            profile=self._profiles.get(profile_id),
         )
         await self.play_wav(voice_client, wav)
 

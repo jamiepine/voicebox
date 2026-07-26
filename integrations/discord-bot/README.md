@@ -30,6 +30,13 @@ slash commands, enforcement, and the agent's tool loop. The AI runs locally on
 | **Spoken commands** | Say *"VoxGuard, lock the general channel"* in voice chat and it does it. Each person's spoken commands run with **their own** permissions |
 | **Voice utilities** | `/voice say`, `/voice status`, `/voice summary` (AI recap of a call), `/voice language`, `/voice transcript` |
 
+### Music
+| | |
+|---|---|
+| **`/play`** | YouTube/SoundCloud links, full playlists, or plain search terms |
+| **Streaming, not downloading** | yt-dlp resolves a direct media URL and FFmpeg streams it — nothing hits disk |
+| **Full queue control** | `/queue` `/skip` `/stop` `/pause` `/resume` `/nowplaying` `/volume` `/loop` `/shuffle` `/remove` |
+
 ### Moderation & security
 | | |
 |---|---|
@@ -55,8 +62,11 @@ slash commands, enforcement, and the agent's tool loop. The AI runs locally on
 | **Tags, polls, info** | Canned responses, reaction polls, `/userinfo`, `/serverinfo`, `/avatar` |
 
 ### AI agent
-`/chat` talks to it in text. `/personality-ai` sets its persona and bound voice.
-`/roam` lets it participate in text channels on its own. It has **25 tools**
+`/chat` talks to it in text. `/talk-ai` turns a channel into a direct line — it
+reads every message, replies, and runs commands for whoever asked.
+`/talk-here` goes the other way: you type, it answers **out loud in the cloned
+voice** in your voice channel. `/personality-ai` sets its persona and bound
+voice. `/roam` lets it participate in text channels on its own. It has **25 tools**
 across three tiers — send messages, remember facts, look up members, create
 channels/roles/threads, toggle bot features, edit word lists, grant XP, and (at
 the top tier) timeout, kick, ban and purge.
@@ -84,7 +94,7 @@ characters, and it refuses to start otherwise.
 ## Requirements
 
 - Python 3.11+ (3.13 supported)
-- [FFmpeg](https://ffmpeg.org/) on `PATH` — voice playback
+- [FFmpeg](https://ffmpeg.org/) on `PATH` — voice playback and music
 - A running [Voicebox](../../README.md) instance (default `http://127.0.0.1:17493`)
 - [Ollama](https://ollama.com) — the model is pulled automatically on first use
 - A Discord application with the **Server Members**, **Message Content** and
@@ -124,12 +134,24 @@ instantly to `VOXGUARD_DEV_GUILD_ID` if set.
 
 ## Command reference
 
+Start with **`/help`** in Discord, and **`/setup`** to see what's still missing
+(Voicebox reachable, Ollama running, word list, bound voice, permissions).
+
+
 <details>
 <summary><strong>Voice</strong></summary>
 
 `/join` `/leave` `/catch` `/blacklist add|remove|list|clear`
 `/voicenotes toggle|actions` `/voiceclone` `/vctalk join|stop` `/personality-ai`
-`/voice commands|wakeword|say|status|language|transcript|summary` `/chat`
+`/voice commands|wakeword|say|status|language|transcript|summary`
+`/chat` `/talk-ai` `/talk-here`
+</details>
+
+<details>
+<summary><strong>Music</strong></summary>
+
+`/play` `/skip` `/stop` `/pause` `/resume` `/queue` `/nowplaying`
+`/volume` `/loop` `/shuffle` `/remove`
 </details>
 
 <details>
@@ -166,6 +188,34 @@ instantly to `VOXGUARD_DEV_GUILD_ID` if set.
 Configuration commands require Manage Server (or a `VOXGUARD_OWNER_IDS` entry).
 This is re-checked in code, not left to Discord's default-permission UI, since
 those commands gate automated moderation and an agent with destructive tools.
+
+## Troubleshooting
+
+**The cloned voice sounds like someone else.**
+The engine matters. `qwen_custom_voice` synthesises from a *fixed preset
+speaker* and ignores your reference audio entirely, so a cloned profile pointed
+at it comes out as a stranger. Use a cloning engine — `qwen` (default),
+`chatterbox`, `chatterbox_turbo` or `luxtts`. The bot now picks one
+automatically from the profile, so this only bites if you override
+`VOICEBOX_TTS_ENGINE` by hand. `/personality-ai` reports the engine it resolved.
+
+**The bot joins voice but never speaks.**
+Run `/setup`. Usually it's no bound voice (`/voiceclone` then
+`/personality-ai voice:<name>`), or FFmpeg missing from `PATH`.
+
+**`/voiceclone` fails.**
+Samples must be 10-30s of clear single-speaker audio, under 25 MB, in
+wav/mp3/m4a/ogg/flac/aac/webm/opus. If Voicebox is still downloading its TTS
+model the first call can take several minutes — the bot retries rather than
+failing.
+
+**AI commands do nothing.**
+Ollama has to be reachable. The bot starts it and pulls the model at launch;
+watch the console on first run, since that download is several GB.
+
+**`/play` says it can't reach the video site.**
+The host needs outbound access to YouTube. Corporate networks and some VPS
+providers block or rate-limit it.
 
 ## Guardrails
 
@@ -248,6 +298,7 @@ voxguard/
   voice_notes.py      voice-message moderation
   voicecommands.py    wake-word routing + per-speaker authority
   features/
+    music.py          yt-dlp resolution + FFmpeg streaming queue
     levels.py         text + voice XP, rank roles
     automod.py        text rules + anti-nuke
     ai_moderation.py  LLM content classification

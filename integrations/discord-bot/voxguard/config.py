@@ -69,7 +69,7 @@ class Settings:
             discord_token=token,
             voicebox_url=os.environ.get("VOICEBOX_URL", "http://127.0.0.1:17493").rstrip("/"),
             whisper_model=os.environ.get("VOICEBOX_WHISPER_MODEL", "turbo"),
-            tts_engine=os.environ.get("VOICEBOX_TTS_ENGINE", "qwen_custom_voice"),
+            tts_engine=os.environ.get("VOICEBOX_TTS_ENGINE", "qwen"),
             ollama_host=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/"),
             ollama_model=os.environ.get("OLLAMA_MODEL", "llama3.1:8b"),
             auto_install_ollama=os.environ.get("VOXGUARD_AUTO_INSTALL_OLLAMA", "0") == "1",
@@ -191,6 +191,21 @@ DEFAULT_GUILD_CONFIG: dict = {
         # Action per severity band returned by the classifier.
         "actions": {"1": "log", "2": "delete", "3": "timeout"},
         "timeout_minutes": 30,
+    },
+    # Channels that are a direct line to the agent: it reads every message,
+    # replies, and (subject to the sender's own permissions) acts on it.
+    "talk_ai": {
+        "enabled": False,
+        "channels": [],
+        "allow_actions": True,
+    },
+    # Type in a text channel, the bot speaks it in the voice channel.
+    "talk_here": {
+        "enabled": False,
+        "channels": [],
+        # True  = the AI answers and speaks its reply
+        # False = it reads your message aloud verbatim
+        "speak_replies": True,
     },
     # Spoken commands: talk in a voice channel, the bot acts on it.
     "voice_commands": {

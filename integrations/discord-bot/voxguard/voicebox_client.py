@@ -29,16 +29,45 @@ class ModelDownloading(VoiceboxError):
     """Raised when a required model is still being fetched."""
 
 
+# Engines that actually perform zero-shot cloning from a reference sample.
+# `qwen_custom_voice` is NOT one of them — it synthesises from a fixed preset
+# speaker and ignores reference audio entirely, so pointing a cloned profile
+# at it silently produces a stranger's voice. That mismatch is the single
+# most confusing failure mode in this integration, so engine choice is
+# derived from the profile rather than left to a global default.
+CLONING_ENGINES = {"qwen", "chatterbox", "chatterbox_turbo", "luxtts"}
+
+# Engines that accept the natural-language `instruct` delivery hint.
+INSTRUCT_ENGINES = {"qwen_custom_voice", "tada"}
+
+DEFAULT_CLONE_ENGINE = "qwen"
+
+
 @dataclass
 class Profile:
     id: str
     name: str
     language: str = "en"
     voice_type: str = "cloned"
+    preset_engine: str | None = None
+    default_engine: str | None = None
+    sample_count: int = 0
+
+    def engine_for_speech(self, configured: str | None = None) -> str:
+        """Pick an engine that can actually voice this profile."""
+        if self.voice_type == "preset" and self.preset_engine:
+            return self.preset_engine
+        if self.default_engine:
+            return self.default_engine
+        # A cloned profile must use a cloning engine, whatever the global
+        # default says.
+        if configured and configured in CLONING_ENGINES:
+            return configured
+        return DEFAULT_CLONE_ENGINE
 
 
 class VoiceboxClient:
-    def __init__(self, base_url: str, *, whisper_model: str = "turbo", tts_engine: str = "qwen_custom_voice"):
+    def __init__(self, base_url: str, *, whisper_model: str = "turbo", tts_engine: str = DEFAULT_CLONE_ENGINE):
         self.base_url = base_url.rstrip("/")
         self.whisper_model = whisper_model
         self.tts_engine = tts_engine
@@ -112,9 +141,28 @@ class VoiceboxClient:
                     name=p["name"],
                     language=p.get("language", "en"),
                     voice_type=p.get("voice_type", "cloned"),
+                    preset_engine=p.get("preset_engine"),
+                    default_engine=p.get("default_engine"),
+                    sample_count=p.get("sample_count", 0),
                 )
                 for p in await r.json()
             ]
+
+    async def get_profile(self, profile_id: str) -> Profile | None:
+        sess = await self._sess()
+        async with sess.get(f"{self.base_url}/profiles/{profile_id}") as r:
+            if r.status != 200:
+                return None
+            p = await r.json()
+            return Profile(
+                id=p["id"],
+                name=p["name"],
+                language=p.get("language", "en"),
+                voice_type=p.get("voice_type", "cloned"),
+                preset_engine=p.get("preset_engine"),
+                default_engine=p.get("default_engine"),
+                sample_count=p.get("sample_count", 0),
+            )
 
     async def find_profile(self, name_or_id: str) -> Profile | None:
         needle = name_or_id.strip().casefold()
@@ -145,7 +193,13 @@ class VoiceboxClient:
             if r.status not in (200, 201):
                 raise VoiceboxError(f"create profile failed ({r.status}): {(await r.text())[:300]}")
             data = await r.json()
-            return Profile(id=data["id"], name=data["name"], language=data.get("language", "en"))
+            return Profile(
+                id=data["id"],
+                name=data["name"],
+                language=data.get("language", "en"),
+                voice_type=data.get("voice_type", "cloned"),
+                default_engine=data.get("default_engine"),
+            )
 
     async def add_sample(
         self, profile_id: str, audio: bytes, *, filename: str, reference_text: str
@@ -181,6 +235,7 @@ class VoiceboxClient:
         instruct: str | None = None,
         engine: str | None = None,
         personality: bool = False,
+        profile: "Profile | None" = None,
     ) -> bytes:
         """Generate speech and return WAV bytes.
 
@@ -190,15 +245,30 @@ class VoiceboxClient:
         speak quickly"), which is how the agent expresses emotion.
         """
         sess = await self._sess()
+
+        # Resolve the engine from the profile so a cloned voice never gets
+        # routed to a preset-only engine (see CLONING_ENGINES).
+        if engine is None:
+            if profile is None:
+                profile = await self.get_profile(profile_id)
+            engine = (
+                profile.engine_for_speech(self.tts_engine)
+                if profile is not None
+                else DEFAULT_CLONE_ENGINE
+            )
+
         body: dict = {
             "profile_id": profile_id,
             "text": text[:5000],
             "language": language,
-            "engine": engine or self.tts_engine,
+            "engine": engine,
             "personality": personality,
             "normalize": True,
         }
-        if instruct:
+        # Sending `instruct` to an engine that doesn't implement it is at best
+        # ignored and at worst a 422, so only include it where it means
+        # something.
+        if instruct and engine in INSTRUCT_ENGINES:
             body["instruct"] = instruct[:500]
 
         for attempt in range(MODEL_DOWNLOAD_RETRIES):
