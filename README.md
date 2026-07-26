@@ -360,6 +360,10 @@ await voicebox.speak({
 
 Full API documentation available at `http://127.0.0.1:17493/docs`.
 
+### Integrations
+
+- [**VoxGuard** (`integrations/discord-bot`)](integrations/discord-bot/README.md) — a Discord bot built on the Voicebox API: real-time voice-channel moderation, voice-message moderation, raid detection, and an Ollama-backed server agent that can hold a live spoken conversation in a cloned voice.
+
 ---
 
 ## Tech Stack
