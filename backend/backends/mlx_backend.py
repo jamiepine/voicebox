@@ -2,24 +2,26 @@
 MLX backend implementation for TTS and STT using mlx-audio.
 """
 
-from typing import Optional, List, Tuple
 import asyncio
 import logging
-import numpy as np
+import threading
 from pathlib import Path
+from typing import Optional, Tuple
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
 # PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
 # This prevents mlx_audio from making network requests when models are cached
-from ..utils.hf_offline_patch import patch_huggingface_hub_offline, ensure_original_qwen_config_cached
+from ..utils.hf_offline_patch import ensure_original_qwen_config_cached, patch_huggingface_hub_offline
 
 patch_huggingface_hub_offline()
 ensure_original_qwen_config_cached()
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
-from .base import is_model_cached, combine_voice_prompts as _combine_voice_prompts, model_load_progress
-from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
+from ..utils.cache import cache_voice_prompt, get_cache_key, get_cached_voice_prompt
+from . import LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
+from .base import combine_voice_prompts as _combine_voice_prompts, is_model_cached, model_load_progress
 
 
 class MLXTTSBackend:
@@ -193,61 +195,17 @@ class MLXTTSBackend:
 
         def _generate_sync():
             """Run synchronous generation in thread pool."""
-            # MLX generate() returns a generator yielding GenerationResult objects
             audio_chunks = []
             sample_rate = 24000
-            lang = LANGUAGE_CODE_TO_NAME.get(language, "auto")
 
-            # Set seed if provided (MLX uses numpy random)
-            if seed is not None:
-                import mlx.core as mx
-
-                np.random.seed(seed)
-                mx.random.seed(seed)
-
-            # Extract voice prompt info
-            ref_audio = voice_prompt.get("ref_audio") or voice_prompt.get("ref_audio_path")
-            ref_text = voice_prompt.get("ref_text", "")
-
-            # Validate that the audio file exists
-            if ref_audio and not Path(ref_audio).exists():
-                logger.warning("Audio file not found: %s", ref_audio)
-                logger.warning("This may be due to a cached voice prompt referencing a deleted temp file.")
-                logger.warning("Regenerating without voice prompt.")
-                ref_audio = None
-
-            # Inference runs with the process's default HF_HUB_OFFLINE
-            # state. Forcing offline here (previously used to avoid lazy
-            # mlx_audio lookups hanging when the network drops mid-inference,
-            # issue #462) regressed online users because libraries make
-            # legitimate metadata calls during generation.
-            try:
-                if ref_audio:
-                    # Check if generate accepts ref_audio parameter
-                    import inspect
-
-                    sig = inspect.signature(self.model.generate)
-                    if "ref_audio" in sig.parameters:
-                        # Generate with voice cloning
-                        for result in self.model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
-                            audio_chunks.append(np.array(result.audio))
-                            sample_rate = result.sample_rate
-                    else:
-                        # Fallback: generate without voice cloning
-                        for result in self.model.generate(text, lang_code=lang):
-                            audio_chunks.append(np.array(result.audio))
-                            sample_rate = result.sample_rate
-                else:
-                    # No voice prompt, generate normally
-                    for result in self.model.generate(text, lang_code=lang):
-                        audio_chunks.append(np.array(result.audio))
-                        sample_rate = result.sample_rate
-            except Exception as e:
-                # If voice cloning fails, try without it
-                logger.warning("Voice cloning failed, generating without voice prompt: %s", e)
-                for result in self.model.generate(text, lang_code=lang):
-                    audio_chunks.append(np.array(result.audio))
-                    sample_rate = result.sample_rate
+            for chunk, chunk_sample_rate in self._iter_generate_sync(
+                text=text,
+                voice_prompt=voice_prompt,
+                language=language,
+                seed=seed,
+            ):
+                audio_chunks.append(chunk)
+                sample_rate = chunk_sample_rate
 
             # Concatenate all chunks
             if audio_chunks:
@@ -262,6 +220,124 @@ class MLXTTSBackend:
         audio, sample_rate = await asyncio.to_thread(_generate_sync)
 
         return audio, sample_rate
+
+    def _iter_generate_sync(
+        self,
+        *,
+        text: str,
+        voice_prompt: dict,
+        language: str = "en",
+        seed: Optional[int] = None,
+    ):
+        """Yield MLX audio chunks from the synchronous model generator."""
+        lang = LANGUAGE_CODE_TO_NAME.get(language, "auto")
+
+        # Set seed if provided (MLX uses numpy random)
+        if seed is not None:
+            import mlx.core as mx
+
+            np.random.seed(seed)
+            mx.random.seed(seed)
+
+        # Extract voice prompt info
+        ref_audio = voice_prompt.get("ref_audio") or voice_prompt.get("ref_audio_path")
+        ref_text = voice_prompt.get("ref_text", "")
+
+        # Validate that the audio file exists
+        if ref_audio and not Path(ref_audio).exists():
+            logger.warning("Audio file not found: %s", ref_audio)
+            logger.warning("This may be due to a cached voice prompt referencing a deleted temp file.")
+            logger.warning("Regenerating without voice prompt.")
+            ref_audio = None
+
+        def _yield_results(*args, **kwargs):
+            for result in self.model.generate(*args, **kwargs):
+                yield np.asarray(result.audio, dtype=np.float32), result.sample_rate
+
+        # Inference runs with the process's default HF_HUB_OFFLINE
+        # state. Forcing offline here (previously used to avoid lazy
+        # mlx_audio lookups hanging when the network drops mid-inference,
+        # issue #462) regressed online users because libraries make
+        # legitimate metadata calls during generation.
+        try:
+            if ref_audio:
+                # Check if generate accepts ref_audio parameter
+                import inspect
+
+                sig = inspect.signature(self.model.generate)
+                if "ref_audio" in sig.parameters:
+                    # Generate with voice cloning
+                    yield from _yield_results(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang)
+                    return
+
+            # No compatible voice prompt, generate normally
+            yield from _yield_results(text, lang_code=lang)
+        except Exception as e:
+            # If voice cloning fails, try without it
+            logger.warning("Voice cloning failed, generating without voice prompt: %s", e)
+            yield from _yield_results(text, lang_code=lang)
+
+    async def generate_stream(
+        self,
+        text: str,
+        voice_prompt: dict,
+        language: str = "en",
+        seed: Optional[int] = None,
+        instruct: Optional[str] = None,
+    ):
+        """Generate audio chunks as MLX yields them.
+
+        ``mlx_audio`` exposes a synchronous generator. We run that generator
+        in a worker thread and bridge each yielded audio chunk back onto the
+        request's event loop so ``StreamingResponse`` can send bytes without
+        waiting for the full waveform.
+        """
+        await self.load_model_async(None)
+
+        logger.info("Streaming audio for text: %s", text)
+
+        loop = asyncio.get_running_loop()
+        queue: asyncio.Queue = asyncio.Queue()
+        stop_requested = threading.Event()
+
+        def _put(item):
+            loop.call_soon_threadsafe(queue.put_nowait, item)
+
+        def _generate_sync():
+            try:
+                for chunk, sample_rate in self._iter_generate_sync(
+                    text=text,
+                    voice_prompt=voice_prompt,
+                    language=language,
+                    seed=seed,
+                ):
+                    if stop_requested.is_set():
+                        break
+                    _put((chunk, sample_rate))
+            except Exception as e:
+                _put(e)
+            finally:
+                _put(None)
+
+        worker = asyncio.create_task(asyncio.to_thread(_generate_sync))
+
+        completed = False
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    completed = True
+                    break
+                if isinstance(item, Exception):
+                    raise item
+                yield item
+        finally:
+            stop_requested.set()
+            if not completed and not worker.done():
+                worker.cancel()
+
+        if completed:
+            await worker
 
 
 class MLXSTTBackend:

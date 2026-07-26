@@ -11,6 +11,7 @@ overhead.
 
 import logging
 import re
+from collections.abc import AsyncIterator
 from typing import List, Tuple
 
 import numpy as np
@@ -297,3 +298,62 @@ async def generate_chunked(
 
     audio = concatenate_audio_chunks(audio_chunks, sample_rate, crossfade_ms=crossfade_ms)
     return audio, sample_rate
+
+
+async def generate_chunked_stream(
+    backend,
+    text: str,
+    voice_prompt: dict,
+    language: str = "en",
+    seed: int | None = None,
+    instruct: str | None = None,
+    max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    trim_fn=None,
+) -> AsyncIterator[Tuple[np.ndarray, int]]:
+    """Yield audio chunks as soon as a backend can produce them.
+
+    Backends that implement ``generate_stream()`` can expose true model-level
+    streaming for short utterances. Backends without that optional method still
+    work by yielding one completed text chunk at a time.
+
+    This intentionally does not crossfade between text chunks because a live
+    response cannot look ahead without buffering the next chunk. Callers that
+    need crossfade-equivalent output should use ``generate_chunked()``.
+    """
+    chunks = split_text_into_chunks(text, max_chunk_chars)
+    if not chunks:
+        return
+
+    stream_fn = getattr(backend, "generate_stream", None)
+
+    for i, chunk_text in enumerate(chunks):
+        logger.info(
+            "Streaming chunk %d/%d (%d chars)",
+            i + 1,
+            len(chunks),
+            len(chunk_text),
+        )
+        chunk_seed = (seed + i) if seed is not None else None
+
+        if callable(stream_fn) and trim_fn is None:
+            async for chunk_audio, chunk_sr in stream_fn(
+                chunk_text,
+                voice_prompt,
+                language,
+                chunk_seed,
+                instruct,
+            ):
+                yield np.asarray(chunk_audio, dtype=np.float32), chunk_sr
+            continue
+
+        chunk_audio, chunk_sr = await backend.generate(
+            chunk_text,
+            voice_prompt,
+            language,
+            chunk_seed,
+            instruct,
+        )
+        if trim_fn is not None:
+            chunk_audio = trim_fn(chunk_audio, chunk_sr)
+
+        yield np.asarray(chunk_audio, dtype=np.float32), chunk_sr
