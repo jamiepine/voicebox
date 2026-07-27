@@ -1,5 +1,5 @@
 import { Check, ChevronDown, FolderOpen, Info, Keyboard, Laptop, Lock, Volume2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AccessibilityNotice } from '@/components/AccessibilityGate/AccessibilityGate';
 import { InputMonitoringNotice } from '@/components/InputMonitoringGate/InputMonitoringGate';
@@ -7,6 +7,7 @@ import { CapturePill, type PillState } from '@/components/CapturePill/CapturePil
 import { DictationReadinessChecklist } from '@/components/CapturesTab/DictationReadinessChecklist';
 import { ChordPicker } from '@/components/ChordPicker/ChordPicker';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -117,6 +118,48 @@ function HotkeyPillPreview({ enabled }: { enabled: boolean }) {
         <CapturePill state={state} elapsedMs={elapsedMs} />
       </div>
     </div>
+  );
+}
+
+function CustomPromptField({
+  value,
+  disabled,
+  onSave,
+  placeholder,
+  title,
+  description,
+}: {
+  value: string;
+  disabled: boolean;
+  onSave: (v: string) => void;
+  placeholder: string;
+  title: string;
+  description: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  const changedRef = useRef(false);
+
+  useEffect(() => {
+    setDraft(value);
+    changedRef.current = false;
+  }, [value]);
+
+  return (
+    <SettingRow title={title} description={description}>
+      <Textarea
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          changedRef.current = true;
+        }}
+        onBlur={() => {
+          if (changedRef.current) onSave(draft);
+        }}
+        placeholder={placeholder}
+        disabled={disabled}
+        className="min-h-[120px] resize-y"
+      />
+    </SettingRow>
   );
 }
 
@@ -452,6 +495,15 @@ export function CapturesPage() {
               disabled={!autoRefine}
             />
           }
+        />
+
+        <CustomPromptField
+          value={settings?.system_prompt ?? ''}
+          disabled={!autoRefine}
+          onSave={(v) => update({ system_prompt: v || null })}
+          placeholder={t('settings.captures.refinement.customPrompt.placeholder')}
+          title={t('settings.captures.refinement.customPrompt.title')}
+          description={t('settings.captures.refinement.customPrompt.description')}
         />
       </SettingSection>
 
