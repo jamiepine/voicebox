@@ -6,6 +6,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.venv/
 venv/
 env/
 ENV/
