@@ -23,6 +23,7 @@ from typing import Optional
 
 from .. import __version__
 from ..config import get_data_dir
+from ..utils.platform_detect import SUPPORTED_GPU_ASSET_PLATFORMS, server_asset_platform
 from ..utils.progress import get_progress_manager
 
 logger = logging.getLogger(__name__)
@@ -312,8 +313,14 @@ async def _download_cuda_binary_locked(version: Optional[str] = None):
     )
 
     base_url = f"{GITHUB_RELEASES_URL}/{version}"
-    server_archive = "voicebox-server-cuda.tar.gz"
-    libs_archive = f"cuda-libs-{CUDA_LIBS_VERSION}.tar.gz"
+    plat = server_asset_platform()
+    if plat not in SUPPORTED_GPU_ASSET_PLATFORMS:
+        raise RuntimeError(
+            f"CUDA backend not available for platform '{plat}'. "
+            f"Supported platforms: {', '.join(SUPPORTED_GPU_ASSET_PLATFORMS)}"
+        )
+    server_archive = f"voicebox-server-cuda-{plat}.tar.gz"
+    libs_archive = f"cuda-libs-{plat}-{CUDA_LIBS_VERSION}.tar.gz"
 
     try:
         async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
