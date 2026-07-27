@@ -5,7 +5,7 @@
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main", "dictate"],
   "remote": {
-    "urls": ["http://localhost:*"]
+    "urls": ["http://127.0.0.1:17493", "http://localhost:5173", "http://127.0.0.1:5173"]
   },
   "permissions": [
     "core:default",
@@ -14,15 +14,11 @@
     "core:webview:default",
     "core:webview:allow-internal-toggle-devtools",
     "shell:allow-open",
-    "shell:allow-execute",
-    "shell:allow-spawn",
     "updater:default",
     "process:default",
     "dialog:default",
     "dialog:allow-save",
     "dialog:allow-open",
-    "fs:default",
-    "fs:read-all",
-    "fs:write-all"
+    "fs:default"
   ]
 }
