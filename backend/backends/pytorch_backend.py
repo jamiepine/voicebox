@@ -5,6 +5,7 @@ PyTorch backend implementation for TTS and STT.
 from typing import Optional, List, Tuple
 import asyncio
 import logging
+from pathlib import Path
 import torch
 import numpy as np
 
@@ -264,7 +265,19 @@ class PyTorchSTTBackend:
 
     def _is_model_cached(self, model_size: str) -> bool:
         hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
-        return is_model_cached(hf_repo)
+        if not is_model_cached(hf_repo):
+            return False
+        try:
+            from huggingface_hub import constants as hf_constants
+
+            snapshots_dir = Path(hf_constants.HF_HUB_CACHE) / ("models--" + hf_repo.replace("/", "--")) / "snapshots"
+            return all(any(snapshots_dir.rglob(fname)) for fname in (
+                "config.json",
+                "preprocessor_config.json",
+                "tokenizer_config.json",
+            ))
+        except Exception:
+            return False
 
     async def load_model_async(self, model_size: Optional[str] = None):
         """
@@ -279,6 +292,9 @@ class PyTorchSTTBackend:
         if self.model is not None and self.model_size == model_size:
             return
 
+        if self.model is not None and self.model_size != model_size:
+            self.unload_model()
+
         await asyncio.to_thread(self._load_model_sync, model_size)
 
     # Alias for compatibility
@@ -291,12 +307,18 @@ class PyTorchSTTBackend:
 
         with model_load_progress(progress_model_name, is_cached):
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
+            from huggingface_hub import constants as hf_constants
 
             model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
             logger.info("Loading Whisper model %s on %s...", model_size, self.device)
 
-            self.processor = WhisperProcessor.from_pretrained(model_name)
-            self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
+            # Keep processor files and model weights in the same cache root.
+            # Otherwise a partial/split cache can make WhisperProcessor miss
+            # preprocessor_config.json even when model weights are present.
+            stt_cache_dir = hf_constants.HF_HUB_CACHE
+
+            self.processor = WhisperProcessor.from_pretrained(model_name, cache_dir=stt_cache_dir)
+            self.model = WhisperForConditionalGeneration.from_pretrained(model_name, cache_dir=stt_cache_dir)
 
         self.model.to(self.device)
         self.model_size = model_size

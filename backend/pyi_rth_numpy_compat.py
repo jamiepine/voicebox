@@ -32,6 +32,53 @@ import sys
 import threading
 
 
+def _install_torch_numpy_fallback(torch, np, ctypes):
+    """Install a torch.from_numpy fallback that works when torch rejects numpy."""
+    if getattr(torch, "_vb_from_numpy_patched", False):
+        return False
+
+    orig_from_numpy = torch.from_numpy
+
+    # Explicit numpy -> torch dtype map. Silent fallback to float32 on
+    # unknown dtypes would reinterpret the memcpy'd bytes as fp32 and
+    # silently corrupt data (e.g. fp16 tensors from some TTS engines),
+    # so we raise instead.
+    dtype_map = {
+        "float16": torch.float16,
+        "float32": torch.float32,
+        "float64": torch.float64,
+        "int8": torch.int8,
+        "int16": torch.int16,
+        "int32": torch.int32,
+        "int64": torch.int64,
+        "uint8": torch.uint8,
+        "bool": torch.bool,
+        "complex64": torch.complex64,
+        "complex128": torch.complex128,
+    }
+
+    def _safe_from_numpy(arr, *args, _orig=orig_from_numpy, _c=ctypes, _np=np, _t=torch, _map=dtype_map, **kwargs):
+        try:
+            return _orig(arr, *args, **kwargs)
+        except RuntimeError as err:
+            a = _np.ascontiguousarray(arr)
+            key = str(a.dtype)
+            if key not in _map:
+                raise TypeError(
+                    f"pyi_rth_numpy_compat: unsupported numpy dtype "
+                    f"{key!r} in torch.from_numpy fallback; add an "
+                    f"explicit mapping rather than silently copying "
+                    f"bytes into the wrong dtype."
+                ) from err
+            out = _t.empty(list(a.shape), dtype=_map[key])
+            _c.memmove(out.data_ptr(), a.ctypes.data, a.nbytes)
+            return out
+
+    torch.from_numpy = _safe_from_numpy
+    torch._vb_from_numpy_patched = True
+    return True
+
+
 def _patch_torch_from_numpy():
     import time
 
@@ -46,47 +93,7 @@ def _patch_torch_from_numpy():
             import ctypes
             import numpy as np
 
-            _orig = torch.from_numpy
-
-            # Explicit numpy → torch dtype map. Silent fallback to float32 on
-            # unknown dtypes would reinterpret the memcpy'd bytes as fp32 and
-            # silently corrupt data (e.g. fp16 tensors from some TTS engines),
-            # so we raise instead.
-            dtype_map = {
-                "float16": _t.float16,
-                "float32": _t.float32,
-                "float64": _t.float64,
-                "int8": _t.int8,
-                "int16": _t.int16,
-                "int32": _t.int32,
-                "int64": _t.int64,
-                "uint8": _t.uint8,
-                "bool": _t.bool,
-                "complex64": _t.complex64,
-                "complex128": _t.complex128,
-            }
-
-            def _safe_from_numpy(
-                arr, _orig=_orig, _c=ctypes, _np=np, _t=torch, _map=dtype_map
-            ):
-                try:
-                    return _orig(arr)
-                except RuntimeError:
-                    a = _np.ascontiguousarray(arr)
-                    key = str(a.dtype)
-                    if key not in _map:
-                        raise TypeError(
-                            f"pyi_rth_numpy_compat: unsupported numpy dtype "
-                            f"{key!r} in torch.from_numpy fallback; add an "
-                            f"explicit mapping rather than silently copying "
-                            f"bytes into the wrong dtype."
-                        )
-                    out = _t.empty(list(a.shape), dtype=_map[key])
-                    _c.memmove(out.data_ptr(), a.ctypes.data, a.nbytes)
-                    return out
-
-            torch.from_numpy = _safe_from_numpy
-            torch._vb_from_numpy_patched = True
+            _install_torch_numpy_fallback(torch, np, ctypes)
         except Exception:
             pass
         return
