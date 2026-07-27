@@ -851,6 +851,10 @@
         "title": "Reprodução automática ao gerar",
         "description": "Reproduz o áudio automaticamente quando uma geração é concluída."
       },
+      "audioKeepAlive": {
+        "title": "Manter a sessão de áudio ativa",
+        "description": "Evita que o áudio fique mudo após trocar de aplicativo. Desative esta opção se os alto-falantes do Mac emitirem chiado enquanto o Voicebox estiver ocioso."
+      },
       "folder": {
         "title": "Pasta de gerações",
         "description": "Onde os arquivos de áudio gerados são armazenados no disco.",

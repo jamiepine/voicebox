@@ -13,6 +13,8 @@ export function GenerationPage() {
   const { t } = useTranslation();
   const platform = usePlatform();
   const serverUrl = useServerStore((state) => state.serverUrl);
+  const keepAudioSessionAlive = useServerStore((state) => state.keepAudioSessionAlive);
+  const setKeepAudioSessionAlive = useServerStore((state) => state.setKeepAudioSessionAlive);
   const { settings, update } = useGenerationSettings();
   const persistedMaxChunkChars = settings?.max_chunk_chars ?? 800;
   const persistedCrossfadeMs = settings?.crossfade_ms ?? 50;
@@ -128,6 +130,21 @@ export function GenerationPage() {
             />
           }
         />
+
+        {platform.metadata.isTauri && (
+          <SettingRow
+            title={t('settings.generation.audioKeepAlive.title')}
+            description={t('settings.generation.audioKeepAlive.description')}
+            htmlFor="keepAudioSessionAlive"
+            action={
+              <Toggle
+                id="keepAudioSessionAlive"
+                checked={keepAudioSessionAlive}
+                onCheckedChange={setKeepAudioSessionAlive}
+              />
+            }
+          />
+        )}
 
         <SettingRow
           title={t('settings.generation.folder.title')}
