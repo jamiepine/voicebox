@@ -4,11 +4,12 @@ import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
-import type { EffectConfig } from '@/lib/api/types';
+import type { EffectConfig, VoiceProfileResponse } from '@/lib/api/types';
 import { LANGUAGE_CODES, type LanguageCode } from '@/lib/constants/languages';
 import { useGeneration } from '@/lib/hooks/useGeneration';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { useGenerationSettings } from '@/lib/hooks/useSettings';
+import { isProfileCompatibleWithEngine } from '@/components/Generation/EngineModelSelector';
 import { useGenerationStore } from '@/stores/generationStore';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -75,6 +76,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
   async function handleSubmit(
     data: GenerationFormValues,
     selectedProfileId: string | null,
+    selectedProfile?: VoiceProfileResponse | null,
   ): Promise<void> {
     if (!selectedProfileId) {
       toast({
@@ -85,8 +87,25 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
       return;
     }
 
+    const engine = data.engine || 'qwen';
+
+    if (selectedProfile) {
+      if (!isProfileCompatibleWithEngine(selectedProfile, engine)) {
+        const voiceType = selectedProfile.voice_type || 'cloned';
+        const message =
+          voiceType === 'preset'
+            ? `"${selectedProfile.name}" is a preset voice and only works with ${selectedProfile.preset_engine}. Please select a different engine or voice.`
+            : `"${engine}" does not support cloned voices. Please select a different engine.`;
+        toast({
+          title: 'Incompatible engine',
+          description: message,
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     try {
-      const engine = data.engine || 'qwen';
       const modelName =
         engine === 'luxtts'
           ? 'luxtts'
