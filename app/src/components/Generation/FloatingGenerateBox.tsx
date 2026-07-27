@@ -151,7 +151,8 @@ export function FloatingGenerateBox({
     | 'chatterbox_turbo'
     | 'tada'
     | 'kokoro'
-    | 'qwen_custom_voice';
+    | 'qwen_custom_voice'
+    | 'mms';
   useEffect(() => {
     if (selectedProfile?.language) {
       form.setValue('language', selectedProfile.language as LanguageCode);
@@ -163,7 +164,7 @@ export function FloatingGenerateBox({
     } else if (selectedProfile && selectedProfile.voice_type !== 'preset') {
       // Cloned/designed profile with no default — ensure a compatible (non-preset) engine
       const currentEngine = form.getValues('engine');
-      const presetEngines = new Set(['kokoro', 'qwen_custom_voice']);
+      const presetEngines = new Set(['kokoro', 'qwen_custom_voice', 'mms']);
       if (currentEngine && presetEngines.has(currentEngine)) {
         form.setValue('engine', 'qwen');
       }

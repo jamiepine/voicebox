@@ -216,6 +216,7 @@ TTS_ENGINES = {
     "chatterbox_turbo": "Chatterbox Turbo",
     "tada": "TADA",
     "kokoro": "Kokoro",
+    "mms": "MMS TTS",
 }
 
 LLM_ENGINES = {
@@ -370,6 +371,14 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             hf_repo_id="hexgrad/Kokoro-82M",
             size_mb=350,
             languages=["en", "es", "fr", "hi", "it", "pt", "ja", "zh"],
+        ),
+        ModelConfig(
+            model_name="mms-tts-ron",
+            display_name="MMS Romanian (Meta)",
+            engine="mms",
+            hf_repo_id="facebook/mms-tts-ron",
+            size_mb=150,
+            languages=["ro"],
         ),
     ]
 
@@ -719,6 +728,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .kokoro_backend import KokoroTTSBackend
 
             backend = KokoroTTSBackend()
+        elif engine == "mms":
+            from .mms_backend import MMSTTSBackend
+
+            backend = MMSTTSBackend()
         elif engine == "qwen_custom_voice":
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 

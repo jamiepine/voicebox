@@ -64,7 +64,7 @@ import type {
   CaptureSource,
   VoiceProfileResponse,
 } from '@/lib/api/types';
-import type { LanguageCode } from '@/lib/constants/languages';
+import { ENGINE_LANGUAGES, type LanguageCode } from '@/lib/constants/languages';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import { useCaptureRecordingSession } from '@/lib/hooks/useCaptureRecordingSession';
 import { useDictationReadiness } from '@/lib/hooks/useDictationReadiness';
@@ -263,14 +263,23 @@ export function CapturesTab() {
     mutationFn: async ({ capture, voice }: { capture: CaptureResponse; voice: VoiceProfileResponse }) => {
       const text = capture.transcript_refined || capture.transcript_raw;
       if (!text.trim()) throw new Error(t('captures.noTranscriptError'));
-      const language = (capture.language || voice.language) as LanguageCode;
       // Preset profiles (Kokoro etc.) reject the qwen default — honor the
       // profile's stored engine preference. Cloned profiles without an
       // override fall through to whatever the backend picks.
       const engine = voice.default_engine as
         | 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox'
-        | 'chatterbox_turbo' | 'tada' | 'kokoro'
+        | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'mms'
         | undefined;
+      // Prefer the capture's language, but only if the target engine can
+      // speak it (e.g. MMS is Romanian-only, Kokoro covers 8 languages) —
+      // otherwise fall back to the profile's own language.
+      const captureLanguage = capture.language as LanguageCode | undefined;
+      const supported = engine ? ENGINE_LANGUAGES[engine] : undefined;
+      const language = (
+        captureLanguage && (!supported || supported.includes(captureLanguage))
+          ? captureLanguage
+          : voice.language
+      ) as LanguageCode;
       return apiClient.generateSpeech({
         profile_id: voice.id,
         text,

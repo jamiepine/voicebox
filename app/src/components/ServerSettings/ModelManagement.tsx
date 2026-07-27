@@ -414,7 +414,8 @@ export function ModelManagement() {
         m.model_name.startsWith('luxtts') ||
         m.model_name.startsWith('chatterbox') ||
         m.model_name.startsWith('tada') ||
-        m.model_name.startsWith('kokoro'),
+        m.model_name.startsWith('kokoro') ||
+        m.model_name.startsWith('mms'),
     ) ?? [];
   const whisperModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper')) ?? [];
   const llmModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen3-')) ?? [];
