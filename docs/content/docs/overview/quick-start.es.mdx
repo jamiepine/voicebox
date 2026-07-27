@@ -1,0 +1,164 @@
+---
+title: "Inicio rápido"
+description: "Empieza con Voicebox en 5 minutos"
+---
+
+Esta guía te llevará paso a paso por la creación de tu primer perfil de voz y la generación de voz.
+
+## Requisitos previos
+
+Asegúrate de haber [instalado Voicebox](./installation.mdx) e iniciado la app.
+
+## Paso 1: Crea un perfil de voz
+
+Los perfiles de voz son la base de Voicebox. Cada perfil contiene muestras de voz que la IA usa para clonar la voz.
+
+<Steps>
+  <Step title="Ve a Perfiles">
+    Haz clic en la pestaña **Perfiles** en la barra lateral
+  </Step>
+
+  <Step title="Crea un perfil nuevo">
+    Haz clic en el botón **+ Nuevo perfil**
+
+    Rellena los detalles:
+    - **Nombre:** Un nombre descriptivo (p. ej., "John Smith")
+    - **Idioma:** Selecciona el idioma principal
+    - **Descripción:** Notas opcionales sobre la voz
+  </Step>
+
+  <Step title="Añade una muestra de voz">
+    Tienes dos opciones:
+
+    **Opción A: Subir audio**
+    - Haz clic en **Subir muestra**
+    - Selecciona un archivo de audio (WAV, MP3 o M4A)
+    - Duración ideal: 10-30 segundos de habla clara
+
+    **Opción B: Grabar en directo**
+    - Haz clic en **Grabar muestra**
+    - Habla con claridad durante 10-30 segundos
+    - Haz clic en detener cuando termines
+  </Step>
+
+  <Step title="Guarda el perfil">
+    Haz clic en **Crear perfil** para guardar
+  </Step>
+</Steps>
+
+<Callout type="info">
+  Para obtener mejores resultados, usa audio limpio con el mínimo ruido de fondo y un tono de habla constante.
+</Callout>
+
+## Paso 2: Genera voz
+
+Ahora usemos tu nuevo perfil de voz para generar voz.
+
+<Steps>
+  <Step title="Ve a Generación">
+    Haz clic en la pestaña **Generar** en la barra lateral
+  </Step>
+
+  <Step title="Selecciona el perfil de voz">
+    Elige el perfil que acabas de crear en el desplegable
+  </Step>
+
+  <Step title="Introduce el texto">
+    Escribe o pega el texto que quieres generar:
+
+    ```
+    Hello! This is my first voice generation with Voicebox.
+    ```
+
+    <Callout type="info">
+      Las etiquetas paralingüísticas como `[laugh]`, `[sigh]` y `[gasp]` solo
+      funcionan con **Chatterbox Turbo**. Qwen3-TTS, LuxTTS, Chatterbox Multilingual y
+      HumeAI TADA leerán esas etiquetas literalmente en lugar de convertirlas en
+      sonidos expresivos.
+    </Callout>
+
+    Para insertar etiquetas compatibles, selecciona **Chatterbox Turbo** y escribe `/` en el
+    campo de texto para abrir el insertador de etiquetas.
+  </Step>
+
+  <Step title="Genera">
+    Haz clic en **Generar** y espera unos segundos
+
+    <Callout type="info">
+      La primera generación puede tardar más debido a la inicialización del modelo. Las generaciones siguientes serán más rápidas.
+    </Callout>
+  </Step>
+
+  <Step title="Reproduce y descarga">
+    - Haz clic en **Reproducir** para previsualizar el audio
+    - Haz clic en **Descargar** para guardar el archivo de audio
+    - La generación también se guarda en tu **Historial**
+  </Step>
+</Steps>
+
+## Paso 3: Construye una historia (opcional)
+
+El editor de historias te permite crear narrativas con varias voces mediante una interfaz basada en una línea de tiempo.
+
+<Steps>
+  <Step title="Crea una historia nueva">
+    Ve a **Historias** y haz clic en **+ Nueva historia**
+  </Step>
+
+  <Step title="Añade pistas de voz">
+    Haz clic en **+ Añadir pista** para crear pistas de distintos hablantes
+  </Step>
+
+  <Step title="Añade clips de audio">
+    - Arrastra audio generado desde tu Historial
+    - O genera nuevos clips directamente en la línea de tiempo
+    - Organiza los clips en la línea de tiempo
+  </Step>
+
+  <Step title="Edita y exporta">
+    - Recorta los clips arrastrando sus extremos
+    - Ajusta la sincronización y el espaciado
+    - Haz clic en **Exportar** para renderizar el audio final
+  </Step>
+</Steps>
+
+## ¿Y ahora qué?
+
+<Cards>
+  <Card title="Guía de clonación de voz" href="/overview/creating-voice-profiles">
+    Aprende técnicas avanzadas para clonar voz con alta calidad
+  </Card>
+  <Card title="Integración con la API" href="/api-reference">
+    Integra Voicebox en tus propias aplicaciones
+  </Card>
+  <Card title="Editor de historias" href="/overview/stories-editor">
+    Domina el editor de línea de tiempo multipista
+  </Card>
+  <Card title="Modo remoto" href="/overview/remote-mode">
+    Conéctate a un servidor con GPU para generar más rápido
+  </Card>
+</Cards>
+
+## Consejos para tener éxito
+
+<AccordionGroup>
+  <Accordion title="Obtener la mejor calidad de voz">
+    - Usa 10-30 segundos de habla clara y constante
+    - Evita el ruido de fondo y el eco
+    - Varias muestras del mismo hablante mejoran la calidad
+    - Imita el estilo de habla que quieres generar
+  </Accordion>
+
+  <Accordion title="Mejorar la velocidad de generación">
+    - Usa una GPU compatible con CUDA para generar de 5 a 10 veces más rápido
+    - Activa la caché del prompt de voz para generaciones repetidas
+    - Considera ejecutar el backend en un servidor con GPU remoto
+  </Accordion>
+
+  <Accordion title="Solución de problemas comunes">
+    - **El servidor no arranca:** Comprueba si el puerto 17493 está disponible
+    - **Mala calidad de audio:** Prueba a añadir más muestras de voz
+    - **Generación lenta:** Verifica que la aceleración por GPU está activada
+    - Consulta la [guía de solución de problemas](./troubleshooting.mdx) completa para más información
+  </Accordion>
+</AccordionGroup>

@@ -1,0 +1,146 @@
+---
+title: "Modo remoto"
+description: "Conéctate a un servidor GPU para una generación más rápida"
+---
+
+## Visión general
+
+El modo remoto te permite ejecutar el backend de Voicebox en una máquina aparte (como un servidor GPU) mientras usas la aplicación de escritorio en tu máquina local.
+
+## Casos de uso
+
+- **Sin GPU local** - Usa una GPU en la nube o una estación de trabajo remota
+- **Generación más rápida** - Aprovecha hardware remoto potente
+- **Infraestructura compartida** - Varios usuarios se conectan a un solo servidor
+- **Flujos de trabajo con portátil** - Mantén tu portátil fresco y ahorra batería
+
+## Arquitectura
+
+En el modo remoto, la aplicación de escritorio de Voicebox (que se ejecuta en tu máquina local) se comunica con el servidor backend (que se ejecuta en una máquina remota) vía HTTP. La aplicación local solo proporciona la interfaz de usuario, mientras que el servidor remoto gestiona todo el procesamiento pesado, incluidos los modelos TTS, los endpoints de la API y la generación de audio.
+
+## Configurar el modo remoto
+
+### En el servidor
+
+<Steps>
+  <Step title="Instalar dependencias">
+    ```bash
+    # Clone the repo
+    git clone https://github.com/jamiepine/voicebox.git
+    cd voicebox/backend
+
+    # Install Python dependencies
+    pip install -r requirements.txt
+
+    # Engines with incompatible transitive pins — install with --no-deps
+    pip install --no-deps chatterbox-tts
+    pip install --no-deps hume-tada
+
+    # Qwen3-TTS from source
+    pip install git+https://github.com/QwenLM/Qwen3-TTS.git
+    ```
+
+    O simplemente ejecuta `just setup` desde la raíz del repositorio, que se encarga de todo esto.
+  </Step>
+
+  <Step title="Iniciar el servidor">
+    ```bash
+    # Allow external connections
+    uvicorn main:app --host 0.0.0.0 --port 17493
+    ```
+
+    <Callout type="warn">
+      Esto expone el servidor a tu red. Usa un firewall o una VPN por seguridad.
+    </Callout>
+  </Step>
+
+  <Step title="Abrir el firewall">
+    ```bash
+    # Ubuntu/Debian
+    sudo ufw allow 17493
+
+    # Or use your cloud provider's firewall settings
+    ```
+  </Step>
+</Steps>
+
+### En el cliente
+
+<Steps>
+  <Step title="Abrir Ajustes">
+    En Voicebox, ve a **Ajustes → Servidor**
+  </Step>
+
+  <Step title="Activar el modo remoto">
+    Activa **Usar servidor remoto**
+  </Step>
+
+  <Step title="Introducir la URL del servidor">
+    ```
+    http://<server-ip>:17493
+    ```
+
+    Reemplaza `<server-ip>` por la dirección IP de tu servidor
+  </Step>
+
+  <Step title="Probar la conexión">
+    Haz clic en **Probar conexión** para verificar
+  </Step>
+</Steps>
+
+## Despliegue en la nube
+
+### AWS EC2
+
+```bash
+# Launch a GPU instance (e.g., g4dn.xlarge)
+# Install dependencies
+# Start server with --host 0.0.0.0
+```
+
+### Vast.ai
+
+```bash
+# Rent a GPU instance
+# SSH in and clone repo
+# Start server
+```
+
+### RunPod
+
+```bash
+# Deploy a pod with CUDA support
+# Install Voicebox backend
+# Expose port 17493
+```
+
+## Consideraciones de seguridad
+
+<Callout type="warn">
+  La API actualmente no tiene autenticación. Úsala solo en redes de confianza o con una VPN.
+</Callout>
+
+**Buenas prácticas:**
+- Usa una VPN (WireGuard, Tailscale) en lugar de exponerla a internet
+- Ejecútala detrás de un proxy inverso con autenticación (nginx + autenticación básica)
+- Usa HTTPS con certificados SSL
+- Reglas de firewall para limitar el acceso a IPs específicas
+
+## Rendimiento
+
+Rendimiento esperado en varias GPUs:
+
+| GPU | Velocidad de generación |
+|-----|------------------|
+| RTX 4090 | ~2-3s por cada 10 palabras |
+| RTX 3090 | ~3-4s por cada 10 palabras |
+| RTX 3060 | ~5-7s por cada 10 palabras |
+| CPU (12 núcleos) | ~20-30s por cada 10 palabras |
+
+<Callout type="info">
+  Se recomienda una GPU con 8GB+ de VRAM para obtener el mejor rendimiento.
+</Callout>
+
+## Resolución de problemas
+
+Consulta la [Guía de resolución de problemas](./troubleshooting.mdx) para problemas comunes.

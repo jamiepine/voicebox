@@ -1,0 +1,88 @@
+---
+title: "Historial de generación"
+description: "Sigue y gestiona todo tu audio generado"
+---
+
+## Visión general
+
+Voicebox mantiene un historial completo de todo el audio generado, lo que facilita encontrar, reutilizar y gestionar tus creaciones.
+
+## Características
+
+<Cards>
+  <Card title="Historial completo" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}>
+    Cada generación se guarda automáticamente
+  </Card>
+  <Card title="Buscar y filtrar" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>}>
+    Encuentra por texto, voz o fecha
+  </Card>
+  <Card title="Regenerar" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>}>
+    Regenera cualquier generación anterior con un solo clic
+  </Card>
+  <Card title="Exportar" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>}>
+    Descarga exportaciones individuales o por lotes
+  </Card>
+</Cards>
+
+## Ver el historial
+
+Ve a la pestaña **History** para ver todas tus generaciones.
+
+Cada entrada muestra:
+- Texto generado
+- Perfil de voz utilizado
+- Marca de tiempo
+- Duración del audio
+- Idioma
+
+## Acciones
+
+### Reproducir
+Haz clic en cualquier generación para reproducirla al instante.
+
+### Regenerar
+Regenera con los mismos ajustes o modifica el texto/la voz.
+
+### Descargar
+Exporta como WAV, MP3 o M4A.
+
+### Eliminar
+Elimina generaciones no deseadas para liberar espacio.
+
+### Añadir a una historia
+Arrastra generaciones a la línea de tiempo del Stories Editor.
+
+## Buscar y filtrar
+
+<Tabs items={["By Text", "By Voice", "By Date"]}>
+  <Tab value="By Text">
+    Busca contenido de texto específico
+    ```
+    "Hello world"
+    ```
+  </Tab>
+  <Tab value="By Voice">
+    Filtra por perfil de voz
+    ```
+    Select from dropdown
+    ```
+  </Tab>
+  <Tab value="By Date">
+    Filtra por rango de fechas
+    ```
+    Last 7 days, Last 30 days, Custom range
+    ```
+  </Tab>
+</Tabs>
+
+## Almacenamiento
+
+El historial se almacena localmente:
+
+- **macOS**: `~/Library/Application Support/sh.voicebox.app/data/`
+- **Windows**: `%APPDATA%/sh.voicebox.app/data/`
+- **Linux**: `~/.config/sh.voicebox.app/data/`
+
+<Callout type="warn">
+  Eliminar el directorio de datos borrará todo el historial. Exporta primero los archivos importantes.
+</Callout>

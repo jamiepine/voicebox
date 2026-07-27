@@ -1,0 +1,119 @@
+---
+title: "Instalación"
+description: "Descarga e instala Voicebox en macOS, Windows o Linux"
+---
+
+## Descarga
+
+Voicebox está disponible para macOS y Windows, y las compilaciones para Linux llegarán pronto.
+
+<Cards>
+  <Card title="macOS" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c-1.5 0-2.8.4-3.9 1.1A5.5 5.5 0 0 0 4 2.5C2.5 2.5 1 4 1 6c0 3.5 2.5 6 5 7.5C5 16 4 18 4 20c0 1.5.5 2.5 1.5 3C6.5 23.5 8 24 9.5 24c2 0 3.5-.5 5-2 1.5 1.5 3 2 5 2 1.5 0 3-.5 4-1 1-.5 1.5-1.5 1.5-3 0-2-1-4-2-6.5 2.5-1.5 5-4 5-7.5 0-2-1.5-3.5-3-3.5-.9 0-2.1.4-3.1 1.1A6.5 6.5 0 0 0 12 2Z"/></svg>}>
+    Descarga para Macs con Apple Silicon o Intel
+  </Card>
+  <Card title="Windows" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>}>
+    Descarga el instalador MSI o el ejecutable Setup
+  </Card>
+</Cards>
+
+### macOS
+
+<Tabs items={["Apple Silicon", "Intel"]}>
+  <Tab value="Apple Silicon">
+    Descarga: [voicebox_aarch64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_aarch64.app.tar.gz)
+
+    ```bash
+    # Extract the archive
+    tar -xzf voicebox_aarch64.app.tar.gz
+
+    # Move to Applications
+    mv Voicebox.app /Applications/
+    ```
+  </Tab>
+  <Tab value="Intel">
+    Descarga: [voicebox_x64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64.app.tar.gz)
+
+    ```bash
+    # Extract the archive
+    tar -xzf voicebox_x64.app.tar.gz
+
+    # Move to Applications
+    mv Voicebox.app /Applications/
+    ```
+  </Tab>
+</Tabs>
+
+### Windows
+
+<Tabs items={["MSI Installer", "Setup Executable"]}>
+  <Tab value="MSI Installer">
+    Descarga: [voicebox_x64_en-US.msi](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64_en-US.msi)
+
+    Haz doble clic en el archivo MSI y sigue el asistente de instalación.
+  </Tab>
+  <Tab value="Setup Executable">
+    Descarga: [voicebox_x64-setup.exe](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64-setup.exe)
+
+    Ejecuta el archivo y sigue el asistente de instalación.
+  </Tab>
+</Tabs>
+
+### Linux
+
+<Callout type="info">
+  Las compilaciones para Linux llegarán pronto. Actualmente están bloqueadas por las limitaciones de espacio en disco del runner de GitHub.
+</Callout>
+
+## Primer arranque
+
+Cuando inicias Voicebox por primera vez:
+
+1. **Descarga del modelo** — El motor de TTS con el que generes primero descargará su modelo automáticamente. Los tamaños van desde ~350 MB (Kokoro) hasta ~8 GB (TADA 3B). La mayoría de los usuarios empiezan con Qwen 1.7B (~3.5 GB).
+2. **Directorio de datos** — Los perfiles de voz y el audio generado se almacenan en:
+   - macOS: `~/Library/Application Support/sh.voicebox.app/`
+   - Windows: `%APPDATA%/sh.voicebox.app/`
+   - Linux: `~/.config/sh.voicebox.app/`
+
+3. **Servidor backend** — El servidor de Python incluido se inicia automáticamente
+
+<Callout type="info">
+  La primera generación será más lenta debido a las descargas de modelos. Las ejecuciones posteriores usan modelos en caché.
+</Callout>
+
+## Requisitos del sistema
+
+### Mínimos
+
+- **SO:** macOS 11+, Windows 10+ o Linux
+- **RAM:** 8 GB
+- **Almacenamiento:** 5 GB de espacio libre (para modelos y datos)
+- **CPU:** Procesador multinúcleo moderno
+
+### Recomendados
+
+- **RAM:** 16 GB o más
+- **GPU:** GPU de NVIDIA compatible con CUDA (para una generación más rápida)
+- **Almacenamiento:** 10 GB o más de espacio libre
+
+<Callout type="info">
+  La inferencia en CPU es compatible, pero significativamente más lenta que en GPU. Se recomienda encarecidamente una GPU compatible con CUDA para flujos de trabajo en tiempo real.
+</Callout>
+
+## Verificación
+
+Tras la instalación, comprueba que todo funciona:
+
+1. Inicia Voicebox
+2. Comprueba el indicador de estado del servidor en la esquina inferior izquierda (debería estar verde)
+3. Ve a **Perfiles** y crea un perfil de prueba
+4. Genera un breve clip de audio para verificar que el motor de TTS funciona
+
+<Callout type="success">
+  Si ves un indicador de estado verde y puedes generar audio, ¡ya está todo listo!
+</Callout>
+
+## Siguientes pasos
+
+<Card title="Guía de inicio rápido" href="/overview/quick-start">
+  Crea tu primer perfil de voz y genera voz
+</Card>
