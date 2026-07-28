@@ -1,0 +1,72 @@
+# FastAPI and server
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+
+# ML models
+torch>=2.2.0
+transformers>=4.36.0,<=4.57.6
+accelerate>=0.26.0
+huggingface_hub>=0.20.0
+qwen-tts>=0.0.5
+
+# LuxTTS (voice cloning engine)
+# piper-phonemize needs custom index (no PyPI wheels)
+--find-links https://k2-fsa.github.io/icefall/piper_phonemize.html
+# linacodec is a git-only dep of Zipvoice (uv-only source, pip can't resolve it)
+linacodec @ git+https://github.com/ysharma3501/LinaCodec.git
+Zipvoice @ git+https://github.com/ysharma3501/LuxTTS.git
+
+# Chatterbox TTS sub-dependencies (chatterbox-tts itself is installed
+# --no-deps in the setup script because it pins numpy<1.26 / torch==2.6
+# which are incompatible with Python 3.12+)
+conformer>=0.3.2
+diffusers>=0.29.0
+omegaconf
+pykakasi
+resemble-perth>=1.0.1
+s3tokenizer
+spacy-pkuseg
+pyloudnorm
+
+# HumeAI TADA sub-dependencies (hume-tada itself is installed
+# --no-deps in the setup script because it pins torch>=2.7,<2.8.
+# descript-audio-codec is NOT installed — it pulls onnx/tensorboard
+# via descript-audiotools.  A lightweight shim in utils/dac_shim.py
+# provides the only class TADA uses: Snake1d.)
+torchaudio
+
+# Kokoro TTS (lightweight 82M-param engine)
+kokoro>=0.9.4
+misaki[en]>=0.9.4
+# spacy model for misaki English G2P — must be pre-installed or misaki
+# tries spacy.cli.download() at runtime which crashes frozen builds
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+# fugashi (pulled in by misaki[ja]) needs a MeCab dictionary on disk.
+# unidic-lite ships one inside the wheel (~50MB); the full `unidic` package
+# requires `python -m unidic download` (~526MB) which breaks frozen builds
+# for the same reason en_core_web_sm does.
+unidic-lite>=1.0.8
+
+# Audio processing
+librosa>=0.10.0
+soundfile>=0.12.0
+numpy>=1.24.0,<2.0
+numba>=0.60.0,<0.61.0
+pedalboard>=0.9.0
+
+# HTTP client (for CUDA backend download)
+httpx>=0.27.0
+
+# MCP server (Model Context Protocol) — lets local AI agents call
+# voicebox.speak / .transcribe / .list_captures / .list_profiles
+fastmcp>=3.0,<4.0
+sse-starlette>=2.0
+
+# Utilities
+python-multipart>=0.0.6
+Pillow>=10.0.0
