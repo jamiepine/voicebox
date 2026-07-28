@@ -3,7 +3,7 @@ Story management module.
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import UTC, datetime
 import uuid
 import tempfile
 from pathlib import Path
@@ -96,8 +96,8 @@ async def create_story(
         id=str(uuid.uuid4()),
         name=data.name,
         description=data.description,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
 
     db.add(db_story)
@@ -206,7 +206,7 @@ async def update_story(
 
     story.name = data.name
     story.description = data.description
-    story.updated_at = datetime.utcnow()
+    story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(story)
@@ -314,13 +314,13 @@ async def add_item_to_story(
         generation_id=data.generation_id,
         start_time_ms=start_time_ms,
         track=track,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
     db.add(item)
 
     # Update story updated_at
-    story.updated_at = datetime.utcnow()
+    story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -373,7 +373,7 @@ async def move_story_item(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -417,7 +417,7 @@ async def remove_item_from_story(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     return True
@@ -470,7 +470,7 @@ async def trim_story_item(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -503,7 +503,7 @@ async def update_story_item_volume(
 
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -576,7 +576,7 @@ async def split_story_item(
         trim_start_ms=absolute_split_ms,
         trim_end_ms=current_trim_end,
         volume=getattr(item, "volume", 1.0),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
     db.add(new_item)
@@ -584,7 +584,7 @@ async def split_story_item(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
@@ -650,7 +650,7 @@ async def duplicate_story_item(
         trim_start_ms=current_trim_start,
         trim_end_ms=current_trim_end,
         volume=getattr(original_item, "volume", 1.0),
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
     )
 
     db.add(new_item)
@@ -658,7 +658,7 @@ async def duplicate_story_item(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(new_item)
@@ -700,7 +700,7 @@ async def update_story_item_times(
         item_map[update.generation_id].start_time_ms = update.start_time_ms
 
     # Update story updated_at
-    story.updated_at = datetime.utcnow()
+    story.updated_at = datetime.now(UTC)
 
     db.commit()
     return True
@@ -764,7 +764,7 @@ async def reorder_story_items(
         updated_items.append(_build_item_detail(item, generation, profile_name, db))
 
     # Update story updated_at
-    story.updated_at = datetime.utcnow()
+    story.updated_at = datetime.now(UTC)
 
     db.commit()
     return updated_items
@@ -823,7 +823,7 @@ async def set_story_item_version(
     # Update story updated_at
     story = db.query(DBStory).filter_by(id=story_id).first()
     if story:
-        story.updated_at = datetime.utcnow()
+        story.updated_at = datetime.now(UTC)
 
     db.commit()
     db.refresh(item)
