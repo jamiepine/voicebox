@@ -322,6 +322,20 @@ async def _run_startup(application: FastAPI) -> None:
     finally:
         db.close()
 
+    # Seed the LLM backend dispatch from the persisted capture settings so
+    # the very first refinement / personality call after startup honours a
+    # user-configured custom OpenAI-compatible endpoint without needing a
+    # settings-write to flip the module state first.
+    db = next(get_db())
+    try:
+        from .services.settings import bootstrap_llm_backend_config
+
+        bootstrap_llm_backend_config(db)
+    except Exception as e:
+        logger.warning("Could not bootstrap custom LLM config: %s", e)
+    finally:
+        db.close()
+
     backend_type = get_backend_type()
     logger.info("Backend: %s", backend_type.upper())
     logger.info("GPU: %s", _get_gpu_status())

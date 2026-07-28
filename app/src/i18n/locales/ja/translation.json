@@ -977,6 +977,21 @@
         "preserveTechnical": {
           "title": "専門用語を保持",
           "description": "コードの識別子、コマンド名、頭字語を発話どおりに保持します。コード入力欄にディクテーションするときに有効にしてください。"
+        },
+        "customEndpoint": {
+          "title": "カスタム LLM エンドポイント (上級)",
+          "description": "リファインとパーソナリティの書き換えを、任意の OpenAI 互換サーバー (llama.cpp、vLLM、LM Studio、LocalAI、Ollama の互換 API、OpenAI API 自体など) に委譲します。空欄のままなら内蔵の Qwen3 を使います。",
+          "endpointLabel": "エンドポイント URL",
+          "endpointPlaceholder": "http://localhost:8090/v1",
+          "modelLabel": "モデル名",
+          "modelPlaceholder": "モデル名 (例: qwen3-4b)",
+          "apiKeyLabel": "API キー",
+          "apiKeyPlaceholder": "API キー (任意)",
+          "apiKeyPlaceholderReplace": "上書きする新しいキーを入力",
+          "apiKeyConfigured": "保存済",
+          "apiKeyClear": "クリア",
+          "statusBuiltin": "上で選んだ内蔵 Qwen3 モデルを使用しています",
+          "statusRemote": "リファインとパーソナリティの書き換えを {{endpoint}} に送信しています"
         }
       },
       "playback": {
@@ -1014,6 +1029,10 @@
         "local": {
           "title": "完全にローカル。",
           "body": "Whisper と整形用 LLM はあなたのハードウェア上で動作します。クラウドもアカウントも不要で、声がマシンの外に出ることはありません。"
+        },
+        "remote": {
+          "title": "整形処理はリモート実行中。",
+          "body": "Whisper はハードウェア上で書き起こしを続けますが、整形された文字起こしとパーソナリティ書き換えは {{endpoint}} に送られます。音声そのものはマシンから出ません。"
         },
         "playAs": {
           "title": "どのボイスでも再生。",
