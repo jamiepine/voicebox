@@ -1,0 +1,127 @@
+---
+title: "Установка"
+description: "Как скачать и установить Voicebox на macOS, Windows или Linux"
+---
+
+## Скачать
+
+Voicebox уже доступен для macOS и Windows. Для Linux пока поддерживается
+сборка из исходников.
+
+<Cards>
+  <Card title="macOS" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2c-1.5 0-2.8.4-3.9 1.1A5.5 5.5 0 0 0 4 2.5C2.5 2.5 1 4 1 6c0 3.5 2.5 6 5 7.5C5 16 4 18 4 20c0 1.5.5 2.5 1.5 3C6.5 23.5 8 24 9.5 24c2 0 3.5-.5 5-2 1.5 1.5 3 2 5 2 1.5 0 3-.5 4-1 1-.5 1.5-1.5 1.5-3 0-2-1-4-2-6.5 2.5-1.5 5-4 5-7.5 0-2-1.5-3.5-3-3.5-.9 0-2.1.4-3.1 1.1A6.5 6.5 0 0 0 12 2Z"/></svg>}>
+    Скачайте сборку для Apple Silicon или Intel Mac
+  </Card>
+  <Card title="Windows" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>}>
+    Используйте MSI-установщик или Setup executable
+  </Card>
+</Cards>
+
+### macOS
+
+<Tabs items={["Apple Silicon", "Intel"]}>
+  <Tab value="Apple Silicon">
+    Скачать: [voicebox_aarch64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_aarch64.app.tar.gz)
+
+    ```bash
+    # Распаковать архив
+    tar -xzf voicebox_aarch64.app.tar.gz
+
+    # Переместить в Applications
+    mv Voicebox.app /Applications/
+    ```
+  </Tab>
+  <Tab value="Intel">
+    Скачать: [voicebox_x64.app.tar.gz](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64.app.tar.gz)
+
+    ```bash
+    # Распаковать архив
+    tar -xzf voicebox_x64.app.tar.gz
+
+    # Переместить в Applications
+    mv Voicebox.app /Applications/
+    ```
+  </Tab>
+</Tabs>
+
+### Windows
+
+<Tabs items={["MSI Installer", "Setup Executable"]}>
+  <Tab value="MSI Installer">
+    Скачать: [voicebox_x64_en-US.msi](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64_en-US.msi)
+
+    Дважды щёлкните по MSI-файлу и пройдите шаги мастера установки.
+  </Tab>
+  <Tab value="Setup Executable">
+    Скачать: [voicebox_x64-setup.exe](https://github.com/jamiepine/voicebox/releases/latest/download/voicebox_x64-setup.exe)
+
+    Запустите файл и следуйте шагам мастера установки.
+  </Tab>
+</Tabs>
+
+### Linux
+
+<Callout type="info">
+  Готовые Linux-сборки пока не публикуются. Сейчас наиболее надёжный путь —
+  собрать Voicebox из исходников.
+</Callout>
+
+## Первый запуск
+
+При первом запуске Voicebox:
+
+1. **Скачает модели** — первый TTS-движок, с которым вы начнёте генерировать,
+   автоматически загрузит свои веса. Размеры варьируются от ~350 MB
+   (Kokoro) до ~8 GB (TADA 3B). Для старта чаще всего выбирают Qwen 1.7B
+   (~3.5 GB).
+2. **Создаст директорию данных** — voice profiles и сгенерированное аудио
+   хранятся в:
+   - macOS: `~/Library/Application Support/sh.voicebox.app/`
+   - Windows: `%APPDATA%/sh.voicebox.app/`
+   - Linux: `~/.config/sh.voicebox.app/`
+3. **Поднимет backend server** — встроенный Python-сервер стартует автоматически
+
+<Callout type="info">
+  Первая генерация обычно медленнее из-за скачивания и инициализации моделей.
+  Все последующие запуски используют локальный кеш.
+</Callout>
+
+## Системные требования
+
+### Минимальные
+
+- **OS:** macOS 11+, Windows 10+ или Linux
+- **RAM:** 8GB
+- **Хранилище:** 5GB свободного места
+- **CPU:** современный многоядерный процессор
+
+### Рекомендуемые
+
+- **RAM:** 16GB+
+- **GPU:** CUDA-совместимая NVIDIA GPU для более быстрой генерации
+- **Хранилище:** 10GB+ свободного места
+
+<Callout type="info">
+  CPU inference поддерживается, но работает заметно медленнее GPU. Для
+  realtime-сценариев CUDA-совместимая видеокарта очень желательна.
+</Callout>
+
+## Проверка
+
+После установки проверьте базовый сценарий:
+
+1. Запустите Voicebox
+2. Посмотрите на индикатор статуса сервера в левом нижнем углу — он должен
+   быть зелёным
+3. Перейдите во вкладку **Profiles** и создайте тестовый профиль
+4. Сгенерируйте короткий аудиофрагмент, чтобы убедиться, что TTS-движок работает
+
+<Callout type="success">
+  Если индикатор статуса зелёный и вы можете сгенерировать аудио, всё готово.
+</Callout>
+
+## Что дальше
+
+<Card title="Быстрый старт" href="/ru/overview/quick-start">
+  Создайте первый голосовой профиль и сгенерируйте речь
+</Card>
