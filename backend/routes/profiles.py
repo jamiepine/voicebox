@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .. import config, models
 from ..app import safe_content_disposition
 from ..database import VoiceProfile as DBVoiceProfile, get_db
-from ..services import channels, export_import, personality, profiles
+from ..services import channels, export_import, personality, profiles, settings as settings_service
 from ..services.profiles import _profile_to_response
 
 logger = logging.getLogger(__name__)
@@ -384,7 +384,13 @@ async def compose_in_character(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
     try:
-        result = await personality.compose_as_profile(profile.personality)
+        # See routes/generations.py's speak-in-character handling: the
+        # refinement model size must come from capture_settings.llm_model,
+        # not the LLM backend singleton's last-loaded size.
+        refinement_model_size = settings_service.get_capture_settings(db).llm_model
+        result = await personality.compose_as_profile(
+            profile.personality, model_size=refinement_model_size
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return models.PersonalityTextResponse(
