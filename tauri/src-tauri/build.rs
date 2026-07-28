@@ -68,16 +68,21 @@ fn main() {
             match output {
                 Ok(output) => {
                     if !output.status.success() {
-                        eprintln!("actool stderr: {}", String::from_utf8_lossy(&output.stderr));
-                        eprintln!("actool stdout: {}", String::from_utf8_lossy(&output.stdout));
-                        panic!("actool failed to compile icon");
+                        println!(
+                            "cargo:warning=actool failed (requires full Xcode, not just CLT) — \
+                             stub files will be used. stderr: {}",
+                            String::from_utf8_lossy(&output.stderr).trim()
+                        );
+                    } else {
+                        println!("Successfully compiled icon to {}", gen_dir);
                     }
-                    println!("Successfully compiled icon to {}", gen_dir);
                 }
                 Err(e) => {
-                    eprintln!("Failed to execute xcrun actool: {}", e);
-                    eprintln!("Make sure you have Xcode Command Line Tools installed");
-                    panic!("Icon compilation failed");
+                    println!(
+                        "cargo:warning=xcrun actool not available ({e}) — \
+                         install Xcode from the App Store for Liquid Glass icons. \
+                         Stub files will be used for dev builds."
+                    );
                 }
             }
 
