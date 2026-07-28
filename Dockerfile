@@ -58,12 +58,21 @@ RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
         --index-url "https://download.pytorch.org/whl/rocm${ROCM_VERSION}" \
         torch torchaudio && \
       printf '[global]\nindex-url = https://download.pytorch.org/whl/rocm%s\nextra-index-url = https://pypi.org/simple\n' "$ROCM_VERSION" > /etc/pip.conf; \
+    else \
+      pip install --no-cache-dir --prefix=/install torch==2.7.1 torchaudio==2.7.1; \
     fi
+# ^ CPU builds pin torch: 2.8+ breaks CPU inference in every engine tested
+#   (Kokoro/LuxTTS: "Cannot copy out of meta tensor"; Qwen: "unsupported
+#   scalarType" in torch.autocast). 2.7.1 is the newest that works and matches
+#   hume-tada's torch>=2.7,<2.8. Installed before requirements.txt so the open
+#   torch range there keeps this version instead of resolving to latest.
 
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
 RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
-RUN pip install --no-cache-dir --prefix=/install \
+# --no-deps: Qwen3-TTS's dependency list would re-resolve torch/transformers
+# and undo the versions installed above; everything it needs is already here.
+RUN pip install --no-cache-dir --prefix=/install --no-deps \
     git+https://github.com/QwenLM/Qwen3-TTS.git
 
 
