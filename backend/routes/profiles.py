@@ -294,11 +294,11 @@ async def export_profile(
         safe_name = "".join(c for c in profile.name if c.isalnum() or c in (" ", "-", "_")).strip()
         if not safe_name:
             safe_name = "profile"
-        filename = f"profile-{safe_name}.voicebox.zip"
+        filename = f"profile-{safe_name}.voicebox"
 
         return StreamingResponse(
             io.BytesIO(zip_bytes),
-            media_type="application/zip",
+            media_type="application/octet-stream",
             headers={"Content-Disposition": safe_content_disposition("attachment", filename)},
         )
     except ValueError as e:
