@@ -226,11 +226,16 @@ export function ProfileForm() {
     isRecording,
     duration,
     error: recordingError,
+    stream: recordingStream,
     startRecording,
     stopRecording,
     cancelRecording,
   } = useAudioRecording({
     maxDurationSeconds: 29,
+    // Reference samples for cloning must be raw/high-fidelity — the browser
+    // voice DSP (AEC/NS/AGC) stutters and degrades quality with external
+    // audio interfaces such as the RodeCaster.
+    audioProcessing: false,
     onRecordingComplete: (blob, recordedDuration) => {
       const file = new File([blob], `recording-${Date.now()}.webm`, {
         type: blob.type || 'audio/webm',
@@ -1005,6 +1010,7 @@ export function ProfileForm() {
                                     file={selectedFile}
                                     isRecording={isRecording}
                                     duration={duration}
+                                    recordingStream={recordingStream}
                                     onStart={startRecording}
                                     onStop={stopRecording}
                                     onCancel={handleCancelRecording}

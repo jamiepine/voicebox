@@ -26,6 +26,13 @@ interface AudioSampleRecordingProps {
   file: File | null | undefined;
   isRecording: boolean;
   duration: number;
+  /**
+   * The live capture stream while recording, from useAudioRecording. When
+   * recording we visualize this exact stream rather than opening a second
+   * getUserMedia — two concurrent opens of one input device leave the
+   * visualizer silent on macOS (external interfaces especially).
+   */
+  recordingStream?: MediaStream | null;
   onStart: () => void;
   onStop: () => void;
   onCancel: () => void;
@@ -40,6 +47,7 @@ export function AudioSampleRecording({
   file,
   isRecording,
   duration,
+  recordingStream,
   onStart,
   onStop,
   onCancel,
@@ -50,33 +58,47 @@ export function AudioSampleRecording({
   showWaveform = true,
 }: AudioSampleRecordingProps) {
   const { t } = useTranslation();
-  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
 
-  // Request microphone access when component mounts
+  // Run a standalone preview capture only while idle. Once recording starts we
+  // switch to the actual recording stream (recordingStream) and tear this down,
+  // so the device is never opened twice at once.
   useEffect(() => {
-    if (!showWaveform) return;
+    if (!showWaveform || isRecording) return;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
 
     let stream: MediaStream | null = null;
+    let cancelled = false;
 
     navigator.mediaDevices
       .getUserMedia({ audio: true, video: false })
       .then((s) => {
+        if (cancelled) {
+          s.getTracks().forEach((track) => {
+            track.stop();
+          });
+          return;
+        }
         stream = s;
-        setAudioStream(s);
+        setPreviewStream(s);
       })
       .catch((err) => {
         console.warn('Could not access microphone for visualization:', err);
       });
 
     return () => {
+      cancelled = true;
       if (stream) {
         stream.getTracks().forEach((track) => {
           track.stop();
         });
       }
+      setPreviewStream(null);
     };
-  }, [showWaveform]);
+  }, [showWaveform, isRecording]);
+
+  // While recording, visualize the real capture stream; otherwise the preview.
+  const audioStream = isRecording ? (recordingStream ?? null) : previewStream;
 
   return (
     <FormItem>
