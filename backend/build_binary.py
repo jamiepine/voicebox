@@ -303,6 +303,21 @@ def build_server(cuda=False, rocm=False):
             # must be collected or Japanese Kokoro voices crash at runtime.
             "--collect-all",
             "unidic_lite",
+            # F5-TTS — Flow Matching Diffusion Transformer
+            "--hidden-import",
+            "backend.backends.f5tts_backend",
+            "--collect-all",
+            "f5_tts",
+            "--collect-all",
+            "vocos",
+            "--collect-all",
+            "ema_pytorch",
+            "--collect-all",
+            "x_transformers",
+            "--collect-all",
+            "rjieba",
+            "--collect-all",
+            "pypinyin",
             "--hidden-import",
             "loguru",
             # MCP server — Streamable-HTTP endpoint and the 4 voicebox.* tools.

@@ -14,6 +14,21 @@ accelerate>=0.26.0
 huggingface_hub>=0.20.0
 qwen-tts>=0.0.5
 
+# F5-TTS sub-dependencies (installed --no-deps in setup to avoid resolution hell)
+ema-pytorch>=0.5.2
+x-transformers>=1.31.14
+vocos
+pydub
+rjieba
+pypinyin
+transformers-stream-generator
+cached-path
+torchdiffeq
+matplotlib
+wandb
+datasets
+hydra-core
+unidecode
 # LuxTTS (voice cloning engine)
 # piper-phonemize needs custom index (no PyPI wheels)
 --find-links https://k2-fsa.github.io/icefall/piper_phonemize.html

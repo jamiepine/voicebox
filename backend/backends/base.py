@@ -47,14 +47,13 @@ def is_model_cached(
         if not repo_cache.exists():
             return False
 
-        # Incomplete blobs mean a download is still in progress
+        snapshots_dir = repo_cache / "snapshots"
+        if not snapshots_dir.exists():
+            return False
+
         blobs_dir = repo_cache / "blobs"
         if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
             logger.debug(f"Found .incomplete files for {hf_repo}")
-            return False
-
-        snapshots_dir = repo_cache / "snapshots"
-        if not snapshots_dir.exists():
             return False
 
         if required_files:
