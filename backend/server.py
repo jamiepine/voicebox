@@ -27,6 +27,40 @@ if not _is_writable(sys.stdout):
 if not _is_writable(sys.stderr):
     sys.stderr = open(os.devnull, 'w')
 
+
+class _PipeSafeStream:
+    """Wrap a stream so writes never raise after the reader goes away.
+
+    The Tauri host only drains the sidecar's stdout/stderr until the
+    "Uvicorn running" startup line, then drops the receiver — closing the
+    pipe. Any later print/log/tqdm write then raises BrokenPipeError
+    (``[Errno 32] Broken pipe``), which surfaces as a 500 from whatever
+    endpoint happened to log (observed on /transcribe during Whisper model
+    load). Swallow pipe errors so logging can never break request handling.
+    """
+
+    def __init__(self, base):
+        self._base = base
+
+    def write(self, data):
+        try:
+            return self._base.write(data)
+        except (BrokenPipeError, OSError):
+            return len(data)
+
+    def flush(self):
+        try:
+            self._base.flush()
+        except (BrokenPipeError, OSError):
+            pass
+
+    def __getattr__(self, name):
+        return getattr(self._base, name)
+
+
+sys.stdout = _PipeSafeStream(sys.stdout)
+sys.stderr = _PipeSafeStream(sys.stderr)
+
 # PyInstaller + multiprocessing: child processes re-execute the frozen binary
 # with internal arguments. freeze_support() handles this and exits early.
 import multiprocessing

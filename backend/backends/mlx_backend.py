@@ -292,8 +292,12 @@ class MLXSTTBackend:
         if self.model is not None and self.model_size == model_size:
             return
 
-        # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        # Load on the dedicated MLX thread (see services/mlx_thread.py) so the
+        # model's GPU stream stays affine to the same thread that later runs
+        # transcription.
+        from ..services.mlx_thread import run_mlx
+
+        await run_mlx(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -363,5 +367,9 @@ class MLXSTTBackend:
             else:
                 return str(result).strip()
 
-        # Run blocking transcription in thread pool
-        return await asyncio.to_thread(_transcribe_sync)
+        # Run transcription on the dedicated MLX thread (see
+        # services/mlx_thread.py) — same thread as the model load, so MLX's
+        # thread-local GPU streams resolve.
+        from ..services.mlx_thread import run_mlx
+
+        return await run_mlx(_transcribe_sync)
