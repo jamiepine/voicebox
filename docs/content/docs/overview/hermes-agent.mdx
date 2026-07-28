@@ -1,0 +1,138 @@
+---
+title: "Hermes Agent"
+description: "Use Voicebox as the voice and ears of Hermes Agent — spoken replies and voice-message transcription, fully local."
+---
+
+## Overview
+
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) is Nous
+Research's open-source self-improving agent: a terminal CLI/TUI plus a
+messaging gateway that connects one agent to Telegram, Discord, WhatsApp,
+Slack, and Signal. It has first-class voice features — spoken replies,
+voice-bubble delivery on chat platforms, push-to-talk dictation, and
+automatic transcription of incoming voice messages — and every one of them
+is pluggable.
+
+Voicebox slots into both directions of that loop, entirely on-device:
+
+- **Voice out** — Hermes speaks its replies in one of your cloned or preset
+  voices instead of a stock cloud voice.
+- **Voice in** — voice messages and push-to-talk audio are transcribed by
+  the Whisper models already bundled with Voicebox. Audio never leaves your
+  machine.
+
+There are two integration surfaces, and they compose — most people will
+want both. Everything talks to the same local API
+(`http://127.0.0.1:17493` while the Voicebox app is running).
+
+<Callout type="info">
+  Running Voicebox in Docker instead of the desktop app? The API is on
+  `http://127.0.0.1:17600` — set `VOICEBOX_BASE_URL` accordingly wherever it
+  appears below. See [Docker](/overview/docker).
+</Callout>
+
+## MCP: agent-invoked voice tools
+
+Hermes speaks MCP natively, and Voicebox ships a built-in
+[MCP server](/overview/mcp-server). Voicebox is in Hermes's approved MCP
+catalog, so:
+
+```bash
+hermes mcp install voicebox
+```
+
+(Or add the block manually to `~/.hermes/config.yaml`:)
+
+```yaml
+mcp_servers:
+  voicebox:
+    url: "http://127.0.0.1:17493/mcp"
+    headers:
+      X-Voicebox-Client-Id: "hermes"
+```
+
+Hermes discovers the tools — `voicebox.speak`, `voicebox.transcribe`,
+`voicebox.list_profiles`, `voicebox.list_captures` — and the agent can now
+*choose* to use them: "read me that summary in Morgan's voice" works
+immediately, and the [per-client binding](/overview/mcp-server#per-client-bindings)
+for `hermes` lets you pin its default voice from the Voicebox UI.
+
+MCP makes Voicebox a set of tools the agent may call. It does **not**
+reroute Hermes's own voice pipeline — spoken replies, voice bubbles, and
+incoming voice-message transcription still use whatever `tts.provider` /
+`stt.provider` are set to. That's the plugin's job.
+
+## Provider plugin: Hermes's own voice pipeline
+
+[`hermes-voicebox`](https://github.com/jamiepine/hermes-voicebox) registers
+Voicebox as a Hermes **TTS provider** and **STT provider** via Hermes's
+pluggable backend interfaces (`register_tts_provider` /
+`register_transcription_provider` — see
+[Build a Hermes Plugin](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins)).
+Once selected, the providers service the *entire* voice pipeline: every
+spoken reply, every Telegram voice bubble, every incoming voice memo — plus
+a bundled skill that teaches the agent when speaking aloud is appropriate
+and to recall your dictated [Captures](/overview/captures) through MCP.
+
+<Steps>
+
+### Install the plugin
+
+Into the same Python environment Hermes runs in:
+
+```bash
+pip install hermes-voicebox
+```
+
+No pip? Copy it in as a directory plugin instead:
+
+```bash
+git clone https://github.com/jamiepine/hermes-voicebox /tmp/hermes-voicebox
+cp -r /tmp/hermes-voicebox/hermes_voicebox ~/.hermes/plugins/voicebox
+hermes plugins enable voicebox
+```
+
+### Select the providers
+
+In `~/.hermes/config.yaml`:
+
+```yaml
+tts:
+  provider: voicebox
+
+stt:
+  provider: voicebox
+```
+
+### Try it
+
+With the Voicebox app open, start `hermes chat` and ask it to say
+something out loud — or send your Hermes bot a voice message on Telegram
+and watch the transcript come back from your local Whisper.
+
+</Steps>
+
+## Behavior notes
+
+- **Voicebox must be running.** The desktop app only serves the API while
+  it's open. Both providers implement availability as a live `/health`
+  check, so Hermes's provider picker reflects reality.
+- **First generation is slower** while the TTS engine loads into memory;
+  subsequent calls are fast. Same for the first transcription with a new
+  Whisper size — Voicebox answers `202` while the model downloads, and the
+  plugin surfaces a friendly "try again in a minute".
+- **Voice selection**: `tts.voice` in Hermes config (or the tool's `voice`
+  argument) accepts a Voicebox profile **name or id**. With no voice set,
+  the first profile is used.
+- **Engines**: pass a Voicebox engine id (`qwen`, `kokoro`,
+  `chatterbox`, …) as the Hermes `model` to override the profile's
+  default engine.
+
+## Next steps
+
+- [MCP Server](/overview/mcp-server) — the tool-call route, per-client
+  bindings, and the speaking pill
+- [Creating Voice Profiles](/overview/creating-voice-profiles) — clone the
+  voice Hermes will speak in
+- [Remote Mode](/overview/remote-mode) — reaching a Voicebox instance on
+  another machine (read the security notes first: the API has no auth)
