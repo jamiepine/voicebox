@@ -183,10 +183,12 @@ export function CapturesPage() {
   const commitCustomLlmApiKey = useCallback(() => {
     const trimmed = customLlmApiKeyDraft.trim();
     if (!trimmed) return;
-    // Fire-and-forget the key, then wipe it from state so nothing else in
-    // the tree can read it back. The server flag flips to `configured=true`
-    // on the next settings query.
-    update({ custom_llm_api_key: customLlmApiKeyDraft });
+    // Send the trimmed value — surrounding whitespace in a bearer token
+    // makes the remote reject it with 401, which surfaces as a confusing
+    // "auth failed" toast when the raw pasted key is fine. Then wipe the
+    // draft so nothing else in the tree can read it back; the server flag
+    // flips to `configured=true` on the next settings query.
+    update({ custom_llm_api_key: trimmed });
     setCustomLlmApiKeyDraft('');
   }, [customLlmApiKeyDraft, update]);
   const clearCustomLlmApiKey = useCallback(() => {
