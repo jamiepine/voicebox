@@ -14,6 +14,10 @@ accelerate>=0.26.0
 huggingface_hub>=0.20.0
 qwen-tts>=0.0.5
 
+# DirectML support for Windows Intel iGPU / integrated GPUs (Iris, UHD, Arc)
+# Latest dev version (1.13.0 stable not yet released); use latest 0.2.x dev
+torch-directml>=0.2.0 ; platform_system == "Windows"
+
 # LuxTTS (voice cloning engine)
 # piper-phonemize needs custom index (no PyPI wheels)
 --find-links https://k2-fsa.github.io/icefall/piper_phonemize.html
