@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Mic, Monitor, Upload } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useLocale } from '@/components/LocaleProvider';
 
 // ─── Waveform bars generator ────────────────────────────────────────────────
 
@@ -66,6 +67,8 @@ function WaveformBackground({ active }: { active: boolean }) {
 
 function UploadPanel() {
   const [hasFile, setHasFile] = useState(false);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
   useEffect(() => {
     // Simulate file drop after 2s
@@ -94,12 +97,12 @@ function UploadPanel() {
           >
             <div className="h-10 px-5 rounded-md bg-accent text-accent-foreground flex items-center gap-2 text-sm font-medium">
               <Upload className="h-4 w-4" />
-              Choose File
+              {isRussian ? 'Выбрать файл' : 'Choose File'}
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              Drag and drop an audio file, or click to browse.
+              {isRussian ? 'Перетащите аудиофайл сюда или нажмите для выбора.' : 'Drag and drop an audio file, or click to browse.'}
               <br />
-              Maximum duration: 30 seconds.
+              {isRussian ? 'Максимальная длина: 30 секунд.' : 'Maximum duration: 30 seconds.'}
             </p>
           </motion.div>
         ) : (
@@ -120,7 +123,7 @@ function UploadPanel() {
               </div>
               <div className="h-8 px-3 rounded-md border border-border flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Mic className="h-3 w-3" />
-                Transcribe
+                {isRussian ? 'Расшифровать' : 'Transcribe'}
               </div>
             </div>
           </motion.div>
@@ -133,6 +136,8 @@ function UploadPanel() {
 function RecordPanel() {
   const [state, setState] = useState<'idle' | 'recording' | 'done'>('idle');
   const [elapsed, setElapsed] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
   useEffect(() => {
     const t1 = setTimeout(() => setState('recording'), 1500);
@@ -181,12 +186,12 @@ function RecordPanel() {
           >
             <div className="h-10 px-5 rounded-md bg-accent text-accent-foreground flex items-center gap-2 text-sm font-medium">
               <Mic className="h-4 w-4" />
-              Start Recording
+              {isRussian ? 'Начать запись' : 'Start Recording'}
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              Click to record from your microphone.
+              {isRussian ? 'Запишите с микрофона одним кликом.' : 'Click to record from your microphone.'}
               <br />
-              Maximum duration: 30 seconds.
+              {isRussian ? 'Максимальная длина: 30 секунд.' : 'Maximum duration: 30 seconds.'}
             </p>
           </motion.div>
         )}
@@ -205,9 +210,11 @@ function RecordPanel() {
             </div>
             <div className="h-9 px-4 rounded-md bg-accent text-accent-foreground flex items-center gap-2 text-sm font-medium">
               <div className="h-3 w-3 rounded-sm bg-accent-foreground" />
-              Stop Recording
+              {isRussian ? 'Остановить запись' : 'Stop Recording'}
             </div>
-            <p className="text-xs text-muted-foreground">{formatTime(30 - elapsed)} remaining</p>
+            <p className="text-xs text-muted-foreground">
+              {isRussian ? `Осталось ${formatTime(30 - elapsed)}` : `${formatTime(30 - elapsed)} remaining`}
+            </p>
           </motion.div>
         )}
 
@@ -221,7 +228,7 @@ function RecordPanel() {
           >
             <div className="flex items-center gap-2">
               <Mic className="h-4 w-4 text-accent" />
-              <span className="text-sm font-medium">Recording complete</span>
+              <span className="text-sm font-medium">{isRussian ? 'Запись готова' : 'Recording complete'}</span>
             </div>
             <div className="flex gap-2">
               <div className="h-8 px-3 rounded-md border border-border flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -229,7 +236,7 @@ function RecordPanel() {
               </div>
               <div className="h-8 px-3 rounded-md border border-border flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Mic className="h-3 w-3" />
-                Transcribe
+                {isRussian ? 'Расшифровать' : 'Transcribe'}
               </div>
             </div>
           </motion.div>
@@ -242,6 +249,8 @@ function RecordPanel() {
 function SystemPanel() {
   const [state, setState] = useState<'idle' | 'capturing' | 'done'>('idle');
   const [elapsed, setElapsed] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
   useEffect(() => {
     const t1 = setTimeout(() => setState('capturing'), 1500);
@@ -289,12 +298,12 @@ function SystemPanel() {
           >
             <div className="h-10 px-5 rounded-md bg-accent text-accent-foreground flex items-center gap-2 text-sm font-medium">
               <Monitor className="h-4 w-4" />
-              Start Capture
+              {isRussian ? 'Начать захват' : 'Start Capture'}
             </div>
             <p className="text-xs text-muted-foreground text-center">
-              Capture audio playing on your system.
+              {isRussian ? 'Захватите звук, который играет в системе.' : 'Capture audio playing on your system.'}
               <br />
-              Maximum duration: 30 seconds.
+              {isRussian ? 'Максимальная длина: 30 секунд.' : 'Maximum duration: 30 seconds.'}
             </p>
           </motion.div>
         )}
@@ -313,9 +322,11 @@ function SystemPanel() {
             </div>
             <div className="h-9 px-4 rounded-md bg-accent text-accent-foreground flex items-center gap-2 text-sm font-medium">
               <div className="h-3 w-3 rounded-sm bg-accent-foreground" />
-              Stop Capture
+              {isRussian ? 'Остановить захват' : 'Stop Capture'}
             </div>
-            <p className="text-xs text-muted-foreground">{formatTime(30 - elapsed)} remaining</p>
+            <p className="text-xs text-muted-foreground">
+              {isRussian ? `Осталось ${formatTime(30 - elapsed)}` : `${formatTime(30 - elapsed)} remaining`}
+            </p>
           </motion.div>
         )}
 
@@ -329,7 +340,7 @@ function SystemPanel() {
           >
             <div className="flex items-center gap-2">
               <Monitor className="h-4 w-4 text-accent" />
-              <span className="text-sm font-medium">Capture complete</span>
+              <span className="text-sm font-medium">{isRussian ? 'Захват завершён' : 'Capture complete'}</span>
             </div>
             <div className="flex gap-2">
               <div className="h-8 px-3 rounded-md border border-border flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -337,7 +348,7 @@ function SystemPanel() {
               </div>
               <div className="h-8 px-3 rounded-md border border-border flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Mic className="h-3 w-3" />
-                Transcribe
+                {isRussian ? 'Расшифровать' : 'Transcribe'}
               </div>
             </div>
           </motion.div>
@@ -349,19 +360,28 @@ function SystemPanel() {
 
 // ─── Tab selector ───────────────────────────────────────────────────────────
 
-const TABS = [
+const TABS_EN = [
   { id: 'upload' as const, label: 'Upload', icon: Upload },
   { id: 'record' as const, label: 'Microphone', icon: Mic },
   { id: 'system' as const, label: 'System Audio', icon: Monitor },
 ];
 
-type TabId = (typeof TABS)[number]['id'];
+const TABS_RU = [
+  { id: 'upload' as const, label: 'Файл', icon: Upload },
+  { id: 'record' as const, label: 'Микрофон', icon: Mic },
+  { id: 'system' as const, label: 'Системный звук', icon: Monitor },
+];
+
+type TabId = (typeof TABS_EN)[number]['id'];
 
 // ─── Main section ───────────────────────────────────────────────────────────
 
 export function VoiceCreator() {
   const [activeTab, setActiveTab] = useState<TabId>('record');
   const [cycleKey, setCycleKey] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const tabs = isRussian ? TABS_RU : TABS_EN;
 
   // Auto-cycle tabs
   useEffect(() => {
@@ -384,12 +404,12 @@ export function VoiceCreator() {
           {/* Left: Copy */}
           <div>
             <h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl mb-4">
-              Any clip becomes a voice.
+              {isRussian ? 'Любой фрагмент становится голосом.' : 'Any clip becomes a voice.'}
             </h2>
             <p className="text-muted-foreground mb-6">
-              Three ways to get a sample in. Upload a clip, record from your microphone, or
-              capture audio playing on your system. Voicebox clones the voice from as little as 3
-              seconds of audio.
+              {isRussian
+                ? 'Есть три способа получить образец: загрузить фрагмент, записать с микрофона или захватить системный звук. Voicebox умеет клонировать голос всего по 3 секундам аудио.'
+                : 'Three ways to get a sample in. Upload a clip, record from your microphone, or capture audio playing on your system. Voicebox clones the voice from as little as 3 seconds of audio.'}
             </p>
             <div className="space-y-3">
               <div className="flex items-start gap-3">
@@ -397,9 +417,11 @@ export function VoiceCreator() {
                   <Upload className="h-4 w-4 text-accent" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium">Upload a clip</div>
+                  <div className="text-sm font-medium">{isRussian ? 'Загрузить фрагмент' : 'Upload a clip'}</div>
                   <div className="text-xs text-muted-foreground">
-                    Drag and drop any audio file — WAV, MP3, FLAC, or WebM.
+                    {isRussian
+                      ? 'Перетащите любой аудиофайл: WAV, MP3, FLAC или WebM.'
+                      : 'Drag and drop any audio file — WAV, MP3, FLAC, or WebM.'}
                   </div>
                 </div>
               </div>
@@ -408,9 +430,11 @@ export function VoiceCreator() {
                   <Mic className="h-4 w-4 text-accent" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium">Record from microphone</div>
+                  <div className="text-sm font-medium">{isRussian ? 'Записать с микрофона' : 'Record from microphone'}</div>
                   <div className="text-xs text-muted-foreground">
-                    Live waveform preview while you record. Up to 30 seconds.
+                    {isRussian
+                      ? 'Живая визуализация волны прямо во время записи. До 30 секунд.'
+                      : 'Live waveform preview while you record. Up to 30 seconds.'}
                   </div>
                 </div>
               </div>
@@ -419,9 +443,11 @@ export function VoiceCreator() {
                   <Monitor className="h-4 w-4 text-accent" />
                 </div>
                 <div>
-                  <div className="text-sm font-medium">System audio capture</div>
+                  <div className="text-sm font-medium">{isRussian ? 'Захват системного звука' : 'System audio capture'}</div>
                   <div className="text-xs text-muted-foreground">
-                    Clone a voice from a YouTube video, podcast, or any app playing audio.
+                    {isRussian
+                      ? 'Клонируйте голос из YouTube-видео, подкаста или любого приложения со звуком.'
+                      : 'Clone a voice from a YouTube video, podcast, or any app playing audio.'}
                   </div>
                 </div>
               </div>
@@ -433,7 +459,7 @@ export function VoiceCreator() {
             <div className="p-5">
               {/* Tab bar */}
               <div className="flex rounded-lg border border-border bg-card/50 p-1 mb-4">
-                {TABS.map((tab) => {
+                {tabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.id;
                   return (

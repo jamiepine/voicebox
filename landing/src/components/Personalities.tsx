@@ -3,6 +3,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowRight, Dices, Wand2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useLocale } from '@/components/LocaleProvider';
 
 // ─── Modes ──────────────────────────────────────────────────────────────────
 
@@ -17,7 +18,7 @@ type Mode = {
   | { inputLabel?: undefined; input?: undefined }
 );
 
-const MODES: Mode[] = [
+const MODES_EN: Mode[] = [
   {
     id: 'rewrite',
     label: 'Rewrite',
@@ -38,12 +39,39 @@ const MODES: Mode[] = [
   },
 ];
 
-const PERSONA_DESCRIPTION =
+const MODES_RU: Mode[] = [
+  {
+    id: 'rewrite',
+    label: 'Переписать',
+    icon: Wand2,
+    inputLabel: 'Ваш текст',
+    outputLabel: 'Marlowe, в образе',
+    input: 'сборка готова и мы выкатили всё в прод',
+    output:
+      'Сборка закрыта, корабль уже вышел из дока. Ещё одна стопка кода ушла в прод, ещё одна линия зелёных галочек заняла своё место на стене.',
+  },
+  {
+    id: 'compose',
+    label: 'Сочинить',
+    icon: Dices,
+    outputLabel: 'Marlowe, в образе',
+    output:
+      'Она прошла чисто. Ни один тест даже тени не отбросил. В этом городе именно после таких моментов обычно и начинаются неприятности.',
+  },
+];
+
+const PERSONA_DESCRIPTION_EN =
   "1940s noir detective. World-weary, cynical, every situation a metaphor for the city's underbelly. Talks like he's seen one stack trace too many.";
+
+const PERSONA_DESCRIPTION_RU =
+  'Детектив в духе нуара 1940-х. Уставший, язвительный, видит в любой ситуации метафору тёмной стороны города. Говорит так, будто пережил на один stack trace больше, чем следовало бы.';
 
 // ─── Persona card ───────────────────────────────────────────────────────────
 
 function PersonaCard() {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+
   return (
     <div className="rounded-xl border border-app-line bg-app-darkBox p-5 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
       <div className="flex items-center gap-3 mb-4">
@@ -54,15 +82,17 @@ function PersonaCard() {
         <div className="min-w-0">
           <div className="text-[15px] font-semibold text-foreground leading-tight">Marlowe</div>
           <div className="text-[11px] text-muted-foreground/80 leading-tight mt-0.5">
-            Voice profile · cloned from a 12s sample
+            {isRussian ? 'Голосовой профиль · клон по 12-секундному сэмплу' : 'Voice profile · cloned from a 12s sample'}
           </div>
         </div>
       </div>
 
       <div className="mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-ink-faint/70">
-        Personality
+        {isRussian ? 'Характер' : 'Personality'}
       </div>
-      <p className="text-[13px] leading-relaxed text-ink-dull italic">&ldquo;{PERSONA_DESCRIPTION}&rdquo;</p>
+      <p className="text-[13px] leading-relaxed text-ink-dull italic">
+        &ldquo;{isRussian ? PERSONA_DESCRIPTION_RU : PERSONA_DESCRIPTION_EN}&rdquo;
+      </p>
     </div>
   );
 }
@@ -70,11 +100,15 @@ function PersonaCard() {
 // ─── Mode demo ──────────────────────────────────────────────────────────────
 
 function ModeDemo({ mode, cycleKey }: { mode: Mode; cycleKey: number }) {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const modes = isRussian ? MODES_RU : MODES_EN;
+
   return (
     <div className="rounded-xl border border-app-line bg-app-darkerBox overflow-hidden flex flex-col flex-1">
       {/* Mode tabs */}
       <div className="flex items-center gap-1 p-1.5 border-b border-app-line bg-app-darkBox/40">
-        {MODES.map((m) => {
+        {modes.map((m) => {
           const Icon = m.icon;
           const active = m.id === mode.id;
           return (
@@ -117,18 +151,22 @@ function ModeDemo({ mode, cycleKey }: { mode: Mode; cycleKey: number }) {
             ) : (
               <div>
                 <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-ink-faint/70 mb-1.5">
-                  No input
+                  {isRussian ? 'Без входного текста' : 'No input'}
                 </div>
                 <div className="flex items-center gap-2.5 text-[13px] text-ink-dull/90 bg-black/20 rounded-md border border-app-line/60 px-3 py-2.5">
                   <Dices className="h-4 w-4 text-accent shrink-0" />
-                  <span>Click Compose — the character improvises a fresh line.</span>
+                  <span>
+                    {isRussian
+                      ? 'Нажмите «Сочинить» — и персонаж импровизирует новую реплику.'
+                      : 'Click Compose — the character improvises a fresh line.'}
+                  </span>
                 </div>
               </div>
             )}
 
             {/* Arrow */}
             <div className="flex items-center justify-center gap-2 text-[10px] font-mono uppercase tracking-[0.2em] text-ink-faint/50">
-              <span>In character</span>
+              <span>{isRussian ? 'В образе' : 'In character'}</span>
               <ArrowRight className="h-3 w-3" />
             </div>
 
@@ -150,7 +188,7 @@ function ModeDemo({ mode, cycleKey }: { mode: Mode; cycleKey: number }) {
 
 // ─── Bullets ────────────────────────────────────────────────────────────────
 
-const BULLETS = [
+const BULLETS_EN = [
   {
     icon: Wand2,
     title: 'Rewrite',
@@ -165,19 +203,38 @@ const BULLETS = [
   },
 ];
 
+const BULLETS_RU = [
+  {
+    icon: Wand2,
+    title: 'Переписать',
+    description:
+      'Передайте исходный текст, а персонаж переформулирует его своим голосом, сохранив смысл. Подходит для сценариев, дубляжа и длинных работ с устойчивым характером речи.',
+  },
+  {
+    icon: Dices,
+    title: 'Сочинить',
+    description:
+      'Входной текст не нужен: персонаж сам импровизирует новую реплику. Нажмите ещё раз, чтобы получить другой дубль. Полезно для игровых реплик, закадрового текста и character barks.',
+  },
+];
+
 // ─── Section ────────────────────────────────────────────────────────────────
 
 export function Personalities() {
   const [idx, setIdx] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const modes = isRussian ? MODES_RU : MODES_EN;
+  const bullets = isRussian ? BULLETS_RU : BULLETS_EN;
 
   useEffect(() => {
     const iv = window.setInterval(() => {
-      setIdx((i) => (i + 1) % MODES.length);
+      setIdx((i) => (i + 1) % modes.length);
     }, 4500);
     return () => window.clearInterval(iv);
-  }, []);
+  }, [modes.length]);
 
-  const mode = MODES[idx];
+  const mode = modes[idx];
 
   return (
     <section id="personalities" className="border-t border-border py-24">
@@ -185,15 +242,26 @@ export function Personalities() {
         {/* Header */}
         <div className="max-w-3xl mx-auto text-center mb-14">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent mb-4">
-            Personalities
+            {isRussian ? 'Персонажи' : 'Personalities'}
           </div>
           <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground mb-5">
-            Voices with a personality.
+            {isRussian ? 'Голоса с характером.' : 'Voices with a personality.'}
           </h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-            Give any voice profile a free-form personality. Then{' '}
-            <b className="text-foreground/90">Rewrite</b> your text in their voice, or let them{' '}
-            <b className="text-foreground/90">Compose</b> a fresh line of their own — your cloned voice, in full character.
+            {isRussian ? (
+              <>
+                Дайте любому голосовому профилю свободное описание характера. Затем{' '}
+                <b className="text-foreground/90">перепишите</b> свой текст в его манере или
+                позвольте ему <b className="text-foreground/90">сочинить</b> новую реплику с нуля:
+                ваш клонированный голос, полностью в образе.
+              </>
+            ) : (
+              <>
+                Give any voice profile a free-form personality. Then{' '}
+                <b className="text-foreground/90">Rewrite</b> your text in their voice, or let them{' '}
+                <b className="text-foreground/90">Compose</b> a fresh line of their own — your cloned voice, in full character.
+              </>
+            )}
           </p>
         </div>
 
@@ -205,7 +273,7 @@ export function Personalities() {
 
         {/* Bullets */}
         <div className="grid md:grid-cols-2 gap-6">
-          {BULLETS.map((bullet) => {
+          {bullets.map((bullet) => {
             const Icon = bullet.icon;
             return (
               <div

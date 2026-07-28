@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Bot, Mic2, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useLocale } from '@/components/LocaleProvider';
 
 // ─── Hero: Hotkey Pill ──────────────────────────────────────────────────────
 // Ported from app/src/components/ServerTab/CapturesPage.tsx HotkeyPillPreview.
@@ -22,6 +23,12 @@ const PILL_LABELS: Record<Exclude<PillState, 'rest'>, string> = {
   recording: 'Recording',
   transcribing: 'Transcribing',
   refining: 'Refining',
+};
+
+const PILL_LABELS_RU: Record<Exclude<PillState, 'rest'>, string> = {
+  recording: 'Запись',
+  transcribing: 'Расшифровка',
+  refining: 'Очистка',
 };
 
 function PillAudioBars({ mode }: { mode: 'live' | 'thinking' }) {
@@ -58,6 +65,8 @@ function KbdKey({ children }: { children: string }) {
 export function DictationHero() {
   const [state, setState] = useState<PillState>('recording');
   const [tick, setTick] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -78,23 +87,26 @@ export function DictationHero() {
   const elapsedLabel = `0:${String(elapsedSec).padStart(2, '0')}`;
   const pillVisible = state !== 'rest';
   const barMode: 'live' | 'thinking' = state === 'recording' ? 'live' : 'thinking';
-  const labelText = state === 'rest' ? PILL_LABELS.recording : PILL_LABELS[state];
+  const labels = isRussian ? PILL_LABELS_RU : PILL_LABELS;
+  const labelText = state === 'rest' ? labels.recording : labels[state];
 
   return (
     <div className="mx-auto w-full max-w-4xl">
       {/* Shortcut hint above the field */}
       <div className="mt-10 mb-4 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-[13px] text-muted-foreground">
-        <span>Hold</span>
+        <span>{isRussian ? 'Зажмите' : 'Hold'}</span>
         <div className="flex items-center gap-2">
           <KbdKey>⌘</KbdKey>
           <KbdKey>⌥</KbdKey>
         </div>
-        <span>on macOS,</span>
+        <span>{isRussian ? 'на macOS,' : 'on macOS,'}</span>
         <div className="flex items-center gap-2">
           <KbdKey>Ctrl</KbdKey>
           <KbdKey>Alt</KbdKey>
         </div>
-        <span>on Windows — from anywhere on your machine.</span>
+        <span>
+          {isRussian ? 'в Windows — из любого места в системе.' : 'on Windows — from anywhere on your machine.'}
+        </span>
       </div>
 
       {/* The stage — gridded field with the pill floating in the middle */}
@@ -151,7 +163,7 @@ export function DictationHero() {
 
 type EngineRow = { name: string; size: string; langs: string };
 
-const STT_ENGINES: EngineRow[] = [
+const STT_ENGINES_EN: EngineRow[] = [
   { name: 'Whisper Base', size: '74M', langs: '99 langs' },
   { name: 'Whisper Small', size: '244M', langs: '99 langs' },
   { name: 'Whisper Medium', size: '769M', langs: '99 langs' },
@@ -159,20 +171,31 @@ const STT_ENGINES: EngineRow[] = [
   { name: 'Whisper Turbo', size: '809M', langs: '99 langs' },
 ];
 
+const STT_ENGINES_RU: EngineRow[] = [
+  { name: 'Whisper Base', size: '74M', langs: '99 языков' },
+  { name: 'Whisper Small', size: '244M', langs: '99 языков' },
+  { name: 'Whisper Medium', size: '769M', langs: '99 языков' },
+  { name: 'Whisper Large', size: '1.5B', langs: '99 языков' },
+  { name: 'Whisper Turbo', size: '809M', langs: '99 языков' },
+];
+
 function MultiEngineSTTAnimation() {
   const [activeIdx, setActiveIdx] = useState(0);
+  const locale = useLocale();
+  const engines = locale === 'ru' ? STT_ENGINES_RU : STT_ENGINES_EN;
 
   useEffect(() => {
+    setActiveIdx(0);
     const iv = window.setInterval(() => {
-      setActiveIdx((i) => (i + 1) % STT_ENGINES.length);
+      setActiveIdx((i) => (i + 1) % engines.length);
     }, 1600);
     return () => window.clearInterval(iv);
-  }, []);
+  }, [engines.length, locale]);
 
   return (
     <div className="h-40 w-full flex items-center justify-center overflow-hidden rounded-md bg-app-darkerBox/50 p-4">
       <div className="w-full max-w-[240px] space-y-1.5">
-        {STT_ENGINES.map((engine, i) => {
+        {engines.map((engine, i) => {
           const active = i === activeIdx;
           return (
             <motion.div
@@ -212,7 +235,7 @@ function MultiEngineSTTAnimation() {
 
 // ─── Card: LLM Refinement ───────────────────────────────────────────────────
 
-const REFINEMENT_PAIRS = [
+const REFINEMENT_PAIRS_EN = [
   {
     raw: 'um so like i think we should ship it on friday, actually no wait, tuesday',
     clean: 'I think we should ship it on Tuesday.',
@@ -223,30 +246,65 @@ const REFINEMENT_PAIRS = [
   },
 ];
 
+const REFINEMENT_PAIRS_RU = [
+  {
+    raw: 'эм ну я думаю релиз лучше в пятницу, хотя нет, подожди, во вторник',
+    clean: 'Думаю, релиз лучше выпустить во вторник.',
+  },
+  {
+    raw: 'можешь эээ быстро прогнать миграцию, а потом да проверить логи',
+    clean: 'Можешь быстро прогнать миграцию, а потом проверить логи?',
+  },
+];
+
 function RefinementAnimation() {
   const [pairIdx, setPairIdx] = useState(0);
   const [showClean, setShowClean] = useState(false);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const pairs = isRussian ? REFINEMENT_PAIRS_RU : REFINEMENT_PAIRS_EN;
 
   useEffect(() => {
     let mounted = true;
+    let revealTimeout: number | null = null;
+    let advanceTimeout: number | null = null;
+
+    const clearPendingTimeouts = () => {
+      if (revealTimeout !== null) {
+        window.clearTimeout(revealTimeout);
+        revealTimeout = null;
+      }
+      if (advanceTimeout !== null) {
+        window.clearTimeout(advanceTimeout);
+        advanceTimeout = null;
+      }
+    };
+
     const step = () => {
       if (!mounted) return;
+      clearPendingTimeouts();
       setShowClean(false);
-      window.setTimeout(() => mounted && setShowClean(true), 1400);
-      window.setTimeout(() => {
+      revealTimeout = window.setTimeout(() => {
+        if (mounted) setShowClean(true);
+      }, 1400);
+      advanceTimeout = window.setTimeout(() => {
         if (!mounted) return;
-        setPairIdx((i) => (i + 1) % REFINEMENT_PAIRS.length);
+        setPairIdx((i) => (i + 1) % pairs.length);
+        step();
       }, 4000);
     };
+
+    setPairIdx(0);
+    setShowClean(false);
     step();
-    const iv = window.setInterval(step, 4000);
+
     return () => {
       mounted = false;
-      window.clearInterval(iv);
+      clearPendingTimeouts();
     };
-  }, []);
+  }, [pairs.length, locale]);
 
-  const pair = REFINEMENT_PAIRS[pairIdx];
+  const pair = pairs[pairIdx];
 
   return (
     <div className="h-40 w-full flex flex-col items-center justify-center overflow-hidden rounded-md bg-app-darkerBox/50 p-4 gap-2.5">
@@ -263,7 +321,7 @@ function RefinementAnimation() {
           }}
           transition={{ duration: 0.4 }}
         >
-          <span className="text-ink-faint/50 mr-1.5">raw</span>
+          <span className="text-ink-faint/50 mr-1.5">{isRussian ? 'сырой' : 'raw'}</span>
           {pair.raw}
         </motion.div>
 
@@ -278,7 +336,7 @@ function RefinementAnimation() {
           }}
           transition={{ duration: 0.5 }}
         >
-          <span className="text-accent/70 mr-1.5 font-mono">clean</span>
+          <span className="text-accent/70 mr-1.5 font-mono">{isRussian ? 'чистый' : 'clean'}</span>
           <span className="text-foreground">{pair.clean}</span>
         </motion.div>
       </div>
@@ -286,7 +344,7 @@ function RefinementAnimation() {
       {/* Activity indicator */}
       <div className="flex items-center gap-1.5 text-[9px] font-mono text-ink-faint mt-1">
         <Sparkles className="h-2.5 w-2.5 text-accent" />
-        <span>{showClean ? 'refined' : 'Qwen3 · refining...'}</span>
+        <span>{showClean ? (isRussian ? 'готово' : 'refined') : isRussian ? 'Qwen3 · очищаем...' : 'Qwen3 · refining...'}</span>
       </div>
     </div>
   );
@@ -324,6 +382,8 @@ const AGENT_SPEAKERS: AgentSpeaker[] = [
 
 function AgentVoiceAnimation() {
   const [idx, setIdx] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
 
   useEffect(() => {
     const iv = window.setInterval(() => {
@@ -344,7 +404,7 @@ function AgentVoiceAnimation() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <span className="text-ink-faint/50">via MCP</span>
+        <span className="text-ink-faint/50">{isRussian ? 'через MCP' : 'via MCP'}</span>
         <span className="mx-1.5 text-ink-faint/30">·</span>
         <span className="text-ink-dull">{current.agent}</span>
       </motion.div>
@@ -356,7 +416,7 @@ function AgentVoiceAnimation() {
         initial={{ opacity: 0, y: 4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-      >
+        >
         <div
           className="h-4 w-4 rounded-full shrink-0 ring-1 ring-white/10"
           style={{
@@ -364,7 +424,7 @@ function AgentVoiceAnimation() {
           }}
         />
         <span className="text-[10px] font-medium text-foreground/90">
-          Speaking · <span className="text-accent">{current.voice}</span>
+          {isRussian ? 'Говорит' : 'Speaking'} · <span className="text-accent">{current.voice}</span>
         </span>
         <div className="flex items-center gap-[2px] h-3.5">
           {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -399,7 +459,7 @@ function AgentVoiceAnimation() {
 
 // ─── Feature data + card ────────────────────────────────────────────────────
 
-const CAPTURE_FEATURES = [
+const CAPTURE_FEATURES_EN = [
   {
     title: 'Whisper, sized for every machine',
     description:
@@ -423,7 +483,31 @@ const CAPTURE_FEATURES = [
   },
 ];
 
-function CaptureCard({ feature }: { feature: (typeof CAPTURE_FEATURES)[number] }) {
+const CAPTURE_FEATURES_RU = [
+  {
+    title: 'Whisper под любую машину',
+    description:
+      'Base, Small, Medium, Large и Turbo. Подберите размер под своё железо и требуемое качество: 99 языков, всё работает локально.',
+    icon: Mic2,
+    animation: MultiEngineSTTAnimation,
+  },
+  {
+    title: 'Улучшенные расшифровки',
+    description:
+      'Локальная LLM убирает междометия, самоисправления и правит пунктуацию, не переписывая содержание. Опционально, переключаемо и полностью локально.',
+    icon: Sparkles,
+    animation: RefinementAnimation,
+  },
+  {
+    title: 'Агенты говорят вашими голосами',
+    description:
+      'Любой MCP-агент — Claude Code, Cursor, Cline — получает голос одним вызовом инструмента. Когда агент говорит, на экране появляется та же плашка, поэтому вы всегда видите, что сейчас звучит.',
+    icon: Bot,
+    animation: AgentVoiceAnimation,
+  },
+];
+
+function CaptureCard({ feature }: { feature: (typeof CAPTURE_FEATURES_EN)[number] }) {
   const Icon = feature.icon;
   const Animation = feature.animation;
   return (
@@ -445,21 +529,25 @@ function CaptureCard({ feature }: { feature: (typeof CAPTURE_FEATURES)[number] }
 // ─── Section ────────────────────────────────────────────────────────────────
 
 export function CaptureSection() {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const features = isRussian ? CAPTURE_FEATURES_RU : CAPTURE_FEATURES_EN;
+
   return (
     <section id="capture" className="border-t border-border py-24">
       <div className="mx-auto max-w-7xl px-6">
         {/* Kicker + headline */}
         <div className="text-center mb-14">
           <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-accent mb-4">
-            Capture
+            {isRussian ? 'Записи' : 'Capture'}
           </div>
           <h2 className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl mb-5">
-            Dictate anywhere. Paste into any app.
+            {isRussian ? 'Диктуйте где угодно. Вставляйте в любое приложение.' : 'Dictate anywhere. Paste into any app.'}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Hold a shortcut anywhere on your machine, speak, release.
-            The transcript lands in a focused text field in any app, or your clipboard. Agents speak
-            back through the same pill in any cloned voice.
+            {isRussian
+              ? 'Зажмите сочетание клавиш где угодно в системе, скажите фразу и отпустите. Расшифровка попадёт в активное поле любого приложения или в буфер обмена. Агенты отвечают через ту же плашку любым клонированным голосом.'
+              : 'Hold a shortcut anywhere on your machine, speak, release. The transcript lands in a focused text field in any app, or your clipboard. Agents speak back through the same pill in any cloned voice.'}
           </p>
         </div>
 
@@ -470,7 +558,7 @@ export function CaptureSection() {
 
         {/* Feature cards */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {CAPTURE_FEATURES.map((f) => (
+          {features.map((f) => (
             <CaptureCard key={f.title} feature={f} />
           ))}
         </div>

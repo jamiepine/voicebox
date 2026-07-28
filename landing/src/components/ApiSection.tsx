@@ -1,6 +1,7 @@
 "use client";
 
 import {AppWindow, Code2, Gamepad2, Terminal, Wrench} from "lucide-react";
+import {useLocale} from "@/components/LocaleProvider";
 
 type Endpoint = {
 	method: "POST" | "GET" | "DELETE" | "PATCH";
@@ -8,7 +9,7 @@ type Endpoint = {
 	label: string;
 };
 
-const ENDPOINTS: Endpoint[] = [
+const ENDPOINTS_EN: Endpoint[] = [
 	{method: "POST", path: "/generate", label: "Generate speech"},
 	{method: "POST", path: "/generate/{id}/cancel", label: "Cancel a generation"},
 	{method: "GET", path: "/profiles", label: "List voice profiles"},
@@ -16,6 +17,16 @@ const ENDPOINTS: Endpoint[] = [
 	{method: "GET", path: "/models/status", label: "Model catalog & state"},
 	{method: "GET", path: "/history", label: "Past generations"},
 	{method: "GET", path: "/health", label: "Server health"},
+];
+
+const ENDPOINTS_RU: Endpoint[] = [
+	{method: "POST", path: "/generate", label: "Сгенерировать речь"},
+	{method: "POST", path: "/generate/{id}/cancel", label: "Отменить генерацию"},
+	{method: "GET", path: "/profiles", label: "Список голосовых профилей"},
+	{method: "POST", path: "/profiles", label: "Создать новый профиль"},
+	{method: "GET", path: "/models/status", label: "Каталог и состояние моделей"},
+	{method: "GET", path: "/history", label: "История генераций"},
+	{method: "GET", path: "/health", label: "Состояние сервера"},
 ];
 
 const METHOD_STYLES: Record<Endpoint["method"], string> = {
@@ -35,7 +46,7 @@ const CURL_SNIPPET = `curl -X POST http://127.0.0.1:17493/generate \\
   }' \\
   --output line.wav`;
 
-const USE_CASES = [
+const USE_CASES_EN = [
 	{
 		icon: Gamepad2,
 		title: "Games",
@@ -56,7 +67,33 @@ const USE_CASES = [
 	},
 ];
 
+const USE_CASES_RU = [
+	{
+		icon: Gamepad2,
+		title: "Игры",
+		description:
+			"Генерируйте реплики NPC на лету, локализуйте персонажей на новые языки и выпускайте выразительные голосовые фразы без студийной записи.",
+	},
+	{
+		icon: AppWindow,
+		title: "Приложения и агенты",
+		description:
+			"Дайте своему приложению или AI-агенту голос. Озвучка в реальном времени, accessibility-сценарии, голосовые ответы — всё работает на машине пользователя.",
+	},
+	{
+		icon: Wrench,
+		title: "Скрипты и инструменты",
+		description:
+			"Пакетно генерируйте главы аудиокниг, автоматизируйте интро для подкастов или подключайте Voicebox к Stream Deck. Это просто localhost URL.",
+	},
+];
+
 export function ApiSection() {
+	const locale = useLocale();
+	const isRussian = locale === "ru";
+	const endpoints = isRussian ? ENDPOINTS_RU : ENDPOINTS_EN;
+	const useCases = isRussian ? USE_CASES_RU : USE_CASES_EN;
+
 	return (
 		<section id="api" className="border-t border-border py-24">
 			<div className="mx-auto max-w-6xl px-6">
@@ -65,16 +102,16 @@ export function ApiSection() {
 					<div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 backdrop-blur-sm px-3 py-1 mb-4">
 						<Code2 className="h-3 w-3 text-accent" />
 						<span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-							Built-in REST API
+							{isRussian ? "Встроенный REST API" : "Built-in REST API"}
 						</span>
 					</div>
 					<h2 className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl mb-4">
-						Your local voice API
+						{isRussian ? "Ваш локальный voice API" : "Your local voice API"}
 					</h2>
 					<p className="text-muted-foreground max-w-2xl mx-auto">
-						Every engine you download becomes a REST endpoint on your machine.
-						Build apps, games, and voice tools with full programmatic control —
-						no API keys, no rate limits, no per-character fees.
+						{isRussian
+							? "Каждый загруженный движок становится REST endpoint на вашей машине. Стройте приложения, игры и голосовые инструменты с полным программным контролем: без API-ключей, без лимитов и без тарифа за символы."
+							: "Every engine you download becomes a REST endpoint on your machine. Build apps, games, and voice tools with full programmatic control — no API keys, no rate limits, no per-character fees."}
 					</p>
 				</div>
 
@@ -90,7 +127,7 @@ export function ApiSection() {
 									<div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
 								</div>
 								<span className="text-xs font-medium text-foreground ml-2">
-									API Reference
+									{isRussian ? "Справочник API" : "API Reference"}
 								</span>
 							</div>
 							<code className="text-[10px] bg-background border border-border px-1.5 py-0.5 rounded font-mono text-muted-foreground">
@@ -98,7 +135,7 @@ export function ApiSection() {
 							</code>
 						</div>
 						<div className="px-5 py-4 space-y-1">
-							{ENDPOINTS.map((ep) => (
+							{endpoints.map((ep) => (
 								<div
 									key={`${ep.method}-${ep.path}`}
 									className="flex items-center gap-3 py-1.5 group"
@@ -124,9 +161,9 @@ export function ApiSection() {
 								rel="noopener noreferrer"
 								className="text-xs text-accent hover:underline"
 							>
-								See the full OpenAPI reference at{" "}
-								<code className="font-mono">/docs</code> when Voicebox is running
-								→
+								{isRussian ? "Полный OpenAPI-справочник доступен по " : "See the full OpenAPI reference at "}
+								<code className="font-mono">/docs</code>
+								{isRussian ? " при запущенном Voicebox →" : " when Voicebox is running →"}
 							</a>
 						</div>
 					</div>
@@ -136,7 +173,7 @@ export function ApiSection() {
 						<div className="flex items-center gap-2 px-4 py-3 border-b border-border/60 bg-card/40">
 							<Terminal className="h-3.5 w-3.5 text-muted-foreground" />
 							<span className="text-xs font-medium text-foreground">
-								Generate a line
+								{isRussian ? "Сгенерировать реплику" : "Generate a line"}
 							</span>
 							<span className="ml-auto text-[10px] text-muted-foreground/50 font-mono">
 								curl
@@ -150,7 +187,7 @@ export function ApiSection() {
 
 				{/* Use cases */}
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-					{USE_CASES.map((uc) => {
+					{useCases.map((uc) => {
 						const Icon = uc.icon;
 						return (
 							<div
@@ -173,26 +210,26 @@ export function ApiSection() {
 
 				{/* Bottom bar: key selling points */}
 				<div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-2 text-xs text-muted-foreground">
-					<span className="flex items-center gap-1.5">
-						<span className="h-1.5 w-1.5 rounded-full bg-accent" />
-						No API keys
-					</span>
-					<span className="flex items-center gap-1.5">
-						<span className="h-1.5 w-1.5 rounded-full bg-accent" />
-						No rate limits
-					</span>
-					<span className="flex items-center gap-1.5">
-						<span className="h-1.5 w-1.5 rounded-full bg-accent" />
-						No per-character fees
-					</span>
-					<span className="flex items-center gap-1.5">
-						<span className="h-1.5 w-1.5 rounded-full bg-accent" />
-						Works offline
-					</span>
-					<span className="flex items-center gap-1.5">
-						<span className="h-1.5 w-1.5 rounded-full bg-accent" />
-						Your audio, your machine
-					</span>
+						<span className="flex items-center gap-1.5">
+							<span className="h-1.5 w-1.5 rounded-full bg-accent" />
+							{isRussian ? "Без API-ключей" : "No API keys"}
+						</span>
+						<span className="flex items-center gap-1.5">
+							<span className="h-1.5 w-1.5 rounded-full bg-accent" />
+							{isRussian ? "Без лимитов" : "No rate limits"}
+						</span>
+						<span className="flex items-center gap-1.5">
+							<span className="h-1.5 w-1.5 rounded-full bg-accent" />
+							{isRussian ? "Без тарифа за символы" : "No per-character fees"}
+						</span>
+						<span className="flex items-center gap-1.5">
+							<span className="h-1.5 w-1.5 rounded-full bg-accent" />
+							{isRussian ? "Работает офлайн" : "Works offline"}
+						</span>
+						<span className="flex items-center gap-1.5">
+							<span className="h-1.5 w-1.5 rounded-full bg-accent" />
+							{isRussian ? "Ваше аудио, ваша машина" : "Your audio, your machine"}
+						</span>
 				</div>
 			</div>
 		</section>

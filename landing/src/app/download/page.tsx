@@ -12,8 +12,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppleIcon, LinuxIcon, WindowsIcon } from '@/components/PlatformIcons';
+import { useLocale } from '@/components/LocaleProvider';
 import { Button } from '@/components/ui/button';
 import { DONATE_URL, GITHUB_RELEASES_PAGE, GITHUB_REPO } from '@/lib/constants';
+import { getLocalizedPath } from '@/lib/i18n';
 import type { DownloadLinks } from '@/lib/releases';
 
 type Platform = keyof DownloadLinks;
@@ -25,12 +27,23 @@ type PlatformMeta = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-const PLATFORMS: PlatformMeta[] = [
+const PLATFORMS_EN: PlatformMeta[] = [
   { key: 'macArm', label: 'macOS', description: 'Apple Silicon', icon: AppleIcon },
   { key: 'macIntel', label: 'macOS', description: 'Intel (x64)', icon: AppleIcon },
   { key: 'windows', label: 'Windows', description: '64-bit (MSI)', icon: WindowsIcon },
   { key: 'linux', label: 'Linux', description: 'Build from source', icon: LinuxIcon },
 ];
+
+const PLATFORMS_RU: PlatformMeta[] = [
+  { key: 'macArm', label: 'macOS', description: 'Чипы Apple Silicon', icon: AppleIcon },
+  { key: 'macIntel', label: 'macOS', description: 'Процессоры Intel (x64)', icon: AppleIcon },
+  { key: 'windows', label: 'Windows', description: '64-битный MSI', icon: WindowsIcon },
+  { key: 'linux', label: 'Linux', description: 'Сборка из исходников', icon: LinuxIcon },
+];
+
+function getPlatforms(locale: 'en' | 'ru'): PlatformMeta[] {
+  return locale === 'ru' ? PLATFORMS_RU : PLATFORMS_EN;
+}
 
 function detectPlatform(): Platform | null {
   if (typeof navigator === 'undefined') return null;
@@ -64,6 +77,9 @@ export default function DownloadPage() {
   const [linksError, setLinksError] = useState(false);
   const [platform, setPlatform] = useState<Platform | null>(null);
   const [triggered, setTriggered] = useState(false);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const platforms = useMemo(() => getPlatforms(locale), [locale]);
 
   useEffect(() => {
     const fromQuery = parseQueryPlatform(window.location.search);
@@ -72,11 +88,11 @@ export default function DownloadPage() {
     // instructions instead of sitting on /download trying to trigger a
     // download that doesn't exist.
     if (resolved === 'linux') {
-      window.location.replace('/linux-install');
+      window.location.replace(getLocalizedPath(locale, '/linux-install'));
       return;
     }
     setPlatform(resolved);
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,8 +129,8 @@ export default function DownloadPage() {
   }, [triggered, links, platform]);
 
   const activeMeta = useMemo(
-    () => PLATFORMS.find((p) => p.key === platform) ?? null,
-    [platform],
+    () => platforms.find((p) => p.key === platform) ?? null,
+    [platform, platforms],
   );
 
   return (
@@ -122,7 +138,7 @@ export default function DownloadPage() {
       {/* Minimal branded header */}
       <header className="border-b border-border/50">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href={getLocalizedPath(locale, '/')} className="flex items-center gap-2.5">
             <Image
               src="/voicebox-logo-app.webp"
               alt="Voicebox"
@@ -133,11 +149,11 @@ export default function DownloadPage() {
             <span className="text-[15px] font-semibold text-foreground">Voicebox</span>
           </Link>
           <Link
-            href="/"
+            href={getLocalizedPath(locale, '/')}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Back to voicebox.sh
+            {isRussian ? 'Назад на voicebox.sh' : 'Back to voicebox.sh'}
           </Link>
         </div>
       </header>
@@ -157,23 +173,37 @@ export default function DownloadPage() {
             {triggered ? (
               <>
                 <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground mb-4">
-                  Your download has started.
+                  {isRussian ? 'Загрузка началась.' : 'Your download has started.'}
                 </h1>
                 <p className="text-lg text-muted-foreground">
                   {activeMeta
-                    ? `Downloading Voicebox for ${activeMeta.label} (${activeMeta.description}). Check your downloads folder.`
-                    : 'Check your downloads folder for Voicebox.'}
+                    ? isRussian
+                      ? `Скачиваем Voicebox для ${activeMeta.label} (${activeMeta.description}). Проверьте папку загрузок.`
+                      : `Downloading Voicebox for ${activeMeta.label} (${activeMeta.description}). Check your downloads folder.`
+                    : isRussian
+                      ? 'Проверьте папку загрузок — файл Voicebox уже должен быть там.'
+                      : 'Check your downloads folder for Voicebox.'}
                 </p>
               </>
             ) : (
               <>
                 <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground mb-4">
-                  {linksError ? "We couldn't load the latest release." : 'Download Voicebox'}
+                  {linksError
+                    ? isRussian
+                      ? 'Не удалось загрузить данные о последнем релизе.'
+                      : "We couldn't load the latest release."
+                    : isRussian
+                      ? 'Скачать Voicebox'
+                      : 'Download Voicebox'}
                 </h1>
                 <p className="text-lg text-muted-foreground">
                   {linksError
-                    ? 'Our release server is temporarily unreachable. Please try again in a moment.'
-                    : 'Pick your platform to get started.'}
+                    ? isRussian
+                      ? 'Сервер релизов временно недоступен. Попробуйте ещё раз через минуту.'
+                      : 'Our release server is temporarily unreachable. Please try again in a moment.'
+                    : isRussian
+                      ? 'Выберите свою платформу, чтобы начать.'
+                      : 'Pick your platform to get started.'}
                 </p>
               </>
             )}
@@ -184,27 +214,33 @@ export default function DownloadPage() {
         {linksError ? (
           <div className="mt-12 rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6 text-center">
             <p className="text-sm text-muted-foreground mb-4">
-              If this keeps happening, you can{' '}
+              {isRussian ? 'Если проблема повторяется, вы можете ' : 'If this keeps happening, you can '}{' '}
               <a
                 href={`${GITHUB_RELEASES_PAGE}/latest`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-accent underline underline-offset-2 hover:text-accent/80"
               >
-                browse releases on GitHub
+                {isRussian ? 'открыть релизы на GitHub' : 'browse releases on GitHub'}
               </a>
-              {' '}and grab the build for your platform manually.
+              {isRussian ? ' и скачать нужную сборку вручную.' : ' and grab the build for your platform manually.'}
             </p>
           </div>
         ) : (
           <div className="mt-12 rounded-xl border border-border bg-card/60 backdrop-blur-sm p-6">
             <h2 className="text-sm font-medium text-foreground mb-4">
-              {triggered ? 'Download not working?' : 'Choose your platform'}
+              {triggered
+                ? isRussian
+                  ? 'Загрузка не сработала?'
+                  : 'Download not working?'
+                : isRussian
+                  ? 'Выберите платформу'
+                  : 'Choose your platform'}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PLATFORMS.map((meta) => {
+              {platforms.map((meta) => {
                 const isLinux = meta.key === 'linux';
-                const url = isLinux ? '/linux-install' : links?.[meta.key];
+                const url = isLinux ? getLocalizedPath(locale, '/linux-install') : links?.[meta.key];
                 const isActive = meta.key === platform;
                 const disabled = !isLinux && !url;
                 return (
@@ -241,24 +277,21 @@ export default function DownloadPage() {
           <div className="relative">
             <div className="inline-flex items-center gap-2 mb-4">
               <span className="text-[11px] font-medium uppercase tracking-wider text-[#FFDD00]">
-                Hi from the maintainer
+                {isRussian ? 'Письмо от мейнтейнера' : 'Hi from the maintainer'}
               </span>
             </div>
             <h2 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground mb-4">
-              Jamie here — Voicebox is a side project.
+              {isRussian ? 'На связи Jamie — Voicebox это мой сайд-проект.' : 'Jamie here — Voicebox is a side project.'}
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-6 max-w-2xl">
-              I build and maintain Voicebox in my spare time. It's completely
-              free, open source, runs entirely on your machine — no accounts, no
-              cloud, no subscriptions, no upsells. If it saves you an ElevenLabs
-              bill or just made your day, a coffee genuinely helps me keep
-              shipping updates, adding new models, and fixing bugs. Every little
-              bit keeps the lights on.
+              {isRussian
+                ? 'Я делаю и поддерживаю Voicebox в свободное время. Проект полностью бесплатный, open-source и работает целиком на вашей машине: без аккаунтов, без облака, без подписок и без допродаж. Если Voicebox уже сэкономил вам счёт за ElevenLabs или просто порадовал, чашка кофе действительно помогает мне выпускать обновления, добавлять новые модели и чинить баги.'
+                : "I build and maintain Voicebox in my spare time. It's completely free, open source, runs entirely on your machine — no accounts, no cloud, no subscriptions, no upsells. If it saves you an ElevenLabs bill or just made your day, a coffee genuinely helps me keep shipping updates, adding new models, and fixing bugs. Every little bit keeps the lights on."}
             </p>
             <Button asChild size="lg" className="bg-[#FFDD00]/10 border-[#FFDD00]/30 text-[#FFDD00] hover:bg-[#FFDD00]/20 hover:border-[#FFDD00]/50">
               <a href={DONATE_URL} target="_blank" rel="noopener noreferrer">
                 <Coffee className="h-4 w-4 mr-2" />
-                Buy me a coffee
+                {isRussian ? 'Угостить кофе' : 'Buy me a coffee'}
               </a>
             </Button>
           </div>
@@ -266,7 +299,9 @@ export default function DownloadPage() {
 
         {/* Resources */}
         <div className="mt-10">
-          <h2 className="text-sm font-medium text-foreground mb-4">While you wait</h2>
+          <h2 className="text-sm font-medium text-foreground mb-4">
+            {isRussian ? 'Пока идёт загрузка' : 'While you wait'}
+          </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <a
               href="https://docs.voicebox.sh"
@@ -275,9 +310,13 @@ export default function DownloadPage() {
               className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-5 hover:border-accent/30 hover:bg-card transition-all group"
             >
               <FileText className="h-5 w-5 text-accent mb-3" />
-              <h3 className="text-sm font-medium text-foreground mb-1">Read the docs</h3>
+              <h3 className="text-sm font-medium text-foreground mb-1">
+                {isRussian ? 'Почитать документацию' : 'Read the docs'}
+              </h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Get familiar with Voicebox — setup, voice cloning, the REST API.
+                {isRussian
+                  ? 'Разобраться с Voicebox: установка, клонирование голоса, REST API.'
+                  : 'Get familiar with Voicebox — setup, voice cloning, the REST API.'}
               </p>
             </a>
             <a
@@ -287,9 +326,13 @@ export default function DownloadPage() {
               className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-5 hover:border-accent/30 hover:bg-card transition-all group"
             >
               <Bot className="h-5 w-5 text-accent mb-3" />
-              <h3 className="text-sm font-medium text-foreground mb-1">Got questions? Ask AI.</h3>
+              <h3 className="text-sm font-medium text-foreground mb-1">
+                {isRussian ? 'Есть вопросы? Спросите у AI.' : 'Got questions? Ask AI.'}
+              </h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                DeepWiki is an AI that knows Voicebox inside-out. Ask anything.
+                {isRussian
+                  ? 'DeepWiki знает Voicebox вдоль и поперёк. Спрашивайте что угодно.'
+                  : 'DeepWiki is an AI that knows Voicebox inside-out. Ask anything.'}
               </p>
             </a>
             <a
@@ -299,9 +342,13 @@ export default function DownloadPage() {
               className="rounded-xl border border-border bg-card/60 backdrop-blur-sm p-5 hover:border-accent/30 hover:bg-card transition-all group"
             >
               <Github className="h-5 w-5 text-accent mb-3" />
-              <h3 className="text-sm font-medium text-foreground mb-1">Source on GitHub</h3>
+              <h3 className="text-sm font-medium text-foreground mb-1">
+                {isRussian ? 'Исходники на GitHub' : 'Source on GitHub'}
+              </h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Star the repo, file issues, or contribute a PR.
+                {isRussian
+                  ? 'Поставьте звезду, заведите issue или отправьте pull request.'
+                  : 'Star the repo, file issues, or contribute a PR.'}
               </p>
             </a>
           </div>

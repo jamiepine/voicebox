@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Eye, Sliders, Waypoints } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useLocale } from '@/components/LocaleProvider';
 
 // ─── Scenarios (the agent console cycles through these) ────────────────────
 
@@ -14,7 +15,7 @@ type Scenario = {
   utterance: string;
 };
 
-const SCENARIOS: Scenario[] = [
+const SCENARIOS_EN: Scenario[] = [
   {
     agent: 'Claude Code',
     voice: 'Morgan',
@@ -49,6 +50,44 @@ const SCENARIOS: Scenario[] = [
       { prefix: '→', text: 'voicebox.speak({ profile: "Jarvis" })', tone: 'dim' },
     ],
     utterance: 'Review ready. Three files to look at.',
+  },
+];
+
+const SCENARIOS_RU: Scenario[] = [
+  {
+    agent: 'Claude Code',
+    voice: 'Morgan',
+    voiceGradient: ['#60a5fa', '#6366f1'],
+    log: [
+      { prefix: '$', text: 'claude run', tone: 'accent' },
+      { prefix: '✓', text: 'Тесты пройдены (42 файла)', tone: 'success' },
+      { prefix: '✓', text: 'Сборка завершена за 12.4с', tone: 'success' },
+      { prefix: '→', text: 'voicebox.speak({ profile: "Morgan" })', tone: 'dim' },
+    ],
+    utterance: 'Тесты зелёные. Можно мержить.',
+  },
+  {
+    agent: 'Cursor',
+    voice: 'Scarlett',
+    voiceGradient: ['#34d399', '#14b8a6'],
+    log: [
+      { prefix: '$', text: 'cursor agent:deploy', tone: 'accent' },
+      { prefix: '✓', text: 'Миграция применена (4 таблицы)', tone: 'success' },
+      { prefix: '✓', text: 'Деплой завершён', tone: 'success' },
+      { prefix: '→', text: 'voicebox.speak({ profile: "Scarlett" })', tone: 'dim' },
+    ],
+    utterance: 'Деплой ушёл. Прод зелёный.',
+  },
+  {
+    agent: 'Cline',
+    voice: 'Jarvis',
+    voiceGradient: ['#a855f7', '#ec4899'],
+    log: [
+      { prefix: '$', text: 'cline task:review', tone: 'accent' },
+      { prefix: '!', text: '3 файла требуют внимания', tone: 'dim' },
+      { prefix: '→', text: 'voicebox.speak({ profile: "Jarvis" })', tone: 'dim' },
+    ],
+    utterance: 'Ревью готово. Посмотрите три файла.',
   },
 ];
 
@@ -112,6 +151,9 @@ function AgentConsole({ scenario, cycleKey }: { scenario: Scenario; cycleKey: nu
 // ─── Desktop-floating pill stage ────────────────────────────────────────────
 
 function AgentSpeakStage({ scenario, cycleKey }: { scenario: Scenario; cycleKey: number }) {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+
   return (
     <div
       className="relative rounded-xl border border-app-line bg-app-darkerBox/60 overflow-hidden min-h-[180px] flex-1"
@@ -125,7 +167,7 @@ function AgentSpeakStage({ scenario, cycleKey }: { scenario: Scenario; cycleKey:
     >
       {/* Caption in the corner — "this is on the desktop, not in a terminal" */}
       <div className="absolute top-3 left-4 text-[9px] font-mono uppercase tracking-[0.22em] text-ink-faint/50">
-        On your desktop
+        {isRussian ? 'На рабочем столе' : 'On your desktop'}
       </div>
 
       {/* Voice-tinted glow behind the pill */}
@@ -158,7 +200,7 @@ function AgentSpeakStage({ scenario, cycleKey }: { scenario: Scenario; cycleKey:
             }}
           />
           <span className="text-[12px] font-medium text-foreground/90 shrink-0">
-            Speaking · <span className="text-accent">{scenario.voice}</span>
+            {isRussian ? 'Говорит' : 'Speaking'} · <span className="text-accent">{scenario.voice}</span>
           </span>
           <div className="flex items-center gap-[2.5px] h-5 shrink-0">
             {[0, 1, 2, 3, 4, 5].map((i) => (
@@ -201,13 +243,22 @@ const MCP_CONFIG = `{
   }
 }`;
 
-const SPEAK_EXAMPLE = `// In any MCP-aware agent:
+const SPEAK_EXAMPLE_EN = `// In any MCP-aware agent:
 await voicebox.speak({
   text: "Deploy complete.",
   profile: "Morgan",
 })`;
 
+const SPEAK_EXAMPLE_RU = `// В любом агенте с поддержкой MCP:
+await voicebox.speak({
+  text: "Деплой завершён.",
+  profile: "Morgan",
+})`;
+
 function CodePanel() {
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+
   return (
     <div className="rounded-xl border border-app-line bg-app-darkBox overflow-hidden flex flex-col">
       {/* MCP config */}
@@ -217,7 +268,7 @@ function CodePanel() {
             01
           </span>
           <span className="text-[10px] font-mono text-ink-faint/70 uppercase tracking-wider">
-            Add Voicebox to your MCP config
+            {isRussian ? 'Добавьте Voicebox в конфиг MCP' : 'Add Voicebox to your MCP config'}
           </span>
         </div>
         <pre className="text-[11px] font-mono text-ink-dull leading-relaxed overflow-x-auto">
@@ -232,18 +283,20 @@ function CodePanel() {
             02
           </span>
           <span className="text-[10px] font-mono text-ink-faint/70 uppercase tracking-wider">
-            The tool is now available
+            {isRussian ? 'Инструмент готов к вызову' : 'The tool is now available'}
           </span>
         </div>
         <pre className="text-[11px] font-mono text-ink-dull leading-relaxed overflow-x-auto">
-          {SPEAK_EXAMPLE}
+          {isRussian ? SPEAK_EXAMPLE_RU : SPEAK_EXAMPLE_EN}
         </pre>
 
         {/* Hint line */}
         <div className="mt-4 text-[10px] text-ink-faint/60 leading-relaxed">
-          Also exposed as{' '}
+          {isRussian ? 'Также доступно как ' : 'Also exposed as '}{' '}
           <code className="text-accent/80">POST /speak</code> for anything that
-          doesn&rsquo;t speak MCP — ACP, A2A, shell scripts, or custom harnesses.
+          {isRussian
+            ? ' не говорит на MCP: ACP, A2A, shell-скриптов или собственных интеграций.'
+            : ' doesn&rsquo;t speak MCP — ACP, A2A, shell scripts, or custom harnesses.'}
         </div>
       </div>
     </div>
@@ -252,7 +305,7 @@ function CodePanel() {
 
 // ─── Support bullets ────────────────────────────────────────────────────────
 
-const BULLETS = [
+const BULLETS_EN = [
   {
     icon: Sliders,
     title: 'Per-agent voice',
@@ -273,19 +326,44 @@ const BULLETS = [
   },
 ];
 
+const BULLETS_RU = [
+  {
+    icon: Sliders,
+    title: 'Голос для каждого агента',
+    description:
+      'Привяжите каждого MCP-клиента к своему голосовому профилю. Claude Code говорит голосом Morgan, Cursor — Scarlett, и вы сразу понимаете, кто именно сейчас отвечает.',
+  },
+  {
+    icon: Eye,
+    title: 'Всегда на виду',
+    description:
+      'Любая речь, инициированная агентом, показывает ту же плашку. Никакого тихого TTS в фоне — вы всегда видите, что именно сейчас воспроизводится на вашей машине.',
+  },
+  {
+    icon: Waypoints,
+    title: 'Открытые протоколы',
+    description:
+      'MCP поддерживается сразу. ACP, A2A и любые другие системы, построенные вокруг вызова инструмента, ложатся на тот же endpoint.',
+  },
+];
+
 // ─── Section ────────────────────────────────────────────────────────────────
 
 export function AgentIntegration() {
   const [idx, setIdx] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const scenarios = isRussian ? SCENARIOS_RU : SCENARIOS_EN;
+  const bullets = isRussian ? BULLETS_RU : BULLETS_EN;
 
   useEffect(() => {
     const iv = window.setInterval(() => {
-      setIdx((i) => (i + 1) % SCENARIOS.length);
+      setIdx((i) => (i + 1) % scenarios.length);
     }, 4200);
     return () => window.clearInterval(iv);
-  }, []);
+  }, [scenarios.length]);
 
-  const scenario = SCENARIOS[idx];
+  const scenario = scenarios[idx];
 
   return (
     <section id="mcp" className="border-t border-border py-24">
@@ -296,13 +374,24 @@ export function AgentIntegration() {
             MCP
           </div>
           <h2 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground mb-5">
-            Every agent gets a voice.
+            {isRussian ? 'Каждый агент получает голос.' : 'Every agent gets a voice.'}
           </h2>
           <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-            One tool call —{' '}
-            <code className="text-accent font-mono text-[0.9em]">voicebox.speak</code> —
-            and any MCP-aware agent can talk to you in a voice you&rsquo;ve cloned. Claude Code,
-            Cursor, Cline, or anything that speaks MCP.
+            {isRussian ? (
+              <>
+                Один вызов инструмента —{' '}
+                <code className="text-accent font-mono text-[0.9em]">voicebox.speak</code> — и
+                любой агент с поддержкой MCP сможет говорить с вами клонированным голосом.
+                Claude Code, Cursor, Cline или любой другой MCP-клиент.
+              </>
+            ) : (
+              <>
+                One tool call —{' '}
+                <code className="text-accent font-mono text-[0.9em]">voicebox.speak</code> —
+                and any MCP-aware agent can talk to you in a voice you&rsquo;ve cloned. Claude Code,
+                Cursor, Cline, or anything that speaks MCP.
+              </>
+            )}
           </p>
         </div>
 
@@ -317,7 +406,7 @@ export function AgentIntegration() {
 
         {/* Bullets */}
         <div className="grid md:grid-cols-3 gap-6">
-          {BULLETS.map((bullet) => {
+          {bullets.map((bullet) => {
             const Icon = bullet.icon;
             return (
               <div

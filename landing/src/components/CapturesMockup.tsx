@@ -19,10 +19,11 @@ import {
   Wand2,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { useLocale } from '@/components/LocaleProvider';
 
 // ─── Sidebar (matches ControlUI exactly) ───────────────────────────────────
 
-const SIDEBAR_ITEMS = [
+const SIDEBAR_ITEMS_EN = [
   { icon: Volume2, label: 'Generate' },
   { icon: AudioLines, label: 'Stories' },
   { icon: Mic, label: 'Captures', active: true },
@@ -32,7 +33,20 @@ const SIDEBAR_ITEMS = [
   { icon: Settings, label: 'Settings' },
 ];
 
+const SIDEBAR_ITEMS_RU = [
+  { icon: Volume2, label: 'Генерация' },
+  { icon: AudioLines, label: 'Истории' },
+  { icon: Mic, label: 'Записи', active: true },
+  { icon: Users, label: 'Голоса' },
+  { icon: Wand2, label: 'Эффекты' },
+  { icon: Box, label: 'Модели' },
+  { icon: Settings, label: 'Настройки' },
+];
+
 function Sidebar() {
+  const locale = useLocale();
+  const items = locale === 'ru' ? SIDEBAR_ITEMS_RU : SIDEBAR_ITEMS_EN;
+
   return (
     <div className="hidden md:flex w-16 shrink-0 border-r border-app-line bg-sidebar flex-col items-center py-4 gap-4">
       {/* Logo */}
@@ -55,7 +69,7 @@ function Sidebar() {
 
       {/* Nav items */}
       <div className="flex flex-col gap-2">
-        {SIDEBAR_ITEMS.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           return (
             <div
@@ -131,7 +145,7 @@ type Capture = {
   language?: string;
 };
 
-const CAPTURES: Capture[] = [
+const CAPTURES_EN: Capture[] = [
   {
     id: 'c1',
     seed: 11,
@@ -190,10 +204,75 @@ const CAPTURES: Capture[] = [
   },
 ];
 
-const PROFILES = [
+const CAPTURES_RU: Capture[] = [
+  {
+    id: 'c1',
+    seed: 11,
+    transcriptRaw:
+      'так в общем идея voicebox простая это локальная голосовая студия всё работает на вашей машине вы клонируете голоса по нескольким секундам аудио генерируете речь в семи tts движках а теперь ещё и диктуете в любое приложение без облака без api ключей без тарифа за символы ваши голосовые данные никогда не покидают устройство приватность здесь не функция а архитектура',
+    transcriptRefined:
+      'Идея Voicebox простая: это локальная голосовая студия. Всё работает на вашей машине. Вы клонируете голоса по нескольким секундам аудио, генерируете речь в семи TTS-движках, а теперь ещё и диктуете в любое приложение. Без облака, без API-ключей и без тарифа за символы. Ваши голосовые данные никогда не покидают устройство. Приватность здесь не функция, а архитектура.',
+    durationMs: 38000,
+    ago: '4 мин назад',
+    createdAtLabel: '22 апр, 15:47',
+    source: 'dictation',
+    sttModel: 'turbo',
+    language: 'ru',
+  },
+  {
+    id: 'c2',
+    seed: 23,
+    transcriptRaw:
+      'набросай обновление для блога про голоса агентов главная мысль один вызов mcp и любой агент на машине получает голос claude code заканчивает долгую задачу вызывает voicebox speak и вы слышите его голосом который сами клонировали morgan scarlett любой который настроили та же плашка которая показывается при диктовке появляется и когда говорит агент так что вы всегда понимаете что сейчас звучит на вашей машине',
+    transcriptRefined:
+      'Набросай обновление для блога про голоса агентов. Главная мысль: один вызов MCP, и любой агент на машине получает голос. Claude Code заканчивает длинную задачу, вызывает voicebox.speak, и вы слышите его клонированным голосом — Morgan, Scarlett или любым другим, который настроили. Та же плашка, которая появляется при диктовке, показывается и во время речи агента, так что вы всегда понимаете, что сейчас звучит на вашей машине.',
+    durationMs: 41000,
+    ago: '22 мин назад',
+    createdAtLabel: '22 апр, 15:29',
+    source: 'dictation',
+    sttModel: 'turbo',
+    language: 'ru',
+  },
+  {
+    id: 'c3',
+    seed: 37,
+    transcriptRaw:
+      'тех обзор для readme семь tts движков qwen3 kokoro chatterbox luxtts customvoice tada и chatterbox turbo whisper для stt в пяти размерах от base до large плюс turbo один локальный llm qwen 3.5 общий рантайм для всего один каталог моделей одна gpu история без раздробленных кешей можно подобрать модель под каждую задачу',
+    transcriptRefined:
+      'Техобзор для README: семь TTS-движков — Qwen3, Kokoro, Chatterbox, LuxTTS, CustomVoice, TADA и Chatterbox Turbo. Whisper для STT в пяти размерах от Base до Large, плюс Turbo. Одна локальная LLM, Qwen 3.5, и общий рантайм для всего стека: один каталог моделей, одна GPU-история, без раздробленных кешей. Подбирайте модель под конкретную задачу.',
+    durationMs: 34000,
+    ago: '1 ч назад',
+    createdAtLabel: '22 апр, 14:51',
+    source: 'dictation',
+    sttModel: 'turbo',
+    language: 'ru',
+  },
+  {
+    id: 'c4',
+    seed: 53,
+    transcriptRaw:
+      'вся магия вот в чём вы говорите в voicebox транскрипт чистится локальной llm вставляется туда где у вас фокус потом агент отвечает и возвращает голосом через ту же самую плашку elevenlabs умеет tts wisprflow умеет диктовку но никто из них не даёт обе половины цикла локально voicebox это полный голосовой io для людей и ai агентов',
+    transcriptRefined:
+      'Вся магия вот в чём: вы говорите в Voicebox, транскрипт очищается локальной LLM и вставляется туда, где у вас фокус. Затем агент отвечает и возвращает реплику голосом через ту же самую плашку. ElevenLabs умеет TTS, WisprFlow умеет диктовку, но никто из них не закрывает обе половины цикла локально. Voicebox — это полный голосовой I/O для людей и AI-агентов.',
+    durationMs: 42000,
+    ago: 'Вчера',
+    createdAtLabel: '21 апр, 23:14',
+    source: 'dictation',
+    sttModel: 'large',
+    language: 'ru',
+  },
+];
+
+const PROFILES_EN = [
   { id: 'p1', name: 'Morgan', description: 'Warm, measured', gradient: 'from-blue-400 to-indigo-500' },
   { id: 'p2', name: 'Scarlett', description: 'Bright, conversational', gradient: 'from-emerald-400 to-teal-500' },
   { id: 'p3', name: 'Jarvis', description: 'Dry, composed', gradient: 'from-purple-500 to-fuchsia-500' },
+];
+
+const PROFILES_RU = [
+  { id: 'p1', name: 'Morgan', description: 'Тёплый, собранный', gradient: 'from-blue-400 to-indigo-500' },
+  { id: 'p2', name: 'Scarlett', description: 'Живой, разговорный', gradient: 'from-emerald-400 to-teal-500' },
+  { id: 'p3', name: 'Jarvis', description: 'Сдержанный, сухой', gradient: 'from-purple-500 to-fuchsia-500' },
 ];
 
 function formatDuration(ms: number): string {
@@ -204,9 +283,20 @@ function formatDuration(ms: number): string {
 }
 
 function SourceBadge({ source }: { source: Capture['source'] }) {
+  const locale = useLocale();
   const Icon = source === 'dictation' ? Mic : source === 'recording' ? CircleDot : FileAudio;
   const label =
-    source === 'dictation' ? 'Dictation' : source === 'recording' ? 'Recording' : 'File';
+    source === 'dictation'
+      ? locale === 'ru'
+        ? 'Диктовка'
+        : 'Dictation'
+      : source === 'recording'
+        ? locale === 'ru'
+          ? 'Запись'
+          : 'Recording'
+        : locale === 'ru'
+          ? 'Файл'
+          : 'File';
   return (
     <span className="inline-flex items-center h-5 px-1.5 gap-1 rounded-md text-[10px] font-medium bg-muted/60 text-muted-foreground border border-transparent">
       <Icon className="h-2.5 w-2.5" />
@@ -216,10 +306,11 @@ function SourceBadge({ source }: { source: Capture['source'] }) {
 }
 
 function RefinedBadge() {
+  const locale = useLocale();
   return (
     <span className="inline-flex items-center h-5 px-1.5 gap-1 rounded-md text-[10px] font-medium bg-accent/10 text-accent border border-accent/20">
       <Sparkles className="h-2.5 w-2.5" />
-      Refined
+      {locale === 'ru' ? 'Очищено' : 'Refined'}
     </span>
   );
 }
@@ -276,6 +367,9 @@ function CaptureRow({
 function DetailView({ capture }: { capture: Capture }) {
   const [showRefined, setShowRefined] = useState(true);
   const [profileIdx, setProfileIdx] = useState(0);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const profiles = isRussian ? PROFILES_RU : PROFILES_EN;
 
   useEffect(() => {
     setShowRefined(true);
@@ -283,12 +377,12 @@ function DetailView({ capture }: { capture: Capture }) {
 
   useEffect(() => {
     const iv = window.setInterval(() => {
-      setProfileIdx((i) => (i + 1) % PROFILES.length);
+      setProfileIdx((i) => (i + 1) % profiles.length);
     }, 2600);
     return () => window.clearInterval(iv);
-  }, []);
+  }, [profiles.length]);
 
-  const playAs = PROFILES[profileIdx];
+  const playAs = profiles[profileIdx];
   const transcript = showRefined ? capture.transcriptRefined : capture.transcriptRaw;
 
   return (
@@ -332,7 +426,7 @@ function DetailView({ capture }: { capture: Capture }) {
             }`}
           >
             <Sparkles className="h-3 w-3 inline-block mr-1 -translate-y-px" />
-            Refined
+            {isRussian ? 'Очищено' : 'Refined'}
           </button>
           <button
             type="button"
@@ -344,13 +438,15 @@ function DetailView({ capture }: { capture: Capture }) {
             }`}
           >
             <Subtitles className="h-3 w-3 inline-block mr-1 -translate-y-px" />
-            Raw
+            {isRussian ? 'Сырой' : 'Raw'}
           </button>
         </div>
         <div className="flex-1" />
         <span className="text-xs text-muted-foreground whitespace-nowrap">
           {showRefined
-            ? 'Refined with Qwen3 · 1.7B'
+            ? isRussian
+              ? 'Очищено через Qwen3 · 1.7B'
+              : 'Refined with Qwen3 · 1.7B'
             : `Whisper ${capture.sttModel}`}
         </span>
       </div>
@@ -379,7 +475,7 @@ function DetailView({ capture }: { capture: Capture }) {
               className={`h-5 w-5 rounded-full bg-gradient-to-br shrink-0 ring-1 ring-white/10 ${playAs.gradient}`}
             />
             <Volume2 className="h-4 w-4 shrink-0" />
-            Play as {playAs.name}
+            {isRussian ? `Озвучить как ${playAs.name}` : `Play as ${playAs.name}`}
           </div>
           <div className="inline-flex items-center justify-center gap-2 whitespace-nowrap h-9 px-2 rounded-full rounded-tl-none rounded-bl-none border border-input bg-background text-sm font-medium transition-colors">
             <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
@@ -387,15 +483,15 @@ function DetailView({ capture }: { capture: Capture }) {
         </div>
         <div className="inline-flex items-center gap-2 h-9 px-3 rounded-full border border-input bg-background text-sm font-medium text-foreground whitespace-nowrap">
           <Copy className="h-3.5 w-3.5" />
-          Copy
+          {isRussian ? 'Копировать' : 'Copy'}
         </div>
         <div className="inline-flex items-center gap-2 h-9 px-3 rounded-full border border-input bg-background text-sm font-medium text-foreground whitespace-nowrap">
           <Sparkles className="h-3.5 w-3.5" />
-          Re-refine
+          {isRussian ? 'Переочистить' : 'Re-refine'}
         </div>
         <div className="inline-flex items-center gap-2 h-9 px-3 rounded-full border border-input bg-background text-sm font-medium text-foreground whitespace-nowrap">
           <Download className="h-3.5 w-3.5" />
-          Export
+          {isRussian ? 'Экспорт' : 'Export'}
         </div>
       </div>
     </div>
@@ -405,19 +501,26 @@ function DetailView({ capture }: { capture: Capture }) {
 // ─── Main mockup ────────────────────────────────────────────────────────────
 
 export function CapturesMockup() {
-  const [selectedId, setSelectedId] = useState<string>(CAPTURES[0].id);
+  const locale = useLocale();
+  const isRussian = locale === 'ru';
+  const captures = isRussian ? CAPTURES_RU : CAPTURES_EN;
+  const [selectedId, setSelectedId] = useState<string>(captures[0].id);
+
+  useEffect(() => {
+    setSelectedId(captures[0].id);
+  }, [captures]);
 
   useEffect(() => {
     const iv = window.setInterval(() => {
       setSelectedId((current) => {
-        const idx = CAPTURES.findIndex((c) => c.id === current);
-        return CAPTURES[(idx + 1) % CAPTURES.length].id;
+        const idx = captures.findIndex((c) => c.id === current);
+        return captures[(idx + 1) % captures.length].id;
       });
     }, 4200);
     return () => window.clearInterval(iv);
-  }, []);
+  }, [captures]);
 
-  const selected = CAPTURES.find((c) => c.id === selectedId) ?? CAPTURES[0];
+  const selected = captures.find((c) => c.id === selectedId) ?? captures[0];
 
   return (
     <div className="relative z-20 mx-auto w-full max-w-5xl px-6">
@@ -435,18 +538,20 @@ export function CapturesMockup() {
               {/* Header — normal flow */}
               <div className="shrink-0 pl-4 pr-4 pt-4 pb-2">
                 <div className="flex items-center gap-2 mb-5">
-                  <h1 className="text-2xl px-4 font-bold">Captures</h1>
+                  <h1 className="text-2xl px-4 font-bold">
+                    {isRussian ? 'Записи' : 'Captures'}
+                  </h1>
                   <BetaBadge />
                 </div>
                 <div className="h-9 flex items-center rounded-full border border-input bg-background px-4 text-sm text-muted-foreground">
-                  Search transcripts…
+                  {isRussian ? 'Искать по расшифровкам…' : 'Search transcripts…'}
                 </div>
               </div>
 
               {/* Scroll area */}
               <div className="flex-1 overflow-hidden">
                 <div className="px-4 pt-2 pb-6 space-y-1">
-                  {CAPTURES.map((capture) => (
+                  {captures.map((capture) => (
                     <CaptureRow
                       key={capture.id}
                       capture={capture}
