@@ -69,20 +69,6 @@ export const useStoryStore = create<StoryPlaybackState>((set, get) => ({
     const shouldResume = currentState.playbackStoryId === storyId && currentState.currentTimeMs > 0;
     const startTimeMs = shouldResume ? currentState.currentTimeMs : minStartTimeMs;
 
-    console.log('[StoryStore] Play called:', {
-      storyId,
-      itemCount: items.length,
-      items: items.map((i) => ({
-        id: i.generation_id,
-        start: i.start_time_ms,
-        duration: i.duration,
-      })),
-      maxEndTimeMs,
-      minStartTimeMs,
-      startTimeMs,
-      shouldResume,
-    });
-
     set({
       isPlaying: true,
       playbackStoryId: storyId,
