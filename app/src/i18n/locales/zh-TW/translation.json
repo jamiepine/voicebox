@@ -827,6 +827,47 @@
           "profiles": "聲音清單",
           "history": "歷史生成"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "跨裝置端對端加密備份與同步。",
+        "connectedToast": {
+          "title": "已連接到 Voicebox Cloud",
+          "description": "已關聯為 {{name}}。"
+        },
+        "signInTimedOut": {
+          "title": "登入逾時",
+          "description": "瀏覽器登入未完成。請再試一次。"
+        },
+        "continueInBrowser": {
+          "title": "請在瀏覽器中繼續",
+          "description": "授權此裝置後返回此處。"
+        },
+        "signInFailedTitle": "無法開始登入",
+        "disconnectedToast": {
+          "title": "已中斷連接",
+          "description": "此裝置已取消關聯。金鑰在您的帳戶中撤銷之前仍然有效。"
+        },
+        "disconnectFailedTitle": "無法中斷連接",
+        "account": {
+          "connected": "已連接",
+          "account": "帳戶",
+          "linkedAs": "已關聯為 {{name}}{{keyPrefix}}",
+          "thisDevice": "此裝置",
+          "logInHint": "登入以備份並同步您的擷取內容與生成內容。"
+        },
+        "actions": {
+          "disconnecting": "正在中斷連接…",
+          "disconnect": "中斷連接",
+          "waitingForBrowser": "正在等待瀏覽器…",
+          "opening": "正在開啟…",
+          "logInWithBrowser": "透過瀏覽器登入"
+        },
+        "manage": {
+          "title": "管理",
+          "description": "在您的帳戶中撤銷此裝置、新增 API 金鑰或管理帳單。",
+          "openDashboard": "開啟帳戶面板 ↗"
+        }
       }
     },
     "generation": {
@@ -1091,10 +1132,14 @@
       "active": "啟用中",
       "cuda": {
         "title": "CUDA 後端",
+        "activeTitle": "CUDA 後端已啟用",
         "description": "透過可下載的 CUDA 後端實現 NVIDIA GPU 加速。",
         "downloading": "下載 CUDA 後端中…",
         "downloadingShort": "下載中…",
         "updating": "更新中…"
+      },
+      "activeBackend": {
+        "description": "GPU 加速目前已啟用。"
       },
       "restart": {
         "ready": "伺服器重新啟動成功",
@@ -1126,9 +1171,33 @@
         "downloadStart": "啟動下載失敗",
         "restartFailed": "重新啟動失敗",
         "switchCpu": "切換到 CPU 失敗",
-        "deleteCuda": "刪除 CUDA 後端失敗"
+        "deleteCuda": "刪除 CUDA 後端失敗",
+        "deleteRocm": "刪除 ROCm 後端失敗"
       },
-      "footer": "Voicebox 會自動偵測並使用系統上可用的最佳 GPU。在 Apple Silicon Mac 上,MLX 後端透過 Metal Performance Shaders (MPS) 在神經引擎與 GPU 上原生執行,無需額外設定。在配備 NVIDIA GPU 的 Windows 與 Linux 上,可以下載選用的 CUDA 後端以取得硬體加速推論。AMD ROCm、Intel XPU 與 DirectML 也透過 PyTorch 獲得支援。未偵測到 GPU 時,Voicebox 會退回到 CPU——所有引擎仍可運作,只是速度較慢。"
+      "footer": "Voicebox 會自動偵測並使用系統上可用的最佳 GPU。在 Apple Silicon Mac 上,MLX 後端透過 Metal Performance Shaders (MPS) 在神經引擎與 GPU 上原生執行,無需額外設定。在 Windows 上,可以下載選用的 CUDA(NVIDIA)或 ROCm(AMD)後端以取得硬體加速推論。Intel XPU 與 DirectML 也透過 PyTorch 獲得支援。未偵測到 GPU 時,Voicebox 會退回到 CPU——所有引擎仍可運作,只是速度較慢。",
+      "rocm": {
+        "title": "AMD ROCm 後端",
+        "activeTitle": "ROCm 後端已啟用",
+        "description": "透過可下載的 ROCm 後端實現 AMD GPU 加速。",
+        "downloading": "下載 ROCm 後端中…",
+        "downloadingShort": "下載中…",
+        "updating": "更新中…"
+      },
+      "downloadRocm": {
+        "title": "下載 AMD ROCm 後端",
+        "description": "約 2-3 GB 下載。需要支援 ROCm 的 AMD Radeon GPU。",
+        "button": "下載"
+      },
+      "switchToRocm": {
+        "title": "切換到 ROCm 後端",
+        "description": "ROCm 後端已下載完成。重新啟動以啟用。",
+        "button": "重新啟動"
+      },
+      "removeRocm": {
+        "title": "移除 ROCm 後端",
+        "description": "刪除已下載的 ROCm 二進位檔以釋放磁碟空間。",
+        "button": "移除"
+      }
     },
     "logs": {
       "title": "伺服器日誌",

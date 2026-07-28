@@ -827,6 +827,47 @@
           "profiles": "Listar vozes",
           "history": "Gerações anteriores"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "Backup e sincronização com criptografia de ponta a ponta entre seus dispositivos.",
+        "connectedToast": {
+          "title": "Conectado ao Voicebox Cloud",
+          "description": "Vinculado como {{name}}."
+        },
+        "signInTimedOut": {
+          "title": "Tempo de login esgotado",
+          "description": "O login pelo navegador não foi concluído. Tente novamente."
+        },
+        "continueInBrowser": {
+          "title": "Continue no seu navegador",
+          "description": "Autorize este dispositivo e depois volte aqui."
+        },
+        "signInFailedTitle": "Não foi possível iniciar o login",
+        "disconnectedToast": {
+          "title": "Desconectado",
+          "description": "Este dispositivo não está mais vinculado. A chave continua válida até ser revogada na sua conta."
+        },
+        "disconnectFailedTitle": "Não foi possível desconectar",
+        "account": {
+          "connected": "Conectado",
+          "account": "Conta",
+          "linkedAs": "Vinculado como {{name}}{{keyPrefix}}",
+          "thisDevice": "este dispositivo",
+          "logInHint": "Faça login para fazer backup e sincronizar suas capturas e gerações."
+        },
+        "actions": {
+          "disconnecting": "Desconectando…",
+          "disconnect": "Desconectar",
+          "waitingForBrowser": "Aguardando o navegador…",
+          "opening": "Abrindo…",
+          "logInWithBrowser": "Entrar pelo navegador"
+        },
+        "manage": {
+          "title": "Gerenciar",
+          "description": "Revogue este dispositivo, adicione chaves de API ou gerencie a cobrança na sua conta.",
+          "openDashboard": "Abrir painel da conta ↗"
+        }
       }
     },
     "generation": {
@@ -1091,10 +1132,14 @@
       "active": "Ativo",
       "cuda": {
         "title": "Backend CUDA",
+        "activeTitle": "Backend CUDA ativo",
         "description": "Aceleração por GPU NVIDIA via um backend CUDA baixável.",
         "downloading": "Baixando o backend CUDA…",
         "downloadingShort": "Baixando…",
         "updating": "Atualizando…"
+      },
+      "activeBackend": {
+        "description": "A aceleração por GPU está ativada no momento."
       },
       "restart": {
         "ready": "Servidor reiniciado com sucesso",
@@ -1126,9 +1171,33 @@
         "downloadStart": "Falha ao iniciar o download",
         "restartFailed": "Falha ao reiniciar",
         "switchCpu": "Falha ao mudar para CPU",
-        "deleteCuda": "Falha ao excluir o backend CUDA"
+        "deleteCuda": "Falha ao excluir o backend CUDA",
+        "deleteRocm": "Falha ao excluir o backend ROCm"
       },
-      "footer": "O Voicebox detecta e usa automaticamente a melhor GPU disponível no seu sistema. Em Macs com Apple Silicon, o backend MLX roda nativamente no Neural Engine e na GPU via Metal Performance Shaders (MPS), sem configuração adicional. No Windows e no Linux com GPUs NVIDIA, você pode baixar um backend CUDA opcional para inferência acelerada por hardware. AMD ROCm, Intel XPU e DirectML também são suportados quando disponíveis através do PyTorch. Quando nenhuma GPU é detectada, o Voicebox recorre à CPU — todos os motores ainda funcionam, só que mais devagar."
+      "footer": "O Voicebox detecta e usa automaticamente a melhor GPU disponível no seu sistema. Em Macs com Apple Silicon, o backend MLX roda nativamente no Neural Engine e na GPU via Metal Performance Shaders (MPS), sem configuração adicional. No Windows, você pode baixar backends opcionais de CUDA (NVIDIA) ou ROCm (AMD) para inferência acelerada por hardware. Intel XPU e DirectML também são suportados quando disponíveis através do PyTorch. Quando nenhuma GPU é detectada, o Voicebox recorre à CPU — todos os motores ainda funcionam, só que mais devagar.",
+      "rocm": {
+        "title": "Backend AMD ROCm",
+        "activeTitle": "Backend ROCm ativo",
+        "description": "Aceleração por GPU AMD via um backend ROCm baixável.",
+        "downloading": "Baixando o backend ROCm…",
+        "downloadingShort": "Baixando…",
+        "updating": "Atualizando…"
+      },
+      "downloadRocm": {
+        "title": "Baixar o backend AMD ROCm",
+        "description": "Download de ~2-3 GB. Requer uma GPU AMD Radeon com suporte a ROCm.",
+        "button": "Baixar"
+      },
+      "switchToRocm": {
+        "title": "Mudar para o backend ROCm",
+        "description": "O backend ROCm foi baixado e está pronto. Reinicie para ativar.",
+        "button": "Reiniciar"
+      },
+      "removeRocm": {
+        "title": "Remover o backend ROCm",
+        "description": "Exclui o binário ROCm baixado para liberar espaço em disco.",
+        "button": "Remover"
+      }
     },
     "logs": {
       "title": "Logs do Servidor",

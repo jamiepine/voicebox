@@ -827,6 +827,47 @@
           "profiles": "ボイス一覧",
           "history": "過去の生成"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "デバイス間でエンドツーエンド暗号化されたバックアップと同期。",
+        "connectedToast": {
+          "title": "Voicebox Cloud に接続しました",
+          "description": "{{name}} としてリンクされました。"
+        },
+        "signInTimedOut": {
+          "title": "サインインがタイムアウトしました",
+          "description": "ブラウザでのサインインが完了しませんでした。もう一度お試しください。"
+        },
+        "continueInBrowser": {
+          "title": "ブラウザで続行してください",
+          "description": "このデバイスを認証してから、ここに戻ってください。"
+        },
+        "signInFailedTitle": "サインインを開始できませんでした",
+        "disconnectedToast": {
+          "title": "切断されました",
+          "description": "このデバイスのリンクは解除されました。キーはアカウントで取り消すまで有効です。"
+        },
+        "disconnectFailedTitle": "切断できませんでした",
+        "account": {
+          "connected": "接続済み",
+          "account": "アカウント",
+          "linkedAs": "{{name}} としてリンク済み{{keyPrefix}}",
+          "thisDevice": "このデバイス",
+          "logInHint": "ログインしてキャプチャと生成をバックアップ・同期しましょう。"
+        },
+        "actions": {
+          "disconnecting": "切断中…",
+          "disconnect": "切断",
+          "waitingForBrowser": "ブラウザを待っています…",
+          "opening": "開いています…",
+          "logInWithBrowser": "ブラウザでログイン"
+        },
+        "manage": {
+          "title": "管理",
+          "description": "アカウントからこのデバイスを取り消したり、APIキーを追加したり、請求を管理したりできます。",
+          "openDashboard": "アカウントダッシュボードを開く ↗"
+        }
       }
     },
     "generation": {
@@ -1091,10 +1132,14 @@
       "active": "有効",
       "cuda": {
         "title": "CUDA バックエンド",
+        "activeTitle": "CUDA バックエンドが有効",
         "description": "ダウンロード可能な CUDA バックエンドによる NVIDIA GPU アクセラレーション。",
         "downloading": "CUDA バックエンドをダウンロード中…",
         "downloadingShort": "ダウンロード中…",
         "updating": "更新中…"
+      },
+      "activeBackend": {
+        "description": "GPU アクセラレーションは現在有効です。"
       },
       "restart": {
         "ready": "サーバーを正常に再起動しました",
@@ -1126,9 +1171,33 @@
         "downloadStart": "ダウンロードを開始できませんでした",
         "restartFailed": "再起動に失敗しました",
         "switchCpu": "CPU への切り替えに失敗しました",
-        "deleteCuda": "CUDA バックエンドの削除に失敗しました"
+        "deleteCuda": "CUDA バックエンドの削除に失敗しました",
+        "deleteRocm": "ROCm バックエンドの削除に失敗しました"
       },
-      "footer": "Voicebox はシステムで利用可能な最適な GPU を自動で検出し使用します。Apple Silicon Mac では、MLX バックエンドが Metal Performance Shaders(MPS)を介して Neural Engine と GPU 上でネイティブに動作し、追加のセットアップは不要です。NVIDIA GPU 搭載の Windows および Linux では、オプションの CUDA バックエンドをダウンロードしてハードウェアアクセラレーションによる推論が可能です。AMD ROCm、Intel XPU、DirectML も PyTorch を通じて利用可能な環境でサポートされます。GPU が検出されない場合、Voicebox は CPU にフォールバックし、すべてのエンジンはそのまま動作しますが速度は低下します。"
+      "footer": "Voicebox はシステムで利用可能な最適な GPU を自動で検出し使用します。Apple Silicon Mac では、MLX バックエンドが Metal Performance Shaders(MPS)を介して Neural Engine と GPU 上でネイティブに動作し、追加のセットアップは不要です。Windows では、オプションの CUDA(NVIDIA)または ROCm(AMD)バックエンドをダウンロードしてハードウェアアクセラレーションによる推論が可能です。Intel XPU と DirectML も PyTorch を通じて利用可能な環境でサポートされます。GPU が検出されない場合、Voicebox は CPU にフォールバックし、すべてのエンジンはそのまま動作しますが速度は低下します。",
+      "rocm": {
+        "title": "AMD ROCm バックエンド",
+        "activeTitle": "ROCm バックエンドが有効",
+        "description": "ダウンロード可能な ROCm バックエンドによる AMD GPU アクセラレーション。",
+        "downloading": "ROCm バックエンドをダウンロード中…",
+        "downloadingShort": "ダウンロード中…",
+        "updating": "更新中…"
+      },
+      "downloadRocm": {
+        "title": "AMD ROCm バックエンドをダウンロード",
+        "description": "約 2〜3 GB のダウンロード。ROCm 対応の AMD Radeon GPU が必要です。",
+        "button": "ダウンロード"
+      },
+      "switchToRocm": {
+        "title": "ROCm バックエンドに切り替え",
+        "description": "ROCm バックエンドはダウンロード済みです。再起動して有効にします。",
+        "button": "再起動"
+      },
+      "removeRocm": {
+        "title": "ROCm バックエンドを削除",
+        "description": "ダウンロードした ROCm バイナリを削除してディスク容量を空けます。",
+        "button": "削除"
+      }
     },
     "logs": {
       "title": "サーバーログ",
