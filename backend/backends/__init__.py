@@ -216,6 +216,7 @@ TTS_ENGINES = {
     "chatterbox_turbo": "Chatterbox Turbo",
     "tada": "TADA",
     "kokoro": "Kokoro",
+    "minimax": "MiniMax TTS",
 }
 
 LLM_ENGINES = {
@@ -553,6 +554,13 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
                 status_code=400,
                 detail=f"Model {model_size} is not downloaded yet. Use /generate to trigger a download.",
             )
+    elif engine == "minimax":
+        # MiniMax is a cloud API — "cached" means the API key is configured.
+        if not backend._is_model_cached():
+            raise HTTPException(
+                status_code=400,
+                detail="MINIMAX_API_KEY is not configured. Set it in your environment or ~/.env.local.",
+            )
     else:
         if not backend._is_model_cached():
             display = cfg.display_name if cfg else engine
@@ -723,6 +731,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 
             backend = QwenCustomVoiceBackend()
+        elif engine == "minimax":
+            from .minimax_backend import MiniMaxTTSBackend
+
+            backend = MiniMaxTTSBackend()
         else:
             raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
 
