@@ -43,6 +43,32 @@ def _is_busy() -> bool:
     )
 
 
+def _anything_loaded() -> bool:
+    """True if any model _unload_all() frees is currently resident.
+
+    Checks every backend type, not just TTS: dictation loads Whisper and chat
+    loads the LLM without ever touching TTS, and those hold VRAM too. Each
+    getter is isolated so one failing backend can't mask a loaded sibling —
+    on error we assume loaded, letting _unload_all() (which isolates its own
+    failures) sort it out rather than pinning the weights forever.
+    """
+    from ..backends import get_llm_backend, get_stt_backend, get_tts_backend
+
+    for name, get_backend in (
+        ("TTS", get_tts_backend),
+        ("Whisper", get_stt_backend),
+        ("LLM", get_llm_backend),
+    ):
+        try:
+            if get_backend().is_loaded():
+                return True
+        except Exception:
+            logger.exception("Idle unload: failed to check %s backend", name)
+            return True
+
+    return False
+
+
 def _unload_all() -> None:
     """Unload every model type, isolating failures so one can't block the others
     (mirrors the shutdown path in app.py)."""
@@ -73,13 +99,8 @@ async def _reaper() -> None:
         if idle_for < IDLE_UNLOAD_SECONDS:
             continue
 
-        try:
-            from ..backends import get_tts_backend
-
-            if not get_tts_backend().is_loaded():
-                continue  # nothing loaded — nothing to do
-        except Exception:
-            continue
+        if not _anything_loaded():
+            continue  # nothing loaded — nothing to do
 
         logger.info("Idle for %ds — unloading models to free memory", int(idle_for))
         await asyncio.to_thread(_unload_all)
