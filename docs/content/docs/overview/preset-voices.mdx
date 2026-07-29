@@ -11,9 +11,9 @@ Three engines ship preset voices:
 
 | Engine                | Voices                  | Languages | Strengths                                               |
 | --------------------- | ----------------------- | --------- | ------------------------------------------------------- |
-| **Kokoro 82M**        | 50                      | 9         | Tiny model, CPU-friendly, lowest VRAM of any engine     |
+| **Kokoro 82M**        | 50                      | 8         | Tiny model, CPU-friendly, lowest VRAM of any engine     |
 | **Qwen CustomVoice**  | 9 (premium curated)     | 4         | Natural-language style control over tone, emotion, pace |
-| **MMS (Meta)**        | 1 per language          | Romanian  | The only engine with Romanian — ~150MB, CPU realtime    |
+| **MMS (Meta)**        | 1 per language          | Romanian  | The only preset engine with Romanian — ~150MB, CPU realtime |
 
 <Callout type="info">
   Looking for cloning a specific person's voice instead? See [Voice Cloning](/overview/voice-cloning).
@@ -170,7 +170,7 @@ The full Generate page also surfaces the instruct field as a separate input.
 
 ## MMS Romanian — Meta's Massively Multilingual Speech
 
-MMS wraps Meta's per-language VITS checkpoints (`facebook/mms-tts-{lang}`). Each checkpoint is a single fixed speaker, so there is exactly one preset voice per language. Voicebox ships the Romanian checkpoint — the only engine in the app that speaks Romanian.
+MMS wraps Meta's per-language VITS checkpoints (`facebook/mms-tts-{lang}`). Each checkpoint is a single fixed speaker, so there is exactly one preset voice per language. Voicebox ships the Romanian checkpoint — the only preset engine that speaks Romanian (for Romanian voice cloning, see the F5-TTS engine).
 
 **Repository:** [`facebook/mms-tts-ron`](https://huggingface.co/facebook/mms-tts-ron) · CC-BY-NC 4.0 licensed
 

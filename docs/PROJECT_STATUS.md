@@ -73,7 +73,7 @@ The backend exposes:
 ```
 POST /generate
   1. Look up voice profile from DB
-  2. Resolve engine from request (qwen | qwen_custom_voice | luxtts | chatterbox | chatterbox_turbo | tada | kokoro)
+  2. Resolve engine from request (qwen | qwen_custom_voice | luxtts | chatterbox | chatterbox_turbo | tada | kokoro | mms | f5)
   3. Get backend: get_tts_backend_for_engine(engine)  # thread-safe singleton per engine
   4. Check model cache → if missing, trigger background download, return HTTP 202
   5. Load model (lazy): tts_backend.load_model(model_size)
