@@ -304,6 +304,22 @@ class TestF5BackendUnit:
             await backend.generate("text", {"ref_audio": str(wav), "ref_text": "  "}, "ro")
 
 
+class TestF5CheckpointOverride:
+    def test_no_override_by_default(self, monkeypatch):
+        monkeypatch.delenv("VOICEBOX_F5_CKPT", raising=False)
+        assert F5TTSBackend._ckpt_override() is None
+
+    def test_missing_path_falls_back(self, monkeypatch):
+        monkeypatch.setenv("VOICEBOX_F5_CKPT", "/nonexistent/model.safetensors")
+        assert F5TTSBackend._ckpt_override() is None
+
+    def test_existing_path_wins(self, monkeypatch, tmp_path):
+        ckpt = tmp_path / "personal.safetensors"
+        ckpt.write_bytes(b"fake")
+        monkeypatch.setenv("VOICEBOX_F5_CKPT", str(ckpt))
+        assert F5TTSBackend._ckpt_override() == str(ckpt)
+
+
 RUN_F5_E2E = os.environ.get("VOICEBOX_F5_E2E") == "1"
 
 ROMANIAN_REF_SENTENCE = "Bună ziua, mă numesc Adrian și locuiesc în București de mulți ani."

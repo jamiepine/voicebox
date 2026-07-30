@@ -19,6 +19,7 @@ downloads from ``charactr/vocos-mel-24khz`` on first load.
 import asyncio
 import hashlib
 import logging
+import os
 import unicodedata
 from pathlib import Path
 
@@ -38,6 +39,12 @@ logger = logging.getLogger(__name__)
 F5_HF_REPO = "MihaiPopa-1/F5-TTS-Romanian"
 F5_CKPT_FILE = "model_750_pruned.safetensors"
 F5_VOCAB_FILE = "vocab.txt"
+# Local checkpoint override for personal fine-tunes: point VOICEBOX_F5_CKPT at
+# a pruned .safetensors (and optionally VOICEBOX_F5_VOCAB at a matching
+# vocab.txt — defaults to the repo vocab, which personal fine-tunes based on
+# it share). When set, the checkpoint download is skipped entirely.
+F5_CKPT_OVERRIDE_ENV = "VOICEBOX_F5_CKPT"
+F5_VOCAB_OVERRIDE_ENV = "VOICEBOX_F5_VOCAB"
 # f5_tts.api.F5TTS downloads the Vocos vocoder from this repo on init;
 # _is_model_cached must account for it so the UI "downloaded" state is truthful.
 F5_VOCODER_HF_REPO = "charactr/vocos-mel-24khz"
@@ -163,8 +170,22 @@ class F5TTSBackend:
     def _get_model_path(self, model_size: str = "default") -> str:
         return F5_HF_REPO
 
+    @staticmethod
+    def _ckpt_override() -> str | None:
+        """Local checkpoint path from VOICEBOX_F5_CKPT, if set and existing."""
+        path = os.environ.get(F5_CKPT_OVERRIDE_ENV)
+        if path and Path(path).is_file():
+            return path
+        if path:
+            logger.warning("%s=%s does not exist — falling back to the HF checkpoint", F5_CKPT_OVERRIDE_ENV, path)
+        return None
+
     def _is_model_cached(self, model_size: str = "default") -> bool:
         """Check both the fine-tune checkpoint and the Vocos vocoder cache."""
+        if self._ckpt_override():
+            # Local fine-tune supplies the checkpoint; only vocab + vocoder
+            # still come from the cache.
+            return is_model_cached(F5_HF_REPO, required_files=[F5_VOCAB_FILE]) and is_model_cached(F5_VOCODER_HF_REPO)
         return is_model_cached(F5_HF_REPO, required_files=[F5_CKPT_FILE, F5_VOCAB_FILE]) and is_model_cached(
             F5_VOCODER_HF_REPO
         )
@@ -186,8 +207,12 @@ class F5TTSBackend:
         with model_load_progress(model_name, is_cached):
             from huggingface_hub import hf_hub_download  # lazy: heavy import
 
-            ckpt_file = hf_hub_download(F5_HF_REPO, F5_CKPT_FILE)
-            vocab_file = hf_hub_download(F5_HF_REPO, F5_VOCAB_FILE)
+            ckpt_file = self._ckpt_override()
+            if ckpt_file:
+                logger.info("Using local F5 checkpoint override: %s", ckpt_file)
+            else:
+                ckpt_file = hf_hub_download(F5_HF_REPO, F5_CKPT_FILE)
+            vocab_file = os.environ.get(F5_VOCAB_OVERRIDE_ENV) or hf_hub_download(F5_HF_REPO, F5_VOCAB_FILE)
 
             device = self._get_device()
             self._device = device
