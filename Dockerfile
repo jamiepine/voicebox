@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.2
 # ============================================================
 # Voicebox — Local TTS Server with Web UI
 # 3-stage build: Frontend → Python deps → Runtime
@@ -25,10 +26,9 @@ COPY web/ ./web/
 # strip workspaces not needed for web build, and fix trailing comma
 RUN sed -i 's/\r$//' package.json && \
     sed -i '/"tauri"/d; /"landing"/d' package.json && \
-    sed -i -z 's/,\n  ]/\n  ]/' package.json
-RUN bun install --no-save
-# Build frontend (skip tsc — upstream has pre-existing type errors)
-RUN cd web && bunx --bun vite build
+    sed -i -z 's/,\n  ]/\n  ]/' package.json && \
+    bun install --no-save && \
+    (cd web && bunx --bun vite build) # Build frontend (skip tsc — upstream has pre-existing type errors)
 
 
 # === Stage 2: Build Python dependencies ===
@@ -39,12 +39,9 @@ ARG PYTORCH_VARIANT=cpu
 
 WORKDIR /build
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip install --no-cache-dir --upgrade pip
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential git && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir --upgrade pip
 
 COPY backend/requirements.txt .
 
@@ -90,14 +87,15 @@ RUN groupadd -r voicebox && \
 WORKDIR /app
 
 # Install only runtime system dependencies (gosu drops root in the entrypoint)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    curl \
-    gosu \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl ffmpeg gosu sox && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder stage
 COPY --from=backend-builder /install /usr/local
+
+# Configure library paths for torch/torchaudio .so files
+RUN printf "/usr/local/lib/python3.11/site-packages/torch/lib\n/usr/local/lib/python3.11/site-packages/torchaudio/lib\n" > /etc/ld.so.conf.d/torch.conf && \
+    ldconfig
 
 # Copy backend application code
 COPY --chown=voicebox:voicebox backend/ /app/backend/
@@ -106,8 +104,8 @@ COPY --chown=voicebox:voicebox backend/ /app/backend/
 COPY --from=frontend --chown=voicebox:voicebox /build/web/dist /app/frontend/
 
 # Create data directories owned by non-root user
-RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache \
-    && chown -R voicebox:voicebox /app/data
+RUN mkdir -p /app/data/generations /app/data/profiles /app/data/cache && \
+    chown -R voicebox:voicebox /app/data
 
 # Expose the API port
 EXPOSE 17493
