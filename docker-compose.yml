@@ -35,8 +35,9 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4'
-          memory: 8G
+          # Override via environment: CPU_LIMIT=8 MEMORY_LIMIT=16G
+          cpus: '${CPU_LIMIT:-4}'
+          memory: '${MEMORY_LIMIT:-8G}'
 
 networks:
   voicebox-net:

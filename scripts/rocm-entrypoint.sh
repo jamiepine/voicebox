@@ -12,4 +12,12 @@ for dev in /dev/kfd /dev/dri/render*; do
     }
     usermod -aG "$grp" voicebox
 done
+# Docker creates /home/voicebox/.cache as root on every container start, and
+# named volumes mounted under it are also root-owned. The app runs as uid 999
+# (voicebox), so cache writes (torch hub, spacy, etc.) fail with Permission
+# denied. chown the parent and the mountpoint explicitly: chown on the parent
+# does not propagate into volume content.
+mkdir -p /home/voicebox/.cache/huggingface
+chown -R voicebox:voicebox /home/voicebox/.cache /home/voicebox/.cache/huggingface
+
 exec gosu voicebox "$@"
