@@ -1,0 +1,20 @@
+# Voicebox — Local overrides
+# Copy to docker-compose.override.yml and customize as needed.
+# This file is automatically loaded by `docker compose up`.
+
+services:
+  voicebox:
+    # Override HuggingFace cache with a local directory (models persist across rebuilds)
+    # volumes:
+    #   - /path/to/your/hf/models:/home/voicebox/.cache/huggingface
+
+    # Override output directory
+    # volumes:
+    #   - /path/to/your/output:/app/data/generations
+
+    # Override resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '8'
+    #       memory: 16G
