@@ -51,20 +51,33 @@ COPY backend/requirements.txt .
 # ROCm wheel index. Default 6.3 (RDNA1/2/3); set ROCM_VERSION=7.2 for RDNA4.
 ARG ROCM_VERSION=6.3
 
-# For ROCm, make the PyTorch ROCm index primary so every install below resolves
+# CPU builds pin torch: 2.8+ breaks CPU inference in every engine tested
+# (Kokoro/LuxTTS: "Cannot copy out of meta tensor"; Qwen: "unsupported
+# scalarType" in torch.autocast). 2.7.1 is the newest that works and matches
+# hume-tada's torch>=2.7,<2.8.
+# For ROCm, the PyTorch ROCm index is primary so every install below resolves
 # torch to ROCm wheels instead of the default CUDA build.
+# The PyTorch wheel index also has compatible torchaudio versions, so all
+# subsequent installs (including requirements.txt) resolve torchaudio correctly.
+#
+# --no-deps: Qwen3-TTS's dependency list would re-resolve torch/transformers
+# and undo the versions installed above; everything it needs is already here.
 RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
       pip install --no-cache-dir --prefix=/install \
         --index-url "https://download.pytorch.org/whl/rocm${ROCM_VERSION}" \
-        torch torchaudio && \
+        torch && \
       printf '[global]\nindex-url = https://download.pytorch.org/whl/rocm%s\nextra-index-url = https://pypi.org/simple\n' "$ROCM_VERSION" > /etc/pip.conf; \
-    fi
-
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
-RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
-RUN pip install --no-cache-dir --prefix=/install \
-    git+https://github.com/QwenLM/Qwen3-TTS.git
+    else \
+      pip install --no-cache-dir --prefix=/install \
+        --index-url "https://download.pytorch.org/whl/cpu" \
+        torch==2.7.1 && \
+      printf '[global]\nindex-url = https://download.pytorch.org/whl/cpu\nextra-index-url = https://pypi.org/simple\n' > /etc/pip.conf; \
+    fi && \
+    pip install --no-cache-dir --prefix=/install -r requirements.txt && \
+    pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts && \
+    pip install --no-cache-dir --prefix=/install --no-deps hume-tada && \
+    pip install --no-cache-dir --prefix=/install --no-deps \
+    git+https://github.com/QwenLM/Qwen3-TTS.git@022e286b98fbec7e1e916cb940cdf532cd9f488e
 
 
 # === Stage 3: Runtime ===
