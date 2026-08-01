@@ -20,6 +20,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import re
 import unicodedata
 from pathlib import Path
 
@@ -50,6 +51,25 @@ F5_VOCAB_OVERRIDE_ENV = "VOICEBOX_F5_VOCAB"
 F5_VOCODER_HF_REPO = "charactr/vocos-mel-24khz"
 F5_SAMPLE_RATE = 24000
 F5_NFE_STEPS = 32
+# Speech-rate compensation for fine-tunes whose training data was read
+# faster than the desired output pace (1.0 = the model's natural rate,
+# lower = slower). Personal v3 checkpoint pairs with 0.85.
+F5_SPEED_ENV = "VOICEBOX_F5_SPEED"
+
+
+def _f5_speed() -> float:
+    raw = os.environ.get(F5_SPEED_ENV)
+    if not raw:
+        return 1.0
+    try:
+        speed = float(raw)
+    except ValueError:
+        logger.warning("Invalid %s=%r, using 1.0", F5_SPEED_ENV, raw)
+        return 1.0
+    if not 0.3 <= speed <= 2.0:
+        logger.warning("%s=%s outside [0.3, 2.0], using 1.0", F5_SPEED_ENV, speed)
+        return 1.0
+    return speed
 
 # F5 conditioning degrades with references over ~12s (upstream also hard-clips
 # at 12s). Trim at the quietest 300ms window found between 8s and 12s so the
@@ -76,15 +96,118 @@ _RO_DIACRITICS_TRANSLATION = str.maketrans(
 )
 
 
+# The fine-tune (and the dataset it was trained on) spells numbers out in
+# letters; digit characters are in the vocab but effectively untrained, so
+# raw digits come out garbled. Spell them out the way a Romanian reader would.
+_RO_UNITS = ["", "unu", "doi", "trei", "patru", "cinci", "șase", "șapte", "opt", "nouă"]
+_RO_UNITS_F = ["", "una", "două", "trei", "patru", "cinci", "șase", "șapte", "opt", "nouă"]
+_RO_TEENS = [
+    "zece", "unsprezece", "doisprezece", "treisprezece", "paisprezece",
+    "cincisprezece", "șaisprezece", "șaptesprezece", "optsprezece", "nouăsprezece",
+]
+_RO_TENS = ["", "", "douăzeci", "treizeci", "patruzeci", "cincizeci",
+            "șaizeci", "șaptezeci", "optzeci", "nouăzeci"]
+# (value, singular, plural) — group words for thousands and up
+_RO_SCALES = [
+    (1_000_000_000, "un miliard", "miliarde"),
+    (1_000_000, "un milion", "milioane"),
+    (1_000, "o mie", "mii"),
+]
+
+
+def _ro_under_100(n: int, feminine: bool) -> str:
+    units = _RO_UNITS_F if feminine else _RO_UNITS
+    if n < 10:
+        return units[n]
+    if n < 20:
+        if n == 12 and feminine:
+            return "douăsprezece"
+        return _RO_TEENS[n - 10]
+    tens, unit = divmod(n, 10)
+    return _RO_TENS[tens] + (f" și {units[unit]}" if unit else "")
+
+
+def _ro_under_1000(n: int, feminine: bool) -> str:
+    hundreds, rest = divmod(n, 100)
+    parts = []
+    if hundreds == 1:
+        parts.append("o sută")
+    elif hundreds == 2:
+        parts.append("două sute")
+    elif hundreds:
+        parts.append(f"{_RO_UNITS[hundreds]} sute")
+    if rest:
+        parts.append(_ro_under_100(rest, feminine))
+    return " ".join(parts)
+
+
+def _ro_int_to_words(n: int, feminine: bool = False) -> str:
+    if n == 0:
+        return "zero"
+    parts = []
+    for value, singular, plural in _RO_SCALES:
+        group, n = divmod(n, value)
+        if not group:
+            continue
+        if group == 1:
+            parts.append(singular)
+        else:
+            # groups counting mii/milioane are grammatically feminine, and
+            # 20+ links with "de": "douăzeci de mii", but "douăsprezece mii"
+            link = " " if 1 <= group % 100 <= 19 else " de "
+            parts.append(_ro_under_1000(group, feminine=True) + link + plural)
+    if n:
+        parts.append(_ro_under_1000(n, feminine))
+    return " ".join(parts)
+
+
+# time (18:30) | thousand-separated (1.650) | decimal comma (4,9) | plain int —
+# each optionally followed by % (spoken "la sută")
+_RO_NUMBER_RE = re.compile(
+    r"\b(?:(?P<h>\d{1,2}):(?P<m>\d{2})\b"
+    r"|(?P<num>\d{1,3}(?:\.\d{3})+|\d+)(?:,(?P<frac>\d+))?\b(?P<pct>\s?%)?)"
+)
+
+
+def _spell_number_match(m: re.Match) -> str:
+    if m.group("h") is not None:
+        hour, minute = int(m.group("h")), int(m.group("m"))
+        if hour > 23 or minute > 59:  # not a plausible time (e.g. 45:99)
+            return m.group(0)
+        words = _ro_int_to_words(hour)
+        if minute:
+            words += f" și {_ro_int_to_words(minute)}"
+        return words
+    words = _ro_int_to_words(int(m.group("num").replace(".", "")))
+    frac = m.group("frac")
+    if frac:
+        # leading zeros are read digit by digit: 0,05 -> "zero virgulă zero cinci"
+        if frac.startswith("0"):
+            frac_words = " ".join("zero" if d == "0" else _RO_UNITS[int(d)] for d in frac)
+        else:
+            frac_words = _ro_int_to_words(int(frac))
+        words += f" virgulă {frac_words}"
+    if m.group("pct"):
+        words += " la sută"
+    return words
+
+
+def spell_romanian_numbers(text: str) -> str:
+    """Spell digits out in Romanian words (cardinals, decimals, times, %)."""
+    return _RO_NUMBER_RE.sub(_spell_number_match, text)
+
+
 def normalize_romanian_text(text: str) -> str:
-    """Normalize Romanian text to the diacritic forms in the F5 vocab.
+    """Normalize Romanian text to the forms the F5 fine-tune was trained on.
 
     Applies NFC normalization first (composing any decomposed
-    letter + combining-mark sequences), then maps cedilla s and t
+    letter + combining-mark sequences), maps cedilla s and t
     variants onto the comma-below forms the fine-tune was trained on,
-    so no diacritic is silently dropped by the character tokenizer.
+    so no diacritic is silently dropped by the character tokenizer,
+    and spells out numbers, which the model only saw written in letters.
     """
-    return unicodedata.normalize("NFC", text).translate(_RO_DIACRITICS_TRANSLATION)
+    normalized = unicodedata.normalize("NFC", text).translate(_RO_DIACRITICS_TRANSLATION)
+    return spell_romanian_numbers(normalized)
 
 
 def trim_reference_audio(
@@ -352,6 +475,7 @@ class F5TTSBackend:
                 gen_text,
                 nfe_step=F5_NFE_STEPS,
                 seed=seed,
+                speed=_f5_speed(),
                 show_info=logger.debug,
             )
 

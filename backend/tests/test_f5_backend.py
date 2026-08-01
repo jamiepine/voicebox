@@ -36,6 +36,7 @@ from backend.backends.f5_backend import (
     F5_VOCAB_FILE,
     F5TTSBackend,
     normalize_romanian_text,
+    spell_romanian_numbers,
     trim_reference_audio,
     trim_reference_text,
 )
@@ -91,12 +92,105 @@ class TestRomanianDiacriticsNormalization:
         assert lowered.count(T_COMMA) == 2
 
     def test_plain_text_untouched(self):
-        text = "Salut, ce mai faci? 1-2!"
+        # no digits here: numbers are intentionally rewritten (see
+        # TestSpellRomanianNumbers); this test guards diacritic pass-through
+        text = "Salut, ce mai faci? Bine!"
         assert normalize_romanian_text(text) == text
 
     def test_output_is_nfc(self):
         decomposed = unicodedata.normalize("NFD", "Bună ziua, țară")
         assert unicodedata.is_normalized("NFC", normalize_romanian_text(decomposed))
+
+
+class TestF5Speed:
+    """VOICEBOX_F5_SPEED compensates fine-tunes trained on fast-read data."""
+
+    def test_default_is_full_speed(self, monkeypatch):
+        from backend.backends.f5_backend import F5_SPEED_ENV, _f5_speed
+
+        monkeypatch.delenv(F5_SPEED_ENV, raising=False)
+        assert _f5_speed() == 1.0
+
+    def test_valid_value_used(self, monkeypatch):
+        from backend.backends.f5_backend import F5_SPEED_ENV, _f5_speed
+
+        monkeypatch.setenv(F5_SPEED_ENV, "0.85")
+        assert _f5_speed() == 0.85
+
+    @pytest.mark.parametrize("raw", ["abc", "", "0.1", "5.0"])
+    def test_invalid_or_out_of_range_falls_back(self, monkeypatch, raw):
+        from backend.backends.f5_backend import F5_SPEED_ENV, _f5_speed
+
+        monkeypatch.setenv(F5_SPEED_ENV, raw)
+        assert _f5_speed() == 1.0
+
+
+class TestSpellRomanianNumbers:
+    """Digits are effectively untrained in the fine-tune; they must be
+    spelled out the way the training data wrote them (in letters)."""
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("0", "zero"),
+            ("1", "unu"),
+            ("12", "doisprezece"),
+            ("19", "nouăsprezece"),
+            ("21", "douăzeci și unu"),
+            ("100", "o sută"),
+            ("101", "o sută unu"),
+            ("200", "două sute"),
+            ("387", "trei sute optzeci și șapte"),
+            ("1000", "o mie"),
+            ("2000", "două mii"),
+            ("12000", "douăsprezece mii"),
+            ("20000", "douăzeci de mii"),
+            ("21000", "douăzeci și una de mii"),
+            ("17493", "șaptesprezece mii patru sute nouăzeci și trei"),
+            ("1000000", "un milion"),
+            ("2000000", "două milioane"),
+        ],
+    )
+    def test_cardinals(self, raw, expected):
+        assert spell_romanian_numbers(raw) == expected
+
+    def test_thousand_separator_dots(self):
+        assert spell_romanian_numbers("1.650") == "o mie șase sute cincizeci"
+
+    def test_decimal_comma(self):
+        assert spell_romanian_numbers("4,9") == "patru virgulă nouă"
+
+    def test_decimal_with_leading_zero_read_digitwise(self):
+        assert spell_romanian_numbers("0,05") == "zero virgulă zero cinci"
+
+    def test_percent(self):
+        assert spell_romanian_numbers("4,9%") == "patru virgulă nouă la sută"
+
+    def test_time(self):
+        assert spell_romanian_numbers("18:30") == "optsprezece și treizeci"
+
+    def test_time_on_the_hour_drops_minutes(self):
+        assert spell_romanian_numbers("18:00") == "optsprezece"
+
+    def test_implausible_time_left_alone(self):
+        assert spell_romanian_numbers("45:99") == "45:99"
+
+    def test_number_inside_sentence(self):
+        assert (
+            spell_romanian_numbers("Factura de 387 de lei e scadentă pe 25 august.")
+            == "Factura de trei sute optzeci și șapte de lei e scadentă pe douăzeci și cinci august."
+        )
+
+    def test_text_without_digits_untouched(self):
+        text = "Bună dimineața, ce mai faci?"
+        assert spell_romanian_numbers(text) == text
+
+    def test_normalize_romanian_text_spells_numbers(self):
+        assert "șaptesprezece mii" in normalize_romanian_text("portul 17493")
+
+    def test_normalized_output_has_no_digits(self):
+        out = normalize_romanian_text("La 18:30 plătesc 1.650 de lei, adică 4,9% din 34.000.")
+        assert not any(ch.isdigit() for ch in out)
 
 
 class TestVocabDiacriticCoverage:
