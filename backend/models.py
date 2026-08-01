@@ -84,7 +84,9 @@ class GenerationRequest(BaseModel):
 
     profile_id: str
     text: str = Field(..., min_length=1, max_length=50000)
-    language: str = Field(default="en", pattern=TTS_LANGUAGE_PATTERN)
+    # None -> inherit the profile's language (falls back to "en" for
+    # profiles without one); an explicit value always wins.
+    language: Optional[str] = Field(default=None, pattern=TTS_LANGUAGE_PATTERN)
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B)$")
     instruct: Optional[str] = Field(None, max_length=500)
