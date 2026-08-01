@@ -7,12 +7,13 @@ description: "Use built-in, ready-made voices without recording audio samples"
 
 Some Voicebox engines ship with a curated set of pre-built voices. Instead of cloning from your own audio sample, you pick a voice from a fixed catalog and the model speaks in that voice. No recording, no upload, no per-voice training required.
 
-Two engines in 0.4 ship preset voices:
+Three engines ship preset voices:
 
 | Engine                | Voices                  | Languages | Strengths                                               |
 | --------------------- | ----------------------- | --------- | ------------------------------------------------------- |
-| **Kokoro 82M**        | 50                      | 9         | Tiny model, CPU-friendly, lowest VRAM of any engine     |
+| **Kokoro 82M**        | 50                      | 8         | Tiny model, CPU-friendly, lowest VRAM of any engine     |
 | **Qwen CustomVoice**  | 9 (premium curated)     | 4         | Natural-language style control over tone, emotion, pace |
+| **MMS (Meta)**        | 1 per language          | Romanian  | The only preset engine with Romanian — ~150MB, CPU realtime |
 
 <Callout type="info">
   Looking for cloning a specific person's voice instead? See [Voice Cloning](/overview/voice-cloning).
@@ -42,7 +43,7 @@ Two engines in 0.4 ship preset voices:
     Same entry point as cloning profiles
   </Step>
   <Step title="Choose the engine">
-    Select **Kokoro** or **Qwen CustomVoice** from the engine dropdown
+    Select **Kokoro**, **Qwen CustomVoice**, or **MMS Romanian** from the engine dropdown
   </Step>
   <Step title="Pick a preset voice">
     The voice catalog for the chosen engine appears — preview each by clicking it
@@ -166,6 +167,29 @@ The full Generate page also surfaces the instruct field as a separate input.
 | VRAM            | ~3.5 GB (1.7B), ~1.2 GB (0.6B)                     |
 | Instruct        | Yes — natural-language style control               |
 | Cloning         | No — paired Base Qwen3-TTS engine handles cloning  |
+
+## MMS Romanian — Meta's Massively Multilingual Speech
+
+MMS wraps Meta's per-language VITS checkpoints (`facebook/mms-tts-{lang}`). Each checkpoint is a single fixed speaker, so there is exactly one preset voice per language. Voicebox ships the Romanian checkpoint — the only preset engine that speaks Romanian (for Romanian voice cloning, see the F5-TTS engine).
+
+**Repository:** [`facebook/mms-tts-ron`](https://huggingface.co/facebook/mms-tts-ron) · CC-BY-NC 4.0 licensed
+
+| Voice           | Gender | Language        |
+| --------------- | ------ | --------------- |
+| Romanian (MMS)  | male   | Romanian (`ro`) |
+
+Romanian text in the wild mixes cedilla diacritics (ş/ţ) with the correct comma-below forms (ș/ț). Voicebox normalizes both conventions automatically before synthesis, so either spelling is pronounced correctly.
+
+### MMS at a Glance
+
+| Property        | Value                                          |
+| --------------- | ---------------------------------------------- |
+| Architecture    | VITS (~100M params per language)               |
+| Sample rate     | 16 kHz                                         |
+| Size on disk    | ~150 MB                                        |
+| Speed           | Realtime on CPU                                |
+| Instruct        | Not supported (single fixed speaker)           |
+| License         | CC-BY-NC 4.0                                   |
 
 ## Cloning vs Preset — Quick Decision
 

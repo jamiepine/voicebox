@@ -276,6 +276,17 @@ def build_server(cuda=False, rocm=False):
             "backend.backends.kokoro_backend",
             "--collect-all",
             "kokoro",
+            # MMS-TTS — pure transformers VITS; the transformers hook already
+            # bundles the model classes, only the backend module is needed.
+            "--hidden-import",
+            "backend.backends.mms_backend",
+            # F5-TTS — model configs ship as yaml data files read via
+            # importlib.resources at runtime (configs/F5TTS_v1_Base.yaml),
+            # which hidden-import alone won't bundle.
+            "--hidden-import",
+            "backend.backends.f5_backend",
+            "--collect-all",
+            "f5_tts",
             # misaki ships G2P data files (dictionaries, phoneme tables)
             # that must be bundled for espeak/en/ja/zh G2P to work
             "--collect-all",
@@ -720,6 +731,8 @@ def build_shim():
         "tada",
         "--exclude-module",
         "kokoro",
+        "--exclude-module",
+        "f5_tts",
         "--exclude-module",
         "misaki",
         "--exclude-module",

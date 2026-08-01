@@ -67,14 +67,14 @@
 
 ## What is Voicebox?
 
-Voicebox is a **local-first AI voice studio** — a free and open-source alternative to **ElevenLabs** and **WisprFlow** in one app. Clone voices from a few seconds of audio, generate speech in 23 languages across 7 TTS engines, dictate into any text field with a global hotkey, and give any MCP-aware AI agent a voice of your choosing.
+Voicebox is a **local-first AI voice studio** — a free and open-source alternative to **ElevenLabs** and **WisprFlow** in one app. Clone voices from a few seconds of audio, generate speech in 24 languages across 9 TTS engines, dictate into any text field with a global hotkey, and give any MCP-aware AI agent a voice of your choosing.
 
 The two cloud incumbents sit on opposite halves of the voice I/O loop — ElevenLabs on output, WisprFlow on input. Voicebox does both, bridges them with a bundled local LLM for refinement and per-profile personas, and runs the whole thing on your machine.
 
 - **Complete privacy** — models, voice data, and captures never leave your machine
-- **7 TTS engines** — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, and Kokoro
-- **Voice cloning and preset voices** — zero-shot cloning from a reference sample, or 50+ curated preset voices via Kokoro and Qwen CustomVoice
-- **23 languages** — from English to Arabic, Japanese, Hindi, Swahili, and more
+- **9 TTS engines** — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, Kokoro, MMS, and F5-TTS
+- **Voice cloning and preset voices** — zero-shot cloning from a reference sample, or 50+ curated preset voices via Kokoro, Qwen CustomVoice, and MMS (Romanian)
+- **24 languages** — from English to Arabic, Japanese, Hindi, Romanian, Swahili, and more
 - **Post-processing effects** — pitch shift, reverb, delay, chorus, compression, and filters
 - **Expressive speech** — paralinguistic tags like `[laugh]`, `[sigh]`, `[gasp]` via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice
 - **Unlimited length** — auto-chunking with crossfade for scripts, articles, and chapters
@@ -109,7 +109,7 @@ The two cloud incumbents sit on opposite halves of the voice I/O loop — Eleven
 
 ### Multi-Engine Voice Cloning
 
-Seven TTS engines with different strengths, switchable per-generation:
+Nine TTS engines with different strengths, switchable per-generation:
 
 | Engine                      | Languages | Strengths                                                                                                                                |
 | --------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -120,6 +120,8 @@ Seven TTS engines with different strengths, switchable per-generation:
 | **Chatterbox Turbo**        | English   | Fast 350M model with paralinguistic emotion/sound tags                                                                                   |
 | **TADA** (1B / 3B)          | 10        | HumeAI speech-language model — 700s+ coherent audio, text-acoustic dual alignment                                                        |
 | **Kokoro**                  | 8         | 50 curated preset voices, tiny 82M model, fast CPU inference                                                                             |
+| **MMS** (Meta)              | Romanian  | Per-language VITS checkpoints (~150MB), CPU realtime, preset voice                                                                       |
+| **F5-TTS Romanian**         | Romanian, English | Community fine-tune with true Romanian voice cloning — zero-shot from a reference sample (slow: flow matching, ~12-20x realtime)   |
 
 ### Emotions & Paralinguistic Tags
 
@@ -370,7 +372,7 @@ Full API documentation available at `http://127.0.0.1:17493/docs`.
 | Frontend      | React, TypeScript, Tailwind CSS                                                 |
 | State         | Zustand, React Query                                                            |
 | Backend       | FastAPI (Python)                                                                |
-| TTS Engines   | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
+| TTS Engines   | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro, MMS, F5-TTS |
 | STT           | Whisper / Whisper Turbo (PyTorch or MLX)                                        |
 | Local LLM     | Qwen3 (0.6B / 1.7B / 4B), shared runtime with TTS / STT                         |
 | MCP Server    | FastMCP mounted at `/mcp` (Streamable HTTP) + bundled stdio shim binary         |
@@ -417,7 +419,7 @@ just dev     # starts backend + desktop app
 
 Install [just](https://github.com/casey/just): `brew install just` or `cargo install just`. Run `just --list` to see all commands.
 
-**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org), [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/), and [Xcode](https://developer.apple.com/xcode/) on macOS.
+**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org), [FFmpeg](https://ffmpeg.org) (`brew install ffmpeg` — required for F5-TTS generation and torchaudio ≥2.11 audio I/O), [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/), and [Xcode](https://developer.apple.com/xcode/) on macOS.
 
 The repo ships a pre-wired `.mcp.json` at the root — running Claude Code inside this checkout picks up the Voicebox MCP tools automatically once the dev app is running.
 

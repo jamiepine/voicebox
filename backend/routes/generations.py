@@ -75,6 +75,8 @@ async def generate_speech(
         raise HTTPException(status_code=400, detail=str(e))
 
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
+    # No explicit language on the request -> speak in the profile's language.
+    language = data.language or getattr(profile, "language", None) or "en"
 
     text = data.text
     source = "manual"
@@ -91,7 +93,7 @@ async def generate_speech(
     generation = await history.create_generation(
         profile_id=data.profile_id,
         text=text,
-        language=data.language,
+        language=language,
         audio_path="",
         duration=0,
         seed=data.seed,
@@ -129,7 +131,7 @@ async def generate_speech(
             generation_id=generation_id,
             profile_id=data.profile_id,
             text=text,
-            language=data.language,
+            language=language,
             engine=engine,
             model_size=model_size,
             seed=data.seed,
@@ -340,6 +342,8 @@ async def stream_speech(
         raise HTTPException(status_code=400, detail=str(e))
     tts_model = get_tts_backend_for_engine(engine)
     model_size = data.model_size or "1.7B"
+    # No explicit language on the request -> speak in the profile's language.
+    language = data.language or getattr(profile, "language", None) or "en"
 
     await ensure_model_cached_or_raise(engine, model_size)
     await load_engine_model(engine, model_size)
@@ -367,7 +371,7 @@ async def stream_speech(
         tts_model,
         data.text,
         voice_prompt,
-        language=data.language,
+        language=language,
         seed=data.seed,
         instruct=data.instruct,
         max_chunk_chars=data.max_chunk_chars,

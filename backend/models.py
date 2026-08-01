@@ -11,15 +11,18 @@ from .utils.capture_chords import (
     default_toggle_to_talk_chord,
 )
 
+# Shared validation patterns for TTS requests. The Qwen-specific 10-language
+# patterns further down are intentionally separate — do not merge them.
+TTS_LANGUAGE_PATTERN = "^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr|ro)$"
+TTS_ENGINE_PATTERN = "^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro|mms|f5)$"
+
 
 class VoiceProfileCreate(BaseModel):
     """Request model for creating a voice profile."""
 
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
-    language: str = Field(
-        default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
-    )
+    language: str = Field(default="en", pattern=TTS_LANGUAGE_PATTERN)
     voice_type: Optional[str] = Field(default="cloned", pattern="^(cloned|preset|designed)$")
     preset_engine: Optional[str] = Field(None, max_length=50)
     preset_voice_id: Optional[str] = Field(None, max_length=100)
@@ -81,11 +84,13 @@ class GenerationRequest(BaseModel):
 
     profile_id: str
     text: str = Field(..., min_length=1, max_length=50000)
-    language: str = Field(default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$")
+    # None -> inherit the profile's language (falls back to "en" for
+    # profiles without one); an explicit value always wins.
+    language: Optional[str] = Field(default=None, pattern=TTS_LANGUAGE_PATTERN)
     seed: Optional[int] = Field(None, ge=0)
     model_size: Optional[str] = Field(default="1.7B", pattern="^(1\\.7B|0\\.6B|1B|3B)$")
     instruct: Optional[str] = Field(None, max_length=500)
-    engine: Optional[str] = Field(default="qwen", pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$")
+    engine: Optional[str] = Field(default="qwen", pattern=TTS_ENGINE_PATTERN)
     personality: bool = Field(
         default=False,
         description="When true and the profile has a personality prompt, the input text is rewritten in-character before TTS.",
@@ -317,7 +322,7 @@ class MCPClientBindingResponse(BaseModel):
     profile_id: Optional[str] = None
     default_engine: Optional[str] = Field(
         None,
-        pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+        pattern=TTS_ENGINE_PATTERN,
     )
     default_personality: bool = False
     last_seen_at: Optional[datetime] = None
@@ -336,7 +341,7 @@ class MCPClientBindingUpsert(BaseModel):
     profile_id: Optional[str] = None
     default_engine: Optional[str] = Field(
         None,
-        pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+        pattern=TTS_ENGINE_PATTERN,
     )
     default_personality: bool = False
 
@@ -355,7 +360,7 @@ class SpeakRequest(BaseModel):
     )
     engine: Optional[str] = Field(
         None,
-        pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+        pattern=TTS_ENGINE_PATTERN,
     )
     personality: Optional[bool] = Field(
         None,
@@ -363,7 +368,7 @@ class SpeakRequest(BaseModel):
     )
     language: Optional[str] = Field(
         None,
-        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+        pattern=TTS_LANGUAGE_PATTERN,
     )
 
 

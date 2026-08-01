@@ -27,6 +27,8 @@ const generationSchema = z.object({
       'chatterbox_turbo',
       'tada',
       'kokoro',
+      'mms',
+      'f5',
     ])
     .optional(),
   personality: z.boolean().optional(),
@@ -100,9 +102,13 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'tada-1b'
                 : engine === 'kokoro'
                   ? 'kokoro'
-                  : engine === 'qwen_custom_voice'
-                    ? `qwen-custom-voice-${data.modelSize}`
-                    : `qwen-tts-${data.modelSize}`;
+                  : engine === 'mms'
+                    ? 'mms-tts-ron'
+                    : engine === 'f5'
+                      ? 'f5-tts-romanian'
+                      : engine === 'qwen_custom_voice'
+                        ? `qwen-custom-voice-${data.modelSize}`
+                        : `qwen-tts-${data.modelSize}`;
       const displayName =
         engine === 'luxtts'
           ? 'LuxTTS'
@@ -116,13 +122,17 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                   : 'TADA 1B'
                 : engine === 'kokoro'
                   ? 'Kokoro 82M'
-                  : engine === 'qwen_custom_voice'
-                    ? data.modelSize === '1.7B'
-                      ? 'Qwen CustomVoice 1.7B'
-                      : 'Qwen CustomVoice 0.6B'
-                    : data.modelSize === '1.7B'
-                      ? 'Qwen TTS 1.7B'
-                      : 'Qwen TTS 0.6B';
+                  : engine === 'mms'
+                    ? 'MMS Romanian (Meta)'
+                    : engine === 'f5'
+                      ? 'F5-TTS Romanian (community)'
+                      : engine === 'qwen_custom_voice'
+                        ? data.modelSize === '1.7B'
+                          ? 'Qwen CustomVoice 1.7B'
+                          : 'Qwen CustomVoice 0.6B'
+                        : data.modelSize === '1.7B'
+                          ? 'Qwen TTS 1.7B'
+                          : 'Qwen TTS 0.6B';
 
       // Check if model needs downloading
       try {

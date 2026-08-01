@@ -7,6 +7,27 @@
 
 ## [Unreleased]
 
+### Voice Generation
+
+- **Romanian voice cloning via a new F5-TTS engine.** A new `f5` engine wraps
+  the community Romanian fine-tune of F5-TTS (`MihaiPopa-1/F5-TTS-Romanian`,
+  Apache-2.0) — the first engine with true Romanian voice cloning: record a
+  cloned profile and generate Romanian (or English) speech in that voice,
+  zero-shot. References longer than 12s are trimmed at the quietest pause and
+  both Romanian diacritic conventions are normalized to the model's vocab.
+  Heads-up: generation uses 32-step flow matching and is well below realtime
+  (~12x slower on Apple Silicon MPS, ~20x on CPU); the ~1.2GB checkpoint plus
+  the Vocos vocoder download on first use. Adds one Python dependency
+  (`f5-tts`, pinned); FFmpeg is required on the system (torchcodec audio I/O).
+
+- **Romanian TTS via a new MMS engine.** A new `mms` engine wraps Meta's
+  MMS-TTS Romanian checkpoint (`facebook/mms-tts-ron`) — a ~150MB VITS model
+  that runs realtime on CPU, using the already-bundled transformers runtime
+  (zero new dependencies). It ships as a preset voice (like Kokoro): create a
+  profile with the Romanian MMS voice and generate. Romanian text using either
+  diacritic convention (cedilla ş/ţ or comma-below ș/ț) is normalized
+  automatically so no character is silently dropped by the tokenizer.
+
 ### Linux
 
 - **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch
