@@ -125,6 +125,95 @@ class TestF5Speed:
         assert _f5_speed() == 1.0
 
 
+class TestEngineDefaultChunkChars:
+    """F5 chunks to roughly one sentence (long single-shot generations
+    degrade); other engines keep the generic default."""
+
+    def test_f5_chunks_per_sentence(self):
+        from backend.backends import engine_default_chunk_chars
+
+        assert engine_default_chunk_chars("f5") == 140
+
+    def test_other_engines_generic_default(self):
+        from backend.backends import engine_default_chunk_chars
+
+        assert engine_default_chunk_chars("qwen") == 800
+        assert engine_default_chunk_chars("unknown-engine") == 800
+
+
+class TestHardOnsetDetection:
+    """F5 garbles ț/î/â as the first sound; those onsets get the lead-in fix."""
+
+    @pytest.mark.parametrize("text", ["Țin minte tot.", "Împreună mergem.", "Ântâi plecăm.",
+                                      "  țara noastră", "ÎN oraș"])
+    def test_hard_onsets_detected(self, text):
+        from backend.backends.f5_backend import _has_hard_onset
+
+        assert _has_hard_onset(text) is True
+
+    @pytest.mark.parametrize("text", ["Astăzi plouă.", "Mașina merge.", "Ora este cinci.",
+                                      "Sunt aici.", "El vine."])
+    def test_easy_onsets_not_flagged(self, text):
+        from backend.backends.f5_backend import _has_hard_onset
+
+        assert _has_hard_onset(text) is False
+
+    def test_onset_fix_default_off_and_toggleable(self, monkeypatch):
+        from backend.backends.f5_backend import F5_ONSET_FIX_ENV, _f5_onset_fix_enabled
+
+        monkeypatch.delenv(F5_ONSET_FIX_ENV, raising=False)
+        assert _f5_onset_fix_enabled() is False
+        monkeypatch.setenv(F5_ONSET_FIX_ENV, "1")
+        assert _f5_onset_fix_enabled() is True
+
+
+class TestF5NfeAndBestOf:
+    """nfe steps and best-of-N are env-configurable with safe fallbacks."""
+
+    def test_nfe_default(self, monkeypatch):
+        from backend.backends.f5_backend import F5_NFE_ENV, _f5_nfe_steps
+
+        monkeypatch.delenv(F5_NFE_ENV, raising=False)
+        assert _f5_nfe_steps() == 32
+
+    def test_nfe_valid(self, monkeypatch):
+        from backend.backends.f5_backend import F5_NFE_ENV, _f5_nfe_steps
+
+        monkeypatch.setenv(F5_NFE_ENV, "64")
+        assert _f5_nfe_steps() == 64
+
+    @pytest.mark.parametrize("raw", ["0", "500", "abc", ""])
+    def test_nfe_invalid_falls_back(self, monkeypatch, raw):
+        from backend.backends.f5_backend import F5_NFE_ENV, _f5_nfe_steps
+
+        monkeypatch.setenv(F5_NFE_ENV, raw)
+        assert _f5_nfe_steps() == 32
+
+    def test_best_of_default_disabled(self, monkeypatch):
+        from backend.backends.f5_backend import F5_BEST_OF_ENV, _f5_best_of
+
+        monkeypatch.delenv(F5_BEST_OF_ENV, raising=False)
+        assert _f5_best_of() == 1
+
+    def test_best_of_valid(self, monkeypatch):
+        from backend.backends.f5_backend import F5_BEST_OF_ENV, _f5_best_of
+
+        monkeypatch.setenv(F5_BEST_OF_ENV, "3")
+        assert _f5_best_of() == 3
+
+    @pytest.mark.parametrize("raw", ["0", "99", "x"])
+    def test_best_of_invalid_falls_back(self, monkeypatch, raw):
+        from backend.backends.f5_backend import F5_BEST_OF_ENV, _f5_best_of
+
+        monkeypatch.setenv(F5_BEST_OF_ENV, raw)
+        assert _f5_best_of() == 1
+
+    def test_similarity_key_ignores_case_punct_diacritics(self):
+        from backend.backends.f5_backend import _asr_similarity_key
+
+        assert _asr_similarity_key("Șapte porți!") == _asr_similarity_key("sapte porti")
+
+
 class TestSpellRomanianNumbers:
     """Digits are effectively untrained in the fine-tune; they must be
     spelled out the way the training data wrote them (in letters)."""

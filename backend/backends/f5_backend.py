@@ -20,6 +20,7 @@ import asyncio
 import hashlib
 import logging
 import os
+import random
 import re
 import unicodedata
 from pathlib import Path
@@ -55,6 +56,36 @@ F5_NFE_STEPS = 32
 # faster than the desired output pace (1.0 = the model's natural rate,
 # lower = slower). Personal v3 checkpoint pairs with 0.85.
 F5_SPEED_ENV = "VOICEBOX_F5_SPEED"
+# Flow-matching steps per generation. Higher = cleaner articulation but
+# proportionally slower (64 ~= 2x the cost of 32). Default 32 is the
+# F5-TTS reference value.
+F5_NFE_ENV = "VOICEBOX_F5_NFE"
+# Best-of-N: generate this many candidates and keep the one an ASR pass
+# transcribes closest to the intended text — trades latency for fewer
+# slurred/garbled takes on hard sentences. 1 disables it (default).
+F5_BEST_OF_ENV = "VOICEBOX_F5_BEST_OF"
+
+# Onset fix: F5 garbles the very first word when it starts with a Romanian
+# comma-below/circumflex sound (ț, î, â) — measured "Țin"->"Foai/Floi",
+# "Țara"->"Foara", "Împreună"->"Om", while vowel/common-consonant onsets are
+# clean. A throwaway lead-in word absorbs the unstable onset; it is then
+# trimmed off using the ASR word timestamp of the first real word.
+F5_HARD_ONSET_CHARS = ("ț", "î", "â")
+F5_ONSET_LEAD_IN = "Așa, "
+# Default OFF: the lead-in reliably absorbs the garbled onset, but trimming
+# it back off via ASR word timestamps proved imprecise and sometimes clips
+# real speech — a worse failure than the original garble. Kept as an opt-in
+# (VOICEBOX_F5_ONSET_FIX=1) pending a robust trim. Set to "1"/"true" to enable.
+F5_ONSET_FIX_ENV = "VOICEBOX_F5_ONSET_FIX"
+
+
+def _f5_onset_fix_enabled() -> bool:
+    return os.environ.get(F5_ONSET_FIX_ENV, "0").lower() in ("1", "true", "yes", "on")
+
+
+def _has_hard_onset(text: str) -> bool:
+    stripped = text.lstrip().lower()
+    return stripped.startswith(F5_HARD_ONSET_CHARS)
 
 
 def _f5_speed() -> float:
@@ -70,6 +101,38 @@ def _f5_speed() -> float:
         logger.warning("%s=%s outside [0.3, 2.0], using 1.0", F5_SPEED_ENV, speed)
         return 1.0
     return speed
+
+
+def _env_int(name: str, default: int, lo: int, hi: int) -> int:
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Invalid %s=%r, using %d", name, raw, default)
+        return default
+    if not lo <= value <= hi:
+        logger.warning("%s=%d outside [%d, %d], using %d", name, value, lo, hi, default)
+        return default
+    return value
+
+
+def _f5_nfe_steps() -> int:
+    return _env_int(F5_NFE_ENV, F5_NFE_STEPS, 16, 128)
+
+
+def _f5_best_of() -> int:
+    return _env_int(F5_BEST_OF_ENV, 1, 1, 8)
+
+
+def _asr_similarity_key(text: str) -> str:
+    """Loosely normalize for ASR-vs-intended comparison: lowercase,
+    strip everything but letters/digits/spaces, collapse whitespace."""
+    text = unicodedata.normalize("NFD", text.lower())
+    text = "".join(c for c in text if unicodedata.category(c) != "Mn")
+    text = re.sub(r"[^a-z0-9 ]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 # F5 conditioning degrades with references over ~12s (upstream also hard-clips
 # at 12s). Trim at the quietest 300ms window found between 8s and 12s so the
@@ -280,6 +343,68 @@ class F5TTSBackend:
         self.model_size = "default"
         self._device: str | None = None
         self._model_load_lock = asyncio.Lock()
+        self._scorer = None  # lazy Whisper pipeline for best-of-N ranking
+
+    def _score_candidate(self, audio: np.ndarray, sample_rate: int, target: str) -> float:
+        """Similarity in [0, 1] between an ASR transcription of `audio` and
+        the intended text. Used only when best-of-N is enabled."""
+        from difflib import SequenceMatcher
+
+        if self._scorer is None:
+            from transformers import pipeline as hf_pipeline
+
+            logger.info("[F5] Loading ASR scorer for best-of-N (whisper-small)...")
+            self._scorer = hf_pipeline(
+                "automatic-speech-recognition", model="openai/whisper-small"
+            )
+        heard = self._scorer(
+            {"array": np.asarray(audio, dtype=np.float32), "sampling_rate": sample_rate},
+            generate_kwargs={"language": "romanian", "task": "transcribe"},
+        )["text"]
+        # ASR re-digitizes numbers ("2.487") while the target is already
+        # spelled out; spell the ASR output too so the format gap doesn't
+        # swamp the comparison and flatten every candidate to one score.
+        heard = spell_romanian_numbers(heard)
+        return SequenceMatcher(
+            None, _asr_similarity_key(heard), _asr_similarity_key(target)
+        ).ratio()
+
+    def _trim_lead_in(self, audio: np.ndarray, sample_rate: int, lead_in: str) -> np.ndarray:
+        """Cut the throwaway onset lead-in off the front of ``audio``.
+
+        Uses word-level ASR timestamps to find where the first non-lead-in
+        word begins and cuts there (silence-based cutting proved unreliable —
+        the lead-in's trailing pause isn't cleanly detectable). Runs the ASR
+        on CPU to avoid contending with F5 on MPS. On any failure it returns
+        the audio unchanged rather than risk clipping real speech.
+        """
+        lead_words = {w.strip(".,!?").lower() for w in lead_in.split() if w.strip(".,!?")}
+        try:
+            if self._scorer is None:
+                from transformers import pipeline as hf_pipeline
+
+                self._scorer = hf_pipeline(
+                    "automatic-speech-recognition", model="openai/whisper-small", device="cpu"
+                )
+            result = self._scorer(
+                {"array": np.asarray(audio, dtype=np.float32), "sampling_rate": sample_rate},
+                return_timestamps="word",
+                generate_kwargs={"language": "romanian", "task": "transcribe"},
+            )
+            for chunk in result.get("chunks", []):
+                word = chunk["text"].strip().strip(".,!?").lower()
+                if word and word not in lead_words:
+                    start = chunk["timestamp"][0]
+                    if start is None:
+                        break
+                    # small safety margin so timestamp jitter can't clip the word
+                    cut = max(0, int((start - 0.03) * sample_rate))
+                    if 0 < cut < len(audio):
+                        return audio[cut:]
+                    break
+        except Exception as e:  # never fail a generation over the cosmetic fix
+            logger.warning("[F5] onset lead-in trim failed, keeping full audio: %s", e)
+        return audio
 
     def _get_device(self) -> str:
         # MPS verified stable on this checkpoint with memory free and ~2x
@@ -465,21 +590,63 @@ class F5TTSBackend:
                 gen_text = unicodedata.normalize("NFC", text)
                 prompt_text = unicodedata.normalize("NFC", trimmed_text)
 
-            logger.info("[F5] Generating: lang=%s", language)
-
-            # F5TTS.infer seeds torch/numpy/random itself (seed_everything);
-            # passing seed=None picks a fresh random seed.
-            wav, sample_rate, _spec = self.model.infer(
-                ref_file,
-                prompt_text,
-                gen_text,
-                nfe_step=F5_NFE_STEPS,
-                seed=seed,
-                speed=_f5_speed(),
-                show_info=logger.debug,
+            nfe_step = _f5_nfe_steps()
+            speed = _f5_speed()
+            best_of = _f5_best_of()
+            # Absorb F5's ț/î/â onset garbling with a throwaway lead-in word
+            # that gets trimmed back off after generation (Romanian only).
+            use_onset_fix = (
+                language == "ro" and _f5_onset_fix_enabled() and _has_hard_onset(gen_text)
+            )
+            if use_onset_fix:
+                gen_text = F5_ONSET_LEAD_IN + gen_text
+            logger.info(
+                "[F5] Generating: lang=%s nfe=%d speed=%.2f best_of=%d onset_fix=%s",
+                language, nfe_step, speed, best_of, use_onset_fix,
             )
 
-            audio = np.asarray(wav, dtype=np.float32)
-            return audio, int(sample_rate)
+            def _infer_once(candidate_seed: int | None):
+                # F5TTS.infer runs seed_everything(seed), which writes
+                # os.environ["PYTHONHASHSEED"]=str(seed). With seed=None F5
+                # draws random.randint(0, sys.maxsize) (~9e18), and the next
+                # subprocess (e.g. the vocoder worker on a later chunk) then
+                # aborts with "PYTHONHASHSEED must be in range [0, 4294967295]".
+                # Always hand F5 a seed inside that range instead.
+                if candidate_seed is None:
+                    candidate_seed = random.randint(0, 2**32 - 1)
+                else:
+                    candidate_seed %= 2**32
+                wav, sr, _spec = self.model.infer(
+                    ref_file,
+                    prompt_text,
+                    gen_text,
+                    nfe_step=nfe_step,
+                    seed=candidate_seed,
+                    speed=speed,
+                    show_info=logger.debug,
+                )
+                return np.asarray(wav, dtype=np.float32), int(sr)
+
+            if best_of <= 1:
+                audio, sample_rate = _infer_once(seed)
+                if use_onset_fix:
+                    audio = self._trim_lead_in(audio, sample_rate, F5_ONSET_LEAD_IN)
+                return audio, sample_rate
+
+            # Generate N diverse candidates (distinct seeds for reproducibility
+            # when a base seed is given) and keep the best-transcribed one.
+            best_audio, best_sr, best_score = None, None, -1.0
+            for i in range(best_of):
+                cand_seed = None if seed is None else seed + i
+                audio, sr = _infer_once(cand_seed)
+                score = self._score_candidate(audio, sr, gen_text)
+                logger.info("[F5] best-of-%d candidate %d/%d score=%.3f",
+                            best_of, i + 1, best_of, score)
+                if score > best_score:
+                    best_audio, best_sr, best_score = audio, sr, score
+            logger.info("[F5] best-of-%d selected score=%.3f", best_of, best_score)
+            if use_onset_fix:
+                best_audio = self._trim_lead_in(best_audio, best_sr, F5_ONSET_LEAD_IN)
+            return best_audio, best_sr
 
         return await asyncio.to_thread(_generate_sync)

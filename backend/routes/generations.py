@@ -66,7 +66,7 @@ async def generate_speech(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
 
-    from ..backends import engine_has_model_sizes
+    from ..backends import engine_has_model_sizes, engine_default_chunk_chars
 
     engine = _resolve_generation_engine(data, profile)
     try:
@@ -77,6 +77,8 @@ async def generate_speech(
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
     # No explicit language on the request -> speak in the profile's language.
     language = data.language or getattr(profile, "language", None) or "en"
+    # No explicit chunk size -> per-engine default (F5 chunks tightly).
+    max_chunk_chars = data.max_chunk_chars or engine_default_chunk_chars(engine)
 
     text = data.text
     source = "manual"
@@ -139,7 +141,7 @@ async def generate_speech(
             effects_chain=effects_chain_config,
             instruct=data.instruct,
             mode="generate",
-            max_chunk_chars=data.max_chunk_chars,
+            max_chunk_chars=max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
         )
     )
@@ -323,7 +325,7 @@ async def stream_speech(
     db: Session = Depends(get_db),
 ):
     """Generate speech and stream the WAV audio directly without saving to disk."""
-    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim
+    from ..backends import get_tts_backend_for_engine, ensure_model_cached_or_raise, load_engine_model, engine_needs_trim, engine_default_chunk_chars
 
     profile = await profiles.get_profile(data.profile_id, db)
     if not profile:
@@ -338,6 +340,7 @@ async def stream_speech(
     model_size = data.model_size or "1.7B"
     # No explicit language on the request -> speak in the profile's language.
     language = data.language or getattr(profile, "language", None) or "en"
+    max_chunk_chars = data.max_chunk_chars or engine_default_chunk_chars(engine)
 
     await ensure_model_cached_or_raise(engine, model_size)
     await load_engine_model(engine, model_size)
@@ -363,7 +366,7 @@ async def stream_speech(
         language=language,
         seed=data.seed,
         instruct=data.instruct,
-        max_chunk_chars=data.max_chunk_chars,
+        max_chunk_chars=max_chunk_chars,
         crossfade_ms=data.crossfade_ms,
         trim_fn=trim_fn,
     )

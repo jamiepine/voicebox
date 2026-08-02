@@ -95,8 +95,11 @@ class GenerationRequest(BaseModel):
         default=False,
         description="When true and the profile has a personality prompt, the input text is rewritten in-character before TTS.",
     )
-    max_chunk_chars: int = Field(
-        default=800, ge=100, le=5000, description="Max characters per chunk for long text splitting"
+    # None -> per-engine default resolved in the route. F5-TTS degrades on
+    # long single-shot generations (>~15s), so it chunks far more tightly
+    # than the generic 800.
+    max_chunk_chars: Optional[int] = Field(
+        default=None, ge=100, le=5000, description="Max characters per chunk for long text splitting"
     )
     crossfade_ms: int = Field(
         default=50, ge=0, le=500, description="Crossfade duration in ms between chunks (0 for hard cut)"

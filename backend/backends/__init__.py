@@ -522,6 +522,20 @@ def engine_needs_trim(engine: str) -> bool:
     return False
 
 
+# Per-engine override for the default max_chunk_chars (used when a request
+# omits it). F5-TTS handles long text via its own internal batching, so it
+# stays on the generic default; app-level re-chunking added sequential-infer
+# instability without a quality win once the PYTHONHASHSEED seed bug (which
+# was corrupting F5's later internal batches) was fixed.
+_ENGINE_DEFAULT_CHUNK_CHARS: dict[str, int] = {"f5": 140}
+_GENERIC_DEFAULT_CHUNK_CHARS = 800
+
+
+def engine_default_chunk_chars(engine: str) -> int:
+    """Per-engine default for max_chunk_chars when the request omits it."""
+    return _ENGINE_DEFAULT_CHUNK_CHARS.get(engine, _GENERIC_DEFAULT_CHUNK_CHARS)
+
+
 def engine_has_model_sizes(engine: str) -> bool:
     """Whether this engine supports multiple model sizes (only Qwen currently)."""
     configs = [c for c in get_tts_model_configs() if c.engine == engine]
