@@ -43,6 +43,26 @@ setup-python:
     fi
     echo "Installing Python dependencies..."
     {{ pip }} install --upgrade pip -q
+    if [ "$(uname)" = "Linux" ]; then
+        torch_index=""
+        if [ -e /proc/driver/nvidia/version ] || [ -d /sys/module/nvidia ]; then
+            echo "Detected NVIDIA GPU — installing CUDA PyTorch..."
+            torch_index="https://download.pytorch.org/whl/cu128"
+        elif [ -e /dev/kfd ]; then
+            if [ -n "${VOICEBOX_ROCM_VERSION:-}" ]; then
+                rocm_ver="$VOICEBOX_ROCM_VERSION"
+            elif lspci 2>/dev/null | grep -qi "Navi 4"; then
+                rocm_ver=7.2
+            else
+                rocm_ver=6.3
+            fi
+            echo "Detected AMD GPU — installing ROCm PyTorch (rocm${rocm_ver})..."
+            torch_index="https://download.pytorch.org/whl/rocm${rocm_ver}"
+        fi
+        if [ -n "$torch_index" ]; then
+            {{ pip }} install torch torchaudio --index-url "$torch_index"
+        fi
+    fi
     {{ pip }} install -r {{ backend_dir }}/requirements.txt
     # Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
     {{ pip }} install --no-deps chatterbox-tts
@@ -52,6 +72,12 @@ setup-python:
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
         {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        # mlx-lm and mlx-audio declare transformers>=5.x, which conflicts with
+        # our transformers<=4.57.x cap, so install them --no-deps (their other
+        # runtime deps are covered by requirements.txt / requirements-mlx.txt —
+        # see the note in requirements-mlx.txt and .github/workflows/release.yml)
+        {{ pip }} install --no-deps mlx-lm==0.31.1
+        {{ pip }} install --no-deps mlx-audio==0.4.1
     fi
     {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
     {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
@@ -69,10 +95,10 @@ setup-python:
     }
     Write-Host "Installing Python dependencies..."
     & "{{ python }}" -m pip install --upgrade pip -q
-    $gpus = Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name
-    Write-Host "Detected GPUs: $($gpus -join ', ')"
-    $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0
-    $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0
+    $gpus = Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name; \
+    Write-Host "Detected GPUs: $($gpus -join ', ')"; \
+    $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0; \
+    $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0; \
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
         & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
@@ -206,12 +232,16 @@ build-server: _ensure-venv
 build-server: _ensure-venv
     $ErrorActionPreference = "Stop"; \
     $env:PATH = "{{ venv_bin }};$env:PATH"; \
-    & "{{ python }}" backend/build_binary.py; \
-    if ($LASTEXITCODE -ne 0) { throw "build_binary.py failed with exit code $LASTEXITCODE" }; \
     $triple = (rustc --print host-tuple); \
     New-Item -ItemType Directory -Path "{{ tauri_dir }}/src-tauri/binaries" -Force | Out-Null; \
+    & "{{ python }}" backend/build_binary.py; \
+    if ($LASTEXITCODE -ne 0) { throw "build_binary.py failed with exit code $LASTEXITCODE" }; \
     Copy-Item "backend/dist/voicebox-server.exe" "{{ tauri_dir }}/src-tauri/binaries/voicebox-server-$triple.exe" -Force; \
-    Write-Host "Copied sidecar: voicebox-server-$triple.exe"
+    Write-Host "Copied sidecar: voicebox-server-$triple.exe"; \
+    & "{{ python }}" backend/build_binary.py --shim; \
+    if ($LASTEXITCODE -ne 0) { throw "build_binary.py --shim failed with exit code $LASTEXITCODE" }; \
+    Copy-Item "backend/dist/voicebox-mcp.exe" "{{ tauri_dir }}/src-tauri/binaries/voicebox-mcp-$triple.exe" -Force; \
+    Write-Host "Copied sidecar: voicebox-mcp-$triple.exe"
 
 # Build CUDA server binary and place in app data dir for local testing
 [windows]

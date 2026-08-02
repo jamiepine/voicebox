@@ -23,7 +23,7 @@ This page is for the cases where it doesn't:
 | **Windows + NVIDIA**        | PyTorch CUDA (cu128)      | Auto-downloads the CUDA backend binary on first use  |
 | **Windows + Intel Arc**     | PyTorch XPU (IPEX)        | New in 0.4 — works with Arc A-series and B-series    |
 | **Windows generic GPU**     | DirectML                  | Universal Windows GPU support; slower than CUDA      |
-| **Linux + NVIDIA**          | PyTorch CUDA (cu128)      | Same auto-download flow as Windows                   |
+| **Linux + NVIDIA**          | PyTorch CUDA (cu128)      | Use a local/remote Python backend with CUDA PyTorch  |
 | **Linux + AMD**             | PyTorch ROCm              | Auto-configures `HSA_OVERRIDE_GFX_VERSION`           |
 | **Linux + Intel Arc**       | PyTorch XPU (IPEX)        |                                                      |
 | **Any (no GPU)**            | PyTorch CPU               | Works everywhere; expect 5-50x slower than GPU       |
@@ -46,7 +46,7 @@ On M-series Macs, Voicebox ships an MLX-optimized backend that uses the Apple Ne
 
 The Whisper Turbo + MLX combo dropped transcription latency from ~20s to ~2-3s on M-series chips (see CHANGELOG entry for v0.1.10).
 
-## Windows / Linux + NVIDIA — The CUDA Backend Swap
+## Windows + NVIDIA — The CUDA Backend Swap
 
 Voicebox doesn't bundle CUDA into the main installer (it would balloon downloads to multi-gigabyte territory for users who don't have an NVIDIA GPU). Instead, when you first need it, the app downloads a separate **CUDA backend binary** that contains the PyTorch + CUDA runtime.
 

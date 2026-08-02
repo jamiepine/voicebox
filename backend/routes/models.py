@@ -231,7 +231,10 @@ async def get_model_status():
     backend_type = get_backend_type()
     task_manager = get_task_manager()
 
-    active_download_names = {task.model_name for task in task_manager.get_active_downloads()}
+    # Pending only — an errored task stays in the active list for the
+    # error/retry UI, but reporting it as "downloading" here would mask
+    # the model's real cache state until the app restarts (issue #925).
+    active_download_names = {task.model_name for task in task_manager.get_pending_downloads()}
 
     try:
         from huggingface_hub import scan_cache_dir

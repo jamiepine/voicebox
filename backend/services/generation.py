@@ -48,9 +48,14 @@ async def run_generation(
     This is the single entry point for all background generation work.
     It is designed to be enqueued via ``services.task_queue.enqueue_generation``.
     """
-    from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
+    from ..backends import (
+        engine_needs_trim,
+        engine_retries_runaway,
+        get_tts_backend_for_engine,
+        load_engine_model,
+    )
     from ..utils.chunked_tts import generate_chunked
-    from ..utils.audio import normalize_audio, save_audio, trim_tts_output
+    from ..utils.audio import has_tts_runaway, normalize_audio, save_audio, trim_tts_output
 
     task_manager = get_task_manager()
     bg_db = next(get_db())
@@ -72,12 +77,14 @@ async def run_generation(
 
         await history.update_generation_status(generation_id, "generating", bg_db)
         trim_fn = trim_tts_output if engine_needs_trim(engine) else None
+        runaway_detector = has_tts_runaway if engine_retries_runaway(engine) else None
 
         gen_kwargs: dict = dict(
             language=language,
             seed=seed if mode != "regenerate" else None,
             instruct=instruct,
             trim_fn=trim_fn,
+            runaway_detector=runaway_detector,
         )
         if max_chunk_chars is not None:
             gen_kwargs["max_chunk_chars"] = max_chunk_chars
@@ -267,9 +274,14 @@ async def generate_audio_sync(
     normalize, then encodes in-memory via :func:`tts.audio_to_wav_bytes`
     (same helper ``/generate/stream`` uses).
     """
-    from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
+    from ..backends import (
+        engine_needs_trim,
+        engine_retries_runaway,
+        get_tts_backend_for_engine,
+        load_engine_model,
+    )
     from ..utils.chunked_tts import generate_chunked
-    from ..utils.audio import normalize_audio, trim_tts_output
+    from ..utils.audio import has_tts_runaway, normalize_audio, trim_tts_output
     from . import tts
 
     bg_db = next(get_db())
@@ -287,12 +299,14 @@ async def generate_audio_sync(
         bg_db.close()
 
     trim_fn = trim_tts_output if engine_needs_trim(engine) else None
+    runaway_detector = has_tts_runaway if engine_retries_runaway(engine) else None
 
     gen_kwargs: dict = dict(
         language=language,
         seed=seed,
         instruct=instruct,
         trim_fn=trim_fn,
+        runaway_detector=runaway_detector,
     )
     if max_chunk_chars is not None:
         gen_kwargs["max_chunk_chars"] = max_chunk_chars

@@ -27,7 +27,7 @@ export default defineConfig({
     strictPort: true,
     // Watch files in the app directory for changes
     watch: {
-      ignored: ['!**/../app/**'],
+      ignored: ['!**/../app/**', '**/target/**'],
     },
   },
   envPrefix: ['VITE_', 'TAURI_'],

@@ -20,6 +20,7 @@ import type {
   PresetVoice,
   PersonalityTextResponse,
   ProfileSampleResponse,
+  RocmStatus,
   StoryCreate,
   StoryDetailResponse,
   StoryItemBatchUpdate,
@@ -50,6 +51,8 @@ import type {
   MCPClientBinding,
   MCPClientBindingListResponse,
   MCPClientBindingUpsert,
+  CloudLoginStartResponse,
+  CloudStatus,
 } from './types';
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
@@ -693,6 +696,23 @@ class ApiClient {
     });
   }
 
+  // ROCm Backend Management
+  async getRocmStatus(): Promise<RocmStatus> {
+    return this.request<RocmStatus>('/backend/rocm-status');
+  }
+
+  async downloadRocmBackend(): Promise<{ message: string; progress_key: string }> {
+    return this.request<{ message: string; progress_key: string }>('/backend/download-rocm', {
+      method: 'POST',
+    });
+  }
+
+  async deleteRocmBackend(): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/backend/rocm', {
+      method: 'DELETE',
+    });
+  }
+
   // Stories
   async listStories(): Promise<StoryResponse[]> {
     return this.request<StoryResponse[]>('/stories');
@@ -919,6 +939,21 @@ class ApiClient {
     }
 
     return response.blob();
+  }
+
+  // Cloud (backup & sync) — browser-based device login. startCloudLogin opens
+  // the system browser server-side; the UI then polls getCloudStatus until the
+  // backend completes the exchange and the link goes live.
+  async getCloudStatus(): Promise<CloudStatus> {
+    return this.request<CloudStatus>('/cloud/status');
+  }
+
+  async startCloudLogin(): Promise<CloudLoginStartResponse> {
+    return this.request<CloudLoginStartResponse>('/cloud/login/start', { method: 'POST' });
+  }
+
+  async disconnectCloud(): Promise<CloudStatus> {
+    return this.request<CloudStatus>('/cloud/disconnect', { method: 'POST' });
   }
 }
 

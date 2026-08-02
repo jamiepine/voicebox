@@ -1,9 +1,9 @@
 'use client';
 
-import { Coffee, Github } from 'lucide-react';
+import { Coffee, Coins, Github } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
-import { DONATE_URL, GITHUB_REPO } from '@/lib/constants';
+import { DONATE_URL, GITHUB_REPO, TOKEN_TICKER } from '@/lib/constants';
 
 function formatStarCount(count: number): string {
   if (count >= 1000) {
@@ -32,7 +32,7 @@ export function Navbar() {
 
   return (
     <nav className="fixed inset-x-0 top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3 sm:grid sm:grid-cols-3">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:gap-x-6">
         {/* Logo + wordmark */}
         <a href="/" className="flex items-center gap-2.5 justify-self-start">
           <Image
@@ -75,16 +75,16 @@ export function Navbar() {
             Models
           </a>
           <a
-            href="/#api"
+            href="/pricing"
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            API
+            Pricing
           </a>
           <a
-            href="/download"
+            href="/blog"
             className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Download
+            Blog
           </a>
           <a
             href="https://docs.voicebox.sh"
@@ -96,8 +96,18 @@ export function Navbar() {
           </a>
         </div>
 
-        {/* Donate + GitHub star buttons */}
+        {/* Token + Donate + GitHub star buttons */}
         <div className="flex items-center gap-2 justify-self-end">
+          <a
+            href="/token"
+            className="hidden sm:flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:border-accent/40"
+            aria-label={`${TOKEN_TICKER} token`}
+          >
+            <Coins className="h-4 w-4 text-accent" />
+            <span className="text-[13px] font-semibold tracking-wide text-foreground">
+              {TOKEN_TICKER}
+            </span>
+          </a>
           <a
             href={DONATE_URL}
             target="_blank"

@@ -442,7 +442,8 @@ class HealthResponse(BaseModel):
     gpu_type: Optional[str] = None  # GPU type (CUDA, MPS, or None)
     vram_used_mb: Optional[float] = None
     backend_type: Optional[str] = None  # Backend type (mlx or pytorch)
-    backend_variant: Optional[str] = None  # Binary variant (cpu or cuda)
+    backend_variant: Optional[str] = None  # Binary variant (cpu, cuda, or rocm)
+    supports_rocm: bool = False  # AMD GPU on Windows — the ROCm backend is applicable
     gpu_compatibility_warning: Optional[str] = None  # Warning if GPU arch unsupported
 
 
@@ -793,3 +794,24 @@ class AvailableEffectsResponse(BaseModel):
     """Response listing all available effect types."""
 
     effects: List[AvailableEffect]
+
+
+# ─── Cloud (backup & sync) ──────────────────────────────────────────────
+
+
+class CloudLoginStartResponse(BaseModel):
+    """Returned when the desktop kicks off browser login. The backend has
+    already opened the browser; the URL is included for fallback/debugging."""
+
+    authorize_url: str
+
+
+class CloudStatusResponse(BaseModel):
+    """Current link between this device and a Voicebox Cloud account."""
+
+    connected: bool
+    device_name: Optional[str] = None
+    account_user_id: Optional[str] = None
+    key_prefix: Optional[str] = None
+    connected_at: Optional[datetime] = None
+    dashboard_url: str

@@ -269,7 +269,8 @@ export interface HealthResponse {
   gpu_type?: string;
   vram_used_mb?: number;
   backend_type?: string;
-  backend_variant?: string; // "cpu" or "cuda"
+  backend_variant?: string; // "cpu", "cuda", or "rocm"
+  supports_rocm?: boolean; // AMD GPU on Windows — the ROCm backend is applicable
 }
 
 export interface CudaDownloadProgress {
@@ -286,9 +287,32 @@ export interface CudaDownloadProgress {
 export interface CudaStatus {
   available: boolean; // CUDA binary exists on disk
   active: boolean; // Currently running the CUDA binary
-  binary_path?: string;
+  binary_path: string | null;
+  cuda_libs_version: string | null;
+  download_supported: boolean; // Platform has a matching release asset
+  unsupported_reason: string | null;
   downloading: boolean; // Download in progress
   download_progress?: CudaDownloadProgress;
+}
+
+export interface RocmDownloadProgress {
+  model_name: string;
+  current: number;
+  total: number;
+  progress: number;
+  filename?: string;
+  status: 'downloading' | 'extracting' | 'complete' | 'error';
+  timestamp: string;
+  error?: string;
+}
+
+export interface RocmStatus {
+  available: boolean; // ROCm binary exists on disk
+  active: boolean; // Currently running the ROCm binary
+  binary_path?: string;
+  rocm_libs_version?: string;
+  downloading: boolean; // Download in progress
+  download_progress?: RocmDownloadProgress;
 }
 
 export interface ModelProgress {
@@ -520,4 +544,19 @@ export interface MCPClientBindingUpsert {
 
 export interface MCPClientBindingListResponse {
   items: MCPClientBinding[];
+}
+
+/* ─── Cloud (backup & sync) ───────────────────────────────────────────── */
+
+export interface CloudLoginStartResponse {
+  authorize_url: string;
+}
+
+export interface CloudStatus {
+  connected: boolean;
+  device_name: string | null;
+  account_user_id: string | null;
+  key_prefix: string | null;
+  connected_at: string | null;
+  dashboard_url: string;
 }

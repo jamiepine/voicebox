@@ -52,6 +52,15 @@ class TauriLifecycle implements PlatformLifecycle {
     }
   }
 
+  async setBackendOverride(backend?: string | null): Promise<void> {
+    try {
+      await invoke('set_backend_override', { backend: backend ?? undefined });
+    } catch (error) {
+      console.error('Failed to set backend override:', error);
+      throw error;
+    }
+  }
+
   async setupWindowCloseHandler(): Promise<void> {
     try {
       // Listen for window close request from Rust

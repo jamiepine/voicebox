@@ -125,12 +125,24 @@ async def list_stories(
     """
     stories = db.query(DBStory).order_by(DBStory.updated_at.desc()).all()
 
+    if not stories:
+        return []
+
+    # Batch-fetch all story item counts in one query to avoid an N+1 pattern
+    # (previously there was one COUNT query per story in the loop below).
+    story_ids = [s.id for s in stories]
+    count_rows = (
+        db.query(DBStoryItem.story_id, func.count(DBStoryItem.id).label("cnt"))
+        .filter(DBStoryItem.story_id.in_(story_ids))
+        .group_by(DBStoryItem.story_id)
+        .all()
+    )
+    item_counts = {row.story_id: row.cnt for row in count_rows}
+
     result = []
     for story in stories:
-        item_count = db.query(func.count(DBStoryItem.id)).filter(DBStoryItem.story_id == story.id).scalar()
-
         response = StoryResponse.model_validate(story)
-        response.item_count = item_count
+        response.item_count = item_counts.get(story.id, 0)
         result.append(response)
 
     return result

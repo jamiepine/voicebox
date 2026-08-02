@@ -3,7 +3,6 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import voiceboxLogo from '@/assets/voicebox-logo.png';
-import { SPONSORS } from '@/lib/sponsors';
 import { usePlatform } from '@/platform/PlatformContext';
 
 function FadeIn({ delay = 0, children }: { delay?: number; children: ReactNode }) {
@@ -116,36 +115,6 @@ export function AboutPage() {
               </a>
             </div>
           </FadeIn>
-
-          {SPONSORS.length > 0 && (
-            <FadeIn delay={400}>
-              <div className="pt-4 flex flex-col items-center gap-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/60">
-                  Sponsored by
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-3">
-                  {SPONSORS.map((sponsor) => (
-                    <a
-                      key={sponsor.name}
-                      href={sponsor.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={sponsor.name}
-                      className="group flex h-12 min-w-[120px] items-center justify-center rounded-lg border border-border/60 bg-card/50 px-4 transition-colors hover:bg-muted/50"
-                    >
-                      <img
-                        src={sponsor.logoSrc}
-                        alt={sponsor.logoAlt ?? sponsor.name}
-                        className={`h-5 w-auto max-w-[100px] object-contain opacity-80 transition-opacity group-hover:opacity-100 ${
-                          sponsor.invertOnDark ? 'dark:brightness-0 dark:invert' : ''
-                        }`}
-                      />
-                    </a>
-                  ))}
-                </div>
-              </div>
-            </FadeIn>
-          )}
 
           <FadeIn delay={480}>
             <p className="text-xs text-muted-foreground/40 pt-4">

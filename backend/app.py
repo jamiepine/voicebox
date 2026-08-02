@@ -3,6 +3,8 @@
 import asyncio
 import logging
 import os
+import re
+import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -36,9 +38,67 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# AMD GPU environment variables must be set before torch import
+# An empty HSA_OVERRIDE_GFX_VERSION poisons the ROCm HSA runtime. It is
+# treated as "force-empty" and no GPU is detected, even natively supported
+# ones (e.g. gfx1201 / RX 9070 on ROCm 7.2). docker-compose can't
+# conditionally omit an env var, so we clean it up here before torch loads.
 if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
-    os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+    os.environ.pop("HSA_OVERRIDE_GFX_VERSION", None)
+
+# AMD GPU environment variables must be set before torch import
+# Only set HSA_OVERRIDE_GFX_VERSION for older GPUs that need it.
+# RDNA 3+ (gfx1100+) and RDNA 4 (gfx1200+) are natively supported by ROCm
+# and the override can cause suboptimal performance or errors.
+if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
+    try:
+        result = subprocess.run(
+            ["rocminfo"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            # Collect all GPUs found in rocminfo output
+            gfx_versions = []
+            for line in result.stdout.splitlines():
+                line_lower = line.lower()
+                if "gfx" in line_lower:
+                    match = re.search(r"(gfx\d+)", line_lower)
+                    if match:
+                        gfx_versions.append(match.group(1))
+
+            if gfx_versions:
+                # Check if any GPU needs the override (RDNA 2 and older)
+                # Use the oldest GPU (lowest gfx number) for the decision
+                try:
+                    gfx_nums = []
+                    for v in gfx_versions:
+                        m = re.search(r"\d+", v)
+                        if m:
+                            gfx_nums.append(int(m.group()))
+                    if gfx_nums:
+                        oldest_num = min(gfx_nums)
+                        oldest_gfx = gfx_versions[gfx_nums.index(oldest_num)]
+                        if oldest_num < 1100:
+                            os.environ["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+                            logger.info(
+                                "AMD GPU detected (%s), setting HSA_OVERRIDE_GFX_VERSION=10.3.0 for compatibility. All GPUs: %s",
+                                oldest_gfx,
+                                ", ".join(gfx_versions),
+                            )
+                        else:
+                            logger.info(
+                                "AMD GPU detected (%s), native ROCm support available, skipping HSA_OVERRIDE_GFX_VERSION. All GPUs: %s",
+                                oldest_gfx,
+                                ", ".join(gfx_versions),
+                            )
+                except (ValueError, AttributeError) as e:
+                    logger.info("Could not parse GPU version from rocminfo output: %s", e)
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception) as e:
+        logger.info(
+            "Could not detect AMD GPU via rocminfo, skipping automatic HSA_OVERRIDE_GFX_VERSION configuration: %s",
+            e,
+        )
 if not os.environ.get("MIOPEN_LOG_LEVEL"):
     os.environ["MIOPEN_LOG_LEVEL"] = "4"
 
@@ -273,8 +333,10 @@ async def _run_startup(application: FastAPI) -> None:
         logger.warning("GPU COMPATIBILITY: %s", _cuda_warning)
 
     from .services.cuda import check_and_update_cuda_binary
+    from .services.rocm import check_and_update_rocm_binary
 
     create_background_task(check_and_update_cuda_binary())
+    create_background_task(check_and_update_rocm_binary())
 
     try:
         progress_manager = get_progress_manager()

@@ -138,6 +138,11 @@ def check_cuda_compatibility() -> tuple[bool, str | None]:
     if not torch.cuda.is_available():
         return True, None
 
+    # ROCm/HIP uses the cuda frontend but has different architecture names (gfx*).
+    # Skip NVIDIA-specific compute capability checks on AMD hardware.
+    if hasattr(torch.version, "hip") and torch.version.hip:
+        return True, None
+
     major, minor = torch.cuda.get_device_capability(0)
     capability = f"{major}.{minor}"
     device_name = torch.cuda.get_device_name(0)

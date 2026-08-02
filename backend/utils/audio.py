@@ -110,6 +110,43 @@ def save_audio(
         raise OSError(f"Failed to save audio to {path}: {e}") from e
 
 
+def has_tts_runaway(
+    audio: np.ndarray,
+    sample_rate: int = 24000,
+    frame_ms: int = 20,
+    silence_threshold_db: float = -40.0,
+    max_internal_silence_ms: int = 2000,
+) -> bool:
+    """Detect speech followed by a long silence and then more output.
+
+    This shape is a reliable signal that a TTS model missed EOS and resumed
+    with hallucinated speech or codec noise. Leading and trailing silence do
+    not count because they are not bounded by non-silent audio.
+    """
+    frame_len = int(sample_rate * frame_ms / 1000)
+    if frame_len == 0 or len(audio) < frame_len:
+        return False
+
+    n_frames = len(audio) // frame_len
+    threshold_linear = 10 ** (silence_threshold_db / 20)
+    max_silence_frames = int(max_internal_silence_ms / frame_ms)
+    seen_speech = False
+    consecutive_silence = 0
+
+    for i in range(n_frames):
+        frame = audio[i * frame_len : (i + 1) * frame_len]
+        is_speech = np.sqrt(np.mean(frame**2)) >= threshold_linear
+        if is_speech:
+            if seen_speech and consecutive_silence >= max_silence_frames:
+                return True
+            seen_speech = True
+            consecutive_silence = 0
+        elif seen_speech:
+            consecutive_silence += 1
+
+    return False
+
+
 def trim_tts_output(
     audio: np.ndarray,
     sample_rate: int = 24000,

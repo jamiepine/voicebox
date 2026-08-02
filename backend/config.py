@@ -80,6 +80,11 @@ def resolve_storage_path(path: str | Path | None) -> Path | None:
         return None
 
     stored_path = Path(path)
+    # Empty paths (e.g. failed generations) must not resolve to the data
+    # dir itself, which exists and would defeat the callers' 404 guards.
+    # Path("") is truthy, so check parts rather than the raw value.
+    if not stored_path.parts:
+        return None
     if stored_path.is_absolute():
         rebased_path = _path_relative_to_any_data_dir(stored_path)
         if rebased_path is not None:
@@ -138,3 +143,17 @@ def get_models_dir() -> Path:
     path = _data_dir / "models"
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+# Voicebox Cloud (backup & sync). Two hosts: the web app owns auth + device
+# pairing (voicebox.sh), the API owns sync + account endpoints
+# (api.voicebox.sh). Override both for local development, e.g.
+# VOICEBOX_CLOUD_URL=http://localhost:17592 VOICEBOX_CLOUD_API_URL=http://localhost:17593
+def get_cloud_web_url() -> str:
+    """Base URL of the Voicebox Cloud web app (auth + /connect + exchange)."""
+    return os.environ.get("VOICEBOX_CLOUD_URL", "https://voicebox.sh").rstrip("/")
+
+
+def get_cloud_api_url() -> str:
+    """Base URL of the Voicebox Cloud API (bearer-authenticated sync/account)."""
+    return os.environ.get("VOICEBOX_CLOUD_API_URL", "https://api.voicebox.sh").rstrip("/")

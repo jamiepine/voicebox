@@ -56,6 +56,7 @@ class ModelConfig:
     model_size: str = "default"
     size_mb: int = 0
     needs_trim: bool = False
+    retries_runaway: bool = False
     supports_instruct: bool = False
     languages: list[str] = field(default_factory=lambda: ["en"])
 
@@ -232,6 +233,10 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
         repo_1_7b = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         repo_0_6b = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 
+    # mlx-audio can continue after an EOS miss with silence followed by
+    # codec noise. Retry only the affected text as smaller chunks.
+    retries_runaway = backend_type == "mlx"
+
     return [
         ModelConfig(
             model_name="qwen-tts-1.7B",
@@ -240,6 +245,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             hf_repo_id=repo_1_7b,
             model_size="1.7B",
             size_mb=3500,
+            retries_runaway=retries_runaway,
             supports_instruct=False,  # Base model drops instruct silently
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
@@ -250,6 +256,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             hf_repo_id=repo_0_6b,
             model_size="0.6B",
             size_mb=1200,
+            retries_runaway=retries_runaway,
             supports_instruct=False,
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
@@ -501,6 +508,14 @@ def engine_needs_trim(engine: str) -> bool:
     for cfg in get_tts_model_configs():
         if cfg.engine == engine:
             return cfg.needs_trim
+    return False
+
+
+def engine_retries_runaway(engine: str) -> bool:
+    """Whether unstable output should be retried in smaller chunks."""
+    for cfg in get_tts_model_configs():
+        if cfg.engine == engine:
+            return cfg.retries_runaway
     return False
 
 

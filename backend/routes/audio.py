@@ -34,7 +34,7 @@ async def get_version_audio(version_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Version not found")
 
     audio_path = config.resolve_storage_path(version.audio_path)
-    if audio_path is None or not audio_path.exists():
+    if audio_path is None or not audio_path.is_file():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
     return FileResponse(
@@ -52,8 +52,13 @@ async def get_audio(generation_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Generation not found")
 
     audio_path = config.resolve_storage_path(generation.audio_path)
-    if audio_path is None or not audio_path.exists():
-        raise HTTPException(status_code=404, detail="Audio file not found")
+    if audio_path is None or not audio_path.is_file():
+        detail = (
+            "Generation failed; no audio available"
+            if generation.status == "failed"
+            else "Audio file not found"
+        )
+        raise HTTPException(status_code=404, detail=detail)
 
     return FileResponse(
         audio_path,
@@ -72,7 +77,7 @@ async def get_sample_audio(sample_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Sample not found")
 
     audio_path = config.resolve_storage_path(sample.audio_path)
-    if audio_path is None or not audio_path.exists():
+    if audio_path is None or not audio_path.is_file():
         raise HTTPException(status_code=404, detail="Audio file not found")
 
     return FileResponse(

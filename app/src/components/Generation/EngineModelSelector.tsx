@@ -139,7 +139,7 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
           <SelectValue />
         </SelectTrigger>
       </FormControl>
-      <SelectContent>
+      <SelectContent side={compact ? 'top' : undefined}>
         {availableOptions.map((opt) => (
           <SelectItem key={opt.value} value={opt.value} className={itemClass}>
             {opt.label}
