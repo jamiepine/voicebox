@@ -1,39 +1,31 @@
 use crate::audio_capture::AudioCaptureState;
 use base64::{engine::general_purpose, Engine as _};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{SampleFormat, StreamConfig};
+use cpal::{Device, Host, SampleFormat, StreamConfig};
 use hound::{WavSpec, WavWriter};
 use std::io::Cursor;
+use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 
-/// Try to find a PulseAudio/PipeWire monitor source using `pactl`.
-/// Returns the source name (e.g. "alsa_output.pci-0000_0d_00.6.analog-stereo.monitor") if found.
-fn find_monitor_source_via_pactl() -> Option<String> {
-    let output = std::process::Command::new("pactl")
-        .args(["list", "short", "sources"])
-        .output()
-        .ok()?;
+fn pactl_stdout(args: &[&str]) -> Option<String> {
+    let output = Command::new("pactl").args(args).output().ok()?;
 
     if !output.status.success() {
         return None;
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    Some(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Try to find a PulseAudio/PipeWire monitor source using `pactl`.
+/// Returns the source name (e.g. "alsa_output.pci-0000_0d_00.6.analog-stereo.monitor") if found.
+fn find_monitor_source_via_pactl() -> Option<String> {
+    let stdout = pactl_stdout(&["list", "short", "sources"])?;
 
     // First, try to find the monitor of the default sink
-    let default_sink = std::process::Command::new("pactl")
-        .args(["get-default-sink"])
-        .output()
-        .ok()
-        .and_then(|o| {
-            if o.status.success() {
-                Some(String::from_utf8_lossy(&o.stdout).trim().to_string())
-            } else {
-                None
-            }
-        });
+    let default_sink = pactl_stdout(&["get-default-sink"]);
 
     // If we know the default sink, look for its .monitor specifically
     if let Some(sink_name) = &default_sink {
@@ -66,46 +58,298 @@ fn find_monitor_source_via_pactl() -> Option<String> {
     None
 }
 
-/// Select the capture device: prefer an exact match against the monitor
-/// source name reported by `pactl`, then fall back to any device whose name
-/// contains "monitor", then the host's default input device.
-fn select_capture_device(host: &cpal::Host, monitor_source: Option<&str>) -> Option<cpal::Device> {
-    let devices: Vec<cpal::Device> = host.input_devices().ok()?.collect();
+fn find_default_source_via_pactl() -> Option<String> {
+    pactl_stdout(&["get-default-source"]).filter(|source| !source.is_empty())
+}
 
-    if let Some(target) = monitor_source {
-        if let Some(pos) = devices
-            .iter()
-            .position(|d| d.name().map(|n| n == target).unwrap_or(false))
-        {
+fn set_default_source_via_pactl(source: &str) -> Result<(), String> {
+    let output = Command::new("pactl")
+        .args(["set-default-source", source])
+        .output()
+        .map_err(|e| format!("Failed to run pactl set-default-source: {}", e))?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if stderr.is_empty() {
+        Err(format!(
+            "pactl set-default-source {} failed with status {}",
+            source, output.status
+        ))
+    } else {
+        Err(format!(
+            "pactl set-default-source {} failed: {}",
+            source, stderr
+        ))
+    }
+}
+
+struct PulseDefaultSourceGuard {
+    previous_source: Option<String>,
+    restored: bool,
+}
+
+impl PulseDefaultSourceGuard {
+    fn switch_to(target_source: &str) -> Result<Self, String> {
+        let previous_source = find_default_source_via_pactl().ok_or_else(|| {
+            "Failed to read PulseAudio/PipeWire default source before routing monitor capture"
+                .to_string()
+        })?;
+
+        if previous_source == target_source {
             eprintln!(
-                "Linux audio capture: Using pactl monitor device: {}",
-                target
+                "Linux audio capture: PulseAudio/PipeWire default source already points at monitor: {}",
+                target_source
             );
-            return devices.into_iter().nth(pos);
+            return Ok(Self {
+                previous_source: None,
+                restored: true,
+            });
+        }
+
+        set_default_source_via_pactl(target_source)?;
+        eprintln!(
+            "Linux audio capture: Temporarily set PulseAudio/PipeWire default source to monitor: {}",
+            target_source
+        );
+
+        Ok(Self {
+            previous_source: Some(previous_source),
+            restored: false,
+        })
+    }
+
+    fn restore(&mut self) {
+        if self.restored {
+            return;
+        }
+
+        self.restored = true;
+
+        if let Some(previous_source) = &self.previous_source {
+            match set_default_source_via_pactl(previous_source) {
+                Ok(()) => eprintln!(
+                    "Linux audio capture: Restored PulseAudio/PipeWire default source: {}",
+                    previous_source
+                ),
+                Err(e) => eprintln!(
+                    "Linux audio capture: Failed to restore PulseAudio/PipeWire default source: {}",
+                    e
+                ),
+            }
+        }
+    }
+}
+
+impl Drop for PulseDefaultSourceGuard {
+    fn drop(&mut self) {
+        self.restore();
+    }
+}
+
+#[derive(Copy, Clone)]
+enum DeviceSelectionTier {
+    PactlExact,
+    PactlSuffix,
+    PactlNormalized,
+    MonitorAlias,
+    PulseDefaultSource,
+}
+
+impl DeviceSelectionTier {
+    fn label(self) -> &'static str {
+        match self {
+            Self::PactlExact => "pactl exact source-name match",
+            Self::PactlSuffix => "pactl source-name suffix match",
+            Self::PactlNormalized => "pactl normalized source-name match",
+            Self::MonitorAlias => "ALSA monitor alias match",
+            Self::PulseDefaultSource => "ALSA pulse device routed via pactl default source",
+        }
+    }
+}
+
+struct SelectedDevice {
+    device: Device,
+    name: String,
+    tier: DeviceSelectionTier,
+    pulse_source_guard: Option<PulseDefaultSourceGuard>,
+}
+
+fn normalized_device_key(value: &str) -> String {
+    value
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
+fn is_monitor_alias_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.ends_with(".monitor")
+        || lower.ends_with("-monitor")
+        || lower.ends_with("_monitor")
+        || lower.contains(":monitor")
+        || lower.contains("monitor:")
+        || lower.contains(" monitor")
+}
+
+fn classify_direct_monitor_device(
+    name: &str,
+    monitor_source: Option<&str>,
+) -> Option<DeviceSelectionTier> {
+    if let Some(source_name) = monitor_source {
+        if name == source_name {
+            return Some(DeviceSelectionTier::PactlExact);
+        }
+
+        if name.ends_with(source_name) {
+            return Some(DeviceSelectionTier::PactlSuffix);
+        }
+
+        let normalized_name = normalized_device_key(name);
+        let normalized_source = normalized_device_key(source_name);
+        if !normalized_source.is_empty() && normalized_name.contains(&normalized_source) {
+            return Some(DeviceSelectionTier::PactlNormalized);
         }
     }
 
-    if let Some(pos) = devices.iter().position(|d| {
-        d.name()
-            .map(|n| n.to_lowercase().contains("monitor"))
-            .unwrap_or(false)
-    }) {
-        let name = devices[pos].name().unwrap_or_default();
-        eprintln!("Linux audio capture: Found monitor device by name: {}", name);
-        return devices.into_iter().nth(pos);
+    if is_monitor_alias_name(name) {
+        return Some(DeviceSelectionTier::MonitorAlias);
     }
 
-    eprintln!("Linux audio capture: No monitor device found, falling back to default input");
-    host.default_input_device()
+    None
 }
 
-/// Start capturing system audio on Linux using PulseAudio monitor sources.
+fn find_direct_monitor_device(host: &Host, monitor_source: Option<&str>) -> Option<SelectedDevice> {
+    let mut suffix_monitor_device = None;
+    let mut normalized_monitor_device = None;
+    let mut alias_monitor_device = None;
+
+    if let Ok(devices) = host.input_devices() {
+        for d in devices {
+            if let Ok(name) = d.name() {
+                match classify_direct_monitor_device(&name, monitor_source) {
+                    Some(DeviceSelectionTier::PactlExact) => {
+                        return Some(SelectedDevice {
+                            device: d,
+                            name,
+                            tier: DeviceSelectionTier::PactlExact,
+                            pulse_source_guard: None,
+                        });
+                    }
+                    Some(DeviceSelectionTier::PactlSuffix) => {
+                        if suffix_monitor_device.is_none() {
+                            suffix_monitor_device = Some((d, name));
+                        }
+                    }
+                    Some(DeviceSelectionTier::PactlNormalized) => {
+                        if normalized_monitor_device.is_none() {
+                            normalized_monitor_device = Some((d, name));
+                        }
+                    }
+                    Some(DeviceSelectionTier::MonitorAlias) => {
+                        if alias_monitor_device.is_none() {
+                            alias_monitor_device = Some((d, name));
+                        }
+                    }
+                    Some(DeviceSelectionTier::PulseDefaultSource) | None => {}
+                }
+            }
+        }
+    }
+
+    suffix_monitor_device
+        .map(|(device, name)| SelectedDevice {
+            device,
+            name,
+            tier: DeviceSelectionTier::PactlSuffix,
+            pulse_source_guard: None,
+        })
+        .or_else(|| {
+            normalized_monitor_device.map(|(device, name)| SelectedDevice {
+                device,
+                name,
+                tier: DeviceSelectionTier::PactlNormalized,
+                pulse_source_guard: None,
+            })
+        })
+        .or_else(|| {
+            alias_monitor_device.map(|(device, name)| SelectedDevice {
+                device,
+                name,
+                tier: DeviceSelectionTier::MonitorAlias,
+                pulse_source_guard: None,
+            })
+        })
+}
+
+fn find_pulse_input_device(host: &Host) -> Option<(Device, String)> {
+    let devices = host.input_devices().ok()?;
+
+    for device in devices {
+        if let Ok(name) = device.name() {
+            if name == "pulse" || name.starts_with("pulse:") {
+                return Some((device, name));
+            }
+        }
+    }
+
+    None
+}
+
+fn route_pulse_device_to_monitor(
+    host: &Host,
+    monitor_source: &str,
+) -> Result<SelectedDevice, String> {
+    let guard = PulseDefaultSourceGuard::switch_to(monitor_source)?;
+    let (device, name) = find_pulse_input_device(host).ok_or_else(|| {
+        format!(
+            "Found PulseAudio/PipeWire monitor source \"{}\" via pactl, but CPAL's ALSA host did not expose a \"pulse\" input PCM after routing",
+            monitor_source
+        )
+    })?;
+
+    Ok(SelectedDevice {
+        device,
+        name,
+        tier: DeviceSelectionTier::PulseDefaultSource,
+        pulse_source_guard: Some(guard),
+    })
+}
+
+fn select_capture_device(
+    host: &Host,
+    monitor_source: Option<&str>,
+) -> Result<SelectedDevice, String> {
+    if let Some(device) = find_direct_monitor_device(host, monitor_source) {
+        return Ok(device);
+    }
+
+    if let Some(source_name) = monitor_source {
+        return route_pulse_device_to_monitor(host, source_name).map_err(|e| {
+            format!(
+                "{}. Refusing to use the default input device because it may capture the microphone instead of system audio.",
+                e
+            )
+        });
+    }
+
+    Err(
+        "No PulseAudio/PipeWire monitor source was found via pactl, and CPAL's ALSA host did not expose any monitor input PCM. Refusing to use the default input device because it may capture the microphone instead of system audio."
+            .to_string(),
+    )
+}
+
+/// Start capturing system audio on Linux.
 ///
-/// On modern Linux with PulseAudio or PipeWire, we first try to detect the
-/// monitor source via `pactl`, then select the matching cpal input device by
-/// name. This avoids mutating the process environment (`PULSE_SOURCE`), which
-/// is not thread-safe and would affect every thread in the process. If `pactl`
-/// is unavailable, we fall back to searching cpal device names for "monitor".
+/// CPAL 0.15 exposes ALSA on Linux, not native PulseAudio/PipeWire hosts. We
+/// therefore only use ALSA devices that look like monitor aliases. If the
+/// normal ALSA `pulse` PCM is the only viable route, we use `pactl` to point the
+/// PulseAudio/PipeWire default source at the discovered monitor while opening
+/// that PCM, then restore the previous default source. If neither path is
+/// available, capture fails instead of falling back to the user's microphone.
 pub async fn start_capture(
     state: &AudioCaptureState,
     max_duration_secs: u32,
@@ -134,24 +378,28 @@ pub async fn start_capture(
 
     // Spawn capture on a dedicated thread
     thread::spawn(move || {
-        let host = cpal::default_host();
+        // Try to find a monitor source before selecting a cpal device.
         let monitor_source = find_monitor_source_via_pactl();
 
-        let device = match select_capture_device(&host, monitor_source.as_deref()) {
-            Some(d) => d,
-            None => {
-                let error_msg = "No audio input device available".to_string();
-                eprintln!("{}", error_msg);
-                *error_arc.lock().unwrap() = Some(error_msg);
+        let host = cpal::default_host();
+
+        let mut selected_device = match select_capture_device(&host, monitor_source.as_deref()) {
+            Ok(device) => device,
+            Err(e) => {
+                eprintln!("Linux audio capture: {}", e);
+                *error_arc.lock().unwrap() = Some(e);
                 return;
             }
         };
 
-        let device_name = device.name().unwrap_or_else(|_| "unknown".to_string());
-        eprintln!("Linux audio capture: Using device: {}", device_name);
+        eprintln!(
+            "Linux audio capture: Using device via {}: {}",
+            selected_device.tier.label(),
+            selected_device.name
+        );
 
         // Get supported config
-        let config = match device.default_input_config() {
+        let config = match selected_device.device.default_input_config() {
             Ok(c) => c,
             Err(e) => {
                 let error_msg = format!("Failed to get default input config: {}", e);
@@ -196,7 +444,7 @@ pub async fn start_capture(
             SampleFormat::F32 => {
                 let samples = samples_clone.clone();
                 let stop = stop_flag_for_stream.clone();
-                device.build_input_stream(
+                selected_device.device.build_input_stream(
                     &stream_config,
                     move |data: &[f32], _: &cpal::InputCallbackInfo| {
                         if stop.load(Ordering::Relaxed) {
@@ -212,7 +460,7 @@ pub async fn start_capture(
             SampleFormat::I16 => {
                 let samples = samples_clone.clone();
                 let stop = stop_flag_for_stream.clone();
-                device.build_input_stream(
+                selected_device.device.build_input_stream(
                     &stream_config,
                     move |data: &[i16], _: &cpal::InputCallbackInfo| {
                         if stop.load(Ordering::Relaxed) {
@@ -230,7 +478,7 @@ pub async fn start_capture(
             SampleFormat::U16 => {
                 let samples = samples_clone.clone();
                 let stop = stop_flag_for_stream.clone();
-                device.build_input_stream(
+                selected_device.device.build_input_stream(
                     &stream_config,
                     move |data: &[u16], _: &cpal::InputCallbackInfo| {
                         if stop.load(Ordering::Relaxed) {
@@ -271,6 +519,9 @@ pub async fn start_capture(
         }
 
         eprintln!("Linux audio capture: Stream started successfully");
+        if let Some(mut guard) = selected_device.pulse_source_guard.take() {
+            guard.restore();
+        }
 
         // Keep thread alive until stop signal
         loop {
@@ -333,22 +584,14 @@ pub async fn stop_capture(state: &AudioCaptureState) -> Result<String, String> {
 }
 
 pub fn is_supported() -> bool {
-    // Check via pactl first (most reliable on modern Linux)
-    if find_monitor_source_via_pactl().is_some() {
+    let monitor_source = find_monitor_source_via_pactl();
+    let host = cpal::default_host();
+
+    if find_direct_monitor_device(&host, monitor_source.as_deref()).is_some() {
         return true;
     }
-    // Fallback: check cpal devices
-    let host = cpal::default_host();
-    if let Ok(devices) = host.input_devices() {
-        for d in devices {
-            if let Ok(name) = d.name() {
-                if name.to_lowercase().contains("monitor") {
-                    return true;
-                }
-            }
-        }
-    }
-    host.default_input_device().is_some()
+
+    monitor_source.is_some() && find_pulse_input_device(&host).is_some()
 }
 
 fn samples_to_wav(samples: &[f32], sample_rate: u32, channels: u16) -> Result<Vec<u8>, String> {
