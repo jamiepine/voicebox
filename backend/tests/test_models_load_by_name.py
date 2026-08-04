@@ -96,10 +96,30 @@ def test_load_unknown_model_is_rejected(client, loaded):
     assert loaded["qwen_size"] == []
 
 
+def test_load_empty_model_name_is_rejected(client, loaded):
+    """A supplied-but-empty name is a bad request, not a request for Qwen.
+
+    Falling back here would reproduce #977 in miniature: a caller that named a
+    model (an unbound UI select, say) gets a silent 3.6 GB Qwen download.
+    """
+    response = client.post("/models/load", json={"model_name": ""})
+
+    assert response.status_code == 400
+    assert loaded["by_config"] == []
+    assert loaded["qwen_size"] == []
+
+
 def test_load_without_body_keeps_the_qwen_default(client, loaded):
     """Pre-existing callers post no body at all."""
     assert client.post("/models/load").status_code == 200
     assert loaded["qwen_size"] == ["1.7B"]
+
+
+def test_load_null_model_name_keeps_the_qwen_default(client, loaded):
+    """An explicit null is 'unspecified', unlike an empty string."""
+    assert client.post("/models/load", json={"model_name": None}).status_code == 200
+    assert loaded["qwen_size"] == ["1.7B"]
+    assert loaded["by_config"] == []
 
 
 def test_load_still_honors_the_model_size_query_param(client, loaded):
@@ -121,8 +141,22 @@ def test_unload_by_model_name_targets_that_model(client, loaded):
     assert loaded["qwen_unload"] == 0, "must not unload the default Qwen model instead"
 
 
+def test_unload_empty_model_name_is_rejected(client, loaded):
+    response = client.post("/models/unload", json={"model_name": ""})
+
+    assert response.status_code == 400
+    assert loaded["by_config"] == []
+    assert loaded["qwen_unload"] == 0
+
+
 def test_unload_without_body_keeps_the_qwen_default(client, loaded):
     assert client.post("/models/unload").status_code == 200
+    assert loaded["qwen_unload"] == 1
+    assert loaded["by_config"] == []
+
+
+def test_unload_null_model_name_keeps_the_qwen_default(client, loaded):
+    assert client.post("/models/unload", json={"model_name": None}).status_code == 200
     assert loaded["qwen_unload"] == 1
     assert loaded["by_config"] == []
 
