@@ -4,6 +4,7 @@ Generation history management module.
 
 from typing import List, Optional, Tuple
 from datetime import datetime
+import logging
 import uuid
 import shutil
 from pathlib import Path
@@ -13,6 +14,8 @@ from sqlalchemy import or_
 from ..models import GenerationRequest, GenerationResponse, HistoryQuery, HistoryResponse, HistoryListResponse, GenerationVersionResponse, EffectConfig
 from ..database import Generation as DBGeneration, GenerationVersion as DBGenerationVersion, StoryItem as DBStoryItem, VoiceProfile as DBVoiceProfile
 from .. import config
+
+logger = logging.getLogger(__name__)
 
 
 def _delete_generation_children(generation_id: str, db: Session) -> None:
@@ -308,7 +311,7 @@ async def delete_failed_generations(db: Session) -> int:
                 except OSError:
                     # Best-effort cleanup — don't abort the whole sweep
                     # if a single file can't be removed.
-                    pass
+                    logger.warning("Could not delete generation audio %s", audio_path)
 
         db.delete(generation)
         count += 1
@@ -346,7 +349,7 @@ async def delete_generations_by_profile(
             except OSError:
                 # A file locked by playback shouldn't abort the whole sweep
                 # and leave the profile half-deleted.
-                pass
+                logger.warning("Could not delete generation audio %s", audio_path)
 
         # Delete from database
         db.delete(generation)

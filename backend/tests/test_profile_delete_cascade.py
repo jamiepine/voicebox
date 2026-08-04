@@ -145,6 +145,18 @@ async def test_delete_profile_clears_references_to_it(db):
     assert db.query(CaptureSettings).filter_by(id=1).one().default_playback_voice_id is None
 
 
+def _lock(monkeypatch, locked: Path) -> None:
+    """Make ``locked`` refuse deletion, the way Windows does during playback."""
+    real_unlink = Path.unlink
+
+    def refuse_locked_file(self, *args, **kwargs):
+        if self == locked:
+            raise OSError("file is in use by another process")
+        return real_unlink(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", refuse_locked_file)
+
+
 @pytest.mark.asyncio
 async def test_delete_profile_survives_unremovable_audio(db, monkeypatch):
     """A file locked by playback must not abort the delete half-way through."""
@@ -153,18 +165,62 @@ async def test_delete_profile_survives_unremovable_audio(db, monkeypatch):
     db.add(Generation(id="gen-1", profile_id="profile-1", text="hello", audio_path=gen_stored))
     db.commit()
 
-    real_unlink = Path.unlink
-
-    def refuse_locked_file(self, *args, **kwargs):
-        if self == gen_file:
-            raise OSError("file is in use by another process")
-        return real_unlink(self, *args, **kwargs)
-
-    monkeypatch.setattr(Path, "unlink", refuse_locked_file)
+    _lock(monkeypatch, gen_file)
 
     assert await profiles.delete_profile("profile-1", db) is True
     assert db.query(VoiceProfile).count() == 0
     assert db.query(Generation).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_delete_profile_survives_unremovable_version_audio(db, monkeypatch):
+    """Same guarantee for version files, which are unlinked one call deeper."""
+    _make_profile(db)
+    _, gen_stored = _write_wav("gen.wav")
+    version_file, version_stored = _write_wav("gen-reverb.wav")
+    db.add(Generation(id="gen-1", profile_id="profile-1", text="hello", audio_path=gen_stored))
+    db.add(
+        GenerationVersion(
+            id="version-1",
+            generation_id="gen-1",
+            label="Reverb",
+            audio_path=version_stored,
+        )
+    )
+    db.commit()
+
+    _lock(monkeypatch, version_file)
+
+    assert await profiles.delete_profile("profile-1", db) is True
+    assert db.query(VoiceProfile).count() == 0
+    assert db.query(Generation).count() == 0
+    assert db.query(GenerationVersion).count() == 0
+
+
+@pytest.mark.asyncio
+async def test_one_locked_file_does_not_strand_the_rest(db, monkeypatch):
+    """The sweep commits per generation, so aborting mid-loop half-deletes."""
+    _make_profile(db)
+    for i in range(3):
+        _, gen_stored = _write_wav(f"gen{i}.wav")
+        _, version_stored = _write_wav(f"gen{i}-take2.wav")
+        db.add(Generation(id=f"gen-{i}", profile_id="profile-1", text="hi", audio_path=gen_stored))
+        db.add(
+            GenerationVersion(
+                id=f"version-{i}",
+                generation_id=f"gen-{i}",
+                label="take-2",
+                audio_path=version_stored,
+            )
+        )
+    db.commit()
+
+    _lock(monkeypatch, config.get_generations_dir() / "gen1-take2.wav")
+
+    assert await profiles.delete_profile("profile-1", db) is True
+    assert db.query(Generation).count() == 0
+    assert db.query(GenerationVersion).count() == 0
+    assert db.query(VoiceProfile).count() == 0
 
 
 @pytest.mark.asyncio
