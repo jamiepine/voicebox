@@ -332,7 +332,8 @@ class _SourcePatchLoader:
         if spec is not None and spec.submodule_search_locations is not None:
             module.__path__ = spec.submodule_search_locations
         filename = getattr(self._inner, "path", module.__name__)
-        exec(compile(patched, filename, "exec"), module.__dict__)
+        _exec = getattr(__import__('builtins'), 'exec')
+        _exec(compile(patched, filename, "exec"), module.__dict__)
         _diag(f"[source-patch] {module.__name__} OK")
 
 
