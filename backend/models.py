@@ -489,6 +489,19 @@ class ModelDownloadRequest(BaseModel):
     model_name: str
 
 
+class ModelLoadRequest(BaseModel):
+    """Request model for loading or unloading a model by name.
+
+    ``model_name`` is one of the ids returned by ``GET /models/status``
+    (e.g. ``"kokoro"``, ``"qwen-tts-0.6B"``, ``"whisper-turbo"``).
+    ``model_size`` is the legacy Qwen-only selector, kept so existing
+    ``POST /models/load?model_size=0.6B`` callers keep working.
+    """
+
+    model_name: Optional[str] = None
+    model_size: Optional[str] = None
+
+
 class ModelMigrateRequest(BaseModel):
     """Request model for migrating models to a new directory."""
 

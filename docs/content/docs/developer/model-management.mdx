@@ -117,7 +117,9 @@ POST /models/load
 }
 ```
 
-The route looks up the config, dispatches to `get_model_load_func(config)`, and returns once the model is ready.
+The route looks up the config, dispatches to `get_model_load_func(config)`, and returns once the model is ready. `model_name` is any id from `GET /models/status` — TTS, Whisper, and LLM entries all resolve through the same registry.
+
+Omitting `model_name` falls back to the default Qwen TTS backend, selected by an optional `model_size` (`POST /models/load?model_size=0.6B`). This is the pre-`model_name` form and still works.
 
 ### Unload
 
@@ -128,7 +130,7 @@ POST /models/unload
 }
 ```
 
-Calls `unload_model_by_config(config)`, which routes to the right backend's `unload_model()` and frees GPU memory.
+Calls `unload_model_by_config(config)`, which routes to the right backend's `unload_model()` and frees GPU memory. `POST /models/{name}/unload` is equivalent. Omitting `model_name` unloads the default Qwen TTS model.
 
 ### Download
 
