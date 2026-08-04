@@ -11,8 +11,21 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from ..models import GenerationRequest, GenerationResponse, HistoryQuery, HistoryResponse, HistoryListResponse, GenerationVersionResponse, EffectConfig
-from ..database import Generation as DBGeneration, GenerationVersion as DBGenerationVersion, VoiceProfile as DBVoiceProfile
+from ..database import Generation as DBGeneration, GenerationVersion as DBGenerationVersion, StoryItem as DBStoryItem, VoiceProfile as DBVoiceProfile
 from .. import config
+
+
+def _delete_generation_children(generation_id: str, db: Session) -> None:
+    """Remove the rows that reference a generation, plus any version audio files.
+
+    Story items and versions both point at the generation by a non-null FK.
+    The story detail query inner-joins generations, so a leftover story item
+    vanishes from the timeline while staying in the table forever.
+    """
+    from . import versions as versions_mod
+
+    db.query(DBStoryItem).filter_by(generation_id=generation_id).delete()
+    versions_mod.delete_versions_for_generation(generation_id, db)
 
 
 def _get_versions_for_generation(generation_id: str, db: Session) -> tuple:
@@ -254,8 +267,7 @@ async def delete_generation(
         return False
 
     # Delete all version files and records
-    from . import versions as versions_mod
-    versions_mod.delete_versions_for_generation(generation_id, db)
+    _delete_generation_children(generation_id, db)
 
     # Delete main audio file (if not already removed by version cleanup)
     if generation.audio_path:
@@ -281,13 +293,11 @@ async def delete_failed_generations(db: Session) -> int:
     Returns:
         Number of generations deleted.
     """
-    from . import versions as versions_mod
-
     failed = db.query(DBGeneration).filter(DBGeneration.status == "failed").all()
     count = 0
     for generation in failed:
         # Clean up version files/rows first.
-        versions_mod.delete_versions_for_generation(generation.id, db)
+        _delete_generation_children(generation.id, db)
 
         # Remove the main audio file if it somehow made it to disk.
         if generation.audio_path:
@@ -326,14 +336,18 @@ async def delete_generations_by_profile(
     count = 0
     for generation in generations:
         # Delete associated version files and rows first
-        from . import versions as versions_mod
-        versions_mod.delete_versions_for_generation(generation.id, db)
+        _delete_generation_children(generation.id, db)
 
         # Delete audio file
         audio_path = config.resolve_storage_path(generation.audio_path)
         if audio_path is not None and audio_path.exists():
-            audio_path.unlink()
-        
+            try:
+                audio_path.unlink()
+            except OSError:
+                # A file locked by playback shouldn't abort the whole sweep
+                # and leave the profile half-deleted.
+                pass
+
         # Delete from database
         db.delete(generation)
         count += 1
