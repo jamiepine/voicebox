@@ -51,6 +51,10 @@ export function useDeleteProfile() {
     mutationFn: (profileId: string) => apiClient.deleteProfile(profileId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      // Deleting a profile also deletes its generations, which story items
+      // reference — both caches still hold rows that no longer exist.
+      queryClient.invalidateQueries({ queryKey: ['history'] });
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
     },
   });
 }
