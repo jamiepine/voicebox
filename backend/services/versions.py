@@ -8,6 +8,7 @@ version and any number of processed versions with different effects chains.
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from pathlib import Path
 from typing import List, Optional
@@ -20,6 +21,8 @@ from ..database import (
 )
 from ..models import GenerationVersionResponse, EffectConfig
 from .. import config
+
+logger = logging.getLogger(__name__)
 
 
 def _version_response(v: DBGenerationVersion) -> GenerationVersionResponse:
@@ -185,7 +188,15 @@ def delete_version(version_id: str, db: Session) -> bool:
 
 
 def delete_versions_for_generation(generation_id: str, db: Session) -> int:
-    """Delete all versions for a generation (used when deleting a generation)."""
+    """Delete all versions for a generation (used when deleting a generation).
+
+    This runs as part of a wider cascade — deleting one generation, sweeping
+    failed ones, or deleting a whole profile. A version file the OS won't let
+    us remove (locked by playback on Windows) must not abort that cascade and
+    strand the caller half-deleted, so the row goes regardless and the leaked
+    file is logged. ``delete_version`` keeps raising, because a single
+    user-initiated delete should fail loudly.
+    """
     versions = (
         db.query(DBGenerationVersion)
         .filter_by(generation_id=generation_id)
@@ -195,7 +206,12 @@ def delete_versions_for_generation(generation_id: str, db: Session) -> int:
     for v in versions:
         audio_path = config.resolve_storage_path(v.audio_path)
         if audio_path is not None and audio_path.exists():
-            audio_path.unlink()
+            try:
+                audio_path.unlink()
+            except OSError:
+                logger.warning(
+                    "Could not delete version audio %s; removing the row anyway", audio_path
+                )
         db.delete(v)
         count += 1
     if count > 0:
