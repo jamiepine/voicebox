@@ -118,7 +118,16 @@ curl http://localhost:17493/generate/{id}/status
   backends/               # Downloaded CUDA binary (if applicable)
 ```
 
-Default location is the OS-specific app data directory. Override with `--data-dir` or the `VOICEBOX_DATA_DIR` environment variable.
+Standalone backend runs default to the resolved `data/` directory (normally
+`./data` when started from the repository root). When running
+`python -m backend.main` or the backend server directly, override it with
+`--data-dir`.
+
+Packaged Tauri desktop launches currently choose the OS-specific app data
+directory and pass it to the sidecar. The standalone/server override does not
+change the packaged desktop location.
+
+`VOICEBOX_DATA_DIR` is not currently a supported setting.
 
 ## Code quality
 
