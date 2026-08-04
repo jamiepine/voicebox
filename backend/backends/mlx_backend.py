@@ -44,6 +44,10 @@ class MLXTTSBackend:
         self.model = None
         self.model_size = model_size
         self._current_model_size = None
+        # Guards the whole load-then-use sequence in generate()/create_voice_prompt()
+        # so a concurrent request for a different model_size can't swap self.model
+        # out from under an in-flight request between its load and its inference.
+        self._op_lock = asyncio.Lock()
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
@@ -92,15 +96,22 @@ class MLXTTSBackend:
         if self.model is not None and self._current_model_size == model_size:
             return
 
-        # Unload existing model if different size requested
-        if self.model is not None and self._current_model_size != model_size:
-            self.unload_model()
-
-        # Run blocking load in thread pool
-        await _run_on_mlx_thread(self._load_model_sync, model_size)
+        # Unload (if needed) and load as ONE callable on the MLX worker thread.
+        # Doing this as two separate _run_on_mlx_thread calls would run the
+        # unload on whichever thread issues the second call — usually still
+        # correct, but a caller-side await gap between them would let another
+        # coroutine slip a conflicting load in between. One callable removes
+        # the gap.
+        await _run_on_mlx_thread(self._reload_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
+
+    def _reload_sync(self, model_size: str):
+        """Unload a mismatched model and load the requested one, in one MLX-thread op."""
+        if self.model is not None and self._current_model_size != model_size:
+            self._unload_model_sync()
+        self._load_model_sync(model_size)
 
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
@@ -120,7 +131,20 @@ class MLXTTSBackend:
         logger.info("MLX TTS model %s loaded successfully", model_size)
 
     def unload_model(self):
-        """Unload the model to free memory."""
+        """Unload the model to free memory.
+
+        Safe to call from any thread (e.g. the FastAPI event loop, from the
+        /models/unload routes): the actual teardown is submitted to the MLX
+        worker thread and awaited synchronously here, so Metal resources are
+        always released on the same OS thread that created them. Do not call
+        this from within a callable already running ON the MLX worker thread
+        (e.g. from _reload_sync) — use _unload_model_sync directly there, or
+        this would deadlock the single-worker executor waiting on itself.
+        """
+        if self.model is not None:
+            _mlx_executor.submit(self._unload_model_sync).result()
+
+    def _unload_model_sync(self):
         if self.model is not None:
             del self.model
             self.model = None
@@ -147,7 +171,8 @@ class MLXTTSBackend:
         Returns:
             Tuple of (voice_prompt_dict, was_cached)
         """
-        await self.load_model_async(None)
+        async with self._op_lock:
+            await self.load_model_async(None)
 
         # Check cache if enabled
         if use_cache:
@@ -202,8 +227,6 @@ class MLXTTSBackend:
         Returns:
             Tuple of (audio_array, sample_rate)
         """
-        await self.load_model_async(None)
-
         logger.info("Generating audio for text: %s", text)
 
         def _generate_sync():
@@ -273,8 +296,12 @@ class MLXTTSBackend:
 
             return audio, sample_rate
 
-        # Run blocking inference in thread pool
-        audio, sample_rate = await _run_on_mlx_thread(_generate_sync)
+        # Hold the op lock across load + inference so a concurrent request
+        # for a different model_size can't swap self.model in between (the
+        # model is read inside _generate_sync via closure, after this point).
+        async with self._op_lock:
+            await self.load_model_async(None)
+            audio, sample_rate = await _run_on_mlx_thread(_generate_sync)
 
         return audio, sample_rate
 
@@ -285,6 +312,8 @@ class MLXSTTBackend:
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.model_size = model_size
+        # See MLXTTSBackend._op_lock — same reason.
+        self._op_lock = asyncio.Lock()
 
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
@@ -330,7 +359,14 @@ class MLXSTTBackend:
         logger.info("MLX Whisper model %s loaded successfully", model_size)
 
     def unload_model(self):
-        """Unload the model to free memory."""
+        """Unload the model to free memory.
+
+        Safe to call from any thread — see MLXTTSBackend.unload_model for why.
+        """
+        if self.model is not None:
+            _mlx_executor.submit(self._unload_model_sync).result()
+
+    def _unload_model_sync(self):
         if self.model is not None:
             del self.model
             self.model = None
@@ -353,8 +389,6 @@ class MLXSTTBackend:
         Returns:
             Transcribed text
         """
-        await self.load_model_async(model_size)
-
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
             # MLX Whisper transcription using generate method
@@ -378,5 +412,8 @@ class MLXSTTBackend:
             else:
                 return str(result).strip()
 
-        # Run blocking transcription in thread pool
-        return await _run_on_mlx_thread(_transcribe_sync)
+        # Hold the op lock across load + inference so a concurrent request
+        # for a different model_size can't swap self.model in between.
+        async with self._op_lock:
+            await self.load_model_async(model_size)
+            return await _run_on_mlx_thread(_transcribe_sync)
