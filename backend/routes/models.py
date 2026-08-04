@@ -47,29 +47,91 @@ def _copy_with_progress(src: Path, dst: Path, progress_manager, copied_so_far: i
     return copied_so_far
 
 
+DEFAULT_QWEN_MODEL_SIZE = "1.7B"
+
+
+def _resolve_model_config(model_name: str):
+    """Look up a model config by name or raise a 400 listing the valid ids."""
+    from ..backends import get_all_model_configs, get_model_config
+
+    config = get_model_config(model_name)
+    if config is None:
+        known = sorted(cfg.model_name for cfg in get_all_model_configs())
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown model: {model_name!r}. Available: {known}",
+        )
+    return config
+
+
 @router.post("/models/load")
-async def load_model(model_size: str = "1.7B"):
-    """Manually load TTS model."""
+async def load_model(
+    request: models.ModelLoadRequest | None = None,
+    model_size: str | None = None,
+):
+    """Load a model into memory.
+
+    Pass ``{"model_name": "kokoro"}`` to target any registered engine. Only an
+    absent ``model_name`` falls back to the default Qwen TTS backend, selected
+    by the ``model_size`` query parameter, which is what callers did before
+    ``model_name`` existed. A supplied-but-empty name is a bad request, not a
+    request for the default — silently loading Qwen there is the very bug this
+    endpoint had.
+    """
+    from ..backends import get_model_load_func
     from ..services import tts
 
+    requested_name = request.model_name if request else None
+    requested_size = (request.model_size if request else None) or model_size
+
+    if requested_name is not None:
+        config = _resolve_model_config(requested_name)
+        try:
+            result = get_model_load_func(config)()
+            if asyncio.iscoroutine(result):
+                await result
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e)) from e
+        return {"message": f"Model {config.model_name} loaded successfully"}
+
+    size = requested_size or DEFAULT_QWEN_MODEL_SIZE
     try:
         tts_model = tts.get_tts_model()
-        await tts_model.load_model_async(model_size)
-        return {"message": f"Model {model_size} loaded successfully"}
+        await tts_model.load_model_async(size)
+        return {"message": f"Model {size} loaded successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/models/unload")
-async def unload_model():
-    """Unload the default Qwen TTS model to free memory."""
+async def unload_model(request: models.ModelLoadRequest | None = None):
+    """Unload a model from memory.
+
+    Pass ``{"model_name": "chatterbox-tts"}`` to target a specific engine —
+    same behaviour as ``POST /models/{model_name}/unload``. Only an absent
+    ``model_name`` unloads the default Qwen TTS model, as it always has; a
+    supplied-but-empty name is a bad request.
+    """
+    from ..backends import unload_model_by_config
     from ..services import tts
+
+    requested_name = request.model_name if request else None
+
+    if requested_name is not None:
+        config = _resolve_model_config(requested_name)
+        try:
+            was_loaded = unload_model_by_config(config)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e)) from e
+        if not was_loaded:
+            return {"message": f"Model {config.model_name} is not loaded"}
+        return {"message": f"Model {config.model_name} unloaded successfully"}
 
     try:
         tts.unload_tts_model()
         return {"message": "Model unloaded successfully"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/models/{model_name}/unload")
