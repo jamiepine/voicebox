@@ -7,8 +7,23 @@ import asyncio
 import logging
 import numpy as np
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
+
+# MLX's Metal backend keeps a per-thread stream registry. Loading a model on
+# one worker thread (via asyncio.to_thread, which round-robins across the
+# default executor's pool) and then generating on a different worker thread
+# raises "There is no Stream(gpu, N) in current thread." All MLX calls in
+# this module must therefore run on the SAME OS thread for the process
+# lifetime — route them through this single-worker executor instead of
+# asyncio.to_thread's shared multi-worker pool.
+_mlx_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="mlx-worker")
+
+
+def _run_on_mlx_thread(func, *args):
+    loop = asyncio.get_running_loop()
+    return loop.run_in_executor(_mlx_executor, func, *args)
 
 # PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
 # This prevents mlx_audio from making network requests when models are cached
@@ -82,7 +97,7 @@ class MLXTTSBackend:
             self.unload_model()
 
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        await _run_on_mlx_thread(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -259,7 +274,7 @@ class MLXTTSBackend:
             return audio, sample_rate
 
         # Run blocking inference in thread pool
-        audio, sample_rate = await asyncio.to_thread(_generate_sync)
+        audio, sample_rate = await _run_on_mlx_thread(_generate_sync)
 
         return audio, sample_rate
 
@@ -293,7 +308,7 @@ class MLXSTTBackend:
             return
 
         # Run blocking load in thread pool
-        await asyncio.to_thread(self._load_model_sync, model_size)
+        await _run_on_mlx_thread(self._load_model_sync, model_size)
 
     # Alias for compatibility
     load_model = load_model_async
@@ -364,4 +379,4 @@ class MLXSTTBackend:
                 return str(result).strip()
 
         # Run blocking transcription in thread pool
-        return await asyncio.to_thread(_transcribe_sync)
+        return await _run_on_mlx_thread(_transcribe_sync)
