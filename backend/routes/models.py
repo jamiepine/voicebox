@@ -59,7 +59,7 @@ def _resolve_model_config(model_name: str):
         known = sorted(cfg.model_name for cfg in get_all_model_configs())
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown model: {model_name}. Available: {known}",
+            detail=f"Unknown model: {model_name!r}. Available: {known}",
         )
     return config
 
@@ -71,10 +71,12 @@ async def load_model(
 ):
     """Load a model into memory.
 
-    Pass ``{"model_name": "kokoro"}`` to target any registered engine. Without
-    a name this falls back to the default Qwen TTS backend, selected by the
-    ``model_size`` query parameter, which is what callers did before
-    ``model_name`` existed.
+    Pass ``{"model_name": "kokoro"}`` to target any registered engine. Only an
+    absent ``model_name`` falls back to the default Qwen TTS backend, selected
+    by the ``model_size`` query parameter, which is what callers did before
+    ``model_name`` existed. A supplied-but-empty name is a bad request, not a
+    request for the default — silently loading Qwen there is the very bug this
+    endpoint had.
     """
     from ..backends import get_model_load_func
     from ..services import tts
@@ -82,7 +84,7 @@ async def load_model(
     requested_name = request.model_name if request else None
     requested_size = (request.model_size if request else None) or model_size
 
-    if requested_name:
+    if requested_name is not None:
         config = _resolve_model_config(requested_name)
         try:
             result = get_model_load_func(config)()
@@ -106,15 +108,16 @@ async def unload_model(request: models.ModelLoadRequest | None = None):
     """Unload a model from memory.
 
     Pass ``{"model_name": "chatterbox-tts"}`` to target a specific engine —
-    same behaviour as ``POST /models/{model_name}/unload``. Without a name
-    this unloads the default Qwen TTS model, as it always has.
+    same behaviour as ``POST /models/{model_name}/unload``. Only an absent
+    ``model_name`` unloads the default Qwen TTS model, as it always has; a
+    supplied-but-empty name is a bad request.
     """
     from ..backends import unload_model_by_config
     from ..services import tts
 
     requested_name = request.model_name if request else None
 
-    if requested_name:
+    if requested_name is not None:
         config = _resolve_model_config(requested_name)
         try:
             was_loaded = unload_model_by_config(config)
