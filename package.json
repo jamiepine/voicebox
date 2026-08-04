@@ -44,6 +44,7 @@
   "packageManager": "bun@1.3.8",
   "dependencies": {
     "loaders.css": "^0.1.2",
-    "react-loaders": "^3.0.1"
+    "react-loaders": "^3.0.1",
+    "seroval": "1.5.3"
   }
 }
