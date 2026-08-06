@@ -3,7 +3,18 @@
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean, JSON
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    Float,
+    DateTime,
+    Text,
+    ForeignKey,
+    Boolean,
+    JSON,
+    UniqueConstraint,
+)
 from sqlalchemy.ext.declarative import declarative_base
 
 from ..utils.capture_chords import (
@@ -117,6 +128,38 @@ class Generation(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class StoryTrack(Base):
+    """Mixer settings for one lane of a story's timeline.
+
+    Keyed by ``(story_id, index)`` where ``index`` is the same integer held in
+    ``StoryItem.track`` -- this table is metadata *about* a lane, not its
+    owner.  A lane can hold clips with no row here at all, in which case it
+    mixes at unity gain; rows are created lazily when a lane is first named or
+    adjusted.  Deleting a row therefore only resets the lane to defaults, it
+    never removes clips.
+
+    Solo is stored per track but evaluated globally at mix time: if any track
+    in the story is soloed, every non-soloed track is silent.
+    """
+
+    __tablename__ = "story_tracks"
+    __table_args__ = (UniqueConstraint("story_id", "index", name="uq_story_track_index"),)
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    story_id = Column(String, ForeignKey("stories.id"), nullable=False)
+    index = Column(Integer, nullable=False)
+    name = Column(String, nullable=True)
+    volume = Column(Float, nullable=False, default=1.0)
+    muted = Column(Boolean, nullable=False, default=False)
+    soloed = Column(Boolean, nullable=False, default=False)
+    # Lane index whose loudness ducks this one — how a music bed sits under
+    # narration.  NULL disables ducking.  Not a FK: it references a lane
+    # number, same as StoryItem.track.
+    duck_under_track = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Story(Base):
     """A story that sequences multiple generations."""
 
@@ -139,10 +182,25 @@ class StoryItem(Base):
     generation_id = Column(String, ForeignKey("generations.id"), nullable=False)
     version_id = Column(String, ForeignKey("generation_versions.id"), nullable=True)
     start_time_ms = Column(Integer, nullable=False, default=0)
+    # Lane index.  Deliberately a plain integer rather than a FK to
+    # story_tracks: clips are positioned by (track, start_time_ms) and the
+    # drag/move/reorder paths all treat the lane as a number.  StoryTrack is
+    # metadata *keyed by* this value, so a lane can hold clips with no track
+    # row at all.
     track = Column(Integer, nullable=False, default=0)
     trim_start_ms = Column(Integer, nullable=False, default=0)
     trim_end_ms = Column(Integer, nullable=False, default=0)
     volume = Column(Float, nullable=False, default=1.0)
+    # Positional envelope over this clip, applied after trim and before the
+    # track gain.  Not a pedalboard effect: EFFECT_REGISTRY entries are DSP
+    # plugins instantiated as cls(**params), whereas a fade depends on where
+    # the clip starts and ends.
+    fade_in_ms = Column(Integer, nullable=False, default=0)
+    fade_out_ms = Column(Integer, nullable=False, default=0)
+    # Playback rate.  >1 plays faster and therefore *shorter*; because clips
+    # are absolutely positioned, a re-timed clip changes its own length
+    # without shifting its neighbours, exactly as trimming already does.
+    speed = Column(Float, nullable=False, default=1.0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

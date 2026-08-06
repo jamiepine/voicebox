@@ -4,6 +4,7 @@ Story management module.
 
 from typing import List, Optional
 from datetime import datetime
+import logging
 import uuid
 import tempfile
 from pathlib import Path
@@ -21,8 +22,12 @@ from ..models import (
     StoryItemMove,
     StoryItemTrim,
     StoryItemVolumeUpdate,
+    StoryItemFadeUpdate,
+    StoryItemSpeedUpdate,
     StoryItemSplit,
     StoryItemVersionUpdate,
+    StoryTrackResponse,
+    StoryTrackUpsert,
 )
 from ..database import (
     Story as DBStory,
@@ -30,9 +35,21 @@ from ..database import (
     Generation as DBGeneration,
     VoiceProfile as DBVoiceProfile,
 )
+from ..database.models import StoryTrack as DBStoryTrack
 from .history import _get_versions_for_generation
-from ..utils.audio import load_audio, save_audio
+from ..utils.audio import encode_audio, load_audio, save_audio
+import librosa
 import numpy as np
+
+# Mixdown never exceeds this even if a source is higher — 48 kHz is the
+# practical ceiling for delivery, and resampling a 96 kHz bed up there costs
+# memory for no audible gain.
+MAX_PROJECT_SAMPLE_RATE = 48000
+
+# Used when a story's sources give us nothing to go on (all unreadable).
+FALLBACK_SAMPLE_RATE = 24000
+
+logger = logging.getLogger(__name__)
 
 
 def _build_item_detail(
@@ -72,6 +89,9 @@ def _build_item_detail(
         instruct=generation.instruct,
         engine=generation.engine,
         volume=getattr(item, "volume", 1.0),
+        fade_in_ms=getattr(item, "fade_in_ms", 0) or 0,
+        fade_out_ms=getattr(item, "fade_out_ms", 0) or 0,
+        speed=getattr(item, "speed", 1.0) or 1.0,
         generation_created_at=generation.created_at,
         versions=versions,
         active_version_id=active_version_id,
@@ -279,12 +299,25 @@ async def add_item_to_story(
         profile = db.query(DBVoiceProfile).filter_by(id=generation.profile_id).first()
         return _build_item_detail(existing, generation, profile.name if profile else "Unknown", db)
 
-    # Get track from data or default to 0
-    track = data.track if data.track is not None else 0
+    # Imported audio is a bed, not another line of dialogue: default it to its
+    # own empty lane starting at zero so it plays *under* the narration.
+    # Appending it to track 0 like a TTS clip put the music after the voice,
+    # which is never what someone dropping in a music file wants.
+    profile_for_default = db.query(DBVoiceProfile).filter_by(id=generation.profile_id).first()
+    is_imported = getattr(profile_for_default, "voice_type", None) == "import"
+
+    if data.track is not None:
+        track = data.track
+    elif is_imported:
+        track = _next_free_track(story_id, db)
+    else:
+        track = 0
 
     # Calculate start_time_ms if not provided
     if data.start_time_ms is not None:
         start_time_ms = data.start_time_ms
+    elif is_imported:
+        start_time_ms = 0
     else:
         existing_items = (
             db.query(DBStoryItem, DBGeneration)
@@ -512,6 +545,139 @@ async def update_story_item_volume(
     return _build_item_detail(item, generation, profile.name if profile else "Unknown", db)
 
 
+def _next_free_track(story_id: str, db: Session) -> int:
+    """Lowest lane index at or above 0 holding no clips.
+
+    Lanes are sparse integers rather than a dense list, and negative indices
+    are legitimate (the editor shows [1, 0, -1] by default), so this scans
+    upward from 0 rather than taking a max.
+    """
+    used = {row[0] for row in db.query(DBStoryItem.track).filter_by(story_id=story_id).distinct()}
+    index = 0
+    while index in used:
+        index += 1
+    return index
+
+
+async def _update_story_item_fields(
+    story_id: str,
+    item_id: str,
+    db: Session,
+    **fields,
+) -> Optional[StoryItemDetail]:
+    """Set fields on a story item and return the refreshed detail.
+
+    Shared by the fade and speed endpoints, which differ only in what they
+    assign — the lookup, story timestamp bump and detail rebuild are identical.
+    """
+    item = db.query(DBStoryItem).filter_by(id=item_id, story_id=story_id).first()
+    if not item:
+        return None
+    generation = db.query(DBGeneration).filter_by(id=item.generation_id).first()
+    if not generation:
+        return None
+
+    for key, value in fields.items():
+        setattr(item, key, value)
+
+    story = db.query(DBStory).filter_by(id=story_id).first()
+    if story:
+        story.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(item)
+
+    profile = db.query(DBVoiceProfile).filter_by(id=generation.profile_id).first()
+    return _build_item_detail(item, generation, profile.name if profile else "Unknown", db)
+
+
+async def update_story_item_fades(
+    story_id: str,
+    item_id: str,
+    data: StoryItemFadeUpdate,
+    db: Session,
+) -> Optional[StoryItemDetail]:
+    """Set a story item's fade in/out lengths."""
+    return await _update_story_item_fields(
+        story_id,
+        item_id,
+        db,
+        fade_in_ms=data.fade_in_ms,
+        fade_out_ms=data.fade_out_ms,
+    )
+
+
+async def update_story_item_speed(
+    story_id: str,
+    item_id: str,
+    data: StoryItemSpeedUpdate,
+    db: Session,
+) -> Optional[StoryItemDetail]:
+    """Set a story item's playback rate."""
+    return await _update_story_item_fields(story_id, item_id, db, speed=data.speed)
+
+
+# ── Track mixer settings ─────────────────────────────────────────────
+
+
+async def list_story_tracks(story_id: str, db: Session) -> List[StoryTrackResponse]:
+    """Mixer settings for every lane that has them.
+
+    Lanes without a row simply mix at unity gain, so the list is often
+    shorter than the number of lanes on screen.
+    """
+    rows = (
+        db.query(DBStoryTrack)
+        .filter_by(story_id=story_id)
+        .order_by(DBStoryTrack.index)
+        .all()
+    )
+    return [StoryTrackResponse.model_validate(r) for r in rows]
+
+
+async def upsert_story_track(
+    story_id: str,
+    index: int,
+    data: StoryTrackUpsert,
+    db: Session,
+) -> Optional[StoryTrackResponse]:
+    """Create or update one lane's mixer settings."""
+    story = db.query(DBStory).filter_by(id=story_id).first()
+    if not story:
+        return None
+
+    row = db.query(DBStoryTrack).filter_by(story_id=story_id, index=index).first()
+    if row is None:
+        row = DBStoryTrack(story_id=story_id, index=index)
+        db.add(row)
+
+    row.name = data.name
+    row.volume = data.volume
+    row.muted = data.muted
+    row.soloed = data.soloed
+    row.duck_under_track = data.duck_under_track
+    row.updated_at = datetime.utcnow()
+
+    story.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(row)
+    return StoryTrackResponse.model_validate(row)
+
+
+async def delete_story_track(story_id: str, index: int, db: Session) -> bool:
+    """Reset a lane to defaults.
+
+    Only the settings row goes — clips on that lane are untouched, and the
+    lane keeps rendering at unity gain.
+    """
+    row = db.query(DBStoryTrack).filter_by(story_id=story_id, index=index).first()
+    if row is None:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
+
+
 async def split_story_item(
     story_id: str,
     item_id: str,
@@ -565,6 +731,12 @@ async def split_story_item(
     # Update original clip: trim from the end
     item.trim_end_ms = original_duration_ms - absolute_split_ms
 
+    # Fades split with the audio: the head keeps its fade-in, the tail keeps
+    # the fade-out. Leaving both on both halves would insert an audible dip at
+    # the seam of what the user hears as one continuous clip.
+    tail_fade_out = getattr(item, "fade_out_ms", 0) or 0
+    item.fade_out_ms = 0
+
     # Create new clip: starts after the split, trimmed from the start
     new_item = DBStoryItem(
         id=str(uuid.uuid4()),
@@ -576,6 +748,9 @@ async def split_story_item(
         trim_start_ms=absolute_split_ms,
         trim_end_ms=current_trim_end,
         volume=getattr(item, "volume", 1.0),
+        fade_in_ms=0,
+        fade_out_ms=tail_fade_out,
+        speed=getattr(item, "speed", 1.0) or 1.0,
         created_at=datetime.utcnow(),
     )
 
@@ -833,16 +1008,108 @@ async def set_story_item_version(
     return _build_item_detail(item, generation, profile.name if profile else "Unknown", db)
 
 
+def _to_stereo(audio: np.ndarray) -> np.ndarray:
+    """Normalise any loaded clip to a ``(2, samples)`` float32 array.
+
+    librosa hands back ``(samples,)`` for mono and ``(channels, samples)``
+    otherwise. Mono is duplicated rather than panned so a voice clip sits
+    centred; anything above stereo is folded down to the first two channels.
+    """
+    audio = np.asarray(audio, dtype=np.float32)
+    if audio.ndim == 1:
+        return np.stack([audio, audio])
+    if audio.shape[0] == 1:
+        return np.repeat(audio, 2, axis=0)
+    return audio[:2]
+
+
+def _apply_fades(audio: np.ndarray, sample_rate: int, fade_in_ms: int, fade_out_ms: int) -> np.ndarray:
+    """Apply linear fades to a ``(channels, samples)`` clip, in place-safe form.
+
+    The two fades are scaled down together if they would overlap, so a short
+    clip with long fades still ends up monotonic rather than re-brightening in
+    the middle.
+    """
+    n = audio.shape[1]
+    if n == 0 or (fade_in_ms <= 0 and fade_out_ms <= 0):
+        return audio
+
+    fade_in = int(sample_rate * max(fade_in_ms, 0) / 1000)
+    fade_out = int(sample_rate * max(fade_out_ms, 0) / 1000)
+
+    total = fade_in + fade_out
+    if total > n and total > 0:
+        scale = n / total
+        fade_in = int(fade_in * scale)
+        fade_out = int(fade_out * scale)
+
+    audio = audio.copy()
+    if fade_in > 0:
+        audio[:, :fade_in] *= np.linspace(0.0, 1.0, fade_in, dtype=np.float32)
+    if fade_out > 0:
+        audio[:, n - fade_out :] *= np.linspace(1.0, 0.0, fade_out, dtype=np.float32)
+    return audio
+
+
+def _duck_envelope(
+    source: np.ndarray,
+    sample_rate: int,
+    depth: float = 0.75,
+    attack_ms: int = 80,
+    release_ms: int = 400,
+) -> np.ndarray:
+    """Gain curve that pulls a bed down while ``source`` is loud.
+
+    A plain RMS follower with asymmetric smoothing: duck quickly when speech
+    starts, recover slowly so the bed doesn't pump between words.
+    """
+    mono = source.mean(axis=0)
+    frame = max(1, sample_rate // 100)  # 10 ms
+
+    padded = np.pad(mono, (0, (-len(mono)) % frame))
+    rms = np.sqrt((padded.reshape(-1, frame) ** 2).mean(axis=1))
+
+    peak = rms.max()
+    if peak <= 1e-6:
+        return np.ones(source.shape[1], dtype=np.float32)
+
+    # 0 where silent, 1 where at peak, then invert into a gain reduction.
+    activity = np.clip(rms / peak, 0.0, 1.0)
+    gain = 1.0 - depth * activity
+
+    attack = max(1, int(attack_ms / 10))
+    release = max(1, int(release_ms / 10))
+    smoothed = np.empty_like(gain)
+    current = 1.0
+    for i, target in enumerate(gain):
+        coeff = 1.0 / (attack if target < current else release)
+        current += (target - current) * coeff
+        smoothed[i] = current
+
+    envelope = np.repeat(smoothed, frame)[: source.shape[1]]
+    return envelope.astype(np.float32)
+
+
 async def export_story_audio(
     story_id: str,
     db: Session,
+    fmt: str = "wav",
 ) -> Optional[bytes]:
     """
     Export story as single mixed audio file with timecode-based mixing.
 
+    Mixes in stereo at the highest sample rate any source actually uses
+    (capped at 48 kHz) rather than flattening everything to 24 kHz mono, so an
+    imported music bed keeps its bandwidth and stereo image.
+
+    Each lane is rendered to its own buffer first. That is what makes ducking
+    possible — a bed can be attenuated by the *finished* speech lane — and it
+    is also where track volume, mute and solo apply.
+
     Args:
         story_id: Story ID
         db: Database session
+        fmt: Output container; see ``utils.audio.EXPORT_FORMATS``.
 
     Returns:
         Audio file bytes or None if story not found
@@ -863,12 +1130,14 @@ async def export_story_audio(
     if not items:
         return None
 
-    # Load all audio files and calculate total duration
-    audio_data = []
-    sample_rate = 24000  # Default sample rate
+    tracks = {t.index: t for t in db.query(DBStoryTrack).filter_by(story_id=story_id).all()}
+    any_soloed = any(t.soloed for t in tracks.values())
 
+    # --- decode once, at native rate ---------------------------------------
+    # Decoding at each file's own rate lets us pick the project rate from what
+    # the sources actually are, instead of forcing 24 kHz on a 48 kHz bed.
+    loaded = []
     for item, generation in items:
-        # Resolve audio path: use pinned version if set, otherwise generation default
         resolved_audio_path = generation.audio_path
         if getattr(item, "version_id", None):
             from ..database import GenerationVersion as DBGenerationVersion
@@ -879,100 +1148,113 @@ async def export_story_audio(
 
         audio_path = config.resolve_storage_path(resolved_audio_path)
         if audio_path is None or not audio_path.exists():
+            logger.warning("Story %s: skipping item %s, audio missing", story_id, item.id)
             continue
 
         try:
-            audio, sr = load_audio(str(audio_path), sample_rate=sample_rate)
-            sample_rate = sr  # Use actual sample rate from first file
-
-            # Get trim values
-            trim_start_ms = getattr(item, "trim_start_ms", 0)
-            trim_end_ms = getattr(item, "trim_end_ms", 0)
-
-            # Calculate effective duration
-            original_duration_ms = int(generation.duration * 1000)
-            effective_duration_ms = original_duration_ms - trim_start_ms - trim_end_ms
-
-            # Slice audio based on trim values
-            trim_start_sample = int((trim_start_ms / 1000.0) * sample_rate)
-            trim_end_sample = int((trim_end_ms / 1000.0) * sample_rate)
-
-            # Extract the trimmed portion
-            if trim_end_ms > 0:
-                trimmed_audio = (
-                    audio[trim_start_sample:-trim_end_sample] if trim_end_sample > 0 else audio[trim_start_sample:]
-                )
-            else:
-                trimmed_audio = audio[trim_start_sample:]
-
-            # Apply per-clip volume to the export mix.
-            volume = float(getattr(item, "volume", 1.0) or 1.0)
-            if volume != 1.0:
-                trimmed_audio = trimmed_audio * volume
-
-            # Store audio with its timecode info
-            start_time_ms = item.start_time_ms
-
-            audio_data.append(
-                {
-                    "audio": trimmed_audio,
-                    "start_time_ms": start_time_ms,
-                    "duration_ms": effective_duration_ms,
-                }
-            )
-        except Exception:
-            # Skip files that can't be loaded
+            audio, sr = librosa.load(str(audio_path), sr=None, mono=False)
+        except Exception as exc:
+            logger.warning("Story %s: skipping item %s, decode failed: %s", story_id, item.id, exc)
             continue
 
-    if not audio_data:
+        loaded.append((item, _to_stereo(audio), int(sr)))
+
+    if not loaded:
         return None
 
-    # Calculate total duration: max(start_time_ms + duration_ms)
-    max_end_time_ms = max((data["start_time_ms"] + data["duration_ms"] for data in audio_data), default=0)
+    project_sr = min(max(sr for _item, _audio, sr in loaded), MAX_PROJECT_SAMPLE_RATE)
 
-    # Convert to samples
-    total_samples = int((max_end_time_ms / 1000.0) * sample_rate)
+    # --- per-lane submixes --------------------------------------------------
+    lanes: dict[int, np.ndarray] = {}
+    placements = []
 
-    # Create output buffer initialized to zeros
-    final_audio = np.zeros(total_samples, dtype=np.float32)
+    for item, audio, sr in loaded:
+        if sr != project_sr:
+            audio = librosa.resample(audio, orig_sr=sr, target_sr=project_sr)
 
-    # Mix each audio segment at its timecode position
-    for data in audio_data:
-        audio = data["audio"]
-        start_time_ms = data["start_time_ms"]
+        # Duration comes from the array we actually decoded, not from
+        # generation.duration: a pinned version can be a different length, and
+        # a NULL duration used to raise inside a bare except and silently drop
+        # the clip from the export.
+        trim_start = int(project_sr * max(getattr(item, "trim_start_ms", 0), 0) / 1000)
+        trim_end = int(project_sr * max(getattr(item, "trim_end_ms", 0), 0) / 1000)
+        audio = audio[:, trim_start : audio.shape[1] - trim_end if trim_end else None]
+        if audio.shape[1] == 0:
+            continue
 
-        # Calculate start sample index
-        start_sample = int((start_time_ms / 1000.0) * sample_rate)
+        speed = float(getattr(item, "speed", 1.0) or 1.0)
+        if speed != 1.0:
+            # Phase vocoder, so pitch survives the tempo change.
+            audio = np.stack([librosa.effects.time_stretch(ch, rate=speed) for ch in audio])
 
-        # Ensure we don't exceed buffer bounds
-        audio_length = len(audio)
-        end_sample = min(start_sample + audio_length, total_samples)
+        audio = _apply_fades(
+            audio,
+            project_sr,
+            int(getattr(item, "fade_in_ms", 0) or 0),
+            int(getattr(item, "fade_out_ms", 0) or 0),
+        )
 
-        if start_sample < total_samples:
-            # Trim audio if it extends beyond buffer
-            audio_to_mix = audio[: end_sample - start_sample]
+        volume = float(getattr(item, "volume", 1.0) or 1.0)
+        if volume != 1.0:
+            audio = audio * volume
 
-            # Mix: add audio to existing buffer (overlapping audio will sum)
-            # Normalize to prevent clipping (simple approach: divide by max)
-            final_audio[start_sample:end_sample] += audio_to_mix
+        placements.append((item.track, int(item.start_time_ms), audio))
 
-    # Normalize to prevent clipping
-    max_val = np.abs(final_audio).max()
-    if max_val > 1.0:
-        final_audio = final_audio / max_val
+    if not placements:
+        return None
 
-    # Save to temporary file
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
-        tmp_path = tmp.name
+    total_samples = max(
+        int(project_sr * start_ms / 1000) + audio.shape[1] for _track, start_ms, audio in placements
+    )
 
-    try:
-        save_audio(final_audio, tmp_path, sample_rate)
+    for track_index, start_ms, audio in placements:
+        lane = lanes.get(track_index)
+        if lane is None:
+            lane = np.zeros((2, total_samples), dtype=np.float32)
+            lanes[track_index] = lane
 
-        # Read file bytes
-        with open(tmp_path, "rb") as f:
-            audio_bytes = f.read()
+        start = int(project_sr * start_ms / 1000)
+        end = min(start + audio.shape[1], total_samples)
+        if start < total_samples:
+            lane[:, start:end] += audio[:, : end - start]
 
-        return audio_bytes
-    finally:
-        # Clean up temp file
-        Path(tmp_path).unlink(missing_ok=True)
+    # --- track gain, mute and solo -----------------------------------------
+    for index, lane in lanes.items():
+        # A lane with no settings row means *defaults*, not *exempt* — it still
+        # has to be silenced when another lane is soloed. Skipping it here let
+        # the un-configured lane (usually the voice on track 0) play through a
+        # solo of the music bed.
+        track = tracks.get(index)
+        muted = bool(track.muted) if track else False
+        soloed = bool(track.soloed) if track else False
+        volume = float(track.volume) if track else 1.0
+
+        # Solo is a property of the whole story: once anything is soloed,
+        # everything else is silent regardless of its own mute flag.
+        if muted or (any_soloed and not soloed):
+            lane[:] = 0.0
+            continue
+        if volume != 1.0:
+            lane *= volume
+
+    # --- ducking ------------------------------------------------------------
+    # Runs after gain so the envelope reflects what will actually be heard,
+    # and after mute/solo so a silenced lane ducks nothing.
+    for index, lane in lanes.items():
+        track = tracks.get(index)
+        if track is None or track.duck_under_track is None:
+            continue
+        source = lanes.get(track.duck_under_track)
+        if source is None:
+            continue
+        lane *= _duck_envelope(source, project_sr)
+
+    final_audio = np.zeros((2, total_samples), dtype=np.float32)
+    for lane in lanes.values():
+        final_audio += lane
+
+    peak = np.abs(final_audio).max()
+    if peak > 1.0:
+        final_audio /= peak
+
+    return encode_audio(final_audio, project_sr, fmt)

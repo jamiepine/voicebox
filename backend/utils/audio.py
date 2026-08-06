@@ -2,6 +2,8 @@
 Audio processing utilities.
 """
 
+import io
+
 import numpy as np
 import soundfile as sf
 import librosa
@@ -51,17 +53,74 @@ def load_audio(
 ) -> Tuple[np.ndarray, int]:
     """
     Load audio file with normalization.
-    
+
     Args:
         path: Path to audio file
         sample_rate: Target sample rate
         mono: Convert to mono
-        
+
     Returns:
         Tuple of (audio_array, sample_rate)
     """
     audio, sr = librosa.load(path, sr=sample_rate, mono=mono)
     return audio, sr
+
+
+# Container -> (soundfile format, default subtype, MIME type, file extension).
+# Every one of these is compiled into the libsndfile shipped with the app
+# (1.2.2, with LAME, mpg123, Vorbis, Opus and FLAC), so none of them needs
+# ffmpeg.
+EXPORT_FORMATS: dict[str, dict[str, str]] = {
+    "wav": {"format": "WAV", "subtype": "PCM_16", "mime": "audio/wav", "ext": ".wav"},
+    "mp3": {"format": "MP3", "subtype": "MPEG_LAYER_III", "mime": "audio/mpeg", "ext": ".mp3"},
+    "ogg": {"format": "OGG", "subtype": "VORBIS", "mime": "audio/ogg", "ext": ".ogg"},
+    "opus": {"format": "OGG", "subtype": "OPUS", "mime": "audio/ogg", "ext": ".opus"},
+    "flac": {"format": "FLAC", "subtype": "PCM_16", "mime": "audio/flac", "ext": ".flac"},
+}
+
+# Opus only ever encodes at 48 kHz; libsndfile errors on anything else.
+_OPUS_SAMPLE_RATE = 48000
+
+
+def encode_audio(audio: np.ndarray, sample_rate: int, fmt: str = "wav") -> bytes:
+    """Encode audio to a container's bytes.
+
+    Args:
+        audio: ``(samples,)`` mono or ``(channels, samples)`` multi-channel.
+        sample_rate: Sample rate in Hz.
+        fmt: A key of :data:`EXPORT_FORMATS`.
+
+    Returns:
+        Encoded file contents.
+
+    Raises:
+        ValueError: If ``fmt`` is not a supported container.
+    """
+    spec = EXPORT_FORMATS.get(fmt.lower())
+    if spec is None:
+        raise ValueError(f"Unsupported export format '{fmt}'. Supported: {sorted(EXPORT_FORMATS)}")
+
+    # soundfile wants (samples, channels); the mixer works in (channels, samples).
+    data = audio.T if audio.ndim > 1 else audio
+
+    if fmt.lower() == "opus" and sample_rate != _OPUS_SAMPLE_RATE:
+        data = librosa.resample(
+            data.T if data.ndim > 1 else data,
+            orig_sr=sample_rate,
+            target_sr=_OPUS_SAMPLE_RATE,
+        )
+        data = data.T if data.ndim > 1 else data
+        sample_rate = _OPUS_SAMPLE_RATE
+
+    buffer = io.BytesIO()
+    sf.write(
+        buffer,
+        data.astype(np.float32),
+        sample_rate,
+        format=spec["format"],
+        subtype=spec["subtype"],
+    )
+    return buffer.getvalue()
 
 
 def save_audio(
