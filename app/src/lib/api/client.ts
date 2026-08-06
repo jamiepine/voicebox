@@ -8,6 +8,10 @@ import type {
   EffectConfig,
   EffectPresetCreate,
   EffectPresetResponse,
+  FolderCreate,
+  FolderKind,
+  FolderResponse,
+  FolderUpdate,
   GenerationRequest,
   GenerationResponse,
   GenerationVersionResponse,
@@ -131,6 +135,76 @@ class ApiClient {
   async deleteProfile(profileId: string): Promise<void> {
     await this.request<void>(`/profiles/${profileId}`, {
       method: 'DELETE',
+    });
+  }
+
+  /**
+   * Copy a voice, including its samples, avatar, personality and effects.
+   * Not an export/import round-trip — that transfer format drops everything
+   * except name, description and language.
+   */
+  async duplicateProfile(profileId: string, name?: string): Promise<VoiceProfileResponse> {
+    return this.request<VoiceProfileResponse>(`/profiles/${profileId}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify(name ? { name } : {}),
+    });
+  }
+
+  // ── Folders ────────────────────────────────────────────────────────
+
+  async listFolders(kind: FolderKind): Promise<FolderResponse[]> {
+    return this.request<FolderResponse[]>(`/folders?kind=${kind}`);
+  }
+
+  async createFolder(data: FolderCreate): Promise<FolderResponse> {
+    return this.request<FolderResponse>('/folders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateFolder(folderId: string, data: FolderUpdate): Promise<FolderResponse> {
+    return this.request<FolderResponse>(`/folders/${folderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Move a folder back to the root. Separate from updateFolder because a
+   *  null parent_id there is indistinguishable from an omitted field. */
+  async detachFolder(folderId: string): Promise<FolderResponse> {
+    return this.request<FolderResponse>(`/folders/${folderId}/detach`, {
+      method: 'POST',
+    });
+  }
+
+  /** Deletes the folder only — members become uncategorised and child
+   *  folders rise to this folder's parent. */
+  async deleteFolder(folderId: string): Promise<void> {
+    await this.request<void>(`/folders/${folderId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** Pass null to move the voice out of any folder. */
+  async setProfileFolder(
+    profileId: string,
+    folderId: string | null,
+  ): Promise<VoiceProfileResponse> {
+    return this.request<VoiceProfileResponse>(`/profiles/${profileId}/folder`, {
+      method: 'PUT',
+      body: JSON.stringify({ folder_id: folderId }),
+    });
+  }
+
+  /** Pass null to move the clip out of any folder. */
+  async setGenerationFolder(
+    generationId: string,
+    folderId: string | null,
+  ): Promise<{ id: string; folder_id: string | null }> {
+    return this.request(`/history/${generationId}/folder`, {
+      method: 'PUT',
+      body: JSON.stringify({ folder_id: folderId }),
     });
   }
 
@@ -301,6 +375,10 @@ class ApiClient {
     const params = new URLSearchParams();
     if (query?.profile_id) params.append('profile_id', query.profile_id);
     if (query?.search) params.append('search', query.search);
+    if (query?.folder_id) params.append('folder_id', query.folder_id);
+    if (query?.uncategorised_only) params.append('uncategorised_only', 'true');
+    // Server-side default is true, so only the opt-out needs sending.
+    if (query?.include_subfolders === false) params.append('include_subfolders', 'false');
     if (query?.limit) params.append('limit', query.limit.toString());
     if (query?.offset) params.append('offset', query.offset.toString());
 

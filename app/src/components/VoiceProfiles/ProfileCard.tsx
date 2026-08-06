@@ -1,4 +1,4 @@
-import { Download, Edit, Sparkles, Trash2, Wand2 } from 'lucide-react';
+import { Copy, Download, Edit, Sparkles, Trash2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { VoiceProfileResponse } from '@/lib/api/types';
-import { useDeleteProfile, useExportProfile } from '@/lib/hooks/useProfiles';
+import { useDeleteProfile, useDuplicateProfile, useExportProfile } from '@/lib/hooks/useProfiles';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -35,6 +35,7 @@ export function ProfileCard({ profile, disabled }: ProfileCardProps) {
 
   const deleteProfile = useDeleteProfile();
   const exportProfile = useExportProfile();
+  const duplicateProfile = useDuplicateProfile();
   const setEditingProfileId = useUIStore((state) => state.setEditingProfileId);
   const setProfileDialogOpen = useUIStore((state) => state.setProfileDialogOpen);
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
@@ -126,11 +127,18 @@ export function ProfileCard({ profile, disabled }: ProfileCardProps) {
             {profile.effects_chain && profile.effects_chain.length > 0 && (
               <Sparkles className="h-3.5 w-3.5 text-accent fill-accent" />
             )}
-            {profile.personality?.trim() && (
-              <Wand2 className="h-3.5 w-3.5 text-accent" />
-            )}
+            {profile.personality?.trim() && <Wand2 className="h-3.5 w-3.5 text-accent" />}
           </div>
           <div className="flex gap-0.5 justify-end items-end mt-auto">
+            <CircleButton
+              icon={Copy}
+              onClick={(e) => {
+                e.stopPropagation();
+                duplicateProfile.mutate({ profileId: profile.id });
+              }}
+              disabled={duplicateProfile.isPending}
+              aria-label={t('profiles.card.duplicate')}
+            />
             <CircleButton
               icon={Download}
               onClick={handleExport}

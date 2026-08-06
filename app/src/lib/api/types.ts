@@ -29,10 +29,40 @@ export interface VoiceProfileResponse {
   design_prompt?: string;
   default_engine?: string;
   personality?: string | null;
+  /** null / undefined means the voice sits in the Uncategorised bucket. */
+  folder_id?: string | null;
   generation_count: number;
   sample_count: number;
   created_at: string;
   updated_at: string;
+}
+
+/** What a folder groups. Voice folders are flat; clip folders nest. */
+export type FolderKind = 'voice' | 'generation';
+
+export interface FolderResponse {
+  id: string;
+  name: string;
+  kind: FolderKind;
+  /** Always null for voice folders. */
+  parent_id?: string | null;
+  position: number;
+  /** Direct members only — a parent does not count its children's items. */
+  item_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FolderCreate {
+  name: string;
+  kind: FolderKind;
+  parent_id?: string | null;
+}
+
+export interface FolderUpdate {
+  name?: string;
+  parent_id?: string;
+  position?: number;
 }
 
 /** Response returned by /profiles/{id}/compose. */
@@ -121,6 +151,15 @@ export interface GenerationResponse {
 export interface HistoryQuery {
   profile_id?: string;
   search?: string;
+  /** Show only this folder's clips. Ignored when uncategorised_only is set. */
+  folder_id?: string;
+  /**
+   * Show only clips in no folder at all. Distinct from an absent folder_id,
+   * which means "no folder filter" rather than "the Uncategorised bucket".
+   */
+  uncategorised_only?: boolean;
+  /** Whether folder_id also matches clips in that folder's descendants. */
+  include_subfolders?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -129,6 +168,8 @@ export interface HistoryResponse extends GenerationResponse {
   profile_name: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
+  /** null / undefined means the clip sits in the Uncategorised bucket. */
+  folder_id?: string | null;
 }
 
 export interface HistoryListResponse {
