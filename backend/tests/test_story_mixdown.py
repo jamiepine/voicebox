@@ -268,6 +268,22 @@ def test_solo_silences_every_other_lane(client, story, tmp_path):
     assert energy_220 > energy_440 * 5, "soloed lane did not dominate"
 
 
+def test_deleting_a_story_removes_its_track_settings(client, tmp_path):
+    """Track rows are keyed by story_id with no FK cascade, so deleting a
+    story has to clear them or they linger as unreachable rows."""
+    doomed = client.post("/stories", json={"name": "Doomed"}).json()
+    clip = _import_audio(client, tmp_path, "doomed.wav")
+    client.post(f"/stories/{doomed['id']}/items", json={"generation_id": clip["id"], "track": 0})
+    client.put(
+        f"/stories/{doomed['id']}/tracks/0",
+        json={"volume": 0.5, "muted": False, "soloed": False},
+    )
+    assert len(client.get(f"/stories/{doomed['id']}/tracks").json()) == 1
+
+    assert client.delete(f"/stories/{doomed['id']}").status_code == 200
+    assert client.get(f"/stories/{doomed['id']}/tracks").json() == []
+
+
 def test_deleting_track_settings_keeps_the_clips(client, story, tmp_path):
     _two_lane_story(client, story, tmp_path, "del")
     client.put(

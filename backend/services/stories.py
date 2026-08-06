@@ -6,8 +6,6 @@ from typing import List, Optional
 from datetime import datetime
 import logging
 import uuid
-import tempfile
-from pathlib import Path
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -37,7 +35,7 @@ from ..database import (
 )
 from ..database.models import StoryTrack as DBStoryTrack
 from .history import _get_versions_for_generation
-from ..utils.audio import encode_audio, load_audio, save_audio
+from ..utils.audio import encode_audio
 import librosa
 import numpy as np
 
@@ -258,6 +256,10 @@ async def delete_story(
 
     # Delete all items
     db.query(DBStoryItem).filter_by(story_id=story_id).delete()
+
+    # Delete per-lane mixer settings. They are keyed by story_id but have no
+    # FK cascade, so without this they outlive the story as unreachable rows.
+    db.query(DBStoryTrack).filter_by(story_id=story_id).delete()
 
     # Delete story
     db.delete(story)
