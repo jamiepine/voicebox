@@ -1,15 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type {
+  ExportAudioFormat,
   StoryCreate,
   StoryItemBatchUpdate,
   StoryItemCreate,
+  StoryItemFadeUpdate,
   StoryItemMove,
   StoryItemReorder,
+  StoryItemSpeedUpdate,
   StoryItemSplit,
   StoryItemTrim,
   StoryItemVersionUpdate,
   StoryItemVolumeUpdate,
+  StoryTrackUpsert,
 } from '@/lib/api/types';
 import { usePlatform } from '@/platform/PlatformContext';
 
@@ -175,6 +179,87 @@ export function useUpdateStoryItemVolume() {
   });
 }
 
+export function useUpdateStoryItemFades() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemFadeUpdate;
+    }) => apiClient.updateStoryItemFades(storyId, itemId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
+    },
+  });
+}
+
+export function useUpdateStoryItemSpeed() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemSpeedUpdate;
+    }) => apiClient.updateStoryItemSpeed(storyId, itemId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
+    },
+  });
+}
+
+// ── Track mixer settings ─────────────────────────────────────────────
+
+export function useStoryTracks(storyId: string | null) {
+  return useQuery({
+    queryKey: ['stories', storyId, 'tracks'],
+    queryFn: () => apiClient.listStoryTracks(storyId as string),
+    enabled: !!storyId,
+  });
+}
+
+export function useUpsertStoryTrack() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      index,
+      data,
+    }: {
+      storyId: string;
+      index: number;
+      data: StoryTrackUpsert;
+    }) => apiClient.upsertStoryTrack(storyId, index, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId, 'tracks'] });
+    },
+  });
+}
+
+export function useDeleteStoryTrack() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, index }: { storyId: string; index: number }) =>
+      apiClient.deleteStoryTrack(storyId, index),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId, 'tracks'] });
+    },
+  });
+}
+
 export function useSplitStoryItem() {
   const queryClient = useQueryClient();
 
@@ -232,20 +317,30 @@ export function useExportStoryAudio() {
   const platform = usePlatform();
 
   return useMutation({
-    mutationFn: async ({ storyId, storyName }: { storyId: string; storyName: string }) => {
-      const blob = await apiClient.exportStoryAudio(storyId);
+    mutationFn: async ({
+      storyId,
+      storyName,
+      format = 'wav',
+      normalizeLoudness = false,
+    }: {
+      storyId: string;
+      storyName: string;
+      format?: ExportAudioFormat;
+      normalizeLoudness?: boolean;
+    }) => {
+      const blob = await apiClient.exportStoryAudio(storyId, { format, normalizeLoudness });
 
       // Create safe filename
       const safeName = storyName
         .substring(0, 50)
         .replace(/[^a-z0-9]/gi, '-')
         .toLowerCase();
-      const filename = `${safeName || 'story'}.wav`;
+      const filename = `${safeName || 'story'}.${format}`;
 
       await platform.filesystem.saveFile(filename, blob, [
         {
           name: 'Audio File',
-          extensions: ['wav'],
+          extensions: [format],
         },
       ]);
 

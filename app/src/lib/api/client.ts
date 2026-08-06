@@ -27,16 +27,21 @@ import type {
   RocmStatus,
   StoryCreate,
   StoryDetailResponse,
+  ExportAudioFormat,
   StoryItemBatchUpdate,
   StoryItemCreate,
   StoryItemDetail,
+  StoryItemFadeUpdate,
   StoryItemMove,
   StoryItemReorder,
+  StoryItemSpeedUpdate,
   StoryItemSplit,
   StoryItemTrim,
   StoryItemVersionUpdate,
   StoryItemVolumeUpdate,
   StoryResponse,
+  StoryTrackResponse,
+  StoryTrackUpsert,
   TranscriptionResponse,
   VoiceProfileCreate,
   VoiceProfileResponse,
@@ -880,6 +885,54 @@ class ApiClient {
     });
   }
 
+  async updateStoryItemFades(
+    storyId: string,
+    itemId: string,
+    data: StoryItemFadeUpdate,
+  ): Promise<StoryItemDetail> {
+    return this.request<StoryItemDetail>(`/stories/${storyId}/items/${itemId}/fades`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateStoryItemSpeed(
+    storyId: string,
+    itemId: string,
+    data: StoryItemSpeedUpdate,
+  ): Promise<StoryItemDetail> {
+    return this.request<StoryItemDetail>(`/stories/${storyId}/items/${itemId}/speed`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ── Story track mixer settings ─────────────────────────────────────
+  // Lanes without a row here mix at unity gain, so this list is often
+  // shorter than the number of lanes on screen.
+
+  async listStoryTracks(storyId: string): Promise<StoryTrackResponse[]> {
+    return this.request<StoryTrackResponse[]>(`/stories/${storyId}/tracks`);
+  }
+
+  async upsertStoryTrack(
+    storyId: string,
+    index: number,
+    data: StoryTrackUpsert,
+  ): Promise<StoryTrackResponse> {
+    return this.request<StoryTrackResponse>(`/stories/${storyId}/tracks/${index}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Resets the lane to defaults; clips on it are kept. */
+  async deleteStoryTrack(storyId: string, index: number): Promise<void> {
+    await this.request<void>(`/stories/${storyId}/tracks/${index}`, {
+      method: 'DELETE',
+    });
+  }
+
   async splitStoryItem(
     storyId: string,
     itemId: string,
@@ -908,8 +961,21 @@ class ApiClient {
     });
   }
 
-  async exportStoryAudio(storyId: string): Promise<Blob> {
-    const url = `${this.getBaseUrl()}/stories/${storyId}/export-audio`;
+  /**
+   * Mix a story down to one file. `format` defaults to wav server-side.
+   * `normalizeLoudness` needs ffmpeg and is silently skipped without it —
+   * check `ffmpeg_available` on /health before offering it.
+   */
+  async exportStoryAudio(
+    storyId: string,
+    options?: { format?: ExportAudioFormat; normalizeLoudness?: boolean },
+  ): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (options?.format) params.append('format', options.format);
+    if (options?.normalizeLoudness) params.append('normalize_loudness', 'true');
+
+    const query = params.toString();
+    const url = `${this.getBaseUrl()}/stories/${storyId}/export-audio${query ? `?${query}` : ''}`;
     const response = await fetch(url);
 
     if (!response.ok) {

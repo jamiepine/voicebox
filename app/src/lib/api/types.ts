@@ -312,6 +312,11 @@ export interface HealthResponse {
   backend_type?: string;
   backend_variant?: string; // "cpu", "cuda", or "rocm"
   supports_rocm?: boolean; // AMD GPU on Windows — the ROCm backend is applicable
+  /**
+   * ffmpeg is optional. Without it, loudness normalisation is unavailable and
+   * m4a/aac/webm cannot be imported — libsndfile cannot open those.
+   */
+  ffmpeg_available?: boolean;
 }
 
 export interface CudaDownloadProgress {
@@ -458,6 +463,10 @@ export interface StoryItemDetail {
   instruct?: string;
   engine?: string;
   volume: number;
+  fade_in_ms: number;
+  fade_out_ms: number;
+  /** >1 plays faster and therefore shorter. */
+  speed: number;
   generation_created_at: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
@@ -465,6 +474,42 @@ export interface StoryItemDetail {
 
 export interface StoryItemVolumeUpdate {
   volume: number;
+}
+
+export interface StoryItemFadeUpdate {
+  fade_in_ms: number;
+  fade_out_ms: number;
+}
+
+export interface StoryItemSpeedUpdate {
+  speed: number;
+}
+
+/** Containers the bundled libsndfile can write — none of them need ffmpeg. */
+export type ExportAudioFormat = 'wav' | 'mp3' | 'ogg' | 'opus' | 'flac';
+
+/**
+ * Mixer settings for one timeline lane. A lane with no entry mixes at unity
+ * gain, so the list is often shorter than the lanes on screen.
+ */
+export interface StoryTrackResponse {
+  id: string;
+  story_id: string;
+  index: number;
+  name?: string | null;
+  volume: number;
+  muted: boolean;
+  soloed: boolean;
+  /** Lane whose loudness ducks this one; null disables ducking. */
+  duck_under_track?: number | null;
+}
+
+export interface StoryTrackUpsert {
+  name?: string | null;
+  volume: number;
+  muted: boolean;
+  soloed: boolean;
+  duck_under_track?: number | null;
 }
 
 export interface StoryItemVersionUpdate {

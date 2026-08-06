@@ -20,11 +20,21 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Loader from 'react-loaders';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
+import type { ExportAudioFormat } from '@/lib/api/types';
 import { useHistory } from '@/lib/hooks/useHistory';
+import { useServerHealth } from '@/lib/hooks/useServer';
 import {
   useAddStoryItem,
   useExportStoryAudio,
@@ -37,6 +47,15 @@ import { useGenerationStore } from '@/stores/generationStore';
 import { useStoryStore } from '@/stores/storyStore';
 import { SortableStoryChatItem } from './StoryChatItem';
 
+/** Containers the bundled libsndfile writes; none of them need ffmpeg. */
+const EXPORT_FORMATS: { value: ExportAudioFormat; label: string }[] = [
+  { value: 'wav', label: 'WAV — lossless' },
+  { value: 'mp3', label: 'MP3 — widely compatible' },
+  { value: 'ogg', label: 'OGG Vorbis' },
+  { value: 'opus', label: 'Opus — smallest' },
+  { value: 'flac', label: 'FLAC — lossless, compressed' },
+];
+
 export function StoryContent() {
   const { t } = useTranslation();
   const selectedStoryId = useStoryStore((state) => state.selectedStoryId);
@@ -45,6 +64,7 @@ export function StoryContent() {
   const reorderItems = useReorderStoryItems();
   const exportAudio = useExportStoryAudio();
   const addStoryItem = useAddStoryItem();
+  const { data: health } = useServerHealth();
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -213,13 +233,15 @@ export function StoryContent() {
     );
   };
 
-  const handleExportAudio = () => {
+  const handleExportAudio = (format: ExportAudioFormat = 'wav', normalizeLoudness = false) => {
     if (!story) return;
 
     exportAudio.mutate(
       {
         storyId: story.id,
         storyName: story.name,
+        format,
+        normalizeLoudness,
       },
       {
         onError: (error) => {
@@ -446,15 +468,35 @@ export function StoryContent() {
             </PopoverContent>
           </Popover>
           {story.items.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportAudio}
-              disabled={exportAudio.isPending}
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {t('storyContent.exportAudio')}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={exportAudio.isPending}>
+                  <Download className="mr-2 h-4 w-4" />
+                  {t('storyContent.exportAudio')}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{t('storyContent.export.format')}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {EXPORT_FORMATS.map(({ value, label }) => (
+                  <DropdownMenuItem key={value} onClick={() => handleExportAudio(value)}>
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>{t('storyContent.export.mastering')}</DropdownMenuLabel>
+                <DropdownMenuItem
+                  // Loudness normalisation is the one export option that needs
+                  // ffmpeg; disable rather than silently ignoring the request.
+                  disabled={!health?.ffmpeg_available}
+                  onClick={() => handleExportAudio('mp3', true)}
+                >
+                  {health?.ffmpeg_available
+                    ? t('storyContent.export.normalized')
+                    : t('storyContent.export.normalizedUnavailable')}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>

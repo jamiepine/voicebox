@@ -429,6 +429,16 @@
       "deleting": "Deleting…"
     }
   },
+  "storyTracks": {
+    "muteTrack": "Mute track {{index}}",
+    "soloTrack": "Solo track {{index}}",
+    "volumeTrack": "Volume for track {{index}}",
+    "duck": "Ducking",
+    "duckUnder": "Duck under track",
+    "duckOff": "No ducking",
+    "trackNumber": "Track {{index}}",
+    "noOtherTracks": "No other tracks"
+  },
   "folders": {
     "new": "New folder",
     "none": "No folders yet",
@@ -671,6 +681,12 @@
     "searchNoMatches": "No matching generations found",
     "searchNoAvailable": "No available generations",
     "exportAudio": "Export Audio",
+    "export": {
+      "format": "Format",
+      "mastering": "Mastering",
+      "normalized": "MP3, loudness normalised",
+      "normalizedUnavailable": "Loudness normalising needs ffmpeg"
+    },
     "empty": {
       "title": "No items in this story",
       "hint": "Generate speech using the box below to add items"
