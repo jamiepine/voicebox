@@ -55,6 +55,7 @@ def _profile_to_response(
         design_prompt=getattr(profile, "design_prompt", None),
         default_engine=getattr(profile, "default_engine", None),
         personality=getattr(profile, "personality", None),
+        folder_id=getattr(profile, "folder_id", None),
         generation_count=generation_count,
         sample_count=sample_count,
         created_at=profile.created_at,
@@ -135,6 +136,24 @@ def validate_profile_engine(profile, engine: str) -> None:
         raise ValueError(f"Engine '{engine}' does not support cloned voice profiles")
 
 
+def get_unique_profile_name(name: str, db: Session) -> str:
+    """Return ``name``, or the first free "name (n)" variant.
+
+    ``profiles.name`` is UNIQUE, so anything that creates a profile from an
+    existing one -- import, duplicate -- has to resolve collisions first.
+    """
+    base_name = name
+    counter = 1
+
+    while True:
+        existing = db.query(DBVoiceProfile).filter_by(name=name).first()
+        if not existing:
+            return name
+
+        name = f"{base_name} ({counter})"
+        counter += 1
+
+
 async def create_profile(
     data: VoiceProfileCreate,
     db: Session,
@@ -183,6 +202,7 @@ async def create_profile(
         design_prompt=data.design_prompt,
         default_engine=default_engine,
         personality=data.personality,
+        folder_id=data.folder_id,
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
@@ -708,3 +728,94 @@ async def delete_avatar(
     db.commit()
 
     return True
+
+
+async def duplicate_profile(
+    profile_id: str,
+    db: Session,
+    name: str | None = None,
+) -> VoiceProfileResponse:
+    """Copy a profile, its samples, and its avatar.
+
+    Deliberately not implemented as export-then-import.  The transfer format
+    carries only name/description/language (see export_import.py), so a
+    round-trip silently drops personality, effects_chain, default_engine and
+    every preset/designed field -- and refuses profiles with no samples,
+    which is every preset voice.  Copying the row directly keeps all of it.
+
+    Sample audio is copied byte-for-byte rather than re-encoded through
+    add_profile_sample(): the source files were already validated when they
+    were first added, and a duplicate should be identical, not resampled.
+    """
+    source = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not source:
+        raise ValueError(f"Profile {profile_id} not found")
+
+    new_id = str(uuid.uuid4())
+    new_name = get_unique_profile_name(name.strip() if name else f"{source.name} (copy)", db)
+
+    duplicate = DBVoiceProfile(
+        id=new_id,
+        name=new_name,
+        description=source.description,
+        language=source.language,
+        effects_chain=source.effects_chain,
+        voice_type=source.voice_type,
+        preset_engine=source.preset_engine,
+        preset_voice_id=source.preset_voice_id,
+        design_prompt=source.design_prompt,
+        default_engine=source.default_engine,
+        personality=source.personality,
+        folder_id=source.folder_id,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    db.add(duplicate)
+
+    new_dir = config.get_profiles_dir() / new_id
+    new_dir.mkdir(parents=True, exist_ok=True)
+
+    # Samples: copy each file under a fresh id, then point a new row at it.
+    samples = db.query(DBProfileSample).filter_by(profile_id=profile_id).all()
+    for sample in samples:
+        source_audio = config.resolve_storage_path(sample.audio_path)
+        if source_audio is None or not source_audio.exists():
+            # A profile can outlive its audio (moved data dir, manual
+            # cleanup).  Skip the orphan rather than fail the whole copy.
+            logger.warning(
+                "Skipping sample %s while duplicating %s: audio missing at %s",
+                sample.id,
+                profile_id,
+                sample.audio_path,
+            )
+            continue
+
+        new_sample_id = str(uuid.uuid4())
+        dest = new_dir / f"{new_sample_id}{source_audio.suffix}"
+        shutil.copy2(source_audio, dest)
+        db.add(
+            DBProfileSample(
+                id=new_sample_id,
+                profile_id=new_id,
+                audio_path=config.to_storage_path(dest),
+                reference_text=sample.reference_text,
+            )
+        )
+
+    if source.avatar_path:
+        source_avatar = config.resolve_storage_path(source.avatar_path)
+        if source_avatar is not None and source_avatar.exists():
+            dest_avatar = new_dir / source_avatar.name
+            shutil.copy2(source_avatar, dest_avatar)
+            duplicate.avatar_path = config.to_storage_path(dest_avatar)
+
+    db.commit()
+    db.refresh(duplicate)
+
+    sample_count = (
+        db.query(func.count(DBProfileSample.id))
+        .filter(DBProfileSample.profile_id == new_id)
+        .scalar()
+    )
+    # A fresh copy has no generations of its own.
+    return _profile_to_response(duplicate, generation_count=0, sample_count=sample_count)

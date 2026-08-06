@@ -2,7 +2,7 @@
 
 import io
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -18,14 +18,23 @@ router = APIRouter()
 async def list_history(
     profile_id: str | None = None,
     search: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
+    folder_id: str | None = None,
+    uncategorised_only: bool = False,
+    include_subfolders: bool = True,
+    # Bounds mirror HistoryQuery so FastAPI rejects out-of-range values with
+    # a 422 before the model is constructed.  Building HistoryQuery from raw
+    # ints instead surfaced its ValidationError as an opaque 500.
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
     """List generation history with optional filters."""
     query = models.HistoryQuery(
         profile_id=profile_id,
         search=search,
+        folder_id=folder_id,
+        uncategorised_only=uncategorised_only,
+        include_subfolders=include_subfolders,
         limit=limit,
         offset=offset,
     )

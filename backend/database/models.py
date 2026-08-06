@@ -14,6 +14,31 @@ from ..utils.capture_chords import (
 Base = declarative_base()
 
 
+class Folder(Base):
+    """A user-created folder for organising voices or generated clips.
+
+    One table serves both, discriminated by ``kind``:
+      - "voice"      — groups profiles.  Flat: parent_id is always NULL.
+      - "generation" — groups generations.  Nests to arbitrary depth.
+
+    The asymmetry is a product decision, not a schema limit — voices are a
+    small, stable set that reads better as one level, while clips accumulate
+    per project and need real hierarchy.  Nesting is enforced in the routes
+    rather than here so the constraint can relax without a migration.
+    """
+
+    __tablename__ = "folders"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, nullable=False)
+    kind = Column(String, nullable=False, default="voice")  # "voice" | "generation"
+    parent_id = Column(String, ForeignKey("folders.id"), nullable=True)
+    # Manual ordering within a parent.  Ties break by name in the routes.
+    position = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class VoiceProfile(Base):
     """Voice profile.
 
@@ -43,6 +68,11 @@ class VoiceProfile(Base):
     # says and how, orthogonal to how it sounds (handled by the preset /
     # cloning metadata above).
     personality = Column(Text, nullable=True)
+
+    # NULL means "Uncategorised" — the absence of a folder, not a missing
+    # reference.  Deleting a folder nulls this rather than cascading, so a
+    # folder is never a way to lose voices.
+    folder_id = Column(String, ForeignKey("folders.id"), nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -82,6 +112,8 @@ class Generation(Base):
     # profile's personality LLM before TTS. Future sources (bulk import,
     # agent replies, etc.) can extend this.
     source = Column(String, nullable=False, default="manual")
+    # NULL means "Uncategorised".  See VoiceProfile.folder_id.
+    folder_id = Column(String, ForeignKey("folders.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
