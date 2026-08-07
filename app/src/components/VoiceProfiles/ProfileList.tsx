@@ -26,6 +26,7 @@ import { FolderSection } from './FolderSection';
 import { ProfileCard } from './ProfileCard';
 import { ProfileForm } from './ProfileForm';
 import { ProfileRow } from './ProfileRow';
+import { VoicePreviewDialog } from './VoicePreviewDialog';
 
 /** Engines that use preset (built-in) voices instead of cloned profiles. */
 const PRESET_ENGINES = new Set(['kokoro', 'qwen_custom_voice']);
@@ -53,6 +54,7 @@ export function ProfileList() {
 
   const [newFolderOpen, setNewFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+  const [previewProfile, setPreviewProfile] = useState<VoiceProfileResponse | null>(null);
 
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
@@ -153,12 +155,17 @@ export function ProfileList() {
             }}
           >
             {viewMode === 'card' ? (
-              <ProfileCard profile={profile} disabled={!isSupported(profile)} />
+              <ProfileCard
+                profile={profile}
+                disabled={!isSupported(profile)}
+                onPreview={setPreviewProfile}
+              />
             ) : (
               <ProfileRow
                 profile={profile}
                 disabled={!isSupported(profile)}
                 folders={voiceFolders}
+                onPreview={setPreviewProfile}
               />
             )}
           </div>
@@ -287,6 +294,11 @@ export function ProfileList() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <VoicePreviewDialog
+        profile={previewProfile}
+        onOpenChange={(open) => !open && setPreviewProfile(null)}
+      />
 
       <ProfileForm />
     </div>

@@ -1,4 +1,4 @@
-import { Copy, Download, Edit, Sparkles, Trash2, Wand2 } from 'lucide-react';
+import { Copy, Download, Edit, Sparkles, Trash2, Volume2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
@@ -27,9 +27,11 @@ const ENGINE_DISPLAY_NAMES: Record<string, string> = {
 interface ProfileCardProps {
   profile: VoiceProfileResponse;
   disabled?: boolean;
+  /** Open the preview dialog for this voice. */
+  onPreview?: (profile: VoiceProfileResponse) => void;
 }
 
-export function ProfileCard({ profile, disabled }: ProfileCardProps) {
+export function ProfileCard({ profile, disabled, onPreview }: ProfileCardProps) {
   const { t } = useTranslation();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
@@ -130,6 +132,14 @@ export function ProfileCard({ profile, disabled }: ProfileCardProps) {
             {profile.personality?.trim() && <Wand2 className="h-3.5 w-3.5 text-accent" />}
           </div>
           <div className="flex gap-0.5 justify-end items-end mt-auto">
+            <CircleButton
+              icon={Volume2}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPreview?.(profile);
+              }}
+              aria-label={t('profiles.preview.action')}
+            />
             <CircleButton
               icon={Copy}
               onClick={(e) => {

@@ -24,7 +24,7 @@ interface MiniSamplePlayerProps {
   audioUrl: string;
 }
 
-function MiniSamplePlayer({ audioUrl }: MiniSamplePlayerProps) {
+export function MiniSamplePlayer({ audioUrl }: MiniSamplePlayerProps) {
   const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);

@@ -1,4 +1,12 @@
-import { BookOpen, FolderInput, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  BookOpen,
+  FolderInput,
+  GripVertical,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type ClipFolderSelection, ClipFolderTree } from '@/components/History/ClipFolderTree';
@@ -305,12 +313,19 @@ export function StoryList() {
               const storyFolderId = story.folder_id ?? null;
               const isActive = selectedStoryId === story.id;
               return (
-                <div
-                  key={story.id}
-                  draggable
-                  onDragStart={(e) => setFolderDragData(e, { kind: 'story', id: story.id })}
-                  className="relative group"
-                >
+                <div key={story.id} className="relative group">
+                  {/* Drag handle — the row body is a button, which browsers
+                      won't reliably start a native drag from. */}
+                  <span
+                    draggable
+                    onDragStart={(e) => setFolderDragData(e, { kind: 'story', id: story.id })}
+                    title={t('stories.dragHandle')}
+                    aria-label={t('stories.dragHandle')}
+                    className="absolute left-0 top-0 bottom-0 z-10 flex w-4 cursor-grab items-center justify-center text-muted-foreground/30 opacity-0 transition-opacity hover:text-foreground active:cursor-grabbing group-hover:opacity-100"
+                  >
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </span>
+
                   <button
                     type="button"
                     onClick={() => setSelectedStoryId(story.id)}

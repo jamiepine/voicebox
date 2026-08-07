@@ -404,8 +404,13 @@
       "selectLabel": "{{name}}, {{language}}. Select as voice for generation.",
       "selectLabelSelected": "{{name}}, {{language}}. Selected as voice for generation."
     },
+    "preview": {
+      "action": "Preview voice",
+      "noSamples": "This voice has no reference audio to play. Preset and designed voices are generated on demand."
+    },
     "row": {
       "actions": "Actions for {{name}}",
+      "dragHandle": "Drag into a folder",
       "moveTo": "Move to folder",
       "hasEffects": "Has an effects chain",
       "hasPersonality": "Has a personality"
@@ -625,6 +630,7 @@
   "stories": {
     "title": "Stories",
     "newStory": "New Story",
+    "dragHandle": "Drag into a folder",
     "loading": "Loading stories…",
     "searchPlaceholder": "Search stories…",
     "empty": {
@@ -716,6 +722,7 @@
   },
   "history": {
     "empty": "No voice generations, yet…",
+    "dragHandle": "Drag into a folder",
     "actions": {
       "menu": "Actions",
       "play": "Play",

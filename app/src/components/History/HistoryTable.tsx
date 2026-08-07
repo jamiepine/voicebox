@@ -5,6 +5,7 @@ import {
   Download,
   FileArchive,
   FolderInput,
+  GripVertical,
   Loader2,
   MoreHorizontal,
   Play,
@@ -159,13 +160,15 @@ export function HistoryTable() {
     }
   }, [historyData, page]);
 
-  // Changing the folder filter changes what page 0 even means, so the
-  // accumulated pages have to be dropped — otherwise clips from the previous
-  // filter stay on screen underneath the new results.
+  // Changing the folder filter restarts paging. Deliberately only resets the
+  // page and not the accumulated list: this effect is declared after the one
+  // that fills the list, so clearing here wiped rows that React Query had
+  // already served for the new folder in the same commit — and since
+  // historyData then never changed again, the list stayed empty. Replacing on
+  // page 0 above is what actually discards the previous folder's rows.
   // biome-ignore lint/correctness/useExhaustiveDependencies: folderSelection is the trigger, not a value the effect reads
   useEffect(() => {
     setPage(0);
-    setAllHistory([]);
   }, [folderSelection]);
 
   // Reset to page 0 when deletions, imports, or generation completions occur
@@ -510,13 +513,23 @@ export function HistoryTable() {
               return (
                 <div
                   key={gen.id}
-                  draggable
-                  onDragStart={(e) => setFolderDragData(e, { kind: 'generation', id: gen.id })}
                   className={cn(
-                    'border rounded-md bg-card transition-colors text-left w-full',
+                    'group/clip relative border rounded-md bg-card transition-colors text-left w-full',
                     isCurrentlyPlaying && 'bg-muted/70',
                   )}
                 >
+                  {/* Drag handle — the row body is interactive, and browsers
+                      won't reliably start a native drag from inside a button. */}
+                  <span
+                    draggable
+                    onDragStart={(e) => setFolderDragData(e, { kind: 'generation', id: gen.id })}
+                    title={t('history.dragHandle')}
+                    aria-label={t('history.dragHandle')}
+                    className="absolute left-0 top-0 bottom-0 z-10 flex w-4 cursor-grab items-center justify-center text-muted-foreground/30 opacity-0 transition-opacity hover:text-foreground active:cursor-grabbing group-hover/clip:opacity-100"
+                  >
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </span>
+
                   {/* Main row */}
                   <div
                     role={isPlayable ? 'button' : undefined}

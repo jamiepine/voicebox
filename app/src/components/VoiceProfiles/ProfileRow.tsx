@@ -3,9 +3,11 @@ import {
   Download,
   Edit,
   FolderInput,
+  GripVertical,
   MoreHorizontal,
   Sparkles,
   Trash2,
+  Volume2,
   Wand2,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -51,6 +53,8 @@ interface ProfileRowProps {
   disabled?: boolean;
   /** Voice folders, for the "Move to" submenu. */
   folders: FolderResponse[];
+  /** Open the preview dialog for this voice. */
+  onPreview?: (profile: VoiceProfileResponse) => void;
 }
 
 /**
@@ -61,7 +65,7 @@ interface ProfileRowProps {
  * at list density a row is ~48px tall, too tight for four icon buttons
  * without crowding the text.
  */
-export function ProfileRow({ profile, disabled, folders }: ProfileRowProps) {
+export function ProfileRow({ profile, disabled, folders, onPreview }: ProfileRowProps) {
   const { t } = useTranslation();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -121,14 +125,26 @@ export function ProfileRow({ profile, disabled, folders }: ProfileRowProps) {
           menu is itself a button, and nesting interactive elements is invalid.
           The selectable area is a real <button> instead. */}
       <div
-        draggable
-        onDragStart={(e) => setFolderDragData(e, { kind: 'voice', id: profile.id })}
         className={cn(
-          'group flex items-start gap-3 rounded-md border px-3 py-2 transition-colors',
+          'group flex items-start gap-2 rounded-md border px-2 py-2 transition-colors',
           disabled ? 'opacity-40 hover:opacity-60' : 'hover:bg-accent/40',
           isSelected && !disabled && 'ring-2 ring-accent border-transparent bg-accent/30',
         )}
       >
+        {/* Drag handle. The whole row can't be the draggable element: the
+            row's body is a <button>, and browsers won't reliably start a
+            native drag from inside one. A grip also makes the affordance
+            visible, matching the story timeline's clips. */}
+        <span
+          draggable
+          onDragStart={(e) => setFolderDragData(e, { kind: 'voice', id: profile.id })}
+          title={t('profiles.row.dragHandle')}
+          aria-label={t('profiles.row.dragHandle')}
+          className="mt-0.5 shrink-0 cursor-grab text-muted-foreground/40 transition-colors hover:text-foreground active:cursor-grabbing group-hover:text-muted-foreground"
+        >
+          <GripVertical className="h-4 w-4" />
+        </span>
+
         <button
           type="button"
           className="min-w-0 flex-1 cursor-pointer text-left"
@@ -182,6 +198,10 @@ export function ProfileRow({ profile, disabled, folders }: ProfileRowProps) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem onClick={() => onPreview?.(profile)}>
+              <Volume2 className="mr-2 h-4 w-4" />
+              {t('profiles.preview.action')}
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => {
                 setEditingProfileId(profile.id);
