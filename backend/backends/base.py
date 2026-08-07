@@ -101,14 +101,9 @@ def get_torch_device(
     if torch.cuda.is_available():
         return "cuda"
 
-    if allow_xpu:
-        try:
-            import intel_extension_for_pytorch  # noqa: F401
-
-            if hasattr(torch, "xpu") and torch.xpu.is_available():
-                return "xpu"
-        except ImportError:
-            pass
+        # Native Intel XPU check (IPEX is EOL; PyTorch >= 2.5 exposes torch.xpu natively)
+    if hasattr(torch, "xpu") and torch.xpu.is_available():
+        return "xpu"
 
     if allow_directml:
         try:

@@ -68,7 +68,7 @@ async def health():
     has_xpu = False
     xpu_name = None
     try:
-        import intel_extension_for_pytorch as ipex  # noqa: F401 -- side-effect import enables XPU
+        pass  # IPEX not needed; native torch.xpu check below
 
         if hasattr(torch, "xpu") and torch.xpu.is_available():
             has_xpu = True
