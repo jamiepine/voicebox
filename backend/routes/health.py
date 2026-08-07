@@ -68,8 +68,7 @@ async def health():
     has_xpu = False
     xpu_name = None
     try:
-        pass  # IPEX not needed; native torch.xpu check below
-
+        
         if hasattr(torch, "xpu") and torch.xpu.is_available():
             has_xpu = True
             try:
