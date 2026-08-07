@@ -79,7 +79,7 @@ def is_model_cached(
 
 def get_torch_device(
     *,
-    allow_xpu: bool = False,
+    allow_xpu: bool = True,
     allow_directml: bool = False,
     allow_mps: bool = False,
     force_cpu_on_mac: bool = False,
@@ -88,7 +88,7 @@ def get_torch_device(
     Detect the best available torch device.
 
     Args:
-        allow_xpu: Check for Intel XPU (IPEX) support.
+        allow_xpu: Check for Intel XPU support (native torch.xpu, PyTorch >= 2.5).
         allow_directml: Check for DirectML (Windows) support.
         allow_mps: Allow MPS (Apple Silicon). If False, MPS falls back to CPU.
         force_cpu_on_mac: Force CPU on macOS regardless of GPU availability.
@@ -101,14 +101,9 @@ def get_torch_device(
     if torch.cuda.is_available():
         return "cuda"
 
-    if allow_xpu:
-        try:
-            import intel_extension_for_pytorch  # noqa: F401
-
-            if hasattr(torch, "xpu") and torch.xpu.is_available():
-                return "xpu"
-        except ImportError:
-            pass
+        # Native Intel XPU check (IPEX is EOL; PyTorch >= 2.5 exposes torch.xpu natively)
+    if allow_xpu and hasattr(torch, "xpu") and torch.xpu.is_available():
+        return "xpu"
 
     if allow_directml:
         try:
