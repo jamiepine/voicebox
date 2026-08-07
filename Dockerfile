@@ -110,4 +110,5 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 --start-period=60s \
 COPY --chmod=755 scripts/rocm-entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "17493"]
+ENV VOICEBOX_HOST=127.0.0.1
+CMD ["python", "-m", "backend.main", "--port", "17493"]
