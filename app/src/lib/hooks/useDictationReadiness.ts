@@ -3,6 +3,7 @@ import { useAccessibilityPermission } from '@/components/AccessibilityGate/Acces
 import { useInputMonitoringPermission } from '@/components/InputMonitoringGate/InputMonitoringGate';
 import { apiClient } from '@/lib/api/client';
 import type { ModelReadiness } from '@/lib/api/types';
+import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { usePlatform } from '@/platform/PlatformContext';
 
 const READINESS_POLL_INTERVAL_MS = 5_000;
@@ -17,6 +18,8 @@ export interface DictationReadiness {
   missing: ReadinessGate[];
   stt: ModelReadiness | undefined;
   llm: ModelReadiness | undefined;
+  /** Whether the user has auto-refine (LLM polish) enabled. */
+  autoRefine: boolean;
   inputMonitoring: boolean;
   accessibility: boolean;
   refetch: () => void;
@@ -46,6 +49,8 @@ export interface DictationReadiness {
 export function useDictationReadiness(): DictationReadiness {
   const platform = usePlatform();
   const isTauri = platform.metadata.isTauri;
+  const { settings } = useCaptureSettings();
+  const autoRefine = settings?.auto_refine ?? true;
 
   const {
     needsPermission: inputMonNeeds,
@@ -61,17 +66,19 @@ export function useDictationReadiness(): DictationReadiness {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['capture-readiness'],
     queryFn: () => apiClient.getCaptureReadiness(),
-    // Poll only while a model is still missing/downloading. Once both are
-    // green the endpoint's answer can't change until the user swaps models
-    // in settings, and that path invalidates the query explicitly from
-    // useSettings. refetchOnWindowFocus stays gated to the same condition.
+    // Poll only while a required model is still missing/downloading. Once
+    // all required models are green the endpoint's answer can't change
+    // until the user swaps models in settings, and that path invalidates
+    // the query explicitly from useSettings. refetchOnWindowFocus stays
+    // gated to the same condition.
     refetchInterval: (query) => {
       const d = query.state.data;
-      return d && d.stt.ready && d.llm.ready ? false : READINESS_POLL_INTERVAL_MS;
+      const allGreen = d && d.stt.ready && (!autoRefine || d.llm.ready);
+      return allGreen ? false : READINESS_POLL_INTERVAL_MS;
     },
     refetchOnWindowFocus: (query) => {
       const d = query.state.data;
-      return !(d && d.stt.ready && d.llm.ready);
+      return !(d && d.stt.ready && (!autoRefine || d.llm.ready));
     },
   });
 
@@ -84,10 +91,10 @@ export function useDictationReadiness(): DictationReadiness {
 
   const missing: ReadinessGate[] = [];
   if (!sttReady) missing.push('stt');
-  if (!llmReady) missing.push('llm');
+  if (autoRefine && !llmReady) missing.push('llm');
   if (!inputMonitoring) missing.push('input_monitoring');
   if (!accessibility) missing.push('accessibility');
-  const canRecord = sttReady && llmReady && inputMonitoring;
+  const canRecord = sttReady && (!autoRefine || llmReady) && inputMonitoring;
 
   return {
     isLoading,
@@ -96,6 +103,7 @@ export function useDictationReadiness(): DictationReadiness {
     missing,
     stt: data?.stt,
     llm: data?.llm,
+    autoRefine,
     inputMonitoring,
     accessibility,
     refetch: () => {

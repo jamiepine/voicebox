@@ -222,7 +222,7 @@ export function DictationReadinessChecklist({
         />
       )}
 
-      {readiness.llm && (
+      {readiness.autoRefine && readiness.llm && (
         <ChecklistRow
           icon={<Cpu className="h-3.5 w-3.5" />}
           title={t('captures.readiness.llm.label', { name: readiness.llm.display_name })}
