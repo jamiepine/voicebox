@@ -149,6 +149,13 @@ export function ClipFolderTree({
         {/* Shaded and bold, matching the voice folders, so a folder never
             reads as just another row in the list. */}
         <div
+          onDragEnter={(e) => {
+            // Both enter and over must preventDefault; some engines only treat
+            // an element as a drop target once enter has been cancelled.
+            if (!onDropItem || !isFolderDrag(e)) return;
+            e.preventDefault();
+            setDragOverId(folder.id);
+          }}
           onDragOver={(e) => {
             if (!onDropItem || !isFolderDrag(e)) return;
             // preventDefault is what marks this a valid drop target.
@@ -279,6 +286,11 @@ export function ClipFolderTree({
       <button
         type="button"
         onClick={() => onSelect({ kind: 'uncategorised' })}
+        onDragEnter={(e) => {
+          if (!onDropItem || !isFolderDrag(e)) return;
+          e.preventDefault();
+          setDragOverId(UNCATEGORISED_DROP_ID);
+        }}
         onDragOver={(e) => {
           if (!onDropItem || !isFolderDrag(e)) return;
           e.preventDefault();

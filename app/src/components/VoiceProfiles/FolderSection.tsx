@@ -73,6 +73,13 @@ export function FolderSection({
       {/* Shaded and bold so the header reads as a container rather than
           blending into the rows it holds. */}
       <div
+        onDragEnter={(e) => {
+          // Both enter and over must preventDefault; some engines only treat
+          // an element as a drop target once enter has been cancelled.
+          if (!onDropItem || !isFolderDrag(e)) return;
+          e.preventDefault();
+          setDragOver(true);
+        }}
         onDragOver={(e) => {
           if (!onDropItem || !isFolderDrag(e)) return;
           // preventDefault is what marks this element as a valid drop target.
