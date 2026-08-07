@@ -16,6 +16,7 @@ import {
   useCreateFolder,
   useDeleteFolder,
   useFolders,
+  useSetProfileFolder,
   useUpdateFolder,
 } from '@/lib/hooks/useFolders';
 import { useProfiles } from '@/lib/hooks/useProfiles';
@@ -42,9 +43,10 @@ export function ProfileList() {
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
   const viewMode = useUIStore((state) => state.voiceViewMode);
   const setViewMode = useUIStore((state) => state.setVoiceViewMode);
-  const collapsedIds = useUIStore((state) => state.collapsedFolderIds.voice);
+  const collapsedIds = useUIStore((state) => state.collapsedFolderIds.voice ?? []);
   const toggleCollapsed = useUIStore((state) => state.toggleFolderCollapsed);
 
+  const setProfileFolder = useSetProfileFolder();
   const createFolder = useCreateFolder('voice');
   const updateFolder = useUpdateFolder('voice');
   const deleteFolder = useDeleteFolder('voice');
@@ -227,6 +229,9 @@ export function ProfileList() {
                 onToggle={() => toggleCollapsed('voice', folder.id)}
                 onRename={(name) => updateFolder.mutate({ folderId: folder.id, data: { name } })}
                 onDelete={() => deleteFolder.mutate(folder.id)}
+                onDropItem={(profileId) =>
+                  setProfileFolder.mutate({ profileId, folderId: folder.id })
+                }
               >
                 {renderProfiles(grouped.get(folder.id) ?? [])}
               </FolderSection>
@@ -240,6 +245,7 @@ export function ProfileList() {
                 count={grouped.get(UNCATEGORISED)?.length ?? 0}
                 collapsed={collapsedIds.includes(UNCATEGORISED)}
                 onToggle={() => toggleCollapsed('voice', UNCATEGORISED)}
+                onDropItem={(profileId) => setProfileFolder.mutate({ profileId, folderId: null })}
               >
                 {renderProfiles(grouped.get(UNCATEGORISED) ?? [])}
               </FolderSection>

@@ -62,6 +62,7 @@ import {
   useImportGeneration,
 } from '@/lib/hooks/useHistory';
 import { cn } from '@/lib/utils/cn';
+import { setFolderDragData } from '@/lib/utils/folderDrag';
 import { formatDate, formatDuration, formatEngineName } from '@/lib/utils/format';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -455,7 +456,13 @@ export function HistoryTable() {
     <div className="flex flex-col h-full min-h-0 relative">
       {/* Rendered outside the empty-state branch below: filtering to an empty
           folder must not remove the only control that can clear the filter. */}
-      <ClipFolderTree selection={folderSelection} onSelect={setFolderSelection} />
+      <ClipFolderTree
+        selection={folderSelection}
+        onSelect={setFolderSelection}
+        onDropItem={(generationId, folderId) =>
+          setGenerationFolder.mutate({ generationId, folderId })
+        }
+      />
 
       {history.length === 0 ? (
         <div className="text-center py-12 px-5 border-2 border-dashed mb-5 border-muted rounded-md text-muted-foreground flex-1 flex items-center justify-center">
@@ -503,6 +510,8 @@ export function HistoryTable() {
               return (
                 <div
                   key={gen.id}
+                  draggable
+                  onDragStart={(e) => setFolderDragData(e, { kind: 'generation', id: gen.id })}
                   className={cn(
                     'border rounded-md bg-card transition-colors text-left w-full',
                     isCurrentlyPlaying && 'bg-muted/70',

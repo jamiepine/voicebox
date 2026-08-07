@@ -450,6 +450,12 @@
     "voice": {
       "label": "Voice folders"
     },
+    "story": {
+      "label": "Story folders",
+      "moveTo": "Move to folder",
+      "filterTitle": "Story folders",
+      "allStories": "All stories"
+    },
     "clip": {
       "label": "Clip folders",
       "newSubfolder": "New subfolder",

@@ -27,7 +27,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import type { FolderResponse } from '@/lib/api/types';
+import type { FolderKind, FolderResponse } from '@/lib/api/types';
 import {
   useCreateFolder,
   useDeleteFolder,
@@ -36,6 +36,7 @@ import {
   useUpdateFolder,
 } from '@/lib/hooks/useFolders';
 import { cn } from '@/lib/utils/cn';
+import { isFolderDrag, readFolderDragData } from '@/lib/utils/folderDrag';
 import { useUIStore } from '@/stores/uiStore';
 
 /**
@@ -53,7 +54,20 @@ export type ClipFolderSelection =
 interface ClipFolderTreeProps {
   selection: ClipFolderSelection;
   onSelect: (selection: ClipFolderSelection) => void;
+  /** Which folder kind to manage. Clips and stories share this tree because
+   *  both nest and both need the same create/rename/move/delete affordances. */
+  kind?: FolderKind;
+  /** Heading above the tree. */
+  title?: string;
+  /** Label for the "no filter" row. */
+  allLabel?: string;
+  /** Called when an item is dropped on a folder. folderId is null for the
+   *  Uncategorised row. */
+  onDropItem?: (itemId: string, folderId: string | null) => void;
 }
+
+/** Sentinel for highlighting the Uncategorised row, which has no folder id. */
+const UNCATEGORISED_DROP_ID = '__uncategorised__';
 
 /** A folder plus its children, built once per folder list change. */
 interface TreeNode {
@@ -77,17 +91,24 @@ function buildTree(folders: FolderResponse[]): TreeNode[] {
   return roots;
 }
 
-export function ClipFolderTree({ selection, onSelect }: ClipFolderTreeProps) {
+export function ClipFolderTree({
+  selection,
+  onSelect,
+  kind = 'generation',
+  title,
+  allLabel,
+  onDropItem,
+}: ClipFolderTreeProps) {
   const { t } = useTranslation();
-  const { data: folders } = useFolders('generation');
+  const { data: folders } = useFolders(kind);
 
-  const collapsedIds = useUIStore((state) => state.collapsedFolderIds.generation);
+  const collapsedIds = useUIStore((state) => state.collapsedFolderIds[kind] ?? []);
   const toggleCollapsed = useUIStore((state) => state.toggleFolderCollapsed);
 
-  const createFolder = useCreateFolder('generation');
-  const updateFolder = useUpdateFolder('generation');
-  const detachFolder = useDetachFolder('generation');
-  const deleteFolder = useDeleteFolder('generation');
+  const createFolder = useCreateFolder(kind);
+  const updateFolder = useUpdateFolder(kind);
+  const detachFolder = useDetachFolder(kind);
+  const deleteFolder = useDeleteFolder(kind);
 
   const [dialog, setDialog] = useState<
     | { mode: 'create'; parentId: string | null }
@@ -96,6 +117,7 @@ export function ClipFolderTree({ selection, onSelect }: ClipFolderTreeProps) {
     | null
   >(null);
   const [draftName, setDraftName] = useState('');
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   const tree = useMemo(() => buildTree(folders ?? []), [folders]);
 
@@ -127,16 +149,32 @@ export function ClipFolderTree({ selection, onSelect }: ClipFolderTreeProps) {
         {/* Shaded and bold, matching the voice folders, so a folder never
             reads as just another row in the list. */}
         <div
+          onDragOver={(e) => {
+            if (!onDropItem || !isFolderDrag(e)) return;
+            // preventDefault is what marks this a valid drop target.
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            setDragOverId(folder.id);
+          }}
+          onDragLeave={() => setDragOverId((id) => (id === folder.id ? null : id))}
+          onDrop={(e) => {
+            setDragOverId(null);
+            const payload = readFolderDragData(e);
+            if (!payload || payload.kind !== kind) return;
+            e.preventDefault();
+            onDropItem?.(payload.id, folder.id);
+          }}
           className={cn(
-            'group/node my-0.5 flex items-center gap-1 rounded border border-border/60 bg-muted/60 pr-1',
+            'group/node my-0.5 flex items-center gap-1 rounded border border-border/60 bg-muted/60 pr-1 transition-colors',
             isSelected && 'border-accent/60 bg-accent/40',
+            dragOverId === folder.id && 'border-accent bg-accent/50 ring-1 ring-accent',
           )}
           style={{ marginLeft: `${depth * 12}px` }}
         >
           {children.length > 0 ? (
             <button
               type="button"
-              onClick={() => toggleCollapsed('generation', folder.id)}
+              onClick={() => toggleCollapsed(kind, folder.id)}
               className="shrink-0 rounded p-0.5 hover:bg-accent/50"
               aria-label={folder.name}
               aria-expanded={!collapsed}
@@ -211,7 +249,7 @@ export function ClipFolderTree({ selection, onSelect }: ClipFolderTreeProps) {
     <div className="flex flex-col gap-0.5 border-b pb-2 mb-2">
       <div className="flex items-center justify-between px-1">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('folders.clip.filterTitle')}
+          {title ?? t('folders.clip.filterTitle')}
         </span>
         <Button
           variant="ghost"
@@ -233,7 +271,7 @@ export function ClipFolderTree({ selection, onSelect }: ClipFolderTreeProps) {
         )}
       >
         <Layers className="h-3 w-3 shrink-0 text-muted-foreground" />
-        {t('folders.clip.allClips')}
+        {allLabel ?? t('folders.clip.allClips')}
       </button>
 
       {tree.map((node) => renderNode(node, 0))}
@@ -241,9 +279,24 @@ export function ClipFolderTree({ selection, onSelect }: ClipFolderTreeProps) {
       <button
         type="button"
         onClick={() => onSelect({ kind: 'uncategorised' })}
+        onDragOver={(e) => {
+          if (!onDropItem || !isFolderDrag(e)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          setDragOverId(UNCATEGORISED_DROP_ID);
+        }}
+        onDragLeave={() => setDragOverId((id) => (id === UNCATEGORISED_DROP_ID ? null : id))}
+        onDrop={(e) => {
+          setDragOverId(null);
+          const payload = readFolderDragData(e);
+          if (!payload || payload.kind !== kind) return;
+          e.preventDefault();
+          onDropItem?.(payload.id, null);
+        }}
         className={cn(
-          'flex items-center gap-1.5 rounded px-1 py-1 text-left text-xs',
+          'flex items-center gap-1.5 rounded px-1 py-1 text-left text-xs transition-colors',
           selection.kind === 'uncategorised' ? 'bg-accent/40' : 'hover:bg-accent/20',
+          dragOverId === UNCATEGORISED_DROP_ID && 'bg-accent/50 ring-1 ring-accent',
         )}
       >
         <Inbox className="h-3 w-3 shrink-0 text-muted-foreground" />

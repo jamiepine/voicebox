@@ -18,6 +18,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils/cn';
+import { isFolderDrag, readFolderDragData } from '@/lib/utils/folderDrag';
 
 interface FolderSectionProps {
   /** Null renders the Uncategorised bucket, which has no menu and no id. */
@@ -28,6 +30,8 @@ interface FolderSectionProps {
   onToggle: () => void;
   onRename?: (name: string) => void;
   onDelete?: () => void;
+  /** Called when an item is dropped on this header. */
+  onDropItem?: (itemId: string) => void;
   children: React.ReactNode;
 }
 
@@ -47,12 +51,14 @@ export function FolderSection({
   onToggle,
   onRename,
   onDelete,
+  onDropItem,
   children,
 }: FolderSectionProps) {
   const { t } = useTranslation();
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [draftName, setDraftName] = useState(name);
+  const [dragOver, setDragOver] = useState(false);
 
   const Chevron = collapsed ? ChevronRight : ChevronDown;
 
@@ -66,7 +72,27 @@ export function FolderSection({
     <div className="flex flex-col gap-1">
       {/* Shaded and bold so the header reads as a container rather than
           blending into the rows it holds. */}
-      <div className="group/folder flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-1">
+      <div
+        onDragOver={(e) => {
+          if (!onDropItem || !isFolderDrag(e)) return;
+          // preventDefault is what marks this element as a valid drop target.
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          setDragOver(false);
+          const payload = readFolderDragData(e);
+          if (!payload || payload.kind !== 'voice') return;
+          e.preventDefault();
+          onDropItem?.(payload.id);
+        }}
+        className={cn(
+          'group/folder flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-1 transition-colors',
+          dragOver && 'border-accent bg-accent/40 ring-1 ring-accent',
+        )}
+      >
         <button
           type="button"
           onClick={onToggle}

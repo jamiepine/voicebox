@@ -202,6 +202,17 @@ class ApiClient {
     });
   }
 
+  /** Pass null to move the story out of any folder. */
+  async setStoryFolder(
+    storyId: string,
+    folderId: string | null,
+  ): Promise<{ id: string; folder_id: string | null }> {
+    return this.request(`/stories/${storyId}/folder`, {
+      method: 'PUT',
+      body: JSON.stringify({ folder_id: folderId }),
+    });
+  }
+
   /** Pass null to move the clip out of any folder. */
   async setGenerationFolder(
     generationId: string,

@@ -87,6 +87,65 @@ def test_unknown_kind_is_rejected(client):
     assert client.get("/folders", params={"kind": "nonsense"}).status_code == 400
 
 
+# ── Story folders ────────────────────────────────────────────────────
+
+
+def test_story_folders_nest(client):
+    """Stories nest like clips, not flat like voices."""
+    parent = client.post("/folders", json={"name": "Podcast", "kind": "story"}).json()
+    child = client.post(
+        "/folders", json={"name": "Season 2", "kind": "story", "parent_id": parent["id"]}
+    )
+    assert child.status_code == 200, child.text
+    assert child.json()["parent_id"] == parent["id"]
+
+    client.delete(f"/folders/{child.json()['id']}")
+    client.delete(f"/folders/{parent['id']}")
+
+
+def test_assign_and_unassign_story(client):
+    folder = client.post("/folders", json={"name": "Archive", "kind": "story"}).json()
+    story = client.post("/stories", json={"name": "Folder Test Story"}).json()
+
+    r = client.put(f"/stories/{story['id']}/folder", json={"folder_id": folder["id"]})
+    assert r.status_code == 200, r.text
+    assert r.json()["folder_id"] == folder["id"]
+
+    listed = client.get("/stories").json()
+    filed = next(s for s in listed if s["id"] == story["id"])
+    assert filed["folder_id"] == folder["id"], "folder_id missing from the story list response"
+
+    assert (
+        client.put(f"/stories/{story['id']}/folder", json={"folder_id": None}).json()["folder_id"]
+        is None
+    )
+
+    client.delete(f"/stories/{story['id']}")
+    client.delete(f"/folders/{folder['id']}")
+
+
+def test_story_cannot_go_into_a_voice_folder(client, voice_folder):
+    story = client.post("/stories", json={"name": "Wrong Folder Story"}).json()
+    r = client.put(f"/stories/{story['id']}/folder", json={"folder_id": voice_folder["id"]})
+    assert r.status_code == 400
+    client.delete(f"/stories/{story['id']}")
+
+
+def test_deleting_a_story_folder_keeps_the_stories(client):
+    folder = client.post("/folders", json={"name": "Doomed", "kind": "story"}).json()
+    story = client.post("/stories", json={"name": "Survivor Story"}).json()
+    client.put(f"/stories/{story['id']}/folder", json={"folder_id": folder["id"]})
+
+    r = client.delete(f"/folders/{folder['id']}")
+    assert r.json()["items_released"] == 1
+
+    survivor = client.get("/stories").json()
+    kept = next(s for s in survivor if s["id"] == story["id"])
+    assert kept["folder_id"] is None
+
+    client.delete(f"/stories/{story['id']}")
+
+
 def test_rename_folder(client, voice_folder):
     r = client.patch(f"/folders/{voice_folder['id']}", json={"name": "Renamed"})
     assert r.status_code == 200

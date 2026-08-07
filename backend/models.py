@@ -12,7 +12,7 @@ from .utils.capture_chords import (
 )
 
 
-FOLDER_KIND_PATTERN = "^(voice|generation)$"
+FOLDER_KIND_PATTERN = "^(voice|generation|story)$"
 
 
 class FolderCreate(BaseModel):
@@ -650,6 +650,7 @@ class StoryResponse(BaseModel):
     id: str
     name: str
     description: Optional[str]
+    folder_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     item_count: int = 0

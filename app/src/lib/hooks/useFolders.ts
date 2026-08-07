@@ -82,6 +82,19 @@ export function useSetProfileFolder() {
   });
 }
 
+export function useSetStoryFolder() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, folderId }: { storyId: string; folderId: string | null }) =>
+      apiClient.setStoryFolder(storyId, folderId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['folders', 'story'] });
+    },
+  });
+}
+
 export function useSetGenerationFolder() {
   const queryClient = useQueryClient();
 

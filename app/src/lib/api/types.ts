@@ -37,8 +37,8 @@ export interface VoiceProfileResponse {
   updated_at: string;
 }
 
-/** What a folder groups. Voice folders are flat; clip folders nest. */
-export type FolderKind = 'voice' | 'generation';
+/** What a folder groups. Voice folders are flat; clip and story folders nest. */
+export type FolderKind = 'voice' | 'generation' | 'story';
 
 export interface FolderResponse {
   id: string;
@@ -438,6 +438,8 @@ export interface StoryResponse {
   id: string;
   name: string;
   description?: string;
+  /** null / undefined means the story sits in the Uncategorised bucket. */
+  folder_id?: string | null;
   created_at: string;
   updated_at: string;
   item_count: number;

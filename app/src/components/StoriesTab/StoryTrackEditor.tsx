@@ -6,6 +6,7 @@ import {
   GripHorizontal,
   Magnet,
   Minus,
+  MoveHorizontal,
   Pause,
   Play,
   Plus,
@@ -23,11 +24,19 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
@@ -424,6 +433,14 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   // Snap dragged clips flush to their neighbours. On by default because
   // butt-joining by eye is the common case; hold it off for free placement.
   const [snapEnabled, setSnapEnabled] = useState(true);
+  // Ripple: moving a clip carries everything later on its track. Off by
+  // default because it rewrites clips the user didn't touch.
+  const [rippleEnabled, setRippleEnabled] = useState(false);
+  // Right-click target: set an exact length or speed rather than dragging for
+  // it. The two are two views of one number, so the dialog shows both.
+  const [lengthTargetId, setLengthTargetId] = useState<string | null>(null);
+  const [lengthDraft, setLengthDraft] = useState('');
+  const [speedDraft, setSpeedDraft] = useState('');
 
   // Selection state
   const selectedClipId = useStoryStore((state) => state.selectedClipId);
@@ -1195,25 +1212,42 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
 
     // Check if position changed
     if (newTimeMs !== item.start_time_ms || newTrack !== item.track) {
+      const onError = (error: unknown) => {
+        toast({
+          title: 'Failed to move item',
+          description: error instanceof Error ? error.message : String(error),
+          variant: 'destructive',
+        });
+      };
+
       moveItem.mutate(
-        {
-          storyId,
-          itemId: item.id,
-          data: {
-            start_time_ms: newTimeMs,
-            track: newTrack,
-          },
-        },
-        {
-          onError: (error) => {
-            toast({
-              title: 'Failed to move item',
-              description: error instanceof Error ? error.message : String(error),
-              variant: 'destructive',
-            });
-          },
-        },
+        { storyId, itemId: item.id, data: { start_time_ms: newTimeMs, track: newTrack } },
+        { onError },
       );
+
+      // Ripple: carry everything that started after this clip on its original
+      // track by the same delta, so inserting an intro pushes the rest of the
+      // track along instead of leaving a hole or an overlap.
+      if (rippleEnabled && newTrack === item.track) {
+        const delta = newTimeMs - item.start_time_ms;
+        if (delta !== 0) {
+          for (const other of items) {
+            if (other.id === item.id || other.track !== item.track) continue;
+            if (other.start_time_ms < item.start_time_ms) continue;
+            moveItem.mutate(
+              {
+                storyId,
+                itemId: other.id,
+                data: {
+                  start_time_ms: Math.max(0, other.start_time_ms + delta),
+                  track: other.track,
+                },
+              },
+              { onError },
+            );
+          }
+        }
+      }
     }
 
     setDraggingItem(null);
@@ -1227,6 +1261,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
     moveItem,
     toast,
     snapEnabled,
+    rippleEnabled,
     getEffectiveDuration,
   ]);
 
@@ -1438,6 +1473,22 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
             aria-pressed={snapEnabled}
           >
             <Magnet className="h-4 w-4" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-7 w-7', rippleEnabled && 'text-accent')}
+            onClick={() => setRippleEnabled((v) => !v)}
+            title={
+              rippleEnabled
+                ? 'Ripple on - moving a clip shifts everything after it on its track'
+                : 'Ripple off - clips move independently'
+            }
+            aria-label="Toggle ripple move"
+            aria-pressed={rippleEnabled}
+          >
+            <MoveHorizontal className="h-4 w-4" />
           </Button>
 
           {selectedClipId && (
@@ -1849,6 +1900,13 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                         !isDragging && 'transition-all duration-100',
                       )}
                       onClick={(e) => handleClipClick(e, item)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setSelectedClipId(item.id);
+                        setLengthTargetId(item.id);
+                        setLengthDraft((getEffectiveDuration(item) / 1000).toFixed(2));
+                        setSpeedDraft((item.speed || 1).toFixed(2));
+                      }}
                       onMouseDown={(e) => {
                         // Only start drag if not clicking on trim handles
                         if (!(e.target as HTMLElement).closest('.trim-handle')) {
@@ -1952,6 +2010,91 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           </div>
         </div>
       </div>
+
+      <Dialog open={lengthTargetId !== null} onOpenChange={() => setLengthTargetId(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Clip timing</DialogTitle>
+          </DialogHeader>
+
+          {/* Length and speed are two views of the same number: editing one
+              recomputes the other, and only the resulting speed is stored. */}
+          <div className="space-y-3">
+            <div>
+              <span className="mb-1 block text-xs text-muted-foreground">Target length</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={lengthDraft}
+                  onChange={(e) => {
+                    setLengthDraft(e.target.value);
+                    const target = Number.parseFloat(e.target.value);
+                    const clip = items.find((i) => i.id === lengthTargetId);
+                    if (clip && target > 0) {
+                      const natural =
+                        clip.duration * 1000 - (clip.trim_start_ms || 0) - (clip.trim_end_ms || 0);
+                      setSpeedDraft((natural / 1000 / target).toFixed(2));
+                    }
+                  }}
+                  className="h-8"
+                  inputMode="decimal"
+                  aria-label="Target length in seconds"
+                />
+                <span className="text-xs text-muted-foreground">s</span>
+              </div>
+            </div>
+
+            <div>
+              <span className="mb-1 block text-xs text-muted-foreground">Speed</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={speedDraft}
+                  onChange={(e) => {
+                    setSpeedDraft(e.target.value);
+                    const rate = Number.parseFloat(e.target.value);
+                    const clip = items.find((i) => i.id === lengthTargetId);
+                    if (clip && rate > 0) {
+                      const natural =
+                        clip.duration * 1000 - (clip.trim_start_ms || 0) - (clip.trim_end_ms || 0);
+                      setLengthDraft((natural / 1000 / rate).toFixed(2));
+                    }
+                  }}
+                  className="h-8"
+                  inputMode="decimal"
+                  aria-label="Speed multiplier"
+                />
+                <span className="text-xs text-muted-foreground">x</span>
+              </div>
+            </div>
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Pitch is preserved. 0.25x to 4x; outside that the stretch smears speech.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLengthTargetId(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const rate = Number.parseFloat(speedDraft);
+                if (lengthTargetId && rate >= 0.25 && rate <= 4) {
+                  updateSpeed.mutate({
+                    storyId,
+                    itemId: lengthTargetId,
+                    data: { speed: rate },
+                  });
+                }
+                setLengthTargetId(null);
+              }}
+              disabled={
+                !(Number.parseFloat(speedDraft) >= 0.25 && Number.parseFloat(speedDraft) <= 4)
+              }
+            >
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

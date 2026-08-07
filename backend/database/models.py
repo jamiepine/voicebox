@@ -168,6 +168,8 @@ class Story(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, nullable=False)
     description = Column(Text)
+    # NULL means "Uncategorised". See VoiceProfile.folder_id.
+    folder_id = Column(String, ForeignKey("folders.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

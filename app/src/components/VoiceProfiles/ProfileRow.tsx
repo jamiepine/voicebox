@@ -36,6 +36,7 @@ import type { FolderResponse, VoiceProfileResponse } from '@/lib/api/types';
 import { useSetProfileFolder } from '@/lib/hooks/useFolders';
 import { useDeleteProfile, useDuplicateProfile, useExportProfile } from '@/lib/hooks/useProfiles';
 import { cn } from '@/lib/utils/cn';
+import { setFolderDragData } from '@/lib/utils/folderDrag';
 import { useUIStore } from '@/stores/uiStore';
 
 /** Human-readable display names for preset engine badges. */
@@ -120,6 +121,8 @@ export function ProfileRow({ profile, disabled, folders }: ProfileRowProps) {
           menu is itself a button, and nesting interactive elements is invalid.
           The selectable area is a real <button> instead. */}
       <div
+        draggable
+        onDragStart={(e) => setFolderDragData(e, { kind: 'voice', id: profile.id })}
         className={cn(
           'group flex items-start gap-3 rounded-md border px-3 py-2 transition-colors',
           disabled ? 'opacity-40 hover:opacity-60' : 'hover:bg-accent/40',

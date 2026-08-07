@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from .. import models
 from ..database import get_db
-from ..database.models import Folder, Generation, ProfileSample, VoiceProfile
+from ..database.models import Folder, Generation, ProfileSample, Story, VoiceProfile
 from ..services.folders import folder_and_descendants
 from ..services.profiles import _profile_to_response
 
@@ -28,7 +28,12 @@ router = APIRouter()
 _MEMBER_MODEL = {
     "voice": VoiceProfile,
     "generation": Generation,
+    "story": Story,
 }
+
+# Kinds that stay one level deep. Voices are a small, stable set that reads
+# better flat; clips and stories accumulate per project and need real nesting.
+_FLAT_KINDS = {"voice"}
 
 
 def _get_folder_or_404(folder_id: str, db: Session) -> Folder:
@@ -87,9 +92,9 @@ async def list_folders(kind: str = "voice", db: Session = Depends(get_db)):
 async def create_folder(data: models.FolderCreate, db: Session = Depends(get_db)):
     """Create a folder.  Voice folders must be top-level."""
     if data.parent_id is not None:
-        if data.kind == "voice":
+        if data.kind in _FLAT_KINDS:
             raise HTTPException(
-                status_code=400, detail="Voice folders cannot be nested"
+                status_code=400, detail=f"{data.kind.capitalize()} folders cannot be nested"
             )
         parent = _get_folder_or_404(data.parent_id, db)
         if parent.kind != data.kind:
@@ -125,9 +130,9 @@ async def update_folder(
         folder.position = data.position
 
     if data.parent_id is not None:
-        if folder.kind == "voice":
+        if folder.kind in _FLAT_KINDS:
             raise HTTPException(
-                status_code=400, detail="Voice folders cannot be nested"
+                status_code=400, detail=f"{folder.kind.capitalize()} folders cannot be nested"
             )
         if data.parent_id == folder_id:
             raise HTTPException(
@@ -241,6 +246,29 @@ async def set_profile_folder(
         .scalar()
     )
     return _profile_to_response(profile, generation_count, sample_count)
+
+
+@router.put("/stories/{story_id}/folder")
+async def set_story_folder(
+    story_id: str,
+    data: models.FolderAssign,
+    db: Session = Depends(get_db),
+):
+    """Move a story into a folder, or out of one when folder_id is null."""
+    story = db.query(Story).filter(Story.id == story_id).first()
+    if story is None:
+        raise HTTPException(status_code=404, detail="Story not found")
+
+    if data.folder_id is not None:
+        folder = _get_folder_or_404(data.folder_id, db)
+        if folder.kind != "story":
+            raise HTTPException(
+                status_code=400, detail="Target folder does not hold stories"
+            )
+
+    story.folder_id = data.folder_id
+    db.commit()
+    return {"id": story_id, "folder_id": story.folder_id}
 
 
 @router.put("/history/{generation_id}/folder")

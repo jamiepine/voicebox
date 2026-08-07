@@ -358,6 +358,10 @@ def _migrate_folders(engine, inspector, tables: set[str]) -> None:
         if "folder_id" not in _get_columns(inspector, "generations"):
             _add_column(engine, "generations", "folder_id VARCHAR", "folder_id")
 
+    if "stories" in tables:
+        if "folder_id" not in _get_columns(inspector, "stories"):
+            _add_column(engine, "stories", "folder_id VARCHAR", "folder_id")
+
 
 def _migrate_story_item_audio(engine, inspector, tables: set[str]) -> None:
     """Add per-clip fade and speed columns to story_items.

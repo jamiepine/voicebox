@@ -69,7 +69,7 @@ interface UIStore {
   // Collapsed folder ids, keyed by folder kind. Collapsed rather than
   // expanded ids so a newly created folder starts open without having to
   // touch this set.
-  collapsedFolderIds: Record<FolderKind, string[]>;
+  collapsedFolderIds: Partial<Record<FolderKind, string[]>>;
   toggleFolderCollapsed: (kind: FolderKind, folderId: string) => void;
 
   // Theme
@@ -106,7 +106,7 @@ export const useUIStore = create<UIStore>()(
       voiceViewMode: 'list',
       setVoiceViewMode: (mode) => set({ voiceViewMode: mode }),
 
-      collapsedFolderIds: { voice: [], generation: [] },
+      collapsedFolderIds: { voice: [], generation: [], story: [] },
       toggleFolderCollapsed: (kind, folderId) =>
         set((state) => {
           const current = state.collapsedFolderIds[kind] ?? [];
@@ -132,9 +132,10 @@ export const useUIStore = create<UIStore>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (state) applyTheme(state.theme);
-        // Persisted before folders existed, so an older store has no map.
+        // Persisted before folders existed, so an older store has no map —
+        // and a store persisted before story folders has no 'story' key.
         if (state && !state.collapsedFolderIds) {
-          state.collapsedFolderIds = { voice: [], generation: [] };
+          state.collapsedFolderIds = { voice: [], generation: [], story: [] };
         }
       },
     },

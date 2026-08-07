@@ -1,6 +1,16 @@
-import { BookOpen, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { BookOpen, FolderInput, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { type ClipFolderSelection, ClipFolderTree } from '@/components/History/ClipFolderTree';
+import {
+  ListPane,
+  ListPaneActions,
+  ListPaneHeader,
+  ListPaneScroll,
+  ListPaneSearch,
+  ListPaneTitle,
+  ListPaneTitleRow,
+} from '@/components/ListPane';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,21 +35,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  ListPane,
-  ListPaneActions,
-  ListPaneHeader,
-  ListPaneScroll,
-  ListPaneSearch,
-  ListPaneTitle,
-  ListPaneTitleRow,
-} from '@/components/ListPane';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { useFolders, useSetStoryFolder } from '@/lib/hooks/useFolders';
 import {
   useCreateStory,
   useDeleteStory,
@@ -48,12 +53,40 @@ import {
   useUpdateStory,
 } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
+import { setFolderDragData } from '@/lib/utils/folderDrag';
 import { formatDate } from '@/lib/utils/format';
 import { useStoryStore } from '@/stores/storyStore';
 
 export function StoryList() {
   const { t } = useTranslation();
   const { data: stories, isLoading } = useStories();
+  const [folderSelection, setFolderSelection] = useState<ClipFolderSelection>({ kind: 'all' });
+  const { data: storyFolders } = useFolders('story');
+  const setStoryFolder = useSetStoryFolder();
+
+  // Selecting a parent folder should show everything beneath it, matching how
+  // the clip panel rolls a subtree up. Stories carry only their own folder id,
+  // so expand the selection to the whole subtree here.
+  const folderIdsInSubtree = useCallback(
+    (rootId: string) => {
+      const all = storyFolders ?? [];
+      const wanted = new Set([rootId]);
+      // Repeat until nothing new is added: the list is flat and unordered, so
+      // a single pass could miss grandchildren listed before their parents.
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const f of all) {
+          if (f.parent_id && wanted.has(f.parent_id) && !wanted.has(f.id)) {
+            wanted.add(f.id);
+            grew = true;
+          }
+        }
+      }
+      return wanted;
+    },
+    [storyFolders],
+  );
   const selectedStoryId = useStoryStore((state) => state.selectedStoryId);
   const setSelectedStoryId = useStoryStore((state) => state.setSelectedStoryId);
   const trackEditorHeight = useStoryStore((state) => state.trackEditorHeight);
@@ -193,14 +226,23 @@ export function StoryList() {
   const hasTrackEditor = selectedStoryId && selectedStory && selectedStory.items.length > 0;
 
   const filtered = useMemo(() => {
+    // Folder first, then text — the folder is a scope, the search runs inside it.
+    let scoped = storyList;
+    if (folderSelection.kind === 'uncategorised') {
+      scoped = scoped.filter((s) => !s.folder_id);
+    } else if (folderSelection.kind === 'folder') {
+      const wanted = folderIdsInSubtree(folderSelection.folderId);
+      scoped = scoped.filter((s) => s.folder_id && wanted.has(s.folder_id));
+    }
+
     const q = search.trim().toLowerCase();
-    if (!q) return storyList;
-    return storyList.filter((s) => {
+    if (!q) return scoped;
+    return scoped.filter((s) => {
       const name = (s.name || '').toLowerCase();
       const description = (s.description || '').toLowerCase();
       return name.includes(q) || description.includes(q);
     });
-  }, [search, storyList]);
+  }, [search, storyList, folderSelection, folderIdsInSubtree]);
 
   if (isLoading) {
     return (
@@ -232,6 +274,21 @@ export function StoryList() {
       <ListPaneScroll
         style={{ paddingBottom: hasTrackEditor ? `${trackEditorHeight + 140}px` : '170px' }}
       >
+        {/* Outside the empty-state branches below: filtering to an empty
+            folder must not remove the only control that can clear the filter. */}
+        {storyList.length > 0 && (
+          <div className="px-4">
+            <ClipFolderTree
+              kind="story"
+              title={t('folders.story.filterTitle')}
+              allLabel={t('folders.story.allStories')}
+              selection={folderSelection}
+              onSelect={setFolderSelection}
+              onDropItem={(storyId, folderId) => setStoryFolder.mutate({ storyId, folderId })}
+            />
+          </div>
+        )}
+
         {storyList.length === 0 ? (
           <div className="mx-4 text-center py-12 px-5 border-2 border-dashed border-muted rounded-2xl text-muted-foreground">
             <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -245,9 +302,15 @@ export function StoryList() {
         ) : (
           <div className="px-4 pb-6 space-y-1">
             {filtered.map((story) => {
+              const storyFolderId = story.folder_id ?? null;
               const isActive = selectedStoryId === story.id;
               return (
-                <div key={story.id} className="relative group">
+                <div
+                  key={story.id}
+                  draggable
+                  onDragStart={(e) => setFolderDragData(e, { kind: 'story', id: story.id })}
+                  className="relative group"
+                >
                   <button
                     type="button"
                     onClick={() => setSelectedStoryId(story.id)}
@@ -305,6 +368,36 @@ export function StoryList() {
                         <Pencil className="mr-2 h-4 w-4" />
                         {t('common.edit')}
                       </DropdownMenuItem>
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger>
+                          <FolderInput className="mr-2 h-4 w-4" />
+                          {t('folders.story.moveTo')}
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                          <DropdownMenuItem
+                            disabled={!storyFolderId}
+                            onClick={() =>
+                              setStoryFolder.mutate({ storyId: story.id, folderId: null })
+                            }
+                          >
+                            {t('folders.uncategorised')}
+                          </DropdownMenuItem>
+                          {(storyFolders ?? []).map((folder) => (
+                            <DropdownMenuItem
+                              key={folder.id}
+                              disabled={folder.id === storyFolderId}
+                              onClick={() =>
+                                setStoryFolder.mutate({ storyId: story.id, folderId: folder.id })
+                              }
+                            >
+                              {folder.name}
+                            </DropdownMenuItem>
+                          ))}
+                          {(storyFolders ?? []).length === 0 && (
+                            <DropdownMenuItem disabled>{t('folders.none')}</DropdownMenuItem>
+                          )}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
                       <DropdownMenuItem
                         onClick={() => handleDeleteClick(story.id)}
                         className="text-destructive focus:text-destructive"
