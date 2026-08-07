@@ -1,0 +1,110 @@
+[project]
+name = "voicebox"
+version = "0.1.0"
+description = "开源 AI 语音工作室 — 本地优先的语音克隆、语音生成、全局听写、AI 代理语音输出"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+    # ── FastAPI 服务器 ──
+    "fastapi>=0.109.0",
+    "uvicorn[standard]>=0.27.0",
+    "pydantic>=2.5.0",
+
+    # ── 数据库 ──
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+
+    # ── ML 模型 ──
+    "torch>=2.2.0",
+    "torchaudio",
+    "transformers>=4.36.0,<=4.57.6",
+    "accelerate>=0.26.0",
+    "huggingface_hub>=0.20.0",
+
+    # ── TTS 引擎: Qwen3-TTS（从 git 安装，见 [tool.uv.sources]）──
+    "qwen-tts>=0.0.5",
+
+    # ── TTS 引擎: LuxTTS（linacodec + Zipvoice 从 git 安装）──
+    "linacodec",
+    "Zipvoice",
+
+    # ── TTS 引擎: Chatterbox TTS ──
+    # 包本身的子依赖已手动列出，chatterbox-tts 自身的冲突约束
+    # (numpy<1.26 / torch==2.6) 通过 [tool.uv] override-dependencies 处理
+    "chatterbox-tts",
+    "conformer>=0.3.2",
+    "diffusers>=0.29.0",
+    "omegaconf",
+    "pykakasi",
+    "resemble-perth>=1.0.1",
+    "s3tokenizer",
+    "spacy-pkuseg",
+    "pyloudnorm",
+
+    # ── TTS 引擎: HumeAI TADA ──
+    # 包本身的冲突约束 (torch>=2.7,<2.8) 通过 override-dependencies 处理
+    # 注意: descript-audio-codec 会被作为传递依赖安装（较重），
+    #       运行时实际使用 utils/dac_shim.py 中的轻量 shim 替代
+    "hume-tada",
+
+    # ── TTS 引擎: Kokoro ──
+    "kokoro>=0.9.4",
+    "misaki[en,ja,zh]>=0.9.4",
+    "en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
+    "unidic-lite>=1.0.8",
+
+    # ── 音频处理 ──
+    "audioop-lts>=0.2.1; python_version >= '3.13'",
+    "librosa>=0.10.0",
+    "soundfile>=0.12.0",
+    "numpy>=1.24.0,<2.0",
+    "numba>=0.60.0,<0.61.0",
+    "pedalboard>=0.9.0",
+
+    # ── HTTP 客户端 ──
+    "httpx>=0.27.0",
+
+    # ── MCP 服务器 (Model Context Protocol) ──
+    "fastmcp>=3.0,<4.0",
+    "sse-starlette>=2.0",
+
+    # ── 工具库 ──
+    "python-multipart>=0.0.6",
+    "Pillow>=10.0.0",
+
+    # ── MLX 加速（仅 Apple Silicon）──
+    "mlx>=0.30.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "miniaudio>=1.59; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    # mlx-lm / mlx-audio 声明 transformers>=5.0.0，与我们的 transformers<=4.57.6 冲突，
+    # 通过 override-dependencies 处理
+    "mlx-lm==0.31.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx-audio==0.4.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
+]
+
+[dependency-groups]
+dev = [
+    "pyinstaller",
+    "ruff",
+    "pytest",
+    "pytest-asyncio",
+]
+
+[tool.uv]
+# piper-phonemize 需要 find-links（无 PyPI wheel）
+find-links = ["https://k2-fsa.github.io/icefall/piper_phonemize.html"]
+
+# 覆盖传递依赖的版本约束，解决以下冲突：
+# - chatterbox-tts 声明 numpy<1.26 / torch==2.6（与 Python 3.12+ 不兼容）
+# - hume-tada 声明 torch>=2.7,<2.8（与我们的 torch>=2.2.0 冲突）
+# - mlx-audio 声明 transformers>=5.0.0（与我们的 transformers<=4.57.6 冲突）
+override-dependencies = [
+    "numpy>=1.24.0,<2.0",
+    "torch>=2.2.0",
+    "transformers>=4.36.0,<=4.57.6",
+]
+
+[tool.uv.sources]
+# Git 源依赖
+qwen-tts = { git = "https://github.com/QwenLM/Qwen3-TTS.git" }
+linacodec = { git = "https://github.com/ysharma3501/LinaCodec.git" }
+Zipvoice = { git = "https://github.com/ysharma3501/LuxTTS.git" }
