@@ -124,12 +124,14 @@ export function ClipFolderTree({ selection, onSelect }: ClipFolderTreeProps) {
 
     return (
       <div key={folder.id}>
+        {/* Shaded and bold, matching the voice folders, so a folder never
+            reads as just another row in the list. */}
         <div
           className={cn(
-            'group/node flex items-center gap-1 rounded pr-1',
-            isSelected && 'bg-accent/40',
+            'group/node my-0.5 flex items-center gap-1 rounded border border-border/60 bg-muted/60 pr-1',
+            isSelected && 'border-accent/60 bg-accent/40',
           )}
-          style={{ paddingLeft: `${depth * 12}px` }}
+          style={{ marginLeft: `${depth * 12}px` }}
         >
           {children.length > 0 ? (
             <button
@@ -151,8 +153,8 @@ export function ClipFolderTree({ selection, onSelect }: ClipFolderTreeProps) {
             onClick={() => onSelect({ kind: 'folder', folderId: folder.id })}
             className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left"
           >
-            <span className="truncate text-xs">{folder.name}</span>
-            <span className="shrink-0 text-[10px] text-muted-foreground/70">
+            <span className="truncate text-xs font-bold text-foreground">{folder.name}</span>
+            <span className="shrink-0 rounded bg-background/70 px-1 text-[10px] font-semibold tabular-nums text-muted-foreground">
               {folder.item_count}
             </span>
           </button>

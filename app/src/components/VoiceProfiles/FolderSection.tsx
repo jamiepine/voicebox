@@ -64,18 +64,22 @@ export function FolderSection({
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="group/folder flex items-center gap-1">
+      {/* Shaded and bold so the header reads as a container rather than
+          blending into the rows it holds. */}
+      <div className="group/folder flex items-center gap-1 rounded-md border border-border/60 bg-muted/60 px-1">
         <button
           type="button"
           onClick={onToggle}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-accent/30"
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-1.5 text-left hover:bg-accent/30"
           aria-expanded={!collapsed}
         >
           <Chevron className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="truncate text-xs font-bold uppercase tracking-wide text-foreground">
             {name}
           </span>
-          <span className="shrink-0 text-xs text-muted-foreground/70">{count}</span>
+          <span className="shrink-0 rounded bg-background/70 px-1 text-[10px] font-semibold tabular-nums text-muted-foreground">
+            {count}
+          </span>
         </button>
 
         {folderId && (
@@ -113,7 +117,11 @@ export function FolderSection({
         )}
       </div>
 
-      {!collapsed && <div className="flex flex-col gap-1 pl-2">{children}</div>}
+      {/* Indent and rule the members so they read as belonging to the header
+          above rather than as a flat continuation of the list. */}
+      {!collapsed && (
+        <div className="ml-2 flex flex-col gap-1 border-l border-border/50 pl-2">{children}</div>
+      )}
 
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
         <DialogContent>
