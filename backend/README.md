@@ -75,17 +75,18 @@ Detection is handled by `utils/platform_detect.py`. Both backends implement the 
 
 ## API
 
-90 endpoints organized by domain. Full interactive documentation available at `http://localhost:17493/docs` when the server is running.
+135 endpoints organized by domain. Full interactive documentation available at `http://localhost:17493/docs` when the server is running.
 
 | Domain | Prefix | Description |
 |--------|--------|-------------|
-| Health | `/`, `/health` | Server status, GPU info, filesystem checks |
-| Profiles | `/profiles` | Voice profile CRUD, samples, avatars, import/export |
+| Health | `/`, `/health` | Server status, GPU info, ffmpeg availability, filesystem checks |
+| Profiles | `/profiles` | Voice profile CRUD, samples, avatars, duplication, import/export |
+| Folders | `/folders` | Organising voices and generated clips |
 | Channels | `/channels` | Audio channel management and voice assignment |
-| Generation | `/generate` | TTS generation, retry, regenerate, status SSE |
+| Generation | `/generate` | TTS generation, retry, regenerate, status SSE, audio import |
 | History | `/history` | Generation history, search, favorites, export |
 | Transcription | `/transcribe` | Whisper-based audio-to-text |
-| Stories | `/stories` | Multi-track timeline editor, audio export |
+| Stories | `/stories` | Multi-track timeline editor, per-lane mixing, audio export |
 | Effects | `/effects` | Effect presets, preview, version management |
 | Audio | `/audio`, `/samples` | Audio file serving |
 | Models | `/models` | Load, unload, download, migrate, status |
@@ -105,6 +106,17 @@ curl http://localhost:17493/profiles
 
 # Stream generation status (SSE)
 curl http://localhost:17493/generate/{id}/status
+
+# File a voice into a folder (null moves it back to Uncategorised)
+curl -X PUT http://localhost:17493/profiles/{id}/folder \
+  -H "Content-Type: application/json" \
+  -d '{"folder_id": "..."}'
+
+# Duplicate a voice with its samples, personality and effects
+curl -X POST http://localhost:17493/profiles/{id}/duplicate
+
+# Mix a story down to a single file (wav | mp3 | ogg | opus | flac)
+curl "http://localhost:17493/stories/{id}/export-audio?format=mp3" -o story.mp3
 ```
 
 ## Data directory
@@ -118,7 +130,13 @@ curl http://localhost:17493/generate/{id}/status
   backends/               # Downloaded CUDA binary (if applicable)
 ```
 
-Default location is the OS-specific app data directory. Override with `--data-dir` or the `VOICEBOX_DATA_DIR` environment variable.
+Default location is the OS-specific app data directory. Override with `--data-dir` or the `VOICEBOX_DATA_DIR` environment variable. `--data-dir` wins when both are set; the environment variable is the only option that reaches a bare `uvicorn backend.main:app`, which never parses CLI arguments.
+
+## Optional dependencies
+
+**ffmpeg** is not bundled and never required. When present on `PATH` it adds EBU R128 loudness normalisation to story export (`?normalize_loudness=true`); without it that request still succeeds using peak normalisation. It is also the only decoder for `.m4a`, `.aac` and `.webm` imports — libsndfile cannot open those, so `POST /generate/import` rejects them with a clear message when ffmpeg is missing. `GET /health` reports `ffmpeg_available`.
+
+Every audio export container (WAV, MP3, OGG, Opus, FLAC) is written by the bundled libsndfile and needs no ffmpeg.
 
 ## Code quality
 
