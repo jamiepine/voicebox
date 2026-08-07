@@ -5,26 +5,26 @@
 <h1 align="center">Voicebox</h1>
 
 <p align="center">
-  <strong>The open-source AI voice studio.</strong><br/>
-  Clone any voice. Generate speech. Dictate into any app. Talk to agents in voices you own.<br/>
-  The full voice I/O stack, running locally on your machine.
+  <strong>开源 AI 语音工作室。</strong><br/>
+  克隆任意声音。生成语音。听写到任意应用。用你拥有的声音与智能体对话。<br/>
+  完整的语音输入/输出技术栈，在你的本地机器上运行。
 </p>
 
 <p align="center">
   <a href="https://github.com/jamiepine/voicebox/releases">
-    <img src="https://img.shields.io/github/downloads/jamiepine/voicebox/total?style=flat&color=blue" alt="Downloads" />
+    <img src="https://img.shields.io/github/downloads/jamiepine/voicebox/total?style=flat&color=blue" alt="下载量" />
   </a>
   <a href="https://github.com/jamiepine/voicebox/releases/latest">
-    <img src="https://img.shields.io/github/v/release/jamiepine/voicebox?style=flat" alt="Release" />
+    <img src="https://img.shields.io/github/v/release/jamiepine/voicebox?style=flat" alt="最新版本" />
   </a>
   <a href="https://github.com/jamiepine/voicebox/stargazers">
-    <img src="https://img.shields.io/github/stars/jamiepine/voicebox?style=flat" alt="Stars" />
+    <img src="https://img.shields.io/github/stars/jamiepine/voicebox?style=flat" alt="星标数" />
   </a>
   <a href="https://github.com/jamiepine/voicebox/blob/main/LICENSE">
-    <img src="https://img.shields.io/github/license/jamiepine/voicebox?style=flat" alt="License" />
+    <img src="https://img.shields.io/github/license/jamiepine/voicebox?style=flat" alt="许可证" />
   </a>
   <a href="https://deepwiki.com/jamiepine/voicebox">
-    <img src="https://img.shields.io/static/v1?label=Ask&message=DeepWiki&color=5B6EF7" alt="Ask DeepWiki" />
+    <img src="https://img.shields.io/static/v1?label=提问&message=DeepWiki&color=5B6EF7" alt="向 DeepWiki 提问" />
   </a>
 </p>
 
@@ -34,283 +34,283 @@
 
 <p align="center">
   <a href="https://voicebox.sh">voicebox.sh</a> •
-  <a href="https://docs.voicebox.sh">Docs</a> •
-  <a href="#download">Download</a> •
-  <a href="#features">Features</a> •
+  <a href="https://docs.voicebox.sh">文档</a> •
+  <a href="#download">下载</a> •
+  <a href="#features">功能</a> •
   <a href="#api">API</a> •
-  <a href="docs/content/docs/overview/troubleshooting.mdx">Troubleshooting</a>
+  <a href="docs/content/docs/overview/troubleshooting.mdx">故障排除</a>
 </p>
 
 <br/>
 
 <p align="center">
   <a href="https://voicebox.sh">
-    <img src="landing/public/assets/app-screenshot-1.webp" alt="Voicebox App Screenshot" width="800" />
+    <img src="landing/public/assets/app-screenshot-1.webp" alt="Voicebox 应用截图" width="800" />
   </a>
 </p>
 
 <p align="center">
-  <em>Click the image above to watch the demo video on <a href="https://voicebox.sh">voicebox.sh</a></em>
+  <em>点击上方图片在 <a href="https://voicebox.sh">voicebox.sh</a> 上观看演示视频</em>
 </p>
 
 <br/>
 
 <p align="center">
-  <img src="landing/public/assets/app-screenshot-2.webp" alt="Voicebox Screenshot 2" width="800" />
+  <img src="landing/public/assets/app-screenshot-2.webp" alt="Voicebox 截图 2" width="800" />
 </p>
 
 <p align="center">
-  <img src="landing/public/assets/app-screenshot-3.webp" alt="Voicebox Screenshot 3" width="800" />
+  <img src="landing/public/assets/app-screenshot-3.webp" alt="Voicebox 截图 3" width="800" />
 </p>
 
 <br/>
 
-## What is Voicebox?
+## Voicebox 是什么？
 
-Voicebox is a **local-first AI voice studio** — a free and open-source alternative to **ElevenLabs** and **WisprFlow** in one app. Clone voices from a few seconds of audio, generate speech in 23 languages across 7 TTS engines, dictate into any text field with a global hotkey, and give any MCP-aware AI agent a voice of your choosing.
+Voicebox 是一个**本地优先的 AI 语音工作室** —— 免费开源的 **ElevenLabs** 和 **WisprFlow** 替代方案，集成于一个应用中。只需几秒音频即可克隆声音，支持 7 个 TTS 引擎、23 种语言的语音生成，通过全局快捷键听写到任意文本框，并为任何支持 MCP 的 AI 智能体赋予你选择的声音。
 
-The two cloud incumbents sit on opposite halves of the voice I/O loop — ElevenLabs on output, WisprFlow on input. Voicebox does both, bridges them with a bundled local LLM for refinement and per-profile personas, and runs the whole thing on your machine.
+两大云端巨头分别占据语音输入/输出回路的两端 —— ElevenLabs 负责输出，WisprFlow 负责输入。Voicebox 同时覆盖两端，通过内置的本地 LLM 进行文本优化和分角色人设管理将两端打通，整个流程都在你的机器上本地运行。
 
-- **Complete privacy** — models, voice data, and captures never leave your machine
-- **7 TTS engines** — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, and Kokoro
-- **Voice cloning and preset voices** — zero-shot cloning from a reference sample, or 50+ curated preset voices via Kokoro and Qwen CustomVoice
-- **23 languages** — from English to Arabic, Japanese, Hindi, Swahili, and more
-- **Post-processing effects** — pitch shift, reverb, delay, chorus, compression, and filters
-- **Expressive speech** — paralinguistic tags like `[laugh]`, `[sigh]`, `[gasp]` via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice
-- **Unlimited length** — auto-chunking with crossfade for scripts, articles, and chapters
-- **Stories editor** — multi-track timeline for conversations, podcasts, and narratives
-- **Voice input** — global dictation hotkey with push-to-talk and toggle modes, accessibility-verified auto-paste on macOS, in-app mic on every text field, Whisper-based STT
-- **Agent voice output** — one tool call (`voicebox.speak`) and any MCP-aware agent (Claude Code, Cursor, Cline) speaks to you in a voice you've cloned
-- **Voice personalities** — attach a free-form persona to any voice profile, then Compose, Rewrite, or Respond via a bundled local LLM — agents can invoke the same modes over MCP
-- **API-first** — REST API plus a built-in MCP server for integrating voice I/O into your own apps and agents
-- **Native performance** — built with Tauri (Rust), not Electron
-- **Runs everywhere** — macOS (MLX/Metal), Windows (CUDA), Linux, AMD ROCm, Intel Arc, Docker
+- **完全隐私** —— 模型、语音数据和录音永不离开你的机器
+- **7 个 TTS 引擎** —— Qwen3-TTS、Qwen CustomVoice、LuxTTS、Chatterbox Multilingual、Chatterbox Turbo、HumeAI TADA 和 Kokoro
+- **声音克隆与预设声音** —— 从参考样本零样本克隆，或通过 Kokoro 和 Qwen CustomVoice 使用 50+ 精选预设声音
+- **23 种语言** —— 从英语到阿拉伯语、日语、印地语、斯瓦希里语等
+- **后处理音效** —— 变调、混响、延迟、合唱、压缩和滤波
+- **表现力语音** —— 通过 Chatterbox Turbo 支持副语言标签如 `[laugh]`、`[sigh]`、`[gasp]`；通过 Qwen CustomVoice 支持自然语言演绎控制
+- **无限长度** —— 自动分块并交叉淡入淡出，适用于脚本、文章和章节
+- **故事编辑器** —— 多轨道时间线，用于对话、播客和叙事
+- **语音输入** —— 全局听写快捷键，支持按住说话和切换模式，macOS 上经辅助功能验证的自动粘贴，应用内每个文本框都有麦克风按钮，基于 Whisper 的语音转文字
+- **智能体语音输出** —— 一次工具调用（`voicebox.speak`），任何支持 MCP 的智能体（Claude Code、Cursor、Cline）即可用你克隆的声音对你说话
+- **声音人格** —— 为任意语音档案附加自由格式的人设，然后通过内置本地 LLM 进行创作、改写或回应 —— 智能体也可通过 MCP 调用相同模式
+- **API 优先** —— REST API 加内置 MCP 服务器，将语音输入/输出集成到你自己的应用和智能体中
+- **原生性能** —— 基于 Tauri (Rust) 构建，而非 Electron
+- **全平台运行** —— macOS (MLX/Metal)、Windows (CUDA)、Linux、AMD ROCm、Intel Arc、Docker
 
 ---
 
-## Download
+## 下载
 
-| Platform              | Download                                               |
+| 平台                  | 下载链接                                               |
 | --------------------- | ------------------------------------------------------ |
-| macOS (Apple Silicon) | [Download DMG](https://voicebox.sh/download/mac-arm)   |
-| macOS (Intel)         | [Download DMG](https://voicebox.sh/download/mac-intel) |
-| Windows               | [Download MSI](https://voicebox.sh/download/windows)   |
+| macOS (Apple Silicon) | [下载 DMG](https://voicebox.sh/download/mac-arm)       |
+| macOS (Intel)         | [下载 DMG](https://voicebox.sh/download/mac-intel)     |
+| Windows               | [下载 MSI](https://voicebox.sh/download/windows)       |
 | Docker                | `docker compose up`                                    |
 
-> **[View all binaries →](https://github.com/jamiepine/voicebox/releases/latest)**
+> **[查看全部二进制文件 →](https://github.com/jamiepine/voicebox/releases/latest)**
 
-> **Linux** — Pre-built binaries are not yet available. See [voicebox.sh/linux-install](https://voicebox.sh/linux-install) for build-from-source instructions.
+> **Linux** —— 尚未提供预编译二进制文件。请参阅 [voicebox.sh/linux-install](https://voicebox.sh/linux-install) 获取从源码构建的说明。
 
-> **Having trouble?** See the [Troubleshooting Guide](docs/content/docs/overview/troubleshooting.mdx) for common install, generation, model-download, and GPU issues.
+> **遇到问题？** 请参阅[故障排除指南](docs/content/docs/overview/troubleshooting.mdx)，涵盖常见的安装、生成、模型下载和 GPU 问题。
 
 ---
 
-## Features
+## 功能
 
-### Multi-Engine Voice Cloning
+### 多引擎声音克隆
 
-Seven TTS engines with different strengths, switchable per-generation:
+七种 TTS 引擎，各有所长，可按次生成切换：
 
-| Engine                      | Languages | Strengths                                                                                                                                |
-| --------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| **Qwen3-TTS** (0.6B / 1.7B) | 10        | High-quality multilingual cloning, delivery instructions ("speak slowly", "whisper")                                                     |
-| **Qwen CustomVoice**        | 10        | 9 curated preset voices with natural-language delivery control — no reference audio required                                             |
-| **LuxTTS**                  | English   | Lightweight (~1GB VRAM), 48kHz output, 150x realtime on CPU                                                                              |
-| **Chatterbox Multilingual** | 23        | Broadest language coverage — Arabic, Danish, Finnish, Greek, Hebrew, Hindi, Malay, Norwegian, Polish, Swahili, Swedish, Turkish and more |
-| **Chatterbox Turbo**        | English   | Fast 350M model with paralinguistic emotion/sound tags                                                                                   |
-| **TADA** (1B / 3B)          | 10        | HumeAI speech-language model — 700s+ coherent audio, text-acoustic dual alignment                                                        |
-| **Kokoro**                  | 8         | 50 curated preset voices, tiny 82M model, fast CPU inference                                                                             |
+| 引擎                        | 语言     | 优势                                                                                                                                     |
+| --------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Qwen3-TTS** (0.6B / 1.7B) | 10       | 高质量多语言克隆，演绎指令（"慢慢说"、"耳语"）                                                                                            |
+| **Qwen CustomVoice**        | 10       | 9 个精选预设声音，自然语言演绎控制 —— 无需参考音频                                                                                         |
+| **LuxTTS**                  | 英语     | 轻量级（~1GB 显存），48kHz 输出，CPU 上 150 倍实时速度                                                                                     |
+| **Chatterbox Multilingual** | 23       | 最广泛的语言覆盖 —— 阿拉伯语、丹麦语、芬兰语、希腊语、希伯来语、印地语、马来语、挪威语、波兰语、斯瓦希里语、瑞典语、土耳其语等               |
+| **Chatterbox Turbo**        | 英语     | 快速 350M 模型，支持副语言情感/声音标签                                                                                                    |
+| **TADA** (1B / 3B)          | 10       | HumeAI 语音语言模型 —— 700 秒+连贯音频，文本-声学双重对齐                                                                                  |
+| **Kokoro**                  | 8        | 50 个精选预设声音，仅 82M 小模型，快速 CPU 推理                                                                                            |
 
-### Emotions & Paralinguistic Tags
+### 情感与副语言标签
 
-Only **Chatterbox Turbo** interprets paralinguistic tags like `[laugh]` and
-`[sigh]`. Qwen3-TTS, LuxTTS, Chatterbox Multilingual, and HumeAI TADA read them
-literally as text.
+仅 **Chatterbox Turbo** 能解析副语言标签如 `[laugh]` 和
+`[sigh]`。Qwen3-TTS、LuxTTS、Chatterbox Multilingual 和 HumeAI TADA 会将它们
+作为普通文本逐字朗读。
 
-With **Chatterbox Turbo** selected, type `/` in the text input to open the tag
-inserter and add expressive tags inline with speech:
+选择 **Chatterbox Turbo** 后，在文本输入框中输入 `/` 可打开标签
+插入器，在语音中内联添加表现力标签：
 
 `[laugh]` `[chuckle]` `[gasp]` `[cough]` `[sigh]` `[groan]` `[sniff]` `[shush]` `[clear throat]`
 
-### Post-Processing Effects
+### 后处理音效
 
-8 audio effects powered by Spotify's `pedalboard` library. Apply after generation, preview in real time, build reusable presets.
+8 种音频效果，基于 Spotify 的 `pedalboard` 库。生成后应用，实时预览，可构建可复用的预设。
 
-| Effect           | Description                                   |
-| ---------------- | --------------------------------------------- |
-| Pitch Shift      | Up or down by up to 12 semitones              |
-| Reverb           | Configurable room size, damping, wet/dry mix  |
-| Delay            | Echo with adjustable time, feedback, and mix  |
-| Chorus / Flanger | Modulated delay for metallic or lush textures |
-| Compressor       | Dynamic range compression                     |
-| Gain             | Volume adjustment (-40 to +40 dB)             |
-| High-Pass Filter | Remove low frequencies                        |
-| Low-Pass Filter  | Remove high frequencies                       |
+| 效果             | 描述                                   |
+| ---------------- | --------------------------------------- |
+| 变调             | 上下最多 12 个半音                      |
+| 混响             | 可配置房间大小、阻尼、干湿混音          |
+| 延迟             | 带可调时间、反馈和混音的回声            |
+| 合唱/镶边        | 调制延迟，产生金属感或丰厚质感          |
+| 压缩器           | 动态范围压缩                            |
+| 增益             | 音量调节（-40 至 +40 dB）               |
+| 高通滤波器       | 去除低频                                |
+| 低通滤波器       | 去除高频                                |
 
-Ships with 4 built-in presets (Robotic, Radio, Echo Chamber, Deep Voice) and supports custom presets. Effects can be assigned per-profile as defaults.
+内置 4 个预设（机器人、收音机、回音室、低音嗓音），并支持自定义预设。音效可按语音档案设为默认。
 
-### Unlimited Generation Length
+### 无限生成长度
 
-Text is automatically split at sentence boundaries and each chunk is generated independently, then crossfaded together. Works with all engines.
+文本自动在句子边界处分块，每块独立生成后交叉淡入淡出拼接。适用于所有引擎。
 
-- Configurable auto-chunking limit (100–5,000 chars)
-- Crossfade slider (0–200ms) for smooth transitions
-- Max text length: 50,000 characters
-- Smart splitting respects abbreviations, CJK punctuation, and `[tags]`
+- 可配置自动分块上限（100–5,000 字符）
+- 交叉淡入淡出滑块（0–200ms），实现平滑过渡
+- 最大文本长度：50,000 字符
+- 智能分块，正确处理缩写、中日韩标点和 `[标签]`
 
-### Generation Versions
+### 生成版本
 
-Every generation supports multiple versions with provenance tracking:
+每次生成支持多版本管理及来源追踪：
 
-- **Original** — clean TTS output, always preserved
-- **Effects versions** — apply different effects chains from any source version
-- **Takes** — regenerate with a new seed for variation
-- **Source tracking** — each version records its lineage
-- **Favorites** — star generations for quick access
+- **原始版** —— 纯净 TTS 输出，始终保留
+- **效果版本** —— 从任意源版本应用不同效果链
+- **重录** —— 使用新随机种子重新生成以获得变化
+- **来源追踪** —— 每个版本记录其来源谱系
+- **收藏** —— 标星生成内容以便快速访问
 
-### Async Generation Queue
+### 异步生成队列
 
-Generation is non-blocking. Submit and immediately start typing the next one.
+生成过程非阻塞。提交后可立即开始输入下一条。
 
-- Serial execution queue prevents GPU contention
-- Real-time SSE status streaming
-- Failed generations can be retried
-- Stale generations from crashes auto-recover on startup
+- 串行执行队列防止 GPU 竞争
+- 实时 SSE 状态流
+- 失败的生成可重试
+- 崩溃导致的过期生成在启动时自动恢复
 
-### Voice Profile Management
+### 语音档案管理
 
-- Create profiles from audio files or record directly in-app
-- Import/export profiles to share or back up
-- Multi-sample support for higher quality cloning
-- Per-profile default effects chains
-- Organize with descriptions and language tags
+- 从音频文件创建档案或直接在应用内录制
+- 导入/导出档案以分享或备份
+- 多样本支持，获得更高质量的克隆
+- 按档案设置默认效果链
+- 通过描述和语言标签组织管理
 
-### Stories Editor
+### 故事编辑器
 
-Multi-voice timeline editor for conversations, podcasts, and narratives.
+多语音时间线编辑器，用于对话、播客和叙事。
 
-- Multi-track composition with drag-and-drop
-- Inline audio trimming and splitting
-- Auto-playback with synchronized playhead
-- Version pinning per track clip
+- 多轨道编排，支持拖放操作
+- 内联音频裁剪和分割
+- 同步播放头自动回放
+- 每个轨道片段版本锁定
 
-### Global Dictation & Voice Input
+### 全局听写与语音输入
 
-The other half of the voice I/O loop. Hold a hotkey anywhere on your system, speak, release — on macOS the transcript pastes straight into the focused text field. Or hit the mic on any Voicebox text input and dictate directly into the app.
+语音输入/输出回路的另一半。在系统任意位置按住快捷键，说话，松开 —— macOS 上转录结果会直接粘贴到当前聚焦的文本框。或者在 Voicebox 的任意文本输入框上点击麦克风按钮，直接在应用内听写。
 
-- **Configurable chord bindings** — hold-to-speak and tap-to-toggle chords, each rebindable in the in-app chord picker. Holding push-to-talk and tapping `Space` mid-hold upgrades into a toggle session without a gap in audio
-- **Target-aware paste (macOS)** — accessibility-verified injection into the focused text field, with atomic clipboard save/restore so your clipboard isn't clobbered
-- **First-run permissions UX** — in-app gates walk you through the macOS Accessibility and Input Monitoring grants with deep-links to System Settings
-- **In-app mic button** on every Voicebox text field — generation form, profile descriptions, story titles, anywhere you'd type
-- **LLM refinement** — optional cleanup of ums, stutters, and false starts before paste
-- **On-screen pill** — floating overlay surfacing `recording`, `transcribing`, `refining`, and `speaking` states. Same pill agents use when they speak to you, so there's one mental model for both directions of the loop
+- **可配置和弦快捷键** —— 按住说话和点按切换和弦，均可在应用内和弦选择器中重新绑定。按住推按说话时中途点按 `Space` 可无缝升级为切换会话，音频不中断
+- **目标感知粘贴（macOS）** —— 经辅助功能验证的注入到聚焦文本框，原子化剪贴板保存/恢复，不会覆盖你的剪贴板内容
+- **首次运行权限引导** —— 应用内引导你完成 macOS 辅助功能和输入监控授权，带系统设置的深链接跳转
+- **应用内麦克风按钮** —— 每个 Voicebox 文本框都有 —— 生成表单、档案描述、故事标题，任何你需要打字的地方
+- **LLM 优化** —— 粘贴前可选清理"嗯"、口吃和错误开头
+- **悬浮提示** —— 浮动覆盖层显示 `录音中`、`转录中`、`优化中` 和 `播放中` 状态。智能体说话时也使用同一提示，输入输出两个方向共用一个心智模型
 
-### Speech-to-Text
+### 语音转文字
 
-Voicebox runs OpenAI Whisper for transcription — the same model that backs dictation, the Captures tab, and the `/transcribe` API. Running on MLX (Apple Silicon) or PyTorch (CUDA / ROCm / DirectML / CPU) depending on your platform.
+Voicebox 运行 OpenAI Whisper 进行转录 —— 同一模型也用于听写、录音标签页和 `/transcribe` API。根据你的平台运行在 MLX（Apple Silicon）或 PyTorch（CUDA / ROCm / DirectML / CPU）上。
 
-| Size                          | Notes                                              |
-| ----------------------------- | -------------------------------------------------- |
-| Base / Small / Medium / Large | Standard Whisper quality ladder                    |
-| Turbo                         | ~8x faster than Whisper Large, minimal quality loss |
+| 大小                          | 备注                                                |
+| ----------------------------- | --------------------------------------------------- |
+| Base / Small / Medium / Large | 标准 Whisper 质量阶梯                               |
+| Turbo                         | 比 Whisper Large 快约 8 倍，质量损失极小             |
 
-More engines (Parakeet v3, Qwen3-ASR) are planned — see [Roadmap](#roadmap).
+更多引擎（Parakeet v3、Qwen3-ASR）已在计划中 —— 见[路线图](#路线图)。
 
-### Captures
+### 录音
 
-Every dictation, in-app recording, and uploaded audio file lands in the Captures tab — original audio paired with transcript, always preserved.
+每次听写、应用内录音和上传的音频文件都会出现在录音标签页 —— 原始音频配对转录文本，始终保留。
 
-- **Replay, re-transcribe, refine** — rerun STT with any Whisper size, or re-run the raw transcript through the local LLM with different flags (filler cleanup, self-correction removal, technical-term preservation)
-- **Edit inline** — tweak the transcript and save on blur
-- **Play as voice profile** — turn any capture into speech with a cloned voice, one click
-- **Promote to voice sample** — use a capture's audio + transcript as a reference sample on any voice profile
-- **Local capture storage** — original audio and transcript stay in your Voicebox data directory, with a folder shortcut in Settings
+- **回放、重新转录、优化** —— 用任意 Whisper 大小重新运行 STT，或将原始转录文本通过本地 LLM 以不同选项重新处理（填充词清理、自我纠正移除、技术术语保留）
+- **内联编辑** —— 直接修改转录文本，失焦时保存
+- **用语音档案播放** —— 一键将任意录音用克隆的声音转为语音
+- **提升为语音样本** —— 将录音的音频和转录文本用作任意语音档案的参考样本
+- **本地录音存储** —— 原始音频和转录文本保存在你的 Voicebox 数据目录中，设置中有文件夹快捷方式
 
-### Agent Voice Output
+### 智能体语音输出
 
-Every agent gets a voice. One tool call and any MCP-aware agent can speak to you in a voice you've cloned — task completions, questions, notifications. The same pill that surfaces during dictation surfaces during agent speech, so you always see what's coming out of your machine.
+每个智能体都有一个声音。一次工具调用，任何支持 MCP 的智能体即可用你克隆的声音对你说话 —— 任务完成、提问、通知。听写时显示的悬浮提示在智能体说话时同样显示，让你始终了解机器正在输出什么。
 
 ```ts
-// In any MCP-aware agent:
+// 在任意支持 MCP 的智能体中：
 await voicebox.speak({
   text: "Deploy complete.",
   profile: "Morgan",
 });
 ```
 
-Also exposed as `POST /speak` for anything that doesn't speak MCP — ACP, A2A, shell scripts, custom harnesses.
+同时也以 `POST /speak` 形式暴露，供不支持 MCP 的场景使用 —— ACP、A2A、Shell 脚本、自定义工具。
 
-- **Bidirectional pill** — `recording`, `transcribing`, `refining`, and `speaking` are all states of the same OS-level overlay, so dictation and agent speech share one surface
-- **Per-agent voice binding** — in **Settings → MCP**, pin Claude Code to Morgan and Cursor to Scarlett so you can tell which agent is talking without looking. Each client's `last_seen_at` timestamp confirms the install actually took
-- **Always visible** — no silent background TTS; every agent-initiated speak surfaces the pill with the voice profile name for the full duration
-- **HTTP + stdio transports** — install as a URL in Claude Code / Cursor / Windsurf / VS Code MCP, or point stdio-only clients at the bundled `voicebox-mcp` binary
+- **双向悬浮提示** —— `录音中`、`转录中`、`优化中` 和 `播放中` 都是同一个操作系统级覆盖层的状态，听写和智能体语音共享同一界面
+- **按智能体绑定声音** —— 在 **设置 → MCP** 中，将 Claude Code 绑定到 Morgan，Cursor 绑定到 Scarlett，无需看屏幕即可区分是哪个智能体在说话。每个客户端的 `last_seen_at` 时间戳可确认安装确实已生效
+- **始终可见** —— 没有静默后台 TTS；每次智能体发起的语音都会在全程显示带语音档案名称的悬浮提示
+- **HTTP + stdio 传输** —— 在 Claude Code / Cursor / Windsurf / VS Code MCP 中以 URL 形式安装，或将仅支持 stdio 的客户端指向内置的 `voicebox-mcp` 二进制文件
 
-### Voice Personalities
+### 声音人格
 
-Attach a free-form personality to any voice profile — who this voice is, how they speak, what they care about. Two actions appear on the generate box when a personality is set, powered by a bundled Qwen3 LLM running entirely locally.
+为任意语音档案附加自由格式的人格描述 —— 这个声音是谁，说话方式如何，关注什么。设置人格后，生成框中会出现两个操作按钮，由内置的 Qwen3 LLM 驱动，完全在本地运行。
 
-- **Compose** — a shuffle button that drops a fresh in-character line into the textarea; edit and speak, or click again for a different take
-- **Speak in character** — a toggle that routes your input text through the personality LLM to be rewritten in their voice before TTS
+- **创作** —— 随机按钮，在文本框中生成一条符合角色设定的台词；编辑后播放，或再次点击获取不同版本
+- **角色演绎** —— 切换开关，将你的输入文本通过人格 LLM 改写为角色语气后再进行 TTS
 
-Agents can reach the same rewrite path over MCP by passing `personality: true` to `voicebox.speak`, turning the tool into a text-in → personality-LLM → TTS pipeline. The same LLM backs dictation's refinement step — one LLM in the app, one model cache, one GPU-memory footprint.
+智能体可通过 MCP 调用相同的改写路径，在 `voicebox.speak` 中传入 `personality: true`，将工具变为 文本输入 → 人格 LLM → TTS 的流水线。同一 LLM 也用于听写的优化步骤 —— 应用内一个 LLM、一个模型缓存、一份 GPU 内存占用。
 
-**Local LLM options:** Qwen3 0.6B / 1.7B / 4B, sharing the TTS runtime (MLX on Apple Silicon, PyTorch elsewhere).
+**本地 LLM 选项：** Qwen3 0.6B / 1.7B / 4B，与 TTS 共享运行时（Apple Silicon 上使用 MLX，其他平台使用 PyTorch）。
 
-Use cases: agent dev loops (dictate a question, hear the answer in a cloned voice), interactive characters for games and narrative tools, speech assistance for people who can't speak in their original voice.
+使用场景：智能体开发循环（听写问题，用克隆的声音听取答案）、游戏和叙事工具的交互角色、为无法用原声说话的人提供语音辅助。
 
-### Model Management
+### 模型管理
 
-- Per-model unload to free GPU memory without deleting downloads
-- Custom models directory via `VOICEBOX_MODELS_DIR`
-- Model folder migration with progress tracking
-- Download cancel/clear UI
+- 按模型卸载以释放 GPU 内存，无需删除下载
+- 通过 `VOICEBOX_MODELS_DIR` 自定义模型目录
+- 模型文件夹迁移，带进度追踪
+- 下载取消/清除界面
 
-### GPU Support
+### GPU 支持
 
-| Platform                 | Backend        | Notes                                          |
-| ------------------------ | -------------- | ---------------------------------------------- |
-| macOS (Apple Silicon)    | MLX (Metal)    | 4-5x faster via Neural Engine                  |
-| Windows (NVIDIA)         | PyTorch (CUDA) | Auto-downloads CUDA binary from within the app |
-| Linux (NVIDIA)           | PyTorch (CUDA) | Use a local/remote Python backend with CUDA PyTorch |
-| Linux (AMD)              | PyTorch (ROCm) | Auto-configures HSA_OVERRIDE_GFX_VERSION       |
-| Windows (any GPU)        | DirectML       | Universal Windows GPU support                  |
-| Intel Arc                | IPEX/XPU       | Intel discrete GPU acceleration                |
-| Any                      | CPU            | Works everywhere, just slower                  |
+| 平台                     | 后端          | 备注                                            |
+| ------------------------ | ------------- | ----------------------------------------------- |
+| macOS (Apple Silicon)    | MLX (Metal)   | 通过神经网络引擎加速 4-5 倍                      |
+| Windows (NVIDIA)         | PyTorch (CUDA)| 应用内自动下载 CUDA 二进制文件                   |
+| Linux (NVIDIA)           | PyTorch (CUDA)| 使用本地/远程带 CUDA PyTorch 的 Python 后端      |
+| Linux (AMD)              | PyTorch (ROCm)| 自动配置 HSA_OVERRIDE_GFX_VERSION                |
+| Windows (任意 GPU)        | DirectML      | 通用 Windows GPU 支持                            |
+| Intel Arc                | IPEX/XPU      | Intel 独立显卡加速                               |
+| 任意                     | CPU           | 全平台可用，只是较慢                              |
 
 ---
 
 ## API
 
-Voicebox exposes a REST API for integrating voice I/O into your own apps and agents.
+Voicebox 提供 REST API，将语音输入/输出集成到你自己的应用和智能体中。
 
 ```bash
-# Generate speech
+# 生成语音
 curl -X POST http://127.0.0.1:17493/generate \
   -H "Content-Type: application/json" \
   -d '{"text": "Hello world", "profile_id": "abc123", "language": "en"}'
 
-# Agent voice output — any app or script can speak in a cloned voice
+# 智能体语音输出 —— 任意应用或脚本都可用克隆的声音说话
 curl -X POST http://127.0.0.1:17493/speak \
   -H "Content-Type: application/json" \
   -H "X-Voicebox-Client-Id: my-script" \
   -d '{"text": "Deploy complete.", "profile": "Morgan"}'
 
-# Transcribe an audio file
+# 转录音频文件
 curl -X POST http://127.0.0.1:17493/transcribe \
   -F "audio=@recording.wav" \
   -F "model=whisper-turbo"
 
-# List voice profiles
+# 列出语音档案
 curl http://127.0.0.1:17493/profiles
 ```
 
-`POST /speak` accepts `profile` as a name (case-insensitive) or id, and resolves via the same precedence as the MCP tool: explicit arg → per-client binding → `capture_settings.default_playback_voice_id`.
+`POST /speak` 接受 `profile` 作为名称（不区分大小写）或 ID，解析优先级与 MCP 工具相同：显式参数 → 客户端绑定 → `capture_settings.default_playback_voice_id`。
 
-### MCP server
+### MCP 服务器
 
-Voicebox ships a built-in **Model Context Protocol** server so any MCP-aware agent (Claude Code, Cursor, Windsurf, Cline, VS Code MCP extensions) can speak, transcribe, and browse captures and profiles.
+Voicebox 内置 **模型上下文协议**（MCP）服务器，任何支持 MCP 的智能体（Claude Code、Cursor、Windsurf、Cline、VS Code MCP 扩展）都可以进行语音播放、转录以及浏览录音和档案。
 
-**Claude Code one-liner:**
+**Claude Code 一行命令安装：**
 
 ```
 claude mcp add voicebox \
@@ -319,7 +319,7 @@ claude mcp add voicebox \
   --header "X-Voicebox-Client-Id: claude-code"
 ```
 
-**Any HTTP MCP client** (Cursor, Windsurf, VS Code, etc.):
+**任意 HTTP MCP 客户端**（Cursor、Windsurf、VS Code 等）：
 
 ```json
 {
@@ -332,7 +332,7 @@ claude mcp add voicebox \
 }
 ```
 
-**Stdio fallback** for clients that don't speak HTTP MCP — point at the bundled `voicebox-mcp` binary inside the app:
+**Stdio 回退方案** —— 供不支持 HTTP MCP 的客户端使用，指向应用内置的 `voicebox-mcp` 二进制文件：
 
 ```json
 {
@@ -345,127 +345,127 @@ claude mcp add voicebox \
 }
 ```
 
-Four tools ship: `voicebox.speak`, `voicebox.transcribe`, `voicebox.list_captures`, `voicebox.list_profiles`. Per-client voice bindings are managed in **Voicebox → Settings → MCP**. See the [full MCP guide](docs/content/docs/overview/mcp-server.mdx) for tool signatures, resolution precedence, the speaking-pill contract, and security notes.
+内置四个工具：`voicebox.speak`、`voicebox.transcribe`、`voicebox.list_captures`、`voicebox.list_profiles`。按客户端的声音绑定在 **Voicebox → 设置 → MCP** 中管理。完整 MCP 指南请参阅[ MCP 指南](docs/content/docs/overview/mcp-server.mdx)，涵盖工具签名、解析优先级、语音播放提示契约和安全说明。
 
 ```ts
-// In any MCP-aware agent:
+// 在任意支持 MCP 的智能体中：
 await voicebox.speak({
   text: "Tests passing. Ready to merge.",
-  profile: "Morgan",      // optional — falls back to the per-client binding
-  personality: true,      // optional — rewrites text through the profile's personality LLM first
+  profile: "Morgan",      // 可选 —— 回退到客户端绑定
+  personality: true,      // 可选 —— 先通过档案的人格 LLM 改写文本
 });
 ```
 
-**Use cases:** agent dev loops (voice in, voice out), game dialogue, podcast production, accessibility tools, voice assistants, content automation.
+**使用场景：** 智能体开发循环（语音输入，语音输出）、游戏对话、播客制作、辅助工具、语音助手、内容自动化。
 
-Full API documentation available at `http://127.0.0.1:17493/docs`.
-
----
-
-## Tech Stack
-
-| Layer         | Technology                                                                      |
-| ------------- | ------------------------------------------------------------------------------- |
-| Desktop App   | Tauri (Rust)                                                                    |
-| Frontend      | React, TypeScript, Tailwind CSS                                                 |
-| State         | Zustand, React Query                                                            |
-| Backend       | FastAPI (Python)                                                                |
-| TTS Engines   | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
-| STT           | Whisper / Whisper Turbo (PyTorch or MLX)                                        |
-| Local LLM     | Qwen3 (0.6B / 1.7B / 4B), shared runtime with TTS / STT                         |
-| MCP Server    | FastMCP mounted at `/mcp` (Streamable HTTP) + bundled stdio shim binary         |
-| Native Shim   | Rust (inside Tauri) for global hotkey, paste injection, focus introspection     |
-| Effects       | Pedalboard (Spotify)                                                            |
-| Inference     | MLX (Apple Silicon) / PyTorch (CUDA/ROCm/XPU/CPU)                               |
-| Database      | SQLite                                                                          |
-| Audio         | WaveSurfer.js, librosa                                                          |
+完整 API 文档可在 `http://127.0.0.1:17493/docs` 查看。
 
 ---
 
-## Roadmap
+## 技术栈
 
-| Feature                            | Description                                                              |
-| ---------------------------------- | ------------------------------------------------------------------------ |
-| **Windows / Linux auto-paste**     | Dictation paste parity — `SendInput` on Windows, `uinput` / AT-SPI on Linux |
-| **STT engine expansion**           | Parakeet v3 and Qwen3-ASR joining Whisper — 50+ languages, better non-English quality |
-| **Pipeline routing**               | Configurable source → transform → sink chains with webhook + MCP sinks and a preset editor |
-| **Streaming transcription**        | WebSocket `/transcribe/stream` for partial transcripts as you speak      |
-| **End-to-end speech LLMs**         | Moshi, GLM-4-Voice, Qwen2.5 Omni — real voice-to-voice, no text between  |
-| **Voice Design**                   | Create new voices from text descriptions                                 |
-| **Long-form capture**              | Dual-stream recorder (mic + system audio) with summary LLM transform     |
-| **Platform sinks**                 | Apple Notes, Obsidian, and other opt-in integrations                     |
-| **Plugin architecture**            | Extend with custom models, transforms, and sinks                         |
-| **Mobile companion**               | Control Voicebox from your phone                                         |
-
-For the **full engineering status, open-issue triage, and prioritized work queue**, see [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) — a living document that tracks what's shipped, what's in-flight, candidate TTS engines under evaluation, and why we've accepted or backlogged specific integrations.
+| 层级           | 技术                                                                            |
+| -------------- | ------------------------------------------------------------------------------- |
+| 桌面应用       | Tauri (Rust)                                                                    |
+| 前端           | React、TypeScript、Tailwind CSS                                                 |
+| 状态管理       | Zustand、React Query                                                            |
+| 后端           | FastAPI (Python)                                                                |
+| TTS 引擎       | Qwen3-TTS、Qwen CustomVoice、LuxTTS、Chatterbox、Chatterbox Turbo、TADA、Kokoro |
+| 语音转文字     | Whisper / Whisper Turbo (PyTorch 或 MLX)                                        |
+| 本地 LLM       | Qwen3 (0.6B / 1.7B / 4B)，与 TTS / STT 共享运行时                                |
+| MCP 服务器     | FastMCP 挂载于 `/mcp`（可流式 HTTP）+ 内置 stdio shim 二进制文件                  |
+| 原生桥接       | Rust（Tauri 内），用于全局快捷键、粘贴注入、焦点检测                              |
+| 音效           | Pedalboard (Spotify)                                                            |
+| 推理           | MLX (Apple Silicon) / PyTorch (CUDA/ROCm/XPU/CPU)                               |
+| 数据库         | SQLite                                                                          |
+| 音频           | WaveSurfer.js、librosa                                                          |
 
 ---
 
-## Development
+## 路线图
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed setup and contribution guidelines.
+| 功能                       | 描述                                                                     |
+| -------------------------- | ------------------------------------------------------------------------ |
+| **Windows / Linux 自动粘贴** | 听写粘贴功能对齐 —— Windows 上使用 `SendInput`，Linux 上使用 `uinput` / AT-SPI |
+| **STT 引擎扩展**           | Parakeet v3 和 Qwen3-ASR 加入 Whisper —— 50+ 语言，更好的非英语质量       |
+| **流水线路由**             | 可配置的 源 → 变换 → 输出 链，支持 webhook + MCP 输出和预设编辑器          |
+| **流式转录**               | WebSocket `/transcribe/stream`，说话时实时输出部分转录                    |
+| **端到端语音 LLM**         | Moshi、GLM-4-Voice、Qwen2.5 Omni —— 真正的语音到语音，中间无文本          |
+| **声音设计**               | 从文本描述创建新声音                                                      |
+| **长录音**                 | 双流录音器（麦克风 + 系统音频），带摘要 LLM 变换                          |
+| **平台输出**               | Apple Notes、Obsidian 等可选集成                                          |
+| **插件架构**               | 用自定义模型、变换和输出扩展功能                                          |
+| **移动端伴侣**             | 从手机控制 Voicebox                                                      |
 
-### Quick Start
+完整的**工程状态、待处理问题分类和优先工作队列**，请参阅 [`docs/PROJECT_STATUS.md`](docs/PROJECT_STATUS.md) —— 这是一份持续更新的文档，追踪已发布的功能、开发中的功能、评估中的候选 TTS 引擎，以及我们接受或搁置特定集成的原因。
+
+---
+
+## 开发
+
+请参阅 [CONTRIBUTING.md](CONTRIBUTING.md) 了解详细的搭建和贡献指南。
+
+### 快速开始
 
 ```bash
 git clone https://github.com/jamiepine/voicebox.git
 cd voicebox
 
-just setup   # creates Python venv, installs all deps
-just dev     # starts backend + desktop app
+just setup   # 创建 Python 虚拟环境，安装所有依赖
+just dev     # 启动后端 + 桌面应用
 ```
 
-Install [just](https://github.com/casey/just): `brew install just` or `cargo install just`. Run `just --list` to see all commands.
+安装 [just](https://github.com/casey/just)：`brew install just` 或 `cargo install just`。运行 `just --list` 查看所有命令。
 
-**Prerequisites:** [Bun](https://bun.sh), [Rust](https://rustup.rs), [Python 3.11+](https://python.org), [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/), and [Xcode](https://developer.apple.com/xcode/) on macOS.
+**前置条件：** [Bun](https://bun.sh)、[Rust](https://rustup.rs)、[Python 3.11+](https://python.org)、[Tauri 前置条件](https://v2.tauri.app/start/prerequisites/)，macOS 上还需要 [Xcode](https://developer.apple.com/xcode/)。
 
-The repo ships a pre-wired `.mcp.json` at the root — running Claude Code inside this checkout picks up the Voicebox MCP tools automatically once the dev app is running.
+仓库根目录自带预配置的 `.mcp.json` —— 在此代码库中运行 Claude Code 时，一旦开发应用启动即可自动获取 Voicebox MCP 工具。
 
-### Building Locally
+### 本地构建
 
 ```bash
-just build          # Build CPU server binary + Tauri app
-just build-local    # (Windows) Build CPU + CUDA server binaries + Tauri app
+just build          # 构建 CPU 服务器二进制文件 + Tauri 应用
+just build-local    # (Windows) 构建 CPU + CUDA 服务器二进制文件 + Tauri 应用
 ```
 
-### Adding New Voice Models
+### 添加新语音模型
 
-The multi-engine architecture makes adding new TTS engines straightforward. A [step-by-step guide](docs/content/docs/developer/tts-engines.mdx) covers the full process: dependency research, backend protocol implementation, frontend wiring, and PyInstaller bundling.
+多引擎架构使添加新 TTS 引擎变得简单。[逐步指南](docs/content/docs/developer/tts-engines.mdx)涵盖了完整流程：依赖研究、后端协议实现、前端对接和 PyInstaller 打包。
 
-The guide is optimized for AI coding agents. An [agent skill](.agents/skills/add-tts-engine/SKILL.md) can pick up a model name and handle the entire integration autonomously — you just test the build locally.
+该指南专为 AI 编程智能体优化。一个[智能体技能](.agents/skills/add-tts-engine/SKILL.md)可以接收模型名称并自主完成整个集成过程 —— 你只需在本地测试构建。
 
-### Project Structure
+### 项目结构
 
 ```
 voicebox/
-├── app/              # Shared React frontend
-├── tauri/            # Desktop app (Tauri + Rust)
-├── web/              # Web deployment
-├── backend/          # Python FastAPI server
-├── landing/          # Marketing website
-└── scripts/          # Build & release scripts
+├── app/              # 共享 React 前端
+├── tauri/            # 桌面应用 (Tauri + Rust)
+├── web/              # Web 部署
+├── backend/          # Python FastAPI 服务器
+├── landing/          # 营销网站
+└── scripts/          # 构建和发布脚本
 ```
 
 ---
 
-## Contributing
+## 贡献
 
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+欢迎贡献！请参阅 [CONTRIBUTING.md](CONTRIBUTING.md) 了解指南。
 
-1. Fork the repo
-2. Create a feature branch
-3. Make your changes
-4. Submit a PR
+1. Fork 仓库
+2. 创建功能分支
+3. 进行修改
+4. 提交 PR
 
-## Security
+## 安全
 
-Found a security vulnerability? Please report it responsibly. See [SECURITY.md](SECURITY.md) for details.
+发现安全漏洞？请负责任地报告。详情请参阅 [SECURITY.md](SECURITY.md)。
 
 ---
 
-## License
+## 许可证
 
-MIT License — see [LICENSE](LICENSE) for details.
+MIT 许可证 —— 详情请参阅 [LICENSE](LICENSE)。
 
 ---
 
