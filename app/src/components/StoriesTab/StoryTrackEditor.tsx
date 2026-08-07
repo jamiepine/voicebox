@@ -380,9 +380,11 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   const [pixelsPerSecond, setPixelsPerSecond] = useState(FALLBACK_PIXELS_PER_SECOND);
   const hasAppliedDefaultZoomRef = useRef(false);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
-  // Press that may or may not become a drag. A ref rather than state so the
-  // threshold check in handleDragMove sees it without waiting for a re-render.
+  // Press that may or may not become a drag. The ref carries the coordinates
+  // so the threshold check reads them without waiting for a re-render; the
+  // state exists purely to attach the move/up handlers on that same press.
   const pendingDragRef = useRef<{ itemId: string; startX: number; startY: number } | null>(null);
+  const [pressedItemId, setPressedItemId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [isResizing, setIsResizing] = useState(false);
@@ -1108,6 +1110,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
     // Arm the drag, but don't enter drag mode yet — see handleDragMove. A
     // plain click must select the clip and nothing else.
     pendingDragRef.current = { itemId: item.id, startX: e.clientX, startY: e.clientY };
+    setPressedItemId(item.id);
   };
 
   const handleDragMove = useCallback(
@@ -1142,6 +1145,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
     // A press that never crossed the threshold was a click, not a drag: clear
     // the arming and commit nothing.
     pendingDragRef.current = null;
+    setPressedItemId(null);
 
     if (!draggingItem || !tracksRef.current) {
       setDraggingItem(null);
@@ -1626,15 +1630,21 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           </div>
         </div>
 
-        {/* Timeline scroll container */}
+        {/* Timeline scroll container.
+
+            The drag handlers below attach while a press is merely *armed* as
+            well as while a drag is live. Listening only on draggingItem
+            deadlocked: the threshold that promotes a press into a drag lives
+            in handleDragMove, which could never run because the handler was
+            not attached yet. */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: Container handles drag events for child clips */}
         <div
           ref={tracksRef}
           className="overflow-auto relative"
           style={{ height: `${timelineContainerHeight}px` }}
-          onMouseMove={draggingItem ? handleDragMove : undefined}
-          onMouseUp={draggingItem ? handleDragEnd : undefined}
-          onMouseLeave={draggingItem ? handleDragEnd : undefined}
+          onMouseMove={pressedItemId || draggingItem ? handleDragMove : undefined}
+          onMouseUp={pressedItemId || draggingItem ? handleDragEnd : undefined}
+          onMouseLeave={pressedItemId || draggingItem ? handleDragEnd : undefined}
         >
           {/* Ruler row: corner spacer + time ruler, sticky to top */}
           <div
