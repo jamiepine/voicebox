@@ -213,15 +213,30 @@ struct ServerState {
     backend_override: Mutex<Option<String>>,
 }
 
-/// The data directory requested via `VOICEBOX_DATA_DIR`, if any.
+/// The data directory requested via `VOICEBOX_DATA_DIR`, if any, resolved
+/// against `base` when the value is relative.
 ///
 /// Unset, empty and whitespace-only all mean "no override", so an env var
 /// cleared to "" falls back to the platform path rather than resolving to the
 /// current working directory.
-fn data_dir_override(env_value: Option<String>) -> Option<std::path::PathBuf> {
+///
+/// Relative values must be made absolute here. The ROCm and CUDA branches
+/// spawn the sidecar with `current_dir()` set to the backend's onedir folder,
+/// so a relative `--data-dir` would resolve against that folder instead of
+/// where the user meant — and to a different place than the CPU path, which
+/// does not change the working directory.
+fn data_dir_override(
+    env_value: Option<String>,
+    base: &std::path::Path,
+) -> Option<std::path::PathBuf> {
     match env_value {
         Some(value) if !value.trim().is_empty() => {
-            Some(std::path::PathBuf::from(value.trim()))
+            let path = std::path::Path::new(value.trim());
+            Some(if path.is_absolute() {
+                path.to_path_buf()
+            } else {
+                base.join(path)
+            })
         }
         _ => None,
     }
@@ -425,8 +440,10 @@ async fn start_server(
     // --data-dir, and that argument beats the environment variable on the
     // Python side, so resolving it here is the only place the documented
     // override can reach the desktop app.
+    let cwd = std::env::current_dir()
+        .map_err(|e| format!("Failed to read the current directory: {}", e))?;
     let (data_dir, data_dir_source) =
-        match data_dir_override(std::env::var("VOICEBOX_DATA_DIR").ok()) {
+        match data_dir_override(std::env::var("VOICEBOX_DATA_DIR").ok(), &cwd) {
             Some(path) => (path, "VOICEBOX_DATA_DIR"),
             None => (
                 app.path()
@@ -1686,39 +1703,66 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::data_dir_override;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
+
+    /// Stand-in for the process working directory. Absolute on both platforms
+    /// so `is_absolute()` behaves the same in CI as it does locally.
+    fn base() -> PathBuf {
+        if cfg!(windows) {
+            PathBuf::from(r"C:\work")
+        } else {
+            PathBuf::from("/work")
+        }
+    }
 
     #[test]
     fn unset_means_no_override() {
-        assert_eq!(data_dir_override(None), None);
+        assert_eq!(data_dir_override(None, &base()), None);
     }
 
     #[test]
     fn empty_and_whitespace_mean_no_override() {
         // An env var cleared to "" must not resolve to the process CWD.
-        assert_eq!(data_dir_override(Some(String::new())), None);
-        assert_eq!(data_dir_override(Some("   ".to_string())), None);
-        assert_eq!(data_dir_override(Some("\t\n".to_string())), None);
+        assert_eq!(data_dir_override(Some(String::new()), &base()), None);
+        assert_eq!(data_dir_override(Some("   ".to_string()), &base()), None);
+        assert_eq!(data_dir_override(Some("\t\n".to_string()), &base()), None);
     }
 
     #[test]
-    fn a_path_is_used_verbatim() {
+    fn an_absolute_path_is_used_verbatim() {
+        let absolute = if cfg!(windows) {
+            r"C:\Users\me\Audio\Voicebox"
+        } else {
+            "/home/me/voicebox"
+        };
         assert_eq!(
-            data_dir_override(Some(r"C:\Users\me\Audio\Voicebox".to_string())),
-            Some(PathBuf::from(r"C:\Users\me\Audio\Voicebox"))
-        );
-        assert_eq!(
-            data_dir_override(Some("/home/me/voicebox".to_string())),
-            Some(PathBuf::from("/home/me/voicebox"))
+            data_dir_override(Some(absolute.to_string()), &base()),
+            Some(PathBuf::from(absolute))
         );
     }
 
     #[test]
     fn surrounding_whitespace_is_trimmed() {
         // Windows env vars set through the GUI often carry a trailing space.
+        let absolute = if cfg!(windows) {
+            r"C:\Users\me\Audio\Voicebox"
+        } else {
+            "/home/me/voicebox"
+        };
         assert_eq!(
-            data_dir_override(Some("  /home/me/voicebox  ".to_string())),
-            Some(PathBuf::from("/home/me/voicebox"))
+            data_dir_override(Some(format!("  {}  ", absolute)), &base()),
+            Some(PathBuf::from(absolute))
         );
+    }
+
+    #[test]
+    fn a_relative_path_is_resolved_against_the_base() {
+        // The ROCm and CUDA branches spawn with a different working directory,
+        // so a relative value must be pinned before it reaches --data-dir.
+        let resolved = data_dir_override(Some("voicebox-data".to_string()), &base())
+            .expect("relative value should still be an override");
+        assert!(resolved.is_absolute(), "{:?} should be absolute", resolved);
+        assert_eq!(resolved, base().join("voicebox-data"));
+        assert!(!resolved.starts_with(Path::new("backends")));
     }
 }

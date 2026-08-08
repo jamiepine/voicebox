@@ -15,14 +15,11 @@ reloads.
 """
 
 import importlib
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import config  # noqa: E402
+from backend import config
 
 
 @pytest.fixture
@@ -37,6 +34,10 @@ def reload_config(monkeypatch):
         return importlib.reload(config)
 
     yield _reload
+    # Undo before the reload, not after: pytest restores monkeypatch once the
+    # fixture has finished, so reloading first would bake the last test's
+    # VOICEBOX_DATA_DIR into the module for everything that follows.
+    monkeypatch.undo()
     # Leave the module matching the real process environment for later tests.
     importlib.reload(config)
 
