@@ -1,4 +1,11 @@
 @echo off
+rem curl.exe is required for the readiness probe
+where curl.exe >nul 2>nul
+if errorlevel 1 (
+    echo ERROR: curl.exe not found. Update Windows, or run start_server.bat and start_ui.bat manually.
+    pause
+    exit /b 1
+)
 rem Launch backend first
 start "VoiceBox Server" "%~dp0start_server.bat"
 
