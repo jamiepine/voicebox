@@ -257,6 +257,9 @@ class CaptureSettingsResponse(BaseModel):
     preserve_technical: bool = True
     allow_auto_paste: bool = True
     default_playback_voice_id: Optional[str] = None
+    input_device_id: Optional[str] = Field(
+        default=None, description="Configured audio input deviceId (None means default microphone)"
+    )
     hotkey_enabled: bool = False
     chord_push_to_talk_keys: List[str] = Field(
         default_factory=default_push_to_talk_chord
@@ -281,6 +284,9 @@ class CaptureSettingsUpdate(BaseModel):
     preserve_technical: Optional[bool] = None
     allow_auto_paste: Optional[bool] = None
     default_playback_voice_id: Optional[str] = None
+    input_device_id: Optional[str] = Field(
+        default=None, description="Configured audio input deviceId (None means default microphone)"
+    )
     hotkey_enabled: Optional[bool] = None
     chord_push_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
     chord_toggle_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)

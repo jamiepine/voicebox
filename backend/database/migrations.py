@@ -222,6 +222,13 @@ def _migrate_capture_settings(engine, inspector, tables: set[str]) -> None:
             "default_playback_voice_id VARCHAR",
             "default_playback_voice_id",
         )
+    if "input_device_id" not in columns:
+        _add_column(
+            engine,
+            "capture_settings",
+            "input_device_id VARCHAR",
+            "input_device_id",
+        )
     if "chord_push_to_talk_keys" not in columns:
         _add_column(
             engine,
