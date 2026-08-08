@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from starlette.testclient import TestClient
 from starlette.responses import JSONResponse
 
-from backend.utils.security import SecurityMiddleware, is_loopback
+from backend.utils.security import SecurityMiddleware, is_loopback, get_client_ip
 
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -44,11 +44,22 @@ def test_is_loopback_helper():
     assert is_loopback("::1") is True
     assert is_loopback("localhost") is True
     assert is_loopback("testclient") is True
-    assert is_loopback(None) is True
     
+    # Fail closed for None and external IPs
+    assert is_loopback(None) is False
     assert is_loopback("192.168.1.1") is False
     assert is_loopback("10.0.0.5") is False
     assert is_loopback("8.8.8.8") is False
+
+
+def test_x_forwarded_for_remote_client_detection(client):
+    # Even if connection peer is 127.0.0.1 (reverse proxy),
+    # X-Forwarded-For carrying a remote IP should enforce security
+    with patch.dict(os.environ, {}, clear=True):
+        headers = {"X-Forwarded-For": "192.168.1.100, 127.0.0.1"}
+        res = client.post("/shutdown", headers=headers)
+        assert res.status_code == 403
+        assert "restricted to loopback callers" in res.json()["detail"]
 
 
 def test_loopback_caller_unrestricted(client):
