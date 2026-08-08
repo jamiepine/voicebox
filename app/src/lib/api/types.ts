@@ -210,6 +210,8 @@ export interface CaptureSettings {
   preserve_technical: boolean;
   allow_auto_paste: boolean;
   default_playback_voice_id: string | null;
+  /** Configured audio input deviceId (null or empty string means system default microphone). */
+  input_device_id: string | null;
   /** Whether the global keyboard hotkey is armed. Off by default — turning
    *  this on triggers the macOS Input Monitoring TCC prompt. */
   hotkey_enabled: boolean;

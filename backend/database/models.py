@@ -204,6 +204,8 @@ class CaptureSettings(Base):
     preserve_technical = Column(Boolean, nullable=False, default=True)
     allow_auto_paste = Column(Boolean, nullable=False, default=True)
     default_playback_voice_id = Column(String, nullable=True)
+    # Configured audio input deviceId (None means system default microphone)
+    input_device_id = Column(String, nullable=True, default=None)
     # Default OFF — opting in is what triggers the macOS Input Monitoring TCC
     # prompt. We deliberately don't spawn the global keyboard tap until the
     # user flips this on so a fresh-install user doesn't see a scary
