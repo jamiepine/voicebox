@@ -12,7 +12,7 @@ from pathlib import Path
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from backend.database import Base, VoiceProfile as DBVoiceProfile
+from backend.database import Base
 from backend.models import VoiceProfileCreate
 from backend.services.profiles import create_profile, update_profile
 
@@ -33,8 +33,11 @@ def test_db():
 
     yield db
 
-    # Cleanup
+    # Cleanup. The engine must be disposed as well as the session closed —
+    # on Windows the pooled connection keeps the .db file open and rmtree
+    # fails with WinError 32.
     db.close()
+    engine.dispose()
     shutil.rmtree(temp_dir)
 
 
