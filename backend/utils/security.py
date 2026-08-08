@@ -8,10 +8,23 @@ from starlette.responses import JSONResponse
 logger = logging.getLogger(__name__)
 
 
+def get_client_ip(request: Request) -> str | None:
+    """Extract the client IP address, checking X-Forwarded-For headers if behind a proxy."""
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        client_ip = forwarded.split(",")[0].strip()
+        if client_ip:
+            return client_ip
+    return request.client.host if request.client else None
+
+
 def is_loopback(host: str | None) -> bool:
-    """Check if the given host IP is a loopback address."""
+    """Check if the given host IP is a loopback address.
+    
+    Fails closed (returns False) if host is None or missing.
+    """
     if not host:
-        return True  # Internal calls or tests default to True
+        return False  # Fail closed for missing/unknown client address
     if host in ("localhost", "testclient"):
         return True
     try:
@@ -33,7 +46,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             if request.method.upper() == "OPTIONS":
                 return await call_next(request)
 
-            client_host = request.client.host if request.client else None
+            client_host = get_client_ip(request)
 
             # Loopback is always trusted
             if is_loopback(client_host):
