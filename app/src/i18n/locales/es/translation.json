@@ -243,12 +243,20 @@
     "discard": "Descartar",
     "source": {
       "clone": "Clonar desde audio",
-      "builtin": "Voz integrada"
+      "builtin": "Voz integrada",
+      "design": "Describir una voz"
     },
     "builtin": {
       "hint": "Elige una voz prediseñada. Estas no requieren una muestra de audio.",
       "badge": "Voz integrada",
       "note": "Este perfil usa una voz integrada. La voz no se puede cambiar después de crearlo."
+    },
+    "design": {
+      "hint": "Describe la voz que quieres en lenguaje natural. No hace falta una muestra de audio.",
+      "placeholder": "Un hombre mayor de voz cálida y rasposa, con un acento escocés pausado y un punto de guasa.",
+      "engineNote": "Usa Qwen VoiceDesign",
+      "badge": "Voz diseñada",
+      "note": "Este perfil usa una voz descrita. La descripción no se puede cambiar después de crearla."
     },
     "sampleTabs": {
       "upload": "Subir",
@@ -264,6 +272,7 @@
       "descriptionPlaceholder": "Describe esta voz…",
       "language": "Idioma",
       "referenceText": "Texto de referencia",
+      "designPrompt": "Descripción de la voz",
       "referenceTextPlaceholder": "Introduce el texto exacto hablado en el audio…",
       "defaultEngine": "Motor predeterminado",
       "noPreference": "Sin preferencia",
@@ -316,8 +325,11 @@
       "voiceUpdatedDescription": "\"{{name}}\" se ha actualizado correctamente.",
       "noVoiceSelected": "Ninguna voz seleccionada",
       "noVoiceSelectedDescription": "Selecciona una voz integrada.",
+      "noDesignPrompt": "No se indicó descripción",
+      "noDesignPromptDescription": "Describe la voz que quieres.",
       "profileCreated": "Perfil creado",
       "profileCreatedBuiltin": "\"{{name}}\" se ha creado con una voz integrada.",
+      "profileCreatedDesigned": "\"{{name}}\" se ha creado a partir de una descripción de voz.",
       "profileCreatedSample": "\"{{name}}\" se ha creado con una muestra.",
       "sampleRequired": "Muestra de audio obligatoria",
       "sampleRequiredDescription": "Proporciona una muestra de audio para crear el perfil de voz.",

@@ -21,6 +21,7 @@ Every model is described by a `ModelConfig` entry in `backend/backends/__init__.
 | **Qwen TTS 0.6B** | `qwen` | `Qwen/Qwen3-TTS-12Hz-0.6B-Base` | 1.2 GB | ~2 GB | 10 |
 | **Qwen CustomVoice 1.7B** | `qwen_custom_voice` | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` | 3.5 GB | ~6 GB | 10 |
 | **Qwen CustomVoice 0.6B** | `qwen_custom_voice` | `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` | 1.2 GB | ~2 GB | 10 |
+| **Qwen VoiceDesign 1.7B** | `qwen_voice_design` | `Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign` | 3.5 GB | ~6 GB | 10 |
 | **LuxTTS** | `luxtts` | `YatharthS/LuxTTS` | 300 MB | ~1 GB | English |
 | **Chatterbox Multilingual** | `chatterbox` | `ResembleAI/chatterbox` | 3.2 GB | ~3 GB | 23 |
 | **Chatterbox Turbo** | `chatterbox_turbo` | `ResembleAI/chatterbox-turbo` | 1.5 GB | ~1.5 GB | English |
@@ -28,7 +29,9 @@ Every model is described by a `ModelConfig` entry in `backend/backends/__init__.
 | **TADA 3B Multilingual** | `tada` | `HumeAI/tada-3b-ml` | 8 GB | ~8 GB | 10 |
 | **Kokoro 82M** | `kokoro` | `hexgrad/Kokoro-82M` | 350 MB | ~150 MB | 8 |
 
-On Apple Silicon, Qwen TTS uses MLX-optimized repos from `mlx-community` instead of the PyTorch repos. The backend picks automatically via `get_backend_type()`.
+On Apple Silicon, Qwen TTS uses MLX-optimized repos from `mlx-community` instead of the PyTorch repos. The backend picks automatically via `get_backend_type()`. CustomVoice and VoiceDesign are PyTorch-only — upstream publishes no MLX conversion.
+
+Qwen VoiceDesign ships a single 1.7B checkpoint; there is no 0.6B variant. It is the only engine that consumes `voice_type: "designed"` profiles, where the voice identity is the profile's `design_prompt` rather than reference audio or a preset id.
 
 ## Available Whisper Models
 

@@ -74,6 +74,7 @@ export interface GenerationRequest {
   engine?:
     | 'qwen'
     | 'qwen_custom_voice'
+    | 'qwen_voice_design'
     | 'luxtts'
     | 'chatterbox'
     | 'chatterbox_turbo'

@@ -243,12 +243,20 @@
     "discard": "丢弃",
     "source": {
       "clone": "从音频克隆",
-      "builtin": "内置声音"
+      "builtin": "内置声音",
+      "design": "描述声音"
     },
     "builtin": {
       "hint": "选择一个预建的声音。这些不需要音频样本。",
       "badge": "内置声音",
       "note": "此档案使用内置声音。创建后声音无法更改。"
+    },
+    "design": {
+      "hint": "用日常语言描述你想要的声音，无需音频样本。",
+      "placeholder": "一位声音温暖沙哑的年长男性，带着缓慢的苏格兰口音和一丝笑意。",
+      "engineNote": "使用 Qwen VoiceDesign",
+      "badge": "设计的声音",
+      "note": "此配置使用描述生成的声音。创建后描述不可更改。"
     },
     "sampleTabs": {
       "upload": "上传",
@@ -264,6 +272,7 @@
       "descriptionPlaceholder": "描述此声音……",
       "language": "语言",
       "referenceText": "参考文本",
+      "designPrompt": "声音描述",
       "referenceTextPlaceholder": "输入音频中所说的准确文字……",
       "defaultEngine": "默认引擎",
       "noPreference": "无偏好",
@@ -316,8 +325,11 @@
       "voiceUpdatedDescription": "\"{{name}}\" 已成功更新。",
       "noVoiceSelected": "未选择声音",
       "noVoiceSelectedDescription": "请选择内置声音。",
+      "noDesignPrompt": "未填写描述",
+      "noDesignPromptDescription": "请描述你想要的声音。",
       "profileCreated": "档案已创建",
       "profileCreatedBuiltin": "\"{{name}}\" 已使用内置声音创建。",
+      "profileCreatedDesigned": "“{{name}}”已根据声音描述创建。",
       "profileCreatedSample": "\"{{name}}\" 已使用样本创建。",
       "sampleRequired": "需要音频样本",
       "sampleRequiredDescription": "请提供音频样本以创建声音档案。",

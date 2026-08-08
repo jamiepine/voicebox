@@ -243,12 +243,20 @@
     "discard": "Scarta",
     "source": {
       "clone": "Clona da audio",
-      "builtin": "Voce integrata"
+      "builtin": "Voce integrata",
+      "design": "Descrivi una voce"
     },
     "builtin": {
       "hint": "Scegli una voce predefinita. Queste non richiedono un campione audio.",
       "badge": "Voce integrata",
       "note": "Questo profilo utilizza una voce integrata. La voce non può essere modificata dopo la creazione."
+    },
+    "design": {
+      "hint": "Descrivi la voce che vuoi in linguaggio naturale. Non serve un campione audio.",
+      "placeholder": "Un uomo anziano dalla voce calda e roca, con una lenta cadenza scozzese e un pizzico di ironia.",
+      "engineNote": "Usa Qwen VoiceDesign",
+      "badge": "Voce progettata",
+      "note": "Questo profilo usa una voce descritta. La descrizione non può essere modificata dopo la creazione."
     },
     "sampleTabs": {
       "upload": "Carica",
@@ -264,6 +272,7 @@
       "descriptionPlaceholder": "Descrivi questa voce…",
       "language": "Lingua",
       "referenceText": "Testo di riferimento",
+      "designPrompt": "Descrizione della voce",
       "referenceTextPlaceholder": "Inserisci il testo esatto pronunciato nell'audio…",
       "defaultEngine": "Motore predefinito",
       "noPreference": "Nessuna preferenza",
@@ -316,8 +325,11 @@
       "voiceUpdatedDescription": "\"{{name}}\" è stata aggiornata con successo.",
       "noVoiceSelected": "Nessuna voce selezionata",
       "noVoiceSelectedDescription": "Seleziona una voce integrata.",
+      "noDesignPrompt": "Nessuna descrizione fornita",
+      "noDesignPromptDescription": "Descrivi la voce che desideri.",
       "profileCreated": "Profilo creato",
       "profileCreatedBuiltin": "\"{{name}}\" è stato creato con una voce integrata.",
+      "profileCreatedDesigned": "\"{{name}}\" è stato creato da una descrizione vocale.",
       "profileCreatedSample": "\"{{name}}\" è stato creato con un campione.",
       "sampleRequired": "Campione audio richiesto",
       "sampleRequiredDescription": "Fornisci un campione audio per creare il profilo vocale.",

@@ -85,6 +85,17 @@ const MODEL_GROUPS: ModelGroup[] = [
         ],
       },
       {
+        name: 'Qwen VoiceDesign',
+        author: 'Alibaba',
+        sizes: ['1.7B'],
+        description:
+          'Write the voice you want and it gets built. "A warm, gravelly older man with a slow Scottish lilt" — no reference recording, no preset list.',
+        tags: [
+          { icon: SlidersHorizontal, label: 'Voice design' },
+          { icon: Globe, label: '10 langs' },
+        ],
+      },
+      {
         name: 'TADA',
         author: 'Hume AI',
         sizes: ['3B', '1B'],

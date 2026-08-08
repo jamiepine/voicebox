@@ -268,7 +268,7 @@ export function CapturesTab() {
       // profile's stored engine preference. Cloned profiles without an
       // override fall through to whatever the backend picks.
       const engine = voice.default_engine as
-        | 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox'
+        | 'qwen' | 'qwen_custom_voice' | 'qwen_voice_design' | 'luxtts' | 'chatterbox'
         | 'chatterbox_turbo' | 'tada' | 'kokoro'
         | undefined;
       return apiClient.generateSpeech({

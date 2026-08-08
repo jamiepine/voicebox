@@ -243,12 +243,20 @@
     "discard": "취소",
     "source": {
       "clone": "오디오에서 복제",
-      "builtin": "내장 음성"
+      "builtin": "내장 음성",
+      "design": "목소리 설명하기"
     },
     "builtin": {
       "hint": "미리 제작된 음성을 선택하세요. 오디오 샘플이 필요하지 않습니다.",
       "badge": "내장 음성",
       "note": "이 프로필은 내장 음성을 사용합니다. 생성 후에는 음성을 변경할 수 없습니다."
+    },
+    "design": {
+      "hint": "원하는 목소리를 일상적인 말로 설명하세요. 오디오 샘플은 필요 없습니다.",
+      "placeholder": "따뜻하고 거친 노년 남성의 목소리. 느릿한 스코틀랜드 억양에 약간의 유머가 묻어남.",
+      "engineNote": "Qwen VoiceDesign 사용",
+      "badge": "디자인된 목소리",
+      "note": "이 프로필은 설명으로 만든 목소리를 사용합니다. 설명은 생성 후 변경할 수 없습니다."
     },
     "sampleTabs": {
       "upload": "업로드",
@@ -264,6 +272,7 @@
       "descriptionPlaceholder": "이 음성에 대해 설명해 주세요…",
       "language": "언어",
       "referenceText": "참조 텍스트",
+      "designPrompt": "목소리 설명",
       "referenceTextPlaceholder": "오디오에서 말한 텍스트를 정확히 입력하세요…",
       "defaultEngine": "기본 엔진",
       "noPreference": "선택 안 함",
@@ -316,8 +325,11 @@
       "voiceUpdatedDescription": "\"{{name}}\"이(가) 성공적으로 업데이트되었습니다.",
       "noVoiceSelected": "선택된 음성 없음",
       "noVoiceSelectedDescription": "내장 음성을 선택해 주세요.",
+      "noDesignPrompt": "설명이 없습니다",
+      "noDesignPromptDescription": "원하는 목소리를 설명해 주세요.",
       "profileCreated": "프로필 생성됨",
       "profileCreatedBuiltin": "\"{{name}}\"이(가) 내장 음성으로 생성되었습니다.",
+      "profileCreatedDesigned": "\"{{name}}\"이(가) 목소리 설명으로 생성되었습니다.",
       "profileCreatedSample": "\"{{name}}\"이(가) 샘플로 생성되었습니다.",
       "sampleRequired": "오디오 샘플 필요",
       "sampleRequiredDescription": "음성 프로필을 만들려면 오디오 샘플을 제공해 주세요.",

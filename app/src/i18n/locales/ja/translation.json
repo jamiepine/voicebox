@@ -243,12 +243,20 @@
     "discard": "破棄",
     "source": {
       "clone": "オーディオから複製",
-      "builtin": "ビルトインボイス"
+      "builtin": "ビルトインボイス",
+      "design": "声を説明する"
     },
     "builtin": {
       "hint": "あらかじめ用意されたボイスを選択してください。オーディオサンプルは不要です。",
       "badge": "ビルトインボイス",
       "note": "このプロファイルはビルトインボイスを使用しています。作成後はボイスを変更できません。"
+    },
+    "design": {
+      "hint": "欲しい声を普通の言葉で説明してください。音声サンプルは不要です。",
+      "placeholder": "温かくしゃがれた年配の男性の声。ゆっくりしたスコットランド訛りで、少し愉快そうな響き。",
+      "engineNote": "Qwen VoiceDesign を使用",
+      "badge": "設計された声",
+      "note": "このプロファイルは説明から生成した声を使います。説明は作成後に変更できません。"
     },
     "sampleTabs": {
       "upload": "アップロード",
@@ -264,6 +272,7 @@
       "descriptionPlaceholder": "このボイスを説明してください…",
       "language": "言語",
       "referenceText": "リファレンステキスト",
+      "designPrompt": "声の説明",
       "referenceTextPlaceholder": "オーディオで話されている正確なテキストを入力してください…",
       "defaultEngine": "デフォルトエンジン",
       "noPreference": "指定なし",
@@ -316,8 +325,11 @@
       "voiceUpdatedDescription": "「{{name}}」を正常に更新しました。",
       "noVoiceSelected": "ボイスが選択されていません",
       "noVoiceSelectedDescription": "ビルトインボイスを選択してください。",
+      "noDesignPrompt": "説明がありません",
+      "noDesignPromptDescription": "欲しい声を説明してください。",
       "profileCreated": "プロファイルを作成しました",
       "profileCreatedBuiltin": "「{{name}}」をビルトインボイスで作成しました。",
+      "profileCreatedDesigned": "「{{name}}」を声の説明から作成しました。",
       "profileCreatedSample": "「{{name}}」をサンプルで作成しました。",
       "sampleRequired": "オーディオサンプルが必要です",
       "sampleRequiredDescription": "ボイスプロファイルを作成するには、オーディオサンプルを用意してください。",

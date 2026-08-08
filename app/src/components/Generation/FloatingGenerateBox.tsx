@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils/cn';
 import { useGenerationStore } from '@/stores/generationStore';
 import { useStoryStore } from '@/stores/storyStore';
 import { useUIStore } from '@/stores/uiStore';
-import { EngineModelSelector } from './EngineModelSelector';
+import { EngineModelSelector, engineSupportsInstruct } from './EngineModelSelector';
 import { ParalinguisticInput } from './ParalinguisticInput';
 
 interface FloatingGenerateBoxProps {
@@ -151,7 +151,8 @@ export function FloatingGenerateBox({
     | 'chatterbox_turbo'
     | 'tada'
     | 'kokoro'
-    | 'qwen_custom_voice';
+    | 'qwen_custom_voice'
+    | 'qwen_voice_design';
   useEffect(() => {
     if (selectedProfile?.language) {
       form.setValue('language', selectedProfile.language as LanguageCode);
@@ -160,10 +161,16 @@ export function FloatingGenerateBox({
     const engine = selectedProfile?.default_engine ?? selectedProfile?.preset_engine;
     if (engine) {
       form.setValue('engine', engine as EngineValue);
-    } else if (selectedProfile && selectedProfile.voice_type !== 'preset') {
-      // Cloned/designed profile with no default — ensure a compatible (non-preset) engine
+    } else if (
+      selectedProfile &&
+      selectedProfile.voice_type !== 'preset' &&
+      selectedProfile.voice_type !== 'designed'
+    ) {
+      // Cloned profile with no default — ensure a compatible (non-preset) engine.
+      // Designed profiles are excluded: they always carry a design engine and
+      // would be broken by a fallback to qwen.
       const currentEngine = form.getValues('engine');
-      const presetEngines = new Set(['kokoro', 'qwen_custom_voice']);
+      const presetEngines = new Set(['kokoro', 'qwen_custom_voice', 'qwen_voice_design']);
       if (currentEngine && presetEngines.has(currentEngine)) {
         form.setValue('engine', 'qwen');
       }
@@ -436,9 +443,9 @@ export function FloatingGenerateBox({
                   )}
                 </AnimatePresence>
 
-                {/* Instruct toggle — only for Qwen CustomVoice, which actually honors the kwarg */}
+                {/* Instruct toggle — only for engines that actually honor the kwarg */}
                 <AnimatePresence>
-                  {isExpanded && form.watch('engine') === 'qwen_custom_voice' && (
+                  {isExpanded && engineSupportsInstruct(form.watch('engine')) && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -507,7 +514,7 @@ export function FloatingGenerateBox({
 
             {/* Additive instruct textarea — shown below main text when toggle is on and engine supports it */}
             <AnimatePresence>
-              {isInstructExpanded && form.watch('engine') === 'qwen_custom_voice' && (
+              {isInstructExpanded && engineSupportsInstruct(form.watch('engine')) && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
