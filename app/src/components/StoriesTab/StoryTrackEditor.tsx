@@ -1702,7 +1702,10 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
             className="flex sticky top-0 z-30"
             style={{ width: `${timelineWidth + LABEL_COL_WIDTH}px` }}
           >
-            <div className="w-16 h-6 shrink-0 border-b border-r bg-muted/30 sticky left-0 z-40" />
+            <div
+              className="h-6 shrink-0 border-b border-r bg-muted/30 sticky left-0 z-40"
+              style={{ width: `${LABEL_COL_WIDTH}px` }}
+            />
             <button
               type="button"
               className="h-6 border-b bg-muted/20 cursor-pointer text-left relative"
@@ -1969,7 +1972,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
 
         {/* Horizontal timeline scrollbar + zoom handles */}
         <div className="flex border-t bg-background/40" style={{ height: `${SCRUB_BAR_HEIGHT}px` }}>
-          <div className="w-16 shrink-0 border-r" />
+          <div className="shrink-0 border-r" style={{ width: `${LABEL_COL_WIDTH}px` }} />
           <div ref={scrollbarTrackRef} className="relative flex-1 overflow-hidden select-none px-1">
             <div
               className="absolute top-1 bottom-1 bg-foreground/10 hover:bg-foreground/15 transition-colors group rounded-full"

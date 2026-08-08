@@ -3,12 +3,23 @@ import { apiClient } from '@/lib/api/client';
 import type { FolderKind, FolderUpdate } from '@/lib/api/types';
 
 /**
- * Folders for voices and clips.
+ * Folders for voices, clips and stories.
  *
- * Both kinds live in one table server-side, so every query is keyed by kind
- * — otherwise the voice panel and the clip panel would evict each other's
- * cache entry on every mutation.
+ * All kinds live in one table server-side, so every query is keyed by kind
+ * — otherwise the panels would evict each other's cache entry on every
+ * mutation.
  */
+
+/**
+ * The query key holding a folder's members, per kind. Exhaustive over
+ * FolderKind so a new kind is a type error here rather than a silently
+ * stale list.
+ */
+const MEMBER_QUERY_KEY: Record<FolderKind, string> = {
+  voice: 'profiles',
+  generation: 'history',
+  story: 'stories',
+};
 
 export function useFolders(kind: FolderKind) {
   return useQuery({
@@ -62,7 +73,7 @@ export function useDeleteFolder(kind: FolderKind) {
       // Deleting a folder releases its members, so whichever list holds them
       // is now stale too.
       queryClient.invalidateQueries({
-        queryKey: [kind === 'voice' ? 'profiles' : 'history'],
+        queryKey: [MEMBER_QUERY_KEY[kind]],
       });
     },
   });
