@@ -48,7 +48,11 @@ export function useCaptureSettings() {
       // call, but its cached response keeps serving the previous
       // model's state until the next 5 s poll. Invalidate on model
       // swaps so the readiness checklist re-checks immediately.
-      if (patch.stt_model !== undefined || patch.llm_model !== undefined) {
+      if (
+        patch.stt_model !== undefined ||
+        patch.llm_model !== undefined ||
+        patch.auto_refine !== undefined
+      ) {
         queryClient.invalidateQueries({ queryKey: ['capture-readiness'] });
       }
     },
