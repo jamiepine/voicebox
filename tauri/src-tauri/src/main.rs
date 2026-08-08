@@ -213,6 +213,20 @@ struct ServerState {
     backend_override: Mutex<Option<String>>,
 }
 
+/// The data directory requested via `VOICEBOX_DATA_DIR`, if any.
+///
+/// Unset, empty and whitespace-only all mean "no override", so an env var
+/// cleared to "" falls back to the platform path rather than resolving to the
+/// current working directory.
+fn data_dir_override(env_value: Option<String>) -> Option<std::path::PathBuf> {
+    match env_value {
+        Some(value) if !value.trim().is_empty() => {
+            Some(std::path::PathBuf::from(value.trim()))
+        }
+        _ => None,
+    }
+}
+
 fn backend_override_file(data_dir: &std::path::Path) -> std::path::PathBuf {
     data_dir.join("backend_override")
 }
@@ -406,19 +420,30 @@ async fn start_server(
     // Brief wait for port to be released
     std::thread::sleep(std::time::Duration::from_millis(200));
 
-    // Get app data directory
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {}", e))?;
+    // Get app data directory. VOICEBOX_DATA_DIR takes precedence over the
+    // platform app-data path: the sidecar is always spawned with an explicit
+    // --data-dir, and that argument beats the environment variable on the
+    // Python side, so resolving it here is the only place the documented
+    // override can reach the desktop app.
+    let (data_dir, data_dir_source) =
+        match data_dir_override(std::env::var("VOICEBOX_DATA_DIR").ok()) {
+            Some(path) => (path, "VOICEBOX_DATA_DIR"),
+            None => (
+                app.path()
+                    .app_data_dir()
+                    .map_err(|e| format!("Failed to get app data dir: {}", e))?,
+                "app data dir",
+            ),
+        };
 
-    // Ensure data directory exists
+    // Ensure data directory exists. Naming the path matters here: a typo in
+    // VOICEBOX_DATA_DIR surfaces as a startup error the user can act on.
     std::fs::create_dir_all(&data_dir)
-        .map_err(|e| format!("Failed to create data dir: {}", e))?;
+        .map_err(|e| format!("Failed to create data dir {:?}: {}", data_dir, e))?;
 
     println!("=================================================================");
     println!("Starting voicebox-server sidecar");
-    println!("Data directory: {:?}", data_dir);
+    println!("Data directory: {:?} (from {})", data_dir, data_dir_source);
     println!("Remote mode: {}", remote.unwrap_or(false));
 
     // Check for ROCm backend in data directory (onedir layout: backends/rocm/)
@@ -1656,4 +1681,44 @@ pub fn run() {
 
 fn main() {
     run();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::data_dir_override;
+    use std::path::PathBuf;
+
+    #[test]
+    fn unset_means_no_override() {
+        assert_eq!(data_dir_override(None), None);
+    }
+
+    #[test]
+    fn empty_and_whitespace_mean_no_override() {
+        // An env var cleared to "" must not resolve to the process CWD.
+        assert_eq!(data_dir_override(Some(String::new())), None);
+        assert_eq!(data_dir_override(Some("   ".to_string())), None);
+        assert_eq!(data_dir_override(Some("\t\n".to_string())), None);
+    }
+
+    #[test]
+    fn a_path_is_used_verbatim() {
+        assert_eq!(
+            data_dir_override(Some(r"C:\Users\me\Audio\Voicebox".to_string())),
+            Some(PathBuf::from(r"C:\Users\me\Audio\Voicebox"))
+        );
+        assert_eq!(
+            data_dir_override(Some("/home/me/voicebox".to_string())),
+            Some(PathBuf::from("/home/me/voicebox"))
+        );
+    }
+
+    #[test]
+    fn surrounding_whitespace_is_trimmed() {
+        // Windows env vars set through the GUI often carry a trailing space.
+        assert_eq!(
+            data_dir_override(Some("  /home/me/voicebox  ".to_string())),
+            Some(PathBuf::from("/home/me/voicebox"))
+        );
+    }
 }
