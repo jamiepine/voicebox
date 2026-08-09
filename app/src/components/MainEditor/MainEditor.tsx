@@ -42,6 +42,7 @@ export function MainEditor() {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.name.endsWith('.voicebox.zip')) {
+        e.target.value = '';
         toast({
           title: t('main.import.invalidTitle'),
           description: t('main.import.invalidDescription'),
