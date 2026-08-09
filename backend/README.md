@@ -88,7 +88,7 @@ Detection is handled by `utils/platform_detect.py`. Both backends implement the 
 | Transcription | `/transcribe` | Whisper-based audio-to-text |
 | Stories | `/stories` | Multi-track timeline editor, per-lane mixing, audio export |
 | Effects | `/effects` | Effect presets, preview, version management |
-| Audio | `/audio`, `/samples` | Audio file serving |
+| Audio | `/audio`, `/samples` | Audio file serving, on-the-fly transcoding |
 | Models | `/models` | Load, unload, download, migrate, status |
 | Tasks | `/tasks`, `/cache` | Active task tracking, cache management |
 | CUDA | `/backend/cuda-*` | CUDA binary download and management |
@@ -117,6 +117,10 @@ curl -X POST http://localhost:17493/profiles/{id}/duplicate
 
 # Mix a story down to a single file (wav | mp3 | ogg | opus | flac)
 curl "http://localhost:17493/stories/{id}/export-audio?format=mp3" -o story.mp3
+
+# Fetch a single generation in a container of your choosing.
+# Omit ?format to get the stored file untouched.
+curl "http://localhost:17493/audio/{generation_id}?format=mp3" -o clip.mp3
 ```
 
 ## Data directory
