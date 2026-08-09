@@ -58,6 +58,13 @@ def _migrate_pronunciation_entries(engine, inspector, tables: set[str]) -> None:
     Duplicates that predate the index would make CREATE UNIQUE INDEX fail, so
     they are collapsed first, keeping the oldest row in each scope.
 
+    "Oldest" has to mean ``created_at``, not ``MIN(id)``: ids are random UUIDs,
+    so ordering by id would keep an arbitrary row and pick a different one on a
+    different machine. The concatenated key sorts by timestamp first and falls
+    back to id, which keeps the choice deterministic when two rows share a
+    timestamp -- ISO-8601 text sorts chronologically, so this needs no window
+    function and stays portable across SQLite builds.
+
     ``IF NOT EXISTS`` rather than relying on the inspector check alone: the
     inspector reflects a snapshot, and a migration that raises takes startup
     down with it. The check stays as the fast path that skips the dedup scan.
@@ -72,8 +79,10 @@ def _migrate_pronunciation_entries(engine, inspector, tables: set[str]) -> None:
         removed = conn.execute(
             text(
                 """
-                DELETE FROM pronunciation_entries WHERE id NOT IN (
-                    SELECT MIN(id) FROM pronunciation_entries
+                DELETE FROM pronunciation_entries
+                WHERE COALESCE(created_at, '') || '|' || id NOT IN (
+                    SELECT MIN(COALESCE(created_at, '') || '|' || id)
+                    FROM pronunciation_entries
                     GROUP BY lower(term), COALESCE(language, ''), COALESCE(profile_id, '')
                 )
                 """

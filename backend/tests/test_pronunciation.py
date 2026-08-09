@@ -445,4 +445,47 @@ def test_terms_are_not_logged_at_info(client, db, caplog):
 
     info = [r for r in caplog.records if r.levelno == logging.INFO]
     assert info, "should still report that a rewrite happened"
-    assert all("Alicia" not in r.getMessage() for r in info)
+    # Every fragment, not just the first: a message leaking only the surname
+    # would still be leaking a name.
+    for fragment in ("Alicia", "Fernandez", "ah-LEE-see-ah"):
+        assert all(fragment not in r.getMessage() for r in info), fragment
+
+
+def test_dedup_migration_keeps_the_oldest_row(client, db):
+    """The migration collapses pre-index duplicates, and "oldest" has to mean
+    created_at -- ids are random UUIDs, so ordering by id keeps an arbitrary
+    row and would pick a different one on a different machine."""
+    from datetime import datetime
+
+    from sqlalchemy import text as sql_text
+
+    # Via the module, not `from ... import engine`: init_db() rebinds the
+    # global, so a name imported earlier still points at the pre-init None.
+    from backend.database import session as db_session
+
+    engine = db_session.engine
+
+    with engine.connect() as conn:
+        conn.execute(sql_text("DROP INDEX IF EXISTS uq_pronunciation_scope"))
+        conn.commit()
+
+    older = PronunciationEntry(
+        term="bandeja", replacement="KEEP", created_at=datetime(2020, 1, 1)
+    )
+    newer = PronunciationEntry(
+        term="Bandeja", replacement="DROP", created_at=datetime(2030, 1, 1)
+    )
+    # Insert newest first so insertion order can't be what makes it pass.
+    db.add(newer)
+    db.commit()
+    db.add(older)
+    db.commit()
+
+    from backend.database.migrations import run_migrations
+
+    run_migrations(engine)
+
+    db.expire_all()
+    rows = db.query(PronunciationEntry).all()
+    assert len(rows) == 1
+    assert rows[0].replacement == "KEEP"
