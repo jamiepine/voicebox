@@ -214,11 +214,14 @@ class GenerationProgressManager:
 
 
 _generation_progress_manager: Optional[GenerationProgressManager] = None
+_manager_lock = threading.Lock()
 
 
 def get_generation_progress_manager() -> GenerationProgressManager:
-    """Get or create global generation progress manager."""
+    """Get or create global generation progress manager (thread-safe singleton)."""
     global _generation_progress_manager
     if _generation_progress_manager is None:
-        _generation_progress_manager = GenerationProgressManager()
+        with _manager_lock:
+            if _generation_progress_manager is None:
+                _generation_progress_manager = GenerationProgressManager()
     return _generation_progress_manager
