@@ -344,3 +344,26 @@ def test_default_export_is_still_wav(client, story, tmp_path):
 def test_unknown_format_is_rejected(client, story):
     r = client.get(f"/stories/{story['id']}/export-audio", params={"format": "aiff"})
     assert r.status_code == 400
+
+
+# ── Track validation (review findings on #1007) ──────────────────────
+
+
+def test_a_lane_cannot_duck_under_itself(client, story):
+    """It would attenuate by its own envelope — quieter wherever it is loudest."""
+    r = client.put(f"/stories/{story['id']}/tracks/1", json={"duck_under_track": 1})
+    assert r.status_code == 400
+    assert "itself" in r.json()["detail"]
+
+
+def test_a_negative_duck_target_is_rejected(client, story):
+    """Lane indices are non-negative, so a negative target is not a lane — it
+    would just silently never match one at mix time."""
+    r = client.put(f"/stories/{story['id']}/tracks/0", json={"duck_under_track": -1})
+    assert r.status_code == 422
+
+
+def test_a_valid_duck_target_is_accepted(client, story):
+    r = client.put(f"/stories/{story['id']}/tracks/1", json={"duck_under_track": 0})
+    assert r.status_code == 200, r.text
+    assert r.json()["duck_under_track"] == 0

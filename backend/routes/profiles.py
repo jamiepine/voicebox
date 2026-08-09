@@ -151,7 +151,7 @@ async def duplicate_profile(
             profile_id, db, name=data.name if data else None
         )
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.delete("/profiles/{profile_id}")

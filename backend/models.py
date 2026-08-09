@@ -812,7 +812,10 @@ class StoryTrackUpsert(BaseModel):
     muted: bool = False
     soloed: bool = False
     # Lane index whose loudness ducks this one; null disables ducking.
-    duck_under_track: Optional[int] = None
+    # Bounded because lane indices are non-negative -- a negative value is not
+    # a lane, and would silently never match one at mix time. Self-ducking is
+    # rejected in the route, which is where the lane's own index is known.
+    duck_under_track: Optional[int] = Field(None, ge=0)
 
 
 class StoryTrackResponse(BaseModel):
