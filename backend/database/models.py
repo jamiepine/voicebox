@@ -141,6 +141,31 @@ class GenerationVersion(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class PronunciationEntry(Base):
+    """A term the engine says wrong, and how to spell it so it says it right.
+
+    Respelling rather than phonemes: every engine reads plain text, so
+    ``bandeja -> ban-DEH-ha`` works everywhere, where a phoneme string only
+    works on the engines that accept one.
+    """
+
+    __tablename__ = "pronunciation_entries"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    term = Column(String, nullable=False)
+    replacement = Column(String, nullable=False)
+    # NULL applies in every generation language. A code restricts the entry to
+    # that language -- a Spanish word needs respelling when the engine is
+    # reading English, but not when it is already reading Spanish.
+    language = Column(String, nullable=True)
+    # NULL is a global entry; set to scope it to one voice.
+    profile_id = Column(String, ForeignKey("profiles.id"), nullable=True)
+    enabled = Column(Boolean, default=True, nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class EffectPreset(Base):
     """Saved effect chain preset."""
 
