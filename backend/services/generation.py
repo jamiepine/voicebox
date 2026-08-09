@@ -156,6 +156,12 @@ async def run_generation(
     finally:
         task_manager.complete_generation(generation_id)
         bg_db.close()
+        try:
+            from ..backends.base import empty_device_cache
+            device = getattr(tts_model, "device", "cpu") if "tts_model" in locals() else "cpu"
+            empty_device_cache(device)
+        except Exception:
+            pass
 
 
 def _notify_speak_end(generation_id: str, *, status: str) -> None:
@@ -313,14 +319,22 @@ async def generate_audio_sync(
     if crossfade_ms is not None:
         gen_kwargs["crossfade_ms"] = crossfade_ms
 
-    audio, sample_rate = await generate_chunked(
-        tts_model, text, voice_prompt, **gen_kwargs
-    )
+    try:
+        audio, sample_rate = await generate_chunked(
+            tts_model, text, voice_prompt, **gen_kwargs
+        )
 
-    if normalize:
-        audio = normalize_audio(audio)
+        if normalize:
+            audio = normalize_audio(audio)
 
-    return tts.audio_to_wav_bytes(audio, sample_rate)
+        return tts.audio_to_wav_bytes(audio, sample_rate)
+    finally:
+        try:
+            from ..backends.base import empty_device_cache
+            device = getattr(tts_model, "device", "cpu") if "tts_model" in locals() else "cpu"
+            empty_device_cache(device)
+        except Exception:
+            pass
 
 
 def _save_regenerate(
