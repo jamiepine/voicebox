@@ -363,3 +363,86 @@ def test_preview_is_the_only_way_to_see_the_rewrite(client, db):
     ).json()
     assert body["result"] != body["original"]
     assert body["applied"]
+
+
+# ── Review findings (CodeRabbit on #1025) ────────────────────────────
+
+
+def test_sql_wildcards_in_a_term_are_literal(client, db):
+    """`ilike` read `%` and `_` in a term as wildcards, so `band_ja` collided
+    with `bandeja` and blocked a legitimate entry as a duplicate."""
+    assert client.post(
+        "/pronunciations", json={"term": "bandeja", "replacement": "ban-DEH-ha"}
+    ).status_code == 200
+    # Distinct term that ilike would have matched against the one above.
+    assert client.post(
+        "/pronunciations", json={"term": "band_ja", "replacement": "BAND-ja"}
+    ).status_code == 200
+    assert client.post(
+        "/pronunciations", json={"term": "band%", "replacement": "BAND"}
+    ).status_code == 200
+
+
+def test_untrimmed_term_still_finds_its_duplicate(client, db):
+    """The stored value is trimmed, so an untrimmed lookup must normalise too or
+    it misses the duplicate it just created."""
+    assert client.post(
+        "/pronunciations", json={"term": "bandeja", "replacement": "A"}
+    ).status_code == 200
+    clash = client.post("/pronunciations", json={"term": "  bandeja  ", "replacement": "B"})
+    assert clash.status_code == 409
+
+
+@pytest.mark.parametrize("field", ["term", "replacement"])
+def test_whitespace_only_values_are_rejected(client, db, field):
+    """`min_length=1` accepted "   ", which then stored as empty — a no-op entry,
+    or a replacement that deletes the matched speech."""
+    body = {"term": "bandeja", "replacement": "ban-DEH-ha"}
+    body[field] = "   "
+    assert client.post("/pronunciations", json=body).status_code == 422
+
+
+def test_values_are_stored_trimmed(client, db):
+    created = client.post(
+        "/pronunciations", json={"term": "  bandeja  ", "replacement": "  ban-DEH-ha  "}
+    ).json()
+    assert created["term"] == "bandeja"
+    assert created["replacement"] == "ban-DEH-ha"
+
+
+def test_preview_rejects_an_unknown_profile(client, db):
+    """Generation 404s on an unknown profile; preview silently fell back to
+    global scope, so it reported a different result than it would produce."""
+    r = client.post(
+        "/pronunciations/preview",
+        json={"text": "a bandeja", "profile_id": "no-such-profile"},
+    )
+    assert r.status_code == 404
+
+
+def test_the_database_enforces_scope_uniqueness(client, db):
+    """find_duplicate is check-then-act; two concurrent creates can both pass
+    it. The constraint is what actually holds — including for the NULL scopes,
+    which a plain UNIQUE would treat as distinct."""
+    from sqlalchemy.exc import IntegrityError
+
+    add(db, "bandeja", "A")
+    # Differs only by case, and both are global scope — the pair a plain
+    # UNIQUE(term, language, profile_id) would have let through.
+    db.add(PronunciationEntry(term="Bandeja", replacement="B"))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+
+def test_terms_are_not_logged_at_info(client, db, caplog):
+    """Terms are user-supplied and often names, so the values belong at DEBUG."""
+    import logging
+
+    add(db, "Alicia Fernandez", "ah-LEE-see-ah")
+    with caplog.at_level(logging.INFO, logger="backend.services.pronunciation"):
+        apply_pronunciations("Ask Alicia Fernandez.", "en", db)
+
+    info = [r for r in caplog.records if r.levelno == logging.INFO]
+    assert info, "should still report that a rewrite happened"
+    assert all("Alicia" not in r.getMessage() for r in info)

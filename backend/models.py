@@ -2,7 +2,8 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+from typing_extensions import Annotated
 from typing import Optional, List
 from datetime import datetime
 
@@ -127,11 +128,21 @@ class GenerationResponse(BaseModel):
         from_attributes = True
 
 
+# A value of "   " passes a raw min_length check and then stores as empty once
+# the route strips it. Strip first, then length-check the result.
+TrimmedTerm = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
+TrimmedReplacement = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+]
+
+
 class PronunciationEntryCreate(BaseModel):
     """Request model for creating a pronunciation entry."""
 
-    term: str = Field(..., min_length=1, max_length=200)
-    replacement: str = Field(..., min_length=1, max_length=500)
+    term: TrimmedTerm
+    replacement: TrimmedReplacement
     language: Optional[str] = Field(
         None,
         pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
@@ -147,8 +158,8 @@ class PronunciationEntryCreate(BaseModel):
 class PronunciationEntryUpdate(BaseModel):
     """Request model for updating a pronunciation entry. Omitted fields are left alone."""
 
-    term: Optional[str] = Field(None, min_length=1, max_length=200)
-    replacement: Optional[str] = Field(None, min_length=1, max_length=500)
+    term: Optional[TrimmedTerm] = None
+    replacement: Optional[TrimmedReplacement] = None
     language: Optional[str] = Field(
         None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
     )
