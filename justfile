@@ -12,7 +12,6 @@ venv := backend_dir / "venv"
 # Platform-aware paths
 venv_bin := if os() == "windows" { venv / "Scripts" } else { venv / "bin" }
 python := if os() == "windows" { venv_bin / "python.exe" } else { venv_bin / "python" }
-pip := if os() == "windows" { venv_bin / "pip.exe" } else { venv_bin / "pip" }
 
 # Shell selection: use powershell on Windows, bash elsewhere
 set windows-shell := ["powershell", "-NoProfile", "-Command"]
@@ -40,12 +39,12 @@ setup-python:
         "$1" -c 'import sys; sys.exit(sys.version_info[:2] != tuple(map(int, "{{ python_version }}".split("."))))' 2>/dev/null
     }
 
-    # Testing for an executable file is not enough: console scripts hard-code the
-    # venv's absolute path in their shebang, so a venv that was built elsewhere and
-    # moved into place has a pip that exists, is executable, and still dies with
-    # "cannot execute: required file not found". Running it is the only real check.
+    # Invoke pip via the venv's python so validation and installs share the same
+    # interpreter. A copied venv can keep a working `pip` console script whose
+    # shebang still points at the original tree — that would make `pip --version`
+    # succeed while later installs land in the wrong environment.
     pip_works() {
-        "{{ pip }}" --version >/dev/null 2>&1
+        "{{ python }}" -m pip --version >/dev/null 2>&1
     }
 
     # Every interpreter on PATH that could be the pinned version, plus uv's, which
@@ -97,7 +96,7 @@ setup-python:
         exit 1
     fi
     echo "Installing Python dependencies..."
-    {{ pip }} install --upgrade pip -q
+    "{{ python }}" -m pip install --upgrade pip -q
     if [ "$(uname)" = "Linux" ]; then
         torch_index=""
         if [ -e /proc/driver/nvidia/version ] || [ -d /sys/module/nvidia ]; then
@@ -115,27 +114,27 @@ setup-python:
             torch_index="https://download.pytorch.org/whl/rocm${rocm_ver}"
         fi
         if [ -n "$torch_index" ]; then
-            {{ pip }} install torch torchaudio --index-url "$torch_index"
+            "{{ python }}" -m pip install torch torchaudio --index-url "$torch_index"
         fi
     fi
-    {{ pip }} install -r {{ backend_dir }}/requirements.txt
+    "{{ python }}" -m pip install -r {{ backend_dir }}/requirements.txt
     # Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
-    {{ pip }} install --no-deps chatterbox-tts
+    "{{ python }}" -m pip install --no-deps chatterbox-tts
     # HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
-    {{ pip }} install --no-deps hume-tada
+    "{{ python }}" -m pip install --no-deps hume-tada
     # Apple Silicon: install MLX backend
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
-        {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        "{{ python }}" -m pip install -r {{ backend_dir }}/requirements-mlx.txt
         # mlx-lm and mlx-audio declare transformers>=5.x, which conflicts with
         # our transformers<=4.57.x cap, so install them --no-deps (their other
         # runtime deps are covered by requirements.txt / requirements-mlx.txt —
         # see the note in requirements-mlx.txt and .github/workflows/release.yml)
-        {{ pip }} install --no-deps mlx-lm==0.31.1
-        {{ pip }} install --no-deps mlx-audio==0.4.1
+        "{{ python }}" -m pip install --no-deps mlx-lm==0.31.1
+        "{{ python }}" -m pip install --no-deps mlx-audio==0.4.1
     fi
-    {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
-    {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
+    "{{ python }}" -m pip install git+https://github.com/QwenLM/Qwen3-TTS.git
+    "{{ python }}" -m pip install pyinstaller ruff pytest pytest-asyncio -q
     echo "Python environment ready."
 
 [windows]
@@ -147,8 +146,8 @@ setup-python:
         return ($LASTEXITCODE -eq 0 -and $v -eq $target); \
     }; \
     function Test-Pip { \
-        if (-not (Test-Path "{{ pip }}")) { return $false }; \
-        & "{{ pip }}" --version *> $null; \
+        if (-not (Test-Path "{{ python }}")) { return $false }; \
+        & "{{ python }}" -m pip --version *> $null; \
         return ($LASTEXITCODE -eq 0); \
     }; \
     $py = $null; \
@@ -183,22 +182,22 @@ setup-python:
     $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0; \
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
-        & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
+        & "{{ python }}" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
     } elseif ($hasIntelArc) { \
         Write-Host "Intel Arc GPU detected — installing PyTorch with XPU support..."; \
-        & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
-        & "{{ pip }}" install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
+        & "{{ python }}" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
+        & "{{ python }}" -m pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
     } else { \
         Write-Host "No NVIDIA or Intel Arc GPU detected — using CPU-only PyTorch."; \
         Write-Host "If you have an Intel Arc GPU, install XPU support manually:"; \
-        Write-Host "  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
-        Write-Host "  pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
+        Write-Host "  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
+        Write-Host "  python -m pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
     }
-    & "{{ pip }}" install -r {{ backend_dir }}/requirements.txt
-    & "{{ pip }}" install --no-deps chatterbox-tts
-    & "{{ pip }}" install --no-deps hume-tada
-    & "{{ pip }}" install git+https://github.com/QwenLM/Qwen3-TTS.git
-    & "{{ pip }}" install pyinstaller ruff pytest pytest-asyncio -q
+    & "{{ python }}" -m pip install -r {{ backend_dir }}/requirements.txt
+    & "{{ python }}" -m pip install --no-deps chatterbox-tts
+    & "{{ python }}" -m pip install --no-deps hume-tada
+    & "{{ python }}" -m pip install git+https://github.com/QwenLM/Qwen3-TTS.git
+    & "{{ python }}" -m pip install pyinstaller ruff pytest pytest-asyncio -q
     Write-Host "Python environment ready."
 
 # Install JavaScript dependencies

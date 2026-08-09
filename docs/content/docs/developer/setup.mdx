@@ -35,7 +35,8 @@ Ensure you have these installed:
   <Card title="Python 3.12" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}>
     [Download Python](https://python.org)
     ```bash
-    python3.12 --version  # Should be 3.12.x
+    python3.12 --version  # macOS/Linux — should be 3.12.x
+    py -3.12 --version    # Windows
     ```
     Voicebox pins its venv to 3.12 to match CI, because some dependencies have no 3.13 release yet. On Debian/Ubuntu also install `python3.12-venv`.
   </Card>
@@ -216,7 +217,9 @@ This installs dependencies for:
 cd backend
 
 # Create virtual environment (use Python 3.12 — see Prerequisites)
-python3.12 -m venv venv
+python3.12 -m venv venv   # macOS/Linux
+# or
+py -3.12 -m venv venv     # Windows
 
 # Activate virtual environment
 source venv/bin/activate  # macOS/Linux
