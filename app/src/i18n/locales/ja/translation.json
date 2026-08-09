@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "キャンセル",
+    "clearSearch": "検索をクリア",
     "save": "保存",
     "delete": "削除",
     "edit": "編集",

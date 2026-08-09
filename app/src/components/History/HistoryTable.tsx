@@ -112,6 +112,7 @@ export function HistoryTable() {
     data: historyData,
     isLoading,
     isFetching,
+    isPlaceholderData,
   } = useHistory({
     limit,
     offset: page * limit,
@@ -186,6 +187,14 @@ export function HistoryTable() {
   useEffect(() => {
     setPage(0);
   }, [debouncedSearch]);
+
+  // A new scope means new results, so keep the viewport at the top. Otherwise
+  // you stay scrolled where the old, longer list had you and land in the
+  // middle of the new one — or past its end, looking at nothing.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these are triggers, not values the effect reads
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [debouncedSearch, folderSelection]);
 
   // Reset to page 0 when deletions, imports, or generation completions occur
   const pendingCount = useGenerationStore((state) => state.pendingGenerationIds.size);
@@ -494,11 +503,16 @@ export function HistoryTable() {
 
       {history.length === 0 ? (
         <div className="text-center py-12 px-5 border-2 border-dashed mb-5 border-muted rounded-md text-muted-foreground flex-1 flex items-center justify-center">
-          {debouncedSearch.trim()
-            ? t('history.emptySearch')
-            : folderSelection.kind === 'all'
-              ? t('history.empty')
-              : t('folders.clip.emptyFilter')}
+          {/* Only claim "nothing here" once something has actually loaded.
+              On the very first fetch there is no previous page to keep, so
+              without this the empty state flashes before the rows arrive. */}
+          {isLoading
+            ? ''
+            : debouncedSearch.trim()
+              ? t('history.emptySearch')
+              : folderSelection.kind === 'all'
+                ? t('history.empty')
+                : t('folders.clip.emptyFilter')}
         </div>
       ) : (
         <>
@@ -525,8 +539,12 @@ export function HistoryTable() {
           <div
             ref={scrollRef}
             className={cn(
-              'flex-1 min-h-0 overflow-y-auto space-y-2 pb-4',
+              'flex-1 min-h-0 overflow-y-auto space-y-2 pb-4 transition-opacity',
               isPlayerVisible && BOTTOM_SAFE_AREA_PADDING,
+              // These are the previous scope's rows, still on screen while the
+              // new ones load. Dim them so they read as stale rather than as
+              // results that don't match what you just typed.
+              isPlaceholderData && 'opacity-50',
             )}
           >
             {history.map((gen) => {

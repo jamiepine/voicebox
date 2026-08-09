@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type { HistoryQuery } from '@/lib/api/types';
 import { usePlatform } from '@/platform/PlatformContext';
@@ -7,6 +7,12 @@ export function useHistory(query?: HistoryQuery) {
   return useQuery({
     queryKey: ['history', query],
     queryFn: () => apiClient.listHistory(query),
+    // Keep showing the previous results while a new folder or search term
+    // loads. Without this the list empties on every keystroke and the UI
+    // flashes its empty state between each request. Callers can tell the
+    // difference via isPlaceholderData. No effect on callers whose query
+    // never changes.
+    placeholderData: keepPreviousData,
   });
 }
 

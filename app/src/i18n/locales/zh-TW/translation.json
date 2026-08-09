@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "取消",
+    "clearSearch": "清除搜尋",
     "save": "儲存",
     "delete": "刪除",
     "edit": "編輯",

@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "Annuler",
+    "clearSearch": "Effacer la recherche",
     "save": "Enregistrer",
     "delete": "Supprimer",
     "edit": "Modifier",
