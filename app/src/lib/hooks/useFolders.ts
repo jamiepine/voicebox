@@ -48,6 +48,12 @@ export function useDetachFolder(kind: FolderKind) {
     mutationFn: (folderId: string) => apiClient.detachFolder(folderId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['folders', kind] });
+      // Detaching moves a folder out of its parent, and member lists include
+      // subfolders by default — so anyone filtered by the former parent is
+      // still being shown the detached child's items.
+      queryClient.invalidateQueries({
+        queryKey: [kind === 'voice' ? 'profiles' : 'history'],
+      });
     },
   });
 }

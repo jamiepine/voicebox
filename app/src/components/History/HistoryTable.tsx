@@ -98,6 +98,14 @@ export function HistoryTable() {
   const { data: clipFolders } = useFolders('generation');
   const setGenerationFolder = useSetGenerationFolder();
 
+  // Invalidating the query is not enough on its own: allHistory accumulates
+  // pages, and past page 0 the refreshed first page is appended rather than
+  // replacing it — so a clip moved out of the current folder stays visible.
+  // Dropping back to page 0 makes the next response replace the list.
+  const moveToFolder = (generationId: string, folderId: string | null) => {
+    setGenerationFolder.mutate({ generationId, folderId }, { onSuccess: () => setPage(0) });
+  };
+
   const {
     data: historyData,
     isLoading,
@@ -716,10 +724,7 @@ export function HistoryTable() {
                                 <DropdownMenuItem
                                   disabled={!gen.folder_id}
                                   onClick={() =>
-                                    setGenerationFolder.mutate({
-                                      generationId: gen.id,
-                                      folderId: null,
-                                    })
+                                    moveToFolder(gen.id, null)
                                   }
                                 >
                                   {t('folders.uncategorised')}
@@ -729,10 +734,7 @@ export function HistoryTable() {
                                     key={folder.id}
                                     disabled={folder.id === gen.folder_id}
                                     onClick={() =>
-                                      setGenerationFolder.mutate({
-                                        generationId: gen.id,
-                                        folderId: folder.id,
-                                      })
+                                      moveToFolder(gen.id, folder.id)
                                     }
                                   >
                                     {folder.name}
