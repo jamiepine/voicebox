@@ -281,7 +281,12 @@ export function ClipFolderTree({
         {allLabel ?? t('folders.clip.allClips')}
       </button>
 
-      {tree.map((node) => renderNode(node, 0))}
+      {/* Folders scroll on their own. With a few dozen folders the list
+          otherwise pushes the clips off-screen entirely, and "All clips" and
+          "Uncategorised" stay pinned outside it so both are always reachable. */}
+      <div className="max-h-[40vh] min-h-0 overflow-y-auto overscroll-contain">
+        {tree.map((node) => renderNode(node, 0))}
+      </div>
 
       <button
         type="button"

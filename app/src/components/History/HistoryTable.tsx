@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { AudioBars } from '@/components/AudioBars';
 import { EffectsChainEditor } from '@/components/Effects/EffectsChainEditor';
 import { type ClipFolderSelection, ClipFolderTree } from '@/components/History/ClipFolderTree';
+import { ListPaneSearch } from '@/components/ListPane';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -53,6 +54,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { EffectConfig, GenerationVersionResponse, HistoryResponse } from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
 import { useFolders, useSetGenerationFolder } from '@/lib/hooks/useFolders';
 import {
   useClearFailedGenerations,
@@ -100,6 +102,12 @@ export function HistoryTable() {
   const { data: clipFolders } = useFolders('generation');
   const setGenerationFolder = useSetGenerationFolder();
 
+  // Folder first, then text — the folder is a scope, the search runs inside it.
+  // Debounced because every keystroke would otherwise be a request; the search
+  // runs server-side so it covers every clip in scope, not just loaded pages.
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 250);
+
   const {
     data: historyData,
     isLoading,
@@ -107,6 +115,7 @@ export function HistoryTable() {
   } = useHistory({
     limit,
     offset: page * limit,
+    search: debouncedSearch.trim() || undefined,
     folder_id: folderSelection.kind === 'folder' ? folderSelection.folderId : undefined,
     uncategorised_only: folderSelection.kind === 'uncategorised' || undefined,
   });
@@ -170,6 +179,13 @@ export function HistoryTable() {
   useEffect(() => {
     setPage(0);
   }, [folderSelection]);
+
+  // Same for the search term: a new query must start from page 0, or the first
+  // response lands at a stale offset and the list looks empty.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: debouncedSearch is the trigger, not a value the effect reads
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch]);
 
   // Reset to page 0 when deletions, imports, or generation completions occur
   const pendingCount = useGenerationStore((state) => state.pendingGenerationIds.size);
@@ -467,9 +483,22 @@ export function HistoryTable() {
         }
       />
 
+      {/* Also outside the empty-state branch, for the same reason as the tree:
+          a search that matches nothing must not hide its own input. */}
+      <ListPaneSearch
+        value={search}
+        onChange={setSearch}
+        placeholder={t('history.searchPlaceholder')}
+        className="pb-2"
+      />
+
       {history.length === 0 ? (
         <div className="text-center py-12 px-5 border-2 border-dashed mb-5 border-muted rounded-md text-muted-foreground flex-1 flex items-center justify-center">
-          {folderSelection.kind === 'all' ? t('history.empty') : t('folders.clip.emptyFilter')}
+          {debouncedSearch.trim()
+            ? t('history.emptySearch')
+            : folderSelection.kind === 'all'
+              ? t('history.empty')
+              : t('folders.clip.emptyFilter')}
         </div>
       ) : (
         <>

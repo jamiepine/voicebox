@@ -646,6 +646,8 @@
   },
   "history": {
     "empty": "아직 생성된 음성이 없습니다…",
+      "searchPlaceholder": "클립 검색…",
+      "emptySearch": "검색과 일치하는 클립이 없습니다.",
     "actions": {
       "menu": "작업",
       "play": "재생",

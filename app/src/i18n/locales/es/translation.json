@@ -646,6 +646,8 @@
   },
   "history": {
     "empty": "Aún no hay generaciones de voz…",
+      "searchPlaceholder": "Buscar clips…",
+      "emptySearch": "Ningún clip coincide con esa búsqueda.",
     "actions": {
       "menu": "Acciones",
       "play": "Reproducir",

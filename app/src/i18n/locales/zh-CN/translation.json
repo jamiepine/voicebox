@@ -646,6 +646,8 @@
   },
   "history": {
     "empty": "暂无语音生成…",
+      "searchPlaceholder": "搜索片段…",
+      "emptySearch": "没有符合该搜索的片段。",
     "actions": {
       "menu": "操作",
       "play": "播放",

@@ -646,6 +646,8 @@
   },
   "history": {
     "empty": "音声生成はまだありません…",
+      "searchPlaceholder": "クリップを検索…",
+      "emptySearch": "その検索に一致するクリップはありません。",
     "actions": {
       "menu": "操作",
       "play": "再生",
