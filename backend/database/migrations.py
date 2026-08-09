@@ -201,6 +201,17 @@ def _migrate_generation_versions(engine, inspector, tables: set[str]) -> None:
     if "source_version_id" not in columns:
         _add_column(engine, "generation_versions", "source_version_id VARCHAR", "source_version_id")
 
+    # Nullable with no default: NULL means "same as the generation", so
+    # existing takes are already correct and need no backfill.
+    for column, ddl in (
+        ("text", "text TEXT"),
+        ("language", "language VARCHAR"),
+        ("instruct", "instruct TEXT"),
+        ("seed", "seed INTEGER"),
+    ):
+        if column not in columns:
+            _add_column(engine, "generation_versions", ddl, column)
+
 
 def _migrate_capture_settings(engine, inspector, tables: set[str]) -> None:
     if "capture_settings" not in tables:

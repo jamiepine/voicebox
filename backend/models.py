@@ -738,6 +738,23 @@ class EffectPresetResponse(BaseModel):
         from_attributes = True
 
 
+class RegenerateRequest(BaseModel):
+    """Optional overrides for a regenerate.
+
+    Every field is optional; omitted ones reuse the generation's settings.
+    Send ``text`` to fix a typo and re-run without losing the take that had it,
+    or ``language`` to re-read one segment in another language.
+    """
+
+    text: Optional[str] = Field(None, min_length=1, max_length=50000)
+    language: Optional[str] = Field(
+        None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    instruct: Optional[str] = Field(None, max_length=500)
+    # A regenerate normally varies the seed. Set this to reproduce a take.
+    seed: Optional[int] = Field(None, ge=0)
+
+
 class GenerationVersionResponse(BaseModel):
     """Response model for a generation version."""
 
@@ -748,6 +765,13 @@ class GenerationVersionResponse(BaseModel):
     effects_chain: Optional[List[EffectConfig]] = None
     source_version_id: Optional[str] = None
     is_default: bool
+    # What produced this take, when it differed from the generation's own
+    # settings. NULL means it used the generation's, so a client showing "the
+    # current take" reads these first and falls back to the generation.
+    text: Optional[str] = None
+    language: Optional[str] = None
+    instruct: Optional[str] = None
+    seed: Optional[int] = None
     created_at: datetime
 
     class Config:

@@ -138,6 +138,20 @@ class GenerationVersion(Base):
     effects_chain = Column(Text, nullable=True)
     source_version_id = Column(String, ForeignKey("generation_versions.id"), nullable=True)
     is_default = Column(Boolean, default=False)
+
+    # What produced this take, when it differs from the generation's own
+    # settings. NULL means "same as the generation" -- so every existing row
+    # stays correct without a backfill, and only an overridden regenerate
+    # writes anything here.
+    #
+    # Without these a corrected take is unattributable: the generation row
+    # would describe the newest text while older takes still point at audio of
+    # the old text, and nothing records which was which.
+    text = Column(Text, nullable=True)
+    language = Column(String, nullable=True)
+    instruct = Column(Text, nullable=True)
+    seed = Column(Integer, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
