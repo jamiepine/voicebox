@@ -61,7 +61,7 @@ _PARA_TAG_RE = re.compile(r"\[[^\]]*\]")
 
 
 def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) -> List[str]:
-    """Split *text* at natural boundaries into chunks of at most *max_chars*.
+    """Split *text* at natural sentence boundaries into chunks of at most *max_chars*.
 
     Priority: sentence-end (``.!?`` not preceded by an abbreviation and not
     inside brackets) → clause boundary (``;:,—``) → whitespace → hard cut.
@@ -72,8 +72,6 @@ def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) 
     text = text.strip()
     if not text:
         return []
-    if len(text) <= max_chars:
-        return [text]
 
     chunks: List[str] = []
     remaining = text
@@ -82,21 +80,23 @@ def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) 
         remaining = remaining.lstrip()
         if not remaining:
             break
-        if len(remaining) <= max_chars:
+
+        first_sentence_end = _find_first_sentence_end(remaining)
+
+        if first_sentence_end != -1 and first_sentence_end < max_chars:
+            split_pos = first_sentence_end
+        elif len(remaining) <= max_chars:
             chunks.append(remaining)
             break
-
-        segment = remaining[:max_chars]
-
-        # Try to split at the last real sentence ending
-        split_pos = _find_last_sentence_end(segment)
-        if split_pos == -1:
-            split_pos = _find_last_clause_boundary(segment)
-        if split_pos == -1:
-            split_pos = segment.rfind(" ")
-        if split_pos == -1:
-            # Absolute fallback: hard cut but avoid splitting inside a tag
-            split_pos = _safe_hard_cut(segment, max_chars)
+        else:
+            segment = remaining[:max_chars]
+            split_pos = _find_last_sentence_end(segment)
+            if split_pos == -1:
+                split_pos = _find_last_clause_boundary(segment)
+            if split_pos == -1:
+                split_pos = segment.rfind(" ")
+            if split_pos == -1:
+                split_pos = _safe_hard_cut(segment, max_chars)
 
         chunk = remaining[: split_pos + 1].strip()
         if chunk:
@@ -104,6 +104,34 @@ def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) 
         remaining = remaining[split_pos + 1 :]
 
     return chunks
+
+
+def _find_first_sentence_end(text: str) -> int:
+    """Return the index of the first sentence-ending punctuation in *text*."""
+    best = -1
+    for m in re.finditer(r"[.!?](?:\s|$)", text):
+        pos = m.start()
+        char = text[pos]
+        if char == ".":
+            word_start = pos - 1
+            while word_start >= 0 and text[word_start].isalpha():
+                word_start -= 1
+            word = text[word_start + 1 : pos].lower()
+            if word in _ABBREVIATIONS:
+                continue
+            # Skip decimal numbers (e.g. 1.2, 3.14)
+            if pos > 0 and text[pos - 1].isdigit() and pos + 1 < len(text) and text[pos + 1].isdigit():
+                continue
+        if _inside_bracket_tag(text, pos):
+            continue
+        best = pos
+        break
+
+    for m in re.finditer(r"[\u3002\uff01\uff1f]", text):
+        pos = m.start()
+        if best == -1 or pos < best:
+            best = pos
+    return best
 
 
 def _find_last_sentence_end(text: str) -> int:
@@ -127,8 +155,8 @@ def _find_last_sentence_end(text: str) -> int:
             word = text[word_start + 1 : pos].lower()
             if word in _ABBREVIATIONS:
                 continue
-            # Skip decimal numbers (digit immediately before the period)
-            if word_start >= 0 and text[word_start].isdigit():
+            # Skip decimal numbers (e.g. 1.2, 3.14)
+            if pos > 0 and text[pos - 1].isdigit() and pos + 1 < len(text) and text[pos + 1].isdigit():
                 continue
         # Skip if we're inside a bracket tag
         if _inside_bracket_tag(text, pos):
@@ -214,6 +242,7 @@ async def generate_chunked(
     crossfade_ms: int = 50,
     trim_fn=None,
     runaway_detector=None,
+    progress_callback=None,
 ) -> Tuple[np.ndarray, int]:
     """Generate audio with automatic chunking for long text.
 
@@ -245,6 +274,9 @@ async def generate_chunked(
     runaway_detector : callable | None
         Optional ``(audio, sample_rate) -> bool`` detector. When it flags
         unstable output, the affected text is split in half and retried.
+    progress_callback : callable | None
+        Optional ``(current_chunk: int, total_chunks: int, chunk_text: str) -> None``
+        callback invoked before generating each chunk.
 
     Returns
     -------
@@ -310,6 +342,11 @@ async def generate_chunked(
 
     if len(chunks) <= 1:
         # Short text — single-shot fast path
+        if progress_callback is not None:
+            try:
+                progress_callback(1, 1, text)
+            except Exception:
+                pass
         return await generate_one(text, seed)
 
     # Long text — chunked generation
@@ -329,6 +366,12 @@ async def generate_chunked(
             len(chunks),
             len(chunk_text),
         )
+        if progress_callback is not None:
+            try:
+                progress_callback(i + 1, len(chunks), chunk_text)
+            except Exception:
+                pass
+
         # Vary the seed per chunk to avoid correlated RNG artefacts,
         # but keep it deterministic so the same (text, seed) pair
         # always produces the same output.

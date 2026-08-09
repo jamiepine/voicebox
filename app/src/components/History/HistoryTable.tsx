@@ -119,6 +119,7 @@ export function HistoryTable() {
     },
   });
   const addPendingGeneration = useGenerationStore((state) => state.addPendingGeneration);
+  const generationProgress = useGenerationStore((state) => state.generationProgress);
   const setAudioWithAutoPlay = usePlayerStore((state) => state.setAudioWithAutoPlay);
   const restartCurrentAudio = usePlayerStore((state) => state.restartCurrentAudio);
   const currentAudioId = usePlayerStore((state) => state.audioId);
@@ -544,8 +545,25 @@ export function HistoryTable() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {isInProgress ? (
-                          <span className="text-accent">
-                            {gen.status === 'loading_model' ? 'Loading model...' : 'Generating...'}
+                          <span className="text-accent font-medium">
+                            {(() => {
+                              const prog = generationProgress.get(gen.id);
+                              if (!prog) {
+                                return gen.status === 'loading_model'
+                                  ? 'Loading model...'
+                                  : 'Generating...';
+                              }
+                              if (prog.status === 'loading_model') {
+                                return `Loading model... ${Math.round(prog.progress)}%`;
+                              }
+                              if (prog.message) {
+                                return `Generating... ${Math.round(prog.progress)}% (${prog.message})`;
+                              }
+                              if (prog.currentChunk && prog.totalChunks) {
+                                return `Generating... ${Math.round(prog.progress)}% (Sentence ${prog.currentChunk}/${prog.totalChunks})`;
+                              }
+                              return `Generating... ${Math.round(prog.progress)}%`;
+                            })()}
                           </span>
                         ) : (
                           formatDate(gen.created_at)
