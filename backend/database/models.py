@@ -1,9 +1,21 @@
 """ORM model definitions for the voicebox SQLite database."""
 
-from datetime import datetime
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean, JSON
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.ext.declarative import declarative_base
 
 from ..utils.capture_chords import (
@@ -139,6 +151,50 @@ class GenerationVersion(Base):
     source_version_id = Column(String, ForeignKey("generation_versions.id"), nullable=True)
     is_default = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class PronunciationEntry(Base):
+    """A term the engine says wrong, and how to spell it so it says it right.
+
+    Respelling rather than phonemes: every engine reads plain text, so
+    ``bandeja -> ban-DEH-ha`` works everywhere, where a phoneme string only
+    works on the engines that accept one.
+    """
+
+    __tablename__ = "pronunciation_entries"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    term = Column(String, nullable=False)
+    replacement = Column(String, nullable=False)
+    # NULL applies in every generation language. A code restricts the entry to
+    # that language -- a Spanish word needs respelling when the engine is
+    # reading English, but not when it is already reading Spanish.
+    language = Column(String, nullable=True)
+    # NULL is a global entry; set to scope it to one voice.
+    profile_id = Column(String, ForeignKey("profiles.id"), nullable=True)
+    enabled = Column(Boolean, default=True, nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # One entry per (term, language, profile) scope, enforced by the database
+    # rather than only by a pre-insert check, which two concurrent creates can
+    # both pass.
+    #
+    # A plain UniqueConstraint would not do it: SQL treats NULLs as distinct,
+    # so two global entries for the same term would both be accepted -- exactly
+    # the case worth catching. COALESCE maps the wildcard scopes onto a real
+    # value so they compare equal, and lower() makes the term case-insensitive
+    # to match how it is looked up.
+    __table_args__ = (
+        Index(
+            "uq_pronunciation_scope",
+            func.lower(term),
+            func.coalesce(language, ""),
+            func.coalesce(profile_id, ""),
+            unique=True,
+        ),
+    )
 
 
 class EffectPreset(Base):

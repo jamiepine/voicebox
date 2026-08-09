@@ -2,7 +2,8 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+from typing_extensions import Annotated
 from typing import Optional, List
 from datetime import datetime
 
@@ -125,6 +126,87 @@ class GenerationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# A value of "   " passes a raw min_length check and then stores as empty once
+# the route strips it. Strip first, then length-check the result.
+TrimmedTerm = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
+TrimmedReplacement = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+]
+
+
+class PronunciationEntryCreate(BaseModel):
+    """Request model for creating a pronunciation entry."""
+
+    term: TrimmedTerm
+    replacement: TrimmedReplacement
+    language: Optional[str] = Field(
+        None,
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+        description="Apply only when generating in this language. Omit for all languages.",
+    )
+    profile_id: Optional[str] = Field(
+        None, description="Scope to one voice. Omit for a global entry."
+    )
+    enabled: bool = True
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class PronunciationEntryUpdate(BaseModel):
+    """Request model for updating a pronunciation entry. Omitted fields are left alone."""
+
+    term: Optional[TrimmedTerm] = None
+    replacement: Optional[TrimmedReplacement] = None
+    language: Optional[str] = Field(
+        None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    profile_id: Optional[str] = None
+    enabled: Optional[bool] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class PronunciationEntryResponse(BaseModel):
+    """Response model for a pronunciation entry."""
+
+    id: str
+    term: str
+    replacement: str
+    language: Optional[str] = None
+    profile_id: Optional[str] = None
+    enabled: bool = True
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PronunciationPreviewRequest(BaseModel):
+    """Request to see what the dictionary would do to a piece of text."""
+
+    text: str = Field(..., min_length=1, max_length=50000)
+    language: Optional[str] = None
+    profile_id: Optional[str] = None
+
+
+class PronunciationSubstitution(BaseModel):
+    """One replacement the dictionary made."""
+
+    term: str
+    replacement: str
+    entry_id: str
+
+
+class PronunciationPreviewResponse(BaseModel):
+    """What the engine would actually be given, and why it differs."""
+
+    original: str
+    result: str
+    applied: List[PronunciationSubstitution]
 
 
 class HistoryQuery(BaseModel):

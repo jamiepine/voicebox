@@ -21,7 +21,7 @@ import traceback
 from typing import Literal, Optional
 
 from .. import config
-from . import history, profiles
+from . import history, profiles, pronunciation
 from ..database import get_db
 from ..utils.tasks import get_task_manager
 
@@ -76,6 +76,14 @@ async def run_generation(
         )
 
         await history.update_generation_status(generation_id, "generating", bg_db)
+
+        # Respell dictionary terms on the way into the engine only. The row in
+        # `generations` keeps what the author wrote, so History stays readable
+        # and editing an entry changes future audio without rewriting the past.
+        text, _applied = pronunciation.apply_pronunciations(
+            text, language, bg_db, profile_id=profile_id
+        )
+
         trim_fn = trim_tts_output if engine_needs_trim(engine) else None
         runaway_detector = has_tts_runaway if engine_retries_runaway(engine) else None
 
