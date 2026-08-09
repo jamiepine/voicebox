@@ -483,6 +483,32 @@ class ModelStatusListResponse(BaseModel):
     models: List[ModelStatus]
 
 
+class EngineCapabilities(BaseModel):
+    """What one TTS engine can actually do.
+
+    Derived from the model registry rather than hand-maintained, so a client
+    never has to keep its own copy of which engines honour what.
+    """
+
+    engine: str
+    display_name: str
+    supports_instruct: bool = Field(
+        description=(
+            "Whether the engine honours the instruct kwarg. Base Qwen3-TTS "
+            "accepts it and ignores it, so this is False there."
+        )
+    )
+    languages: List[str]
+    model_sizes: List[str]
+    has_model_sizes: bool
+
+
+class EngineCapabilitiesListResponse(BaseModel):
+    """Response model for the engine capability list."""
+
+    engines: List[EngineCapabilities]
+
+
 class ModelDownloadRequest(BaseModel):
     """Request model for triggering model download."""
 
