@@ -53,6 +53,10 @@ export function FloatingGenerateBox({
   const trackEditorHeight = useStoryStore((state) => state.trackEditorHeight);
   const { data: currentStory } = useStory(selectedStoryId);
   const addPendingStoryAdd = useGenerationStore((s) => s.addPendingStoryAdd);
+  const isGenerating = useGenerationStore((s) => s.isGenerating);
+  const activeGenerationId = useGenerationStore((s) => s.activeGenerationId);
+  const generationProgress = useGenerationStore((s) => s.generationProgress);
+  const currentProgressData = activeGenerationId ? generationProgress.get(activeGenerationId) : undefined;
   const { toast } = useToast();
 
   const composeMutation = useMutation({
@@ -277,6 +281,41 @@ export function FloatingGenerateBox({
       >
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
+            <AnimatePresence>
+              {(isGenerating || !!currentProgressData) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-2 px-3 py-1.5 rounded-xl bg-accent/10 border border-accent/20 overflow-hidden"
+                >
+                  <div className="flex items-center justify-between text-xs mb-1 font-medium text-foreground">
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="h-3 w-3 animate-spin text-accent" />
+                      {currentProgressData?.status === 'loading_model'
+                        ? 'Loading model...'
+                        : currentProgressData?.message
+                          ? `Generating... (${currentProgressData.message})`
+                          : currentProgressData?.currentChunk && currentProgressData?.totalChunks
+                            ? `Generating... (Sentence ${currentProgressData.currentChunk}/${currentProgressData.totalChunks})`
+                            : 'Generating...'}
+                    </span>
+                    <span className="font-semibold text-accent">
+                      {Math.round(currentProgressData?.progress ?? 0)}%
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full bg-accent/20 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-accent rounded-full"
+                      initial={{ width: '0%' }}
+                      animate={{ width: `${currentProgressData?.progress ?? 0}%` }}
+                      transition={{ duration: 0.3, ease: 'easeOut' }}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="flex gap-2">
               <motion.div className="flex-1" transition={{ duration: 0.3, ease: 'easeOut' }}>
                 <FormField

@@ -54,13 +54,26 @@ async def run_generation(
         get_tts_backend_for_engine,
         load_engine_model,
     )
-    from ..utils.chunked_tts import generate_chunked
+    from ..utils.chunked_tts import generate_chunked, split_text_into_chunks
     from ..utils.audio import has_tts_runaway, normalize_audio, save_audio, trim_tts_output
 
+    from ..utils.tasks import get_task_manager
+    from ..utils.generation_progress import get_generation_progress_manager
+
     task_manager = get_task_manager()
+    progress_mgr = get_generation_progress_manager()
     bg_db = next(get_db())
 
+    chunks = split_text_into_chunks(text, max_chunk_chars or 800)
+    total_chunks = len(chunks) if chunks else 1
+
     try:
+        progress_mgr.update_progress(
+            generation_id,
+            progress=0.0,
+            total_chunks=total_chunks,
+            status="loading_model",
+        )
         tts_model = get_tts_backend_for_engine(engine)
 
         if not tts_model.is_loaded():
@@ -76,8 +89,31 @@ async def run_generation(
         )
 
         await history.update_generation_status(generation_id, "generating", bg_db)
+        progress_mgr.update_progress(
+            generation_id,
+            progress=10.0,
+            total_chunks=total_chunks,
+            status="generating",
+        )
+
         trim_fn = trim_tts_output if engine_needs_trim(engine) else None
         runaway_detector = has_tts_runaway if engine_retries_runaway(engine) else None
+
+        def _on_chunk_progress(current_chunk: int, total_chunks: int, chunk_text: str):
+            if total_chunks > 0:
+                # 10% to 90% allocated to chunk synthesis
+                pct = 10.0 + ((current_chunk - 1) / total_chunks) * 80.0
+            else:
+                pct = 50.0
+            msg = f"Sentence {current_chunk} of {total_chunks}" if total_chunks > 1 else None
+            progress_mgr.update_progress(
+                generation_id,
+                progress=pct,
+                current_chunk=current_chunk,
+                total_chunks=total_chunks,
+                status="generating",
+                message=msg,
+            )
 
         gen_kwargs: dict = dict(
             language=language,
@@ -85,6 +121,7 @@ async def run_generation(
             instruct=instruct,
             trim_fn=trim_fn,
             runaway_detector=runaway_detector,
+            progress_callback=_on_chunk_progress,
         )
         if max_chunk_chars is not None:
             gen_kwargs["max_chunk_chars"] = max_chunk_chars
@@ -93,11 +130,15 @@ async def run_generation(
 
         audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
 
+        progress_mgr.update_progress(generation_id, progress=90.0, status="generating")
+
         # --- Normalize (generate and regenerate always; retry skips) -----
         if normalize or mode == "regenerate":
             audio = normalize_audio(audio)
 
         duration = len(audio) / sample_rate
+
+        progress_mgr.update_progress(generation_id, progress=95.0, status="generating")
 
         # --- Persist audio and update status -----------------------------
         if mode == "generate":
@@ -133,8 +174,10 @@ async def run_generation(
             audio_path=final_path,
             duration=duration,
         )
+        progress_mgr.mark_complete(generation_id)
 
     except asyncio.CancelledError:
+        progress_mgr.mark_error(generation_id, "Generation cancelled")
         await history.update_generation_status(
             generation_id=generation_id,
             status="failed",
@@ -144,6 +187,7 @@ async def run_generation(
         _notify_speak_end(generation_id, status="cancelled")
     except Exception as e:
         traceback.print_exc()
+        progress_mgr.mark_error(generation_id, str(e))
         await history.update_generation_status(
             generation_id=generation_id,
             status="failed",

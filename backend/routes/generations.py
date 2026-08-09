@@ -274,33 +274,62 @@ async def cancel_generation(generation_id: str, db: Session = Depends(get_db)):
 
 @router.get("/generate/{generation_id}/status")
 async def get_generation_status(generation_id: str, db: Session = Depends(get_db)):
-    """SSE endpoint that streams generation status updates."""
+    """SSE endpoint that streams generation status updates and real-time progress."""
     import json
+    from ..utils.generation_progress import get_generation_progress_manager
+
+    progress_mgr = get_generation_progress_manager()
 
     async def event_stream():
         try:
-            while True:
-                db.expire_all()
-                gen = db.query(DBGeneration).filter_by(id=generation_id).first()
-                if not gen:
-                    yield f"data: {json.dumps({'status': 'not_found', 'id': generation_id})}\n\n"
-                    return
+            # Check if initial DB state indicates completed/failed/not_found
+            db.expire_all()
+            gen = db.query(DBGeneration).filter_by(id=generation_id).first()
+            if not gen:
+                yield f"data: {json.dumps({'status': 'not_found', 'id': generation_id})}\n\n"
+                return
 
+            if (gen.status or "completed") in ("completed", "failed"):
                 payload = {
                     "id": gen.id,
                     "status": gen.status or "completed",
+                    "progress": 100.0 if (gen.status or "completed") == "completed" else 0.0,
                     "duration": gen.duration,
                     "error": gen.error,
-                    # Agent-originated sources ("mcp", "rest") skip main-window
-                    # autoplay — the floating pill plays those directly.
                     "source": gen.source,
                 }
                 yield f"data: {json.dumps(payload)}\n\n"
+                return
 
-                if (gen.status or "completed") in ("completed", "failed"):
-                    return
+            # Stream real-time progress events from GenerationProgressManager
+            async for event_str in progress_mgr.subscribe(generation_id):
+                if event_str.startswith("data: "):
+                    try:
+                        prog_data = json.loads(event_str[6:])
+                        prog_data["source"] = gen.source
+                        prog_data["duration"] = gen.duration
+                        yield f"data: {json.dumps(prog_data)}\n\n"
+                        if prog_data.get("status") in ("completed", "failed"):
+                            return
+                    except Exception:
+                        yield event_str
+                else:
+                    yield event_str
 
-                await asyncio.sleep(1)
+            # Final DB check fallback in case subscription ended
+            db.expire_all()
+            gen_final = db.query(DBGeneration).filter_by(id=generation_id).first()
+            if gen_final:
+                payload = {
+                    "id": gen_final.id,
+                    "status": gen_final.status or "completed",
+                    "progress": 100.0 if (gen_final.status or "completed") == "completed" else 0.0,
+                    "duration": gen_final.duration,
+                    "error": gen_final.error,
+                    "source": gen_final.source,
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+
         except (BrokenPipeError, ConnectionResetError, asyncio.CancelledError):
             logger.debug("SSE client disconnected for generation %s", generation_id)
 

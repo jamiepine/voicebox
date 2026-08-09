@@ -9,6 +9,10 @@ import { usePlayerStore } from '@/stores/playerStore';
 interface GenerationStatusEvent {
   id: string;
   status: 'loading_model' | 'generating' | 'completed' | 'failed' | 'not_found';
+  progress?: number;
+  current_chunk?: number;
+  total_chunks?: number;
+  message?: string;
   duration?: number;
   error?: string;
   source?: string;
@@ -28,6 +32,7 @@ export function useGenerationProgress() {
   const { toast } = useToast();
   const pendingIds = useGenerationStore((s) => s.pendingGenerationIds);
   const removePendingGeneration = useGenerationStore((s) => s.removePendingGeneration);
+  const updateGenerationProgress = useGenerationStore((s) => s.updateGenerationProgress);
   const removePendingStoryAdd = useGenerationStore((s) => s.removePendingStoryAdd);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
   const setAudioWithAutoPlay = usePlayerStore((s) => s.setAudioWithAutoPlay);
@@ -76,6 +81,16 @@ export function useGenerationProgress() {
         try {
           const data: GenerationStatusEvent = JSON.parse(event.data);
 
+          if (data.progress !== undefined) {
+            updateGenerationProgress(id, {
+              progress: data.progress,
+              currentChunk: data.current_chunk,
+              totalChunks: data.total_chunks,
+              status: data.status,
+              message: data.message,
+            });
+          }
+
           if (data.status === 'completed') {
             source.close();
             currentSources.delete(id);
@@ -106,18 +121,9 @@ export function useGenerationProgress() {
                     variant: 'destructive',
                   });
                 });
-            } else {
-              // toast({
-              //   title: 'Generation complete!',
-              //   description: data.duration
-              //     ? `Audio generated (${data.duration.toFixed(2)}s)`
-              //     : 'Audio generated',
-              // });
             }
 
             // Auto-play if enabled and nothing is currently playing.
-            // Skip agent-initiated sources — the floating pill window
-            // plays those itself.
             const isAgentSpeak = data.source ? AGENT_SOURCES.has(data.source) : false;
             if (autoplayRef.current && !isPlayingRef.current && !isAgentSpeak) {
               const genAudioUrl = apiClient.getAudioUrl(id);
@@ -156,6 +162,7 @@ export function useGenerationProgress() {
   }, [
     pendingIds,
     removePendingGeneration,
+    updateGenerationProgress,
     removePendingStoryAdd,
     queryClient,
     toast,

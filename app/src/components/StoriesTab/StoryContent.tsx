@@ -388,7 +388,15 @@ export function StoryContent() {
                     </div>
                   </div>
                   <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {t('storyContent.generatingCount', { count: pendingCount })}
+                    {(() => {
+                      const activeId = Array.from(useGenerationStore.getState().pendingGenerationIds)[0];
+                      const prog = activeId ? useGenerationStore.getState().generationProgress.get(activeId) : undefined;
+                      if (prog?.progress !== undefined) {
+                        const chunkInfo = prog.currentChunk && prog.totalChunks ? ` (${prog.currentChunk}/${prog.totalChunks})` : '';
+                        return `Generating... ${Math.round(prog.progress)}%${chunkInfo}`;
+                      }
+                      return t('storyContent.generatingCount', { count: pendingCount });
+                    })()}
                   </span>
                 </Link>
               </motion.div>
