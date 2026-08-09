@@ -32,11 +32,12 @@ Ensure you have these installed:
     curl -fsSL https://bun.sh/install | bash
     ```
   </Card>
-  <Card title="Python 3.11+" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}>
+  <Card title="Python 3.12" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>}>
     [Download Python](https://python.org)
     ```bash
-    python --version
+    python3.12 --version  # Should be 3.12.x
     ```
+    Voicebox pins its venv to 3.12 to match CI, because some dependencies have no 3.13 release yet. On Debian/Ubuntu also install `python3.12-venv`.
   </Card>
   <Card title="Rust" icon={<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>}>
     [Install Rust](https://rustup.rs)
@@ -65,7 +66,7 @@ Run `just --list` to see all available commands. Highlights:
 
 | Command | Description |
 |---------|-------------|
-| `just setup` | Full setup (Python venv + JS deps + dev sidecar). Detects Apple Silicon for MLX and NVIDIA/Intel Arc on Windows for accelerated PyTorch. |
+| `just setup` | Full setup (Python venv + JS deps + dev sidecar). Pins the venv to Python 3.12 (recreating a wrong-version one) and detects Apple Silicon for MLX and NVIDIA/Intel Arc on Windows for accelerated PyTorch. |
 | `just setup-python` | Python venv + dependencies only |
 | `just setup-js` | `bun install` only |
 
@@ -214,8 +215,8 @@ This installs dependencies for:
 ```bash
 cd backend
 
-# Create virtual environment
-python -m venv venv
+# Create virtual environment (use Python 3.12 — see Prerequisites)
+python3.12 -m venv venv
 
 # Activate virtual environment
 source venv/bin/activate  # macOS/Linux
@@ -277,7 +278,7 @@ bun run tauri dev
 
 <AccordionGroup>
   <Accordion title="Backend won't start">
-    - Check Python version (must be 3.11+)
+    - Check Python version (must be 3.12)
     - Ensure virtual environment is activated: `source backend/venv/bin/activate`
     - Verify all dependencies are installed: `pip install -r requirements.txt`
     - Check if port 17493 is available

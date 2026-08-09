@@ -18,9 +18,11 @@ Thank you for your interest in contributing to Voicebox! This document provides 
   curl -fsSL https://bun.sh/install | bash
   ```
 
-- **[Python 3.11+](https://python.org)** - For backend development
+- **[Python 3.12](https://python.org)** - For backend development. Voicebox pins its
+  virtual environment to 3.12 to match CI, because some dependencies have no 3.13
+  release yet. On Debian/Ubuntu also install `python3.12-venv`.
   ```bash
-  python --version  # Should be 3.11 or higher
+  python3.12 --version  # Should be 3.12.x
   ```
 
 - **[Rust](https://rustup.rs)** - For Tauri desktop app (installed automatically by Tauri CLI)
@@ -44,7 +46,7 @@ just dev     # starts backend + desktop app
 ```
 
 `just setup` handles everything automatically, including:
-- Creating a Python virtual environment
+- Creating a Python virtual environment pinned to 3.12 (recreating it if an existing venv is on the wrong version)
 - Installing Python dependencies (with CUDA PyTorch on Windows if an NVIDIA GPU is detected)
 - Installing MLX dependencies on Apple Silicon
 - Installing JavaScript dependencies
@@ -67,7 +69,7 @@ just --list        # see all available commands
 
 #### Windows Notes
 
-The justfile works natively on Windows via PowerShell. No WSL or Git Bash required. On Windows with an NVIDIA GPU, `just setup` automatically installs CUDA-enabled PyTorch for GPU acceleration.
+The justfile works natively on Windows via PowerShell. No WSL or Git Bash required. On Windows with an NVIDIA GPU, `just setup` automatically installs CUDA-enabled PyTorch for GPU acceleration. Python 3.12 is located via the `py -3.12` launcher; install it with `winget install -e --id Python.Python.3.12` if it's missing.
 
 ### Model Downloads
 
@@ -363,7 +365,7 @@ See [docs/content/docs/overview/troubleshooting.mdx](docs/content/docs/overview/
 
 **Quick fixes:**
 
-- **Backend won't start:** Check Python version (3.11+), ensure venv is activated, install dependencies
+- **Backend won't start:** Check Python version (must be 3.12), ensure venv is activated, install dependencies
 - **Tauri build fails:** Ensure Rust is installed, clean build with `cd tauri/src-tauri && cargo clean`
 - **OpenAPI client generation fails:** Ensure backend is running, check `curl http://localhost:17493/openapi.json`
 

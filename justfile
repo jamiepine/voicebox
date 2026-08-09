@@ -17,8 +17,11 @@ pip := if os() == "windows" { venv_bin / "pip.exe" } else { venv_bin / "pip" }
 # Shell selection: use powershell on Windows, bash elsewhere
 set windows-shell := ["powershell", "-NoProfile", "-Command"]
 
-# Detect best python for venv creation (platform-aware)
-system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
+# Pin the venv to one version instead of following whatever `python3` happens to be;
+# a newer interpreter fails `pip install` with "no matching distribution". See
+# requires-python in backend/pyproject.toml for which dependencies set the ceiling.
+# Keep in sync with that and with actions/setup-python in .github/workflows.
+python_version := "3.12"
 
 # ─── Setup ────────────────────────────────────────────────────────────
 
@@ -32,14 +35,66 @@ setup: setup-python setup-js
 setup-python:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ ! -d "{{ venv }}" ]; then
-        echo "Creating Python virtual environment..."
-        PY_MINOR=$({{ system_python }} -c "import sys; print(sys.version_info[1])")
-        if [ "$PY_MINOR" -gt 13 ]; then
-            echo "Warning: Python 3.$PY_MINOR detected. ML packages may not be compatible."
-            echo "Recommended: brew install python@3.12"
+
+    is_pinned() {
+        "$1" -c 'import sys; sys.exit(sys.version_info[:2] != tuple(map(int, "{{ python_version }}".split("."))))' 2>/dev/null
+    }
+
+    # Testing for an executable file is not enough: console scripts hard-code the
+    # venv's absolute path in their shebang, so a venv that was built elsewhere and
+    # moved into place has a pip that exists, is executable, and still dies with
+    # "cannot execute: required file not found". Running it is the only real check.
+    pip_works() {
+        "{{ pip }}" --version >/dev/null 2>&1
+    }
+
+    # Every interpreter on PATH that could be the pinned version, plus uv's, which
+    # keeps its Pythons off PATH. More than one can match, and the first is not
+    # necessarily the good one.
+    candidates() {
+        type -aP "python{{ python_version }}" python3 python 2>/dev/null || true
+        if command -v uv >/dev/null 2>&1; then
+            uv python find "{{ python_version }}" 2>/dev/null || true
         fi
-        {{ system_python }} -m venv {{ venv }}
+    }
+
+    # Reuse the venv only if it is on the pinned version and has a working pip: a
+    # wrong-version venv resolves dependencies against the wrong Python, and a
+    # broken pip means an earlier `-m venv` was interrupted or the venv was moved.
+    if [ -d "{{ venv }}" ] && ! { is_pinned "{{ python }}" && pip_works; }; then
+        echo "Existing venv is not a working Python {{ python_version }} environment — recreating..."
+        rm -rf "{{ venv }}"
+    fi
+
+    if [ ! -d "{{ venv }}" ]; then
+        # Building the venv is itself the test, so there is no separate probe to keep
+        # in sync. An interpreter can report the right version and still fail inside
+        # `-m venv` — Debian packages ensurepip separately, and Homebrew has shipped a
+        # pyexpat that won't dlopen — so fall through to the next candidate rather
+        # than giving up on the first. Their output is held back until every candidate
+        # has failed, so a run that recovers doesn't look like a broken one.
+        log="$(mktemp)"
+        while IFS= read -r py; do
+            is_pinned "$py" || continue
+            echo "Creating Python virtual environment with $py ..."
+            "$py" -m venv "{{ venv }}" >>"$log" 2>&1 && pip_works && break
+            echo "  ...it reports {{ python_version }} but cannot build a working venv; trying the next."
+            rm -rf "{{ venv }}"
+        done < <(candidates | sed 's|//*|/|g' | awk '!seen[$0]++')
+        pip_works || cat "$log"
+        rm -f "$log"
+    fi
+
+    if ! pip_works; then
+        echo ""
+        echo "ERROR: Voicebox needs a Python {{ python_version }} that can create virtual"
+        echo "       environments (see requires-python in backend/pyproject.toml)."
+        echo "  Any:    uv python install {{ python_version }}"
+        echo "  macOS:  brew install python@{{ python_version }}"
+        echo "  Debian: sudo apt install python{{ python_version }} python{{ python_version }}-venv"
+        echo ""
+        echo "Then re-run: just setup"
+        exit 1
     fi
     echo "Installing Python dependencies..."
     {{ pip }} install --upgrade pip -q
@@ -85,13 +140,40 @@ setup-python:
 
 [windows]
 setup-python:
+    $target = "{{ python_version }}"; \
+    function Test-Py($exe) { \
+        if (-not $exe -or -not (Test-Path $exe)) { return $false }; \
+        $v = & $exe -c "import sys; print('%s.%s' % sys.version_info[:2])" 2>$null; \
+        return ($LASTEXITCODE -eq 0 -and $v -eq $target); \
+    }; \
+    function Test-Pip { \
+        if (-not (Test-Path "{{ pip }}")) { return $false }; \
+        & "{{ pip }}" --version *> $null; \
+        return ($LASTEXITCODE -eq 0); \
+    }; \
+    $py = $null; \
+    if (Get-Command py -ErrorAction SilentlyContinue) { \
+        $p = & py "-$target" -c "import sys; print(sys.executable)" 2>$null; \
+        if ($LASTEXITCODE -eq 0) { $py = $p }; \
+    }; \
+    if (-not $py) { foreach ($n in @("python$target", "python")) { \
+        $c = Get-Command $n -ErrorAction SilentlyContinue; \
+        if ($c -and (Test-Py $c.Source)) { $py = $c.Source; break }; \
+    } }; \
+    if (-not $py) { \
+        Write-Host "ERROR: Voicebox requires Python $target (see requires-python in backend/pyproject.toml)."; \
+        Write-Host "Install it from https://python.org or:  winget install -e --id Python.Python.$target"; \
+        Write-Host "Then re-run: just setup"; \
+        exit 1; \
+    }; \
+    if ((Test-Path "{{ venv }}") -and (-not (Test-Py "{{ python }}") -or -not (Test-Pip))) { \
+        Write-Host "Existing venv is not a working Python $target env - recreating..."; \
+        Remove-Item -Recurse -Force "{{ venv }}"; \
+    }; \
     if (-not (Test-Path "{{ venv }}")) { \
-        Write-Host "Creating Python virtual environment..."; \
-        $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
-        if ([int]$pyMinor -gt 13) { \
-            Write-Host "Warning: Python 3.$pyMinor detected. ML packages may not be compatible."; \
-        }; \
-        & {{ system_python }} -m venv {{ venv }}; \
+        Write-Host "Creating Python virtual environment with $py ..."; \
+        & $py -m venv "{{ venv }}"; \
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Pip)) { Write-Host "ERROR: could not create a working venv with $py"; exit 1 }; \
     }
     Write-Host "Installing Python dependencies..."
     & "{{ python }}" -m pip install --upgrade pip -q
