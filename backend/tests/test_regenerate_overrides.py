@@ -223,7 +223,16 @@ async def test_regenerate_still_accepts_no_body(client, db, profile, mock_tts):
     """Existing callers post nothing; that must keep working."""
     gen = await _make_generation(db, profile["id"])
     r = client.post(f"/generate/{gen.id}/regenerate")
-    assert r.status_code in (200, 400), r.text
+    # Must be 200, not "200 or 400": the generation is created completed, so a
+    # 400 here means the no-body path broke, which is exactly what this test
+    # exists to catch.
+    assert r.status_code == 200, r.text
+
+    # The route enqueues the work and returns, so the background task can
+    # outlive this test and its monkeypatched backend -- at which point it
+    # would reach for the real model. Cancel it; the response is what is under
+    # test here, and the generation path itself is covered above.
+    client.post(f"/generate/{gen.id}/cancel")
 
 
 def test_unknown_generation_404s(client):
