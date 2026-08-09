@@ -81,6 +81,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     gosu \
+    sox \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder stage
