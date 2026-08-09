@@ -287,7 +287,10 @@ class KokoroTTSBackend:
                 # Return 1 second of silence as fallback
                 return np.zeros(KOKORO_SAMPLE_RATE, dtype=np.float32), KOKORO_SAMPLE_RATE
 
-            audio = np.concatenate(audio_chunks)
-            return audio.astype(np.float32), KOKORO_SAMPLE_RATE
+            audio = np.concatenate(audio_chunks).astype(np.float32)
+            from ..utils.audio import trim_tts_output
+
+            audio = trim_tts_output(audio, sample_rate=KOKORO_SAMPLE_RATE)
+            return audio, KOKORO_SAMPLE_RATE
 
         return await asyncio.to_thread(_generate_sync)
