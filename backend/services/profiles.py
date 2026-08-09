@@ -4,10 +4,12 @@ import json as _json
 import logging
 import shutil
 import uuid
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import config
@@ -137,11 +139,22 @@ def validate_profile_engine(profile, engine: str) -> None:
         raise ValueError(f"Engine '{engine}' does not support cloned voice profiles")
 
 
+# How many "name (n)" variants to try before giving up. Only reached under
+# genuine contention -- a single caller finds a free name on the first miss.
+_NAME_ALLOCATION_ATTEMPTS = 50
+
+
 def get_unique_profile_name(name: str, db: Session) -> str:
     """Return ``name``, or the first free "name (n)" variant.
 
     ``profiles.name`` is UNIQUE, so anything that creates a profile from an
     existing one -- import, duplicate -- has to resolve collisions first.
+
+    This only *reads*, so it is a check-then-act: two concurrent callers can
+    both be handed the same name and the second insert then fails the unique
+    constraint. Prefer :func:`insert_profile_with_unique_name`, which settles
+    the name by inserting it. This remains for callers that need a candidate
+    name before they have a row to insert.
     """
     base_name = name
     counter = 1
@@ -153,6 +166,38 @@ def get_unique_profile_name(name: str, db: Session) -> str:
 
         name = f"{base_name} ({counter})"
         counter += 1
+
+
+def insert_profile_with_unique_name(
+    base_name: str,
+    db: Session,
+    build_row: Callable[[str], DBVoiceProfile],
+) -> DBVoiceProfile:
+    """Insert a profile under the first free variant of *base_name*.
+
+    The name is settled by the insert rather than by a preceding SELECT, so
+    concurrent callers cannot both take it -- the unique constraint arbitrates
+    and the loser retries with the next suffix instead of surfacing a 500.
+
+    ``build_row`` is called per attempt because a rolled-back commit expunges
+    the instance, so each try needs a fresh one.
+    """
+    name = base_name
+    for counter in range(1, _NAME_ALLOCATION_ATTEMPTS + 1):
+        row = build_row(name)
+        db.add(row)
+        try:
+            db.commit()
+            db.refresh(row)
+            return row
+        except IntegrityError:
+            db.rollback()
+            name = f"{base_name} ({counter})"
+
+    raise ValueError(
+        f"Could not find a free name for {base_name!r} after "
+        f"{_NAME_ALLOCATION_ATTEMPTS} attempts"
+    )
 
 
 async def create_profile(
@@ -763,25 +808,30 @@ async def duplicate_profile(
         raise ValueError(f"Profile {profile_id} not found")
 
     new_id = str(uuid.uuid4())
-    new_name = get_unique_profile_name(name.strip() if name else f"{source.name} (copy)", db)
+    base_name = name.strip() if name else f"{source.name} (copy)"
 
-    duplicate = DBVoiceProfile(
-        id=new_id,
-        name=new_name,
-        description=source.description,
-        language=source.language,
-        effects_chain=source.effects_chain,
-        voice_type=source.voice_type,
-        preset_engine=source.preset_engine,
-        preset_voice_id=source.preset_voice_id,
-        design_prompt=source.design_prompt,
-        default_engine=source.default_engine,
-        personality=source.personality,
-        folder_id=source.folder_id,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
-    )
-    db.add(duplicate)
+    def _build(candidate: str) -> DBVoiceProfile:
+        return DBVoiceProfile(
+            id=new_id,
+            name=candidate,
+            description=source.description,
+            language=source.language,
+            effects_chain=source.effects_chain,
+            voice_type=source.voice_type,
+            preset_engine=source.preset_engine,
+            preset_voice_id=source.preset_voice_id,
+            design_prompt=source.design_prompt,
+            default_engine=source.default_engine,
+            personality=source.personality,
+            folder_id=source.folder_id,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+
+    # Reserve the name by inserting it, before any file work. Retrying after
+    # the copies would mean undoing them; the directory is keyed by new_id, so
+    # a name retry does not affect it.
+    duplicate = insert_profile_with_unique_name(base_name, db, _build)
 
     new_dir = config.get_profiles_dir() / new_id
     new_dir.mkdir(parents=True, exist_ok=True)

@@ -292,3 +292,52 @@ def test_deleting_the_copy_leaves_the_originals_audio_intact(client, cloned_prof
     _delete(client, copy["id"])
 
     assert original_audio.exists()
+
+
+# ── Name allocation under contention (review finding on #1007) ───────
+
+
+def test_duplicate_names_are_settled_by_the_insert(client):
+    """`get_unique_profile_name` was a check-then-act: it SELECTed a free name
+    and a later INSERT took it, so two concurrent duplicates could both be
+    handed the same name and the loser hit the unique constraint as a 500.
+
+    Simulated here by pre-taking the name between allocation attempts, which is
+    what a racing request does."""
+    import uuid as _uuid
+
+    from backend.database import VoiceProfile as DBVoiceProfile, get_db
+    from backend.services.profiles import insert_profile_with_unique_name
+
+    db = next(get_db())
+    try:
+        base = f"Race Test {_uuid.uuid4().hex[:8]}"
+
+        # Something else already holds the base name.
+        db.add(DBVoiceProfile(id=str(_uuid.uuid4()), name=base, language="en"))
+        db.commit()
+
+        row = insert_profile_with_unique_name(
+            base,
+            db,
+            lambda candidate: DBVoiceProfile(
+                id=str(_uuid.uuid4()), name=candidate, language="en"
+            ),
+        )
+        assert row.name == f"{base} (1)", "should fall through to the next suffix"
+
+        # And again, so the counter keeps advancing rather than sticking.
+        row2 = insert_profile_with_unique_name(
+            base,
+            db,
+            lambda candidate: DBVoiceProfile(
+                id=str(_uuid.uuid4()), name=candidate, language="en"
+            ),
+        )
+        assert row2.name == f"{base} (2)"
+
+        for name in (base, f"{base} (1)", f"{base} (2)"):
+            db.query(DBVoiceProfile).filter_by(name=name).delete()
+        db.commit()
+    finally:
+        db.close()

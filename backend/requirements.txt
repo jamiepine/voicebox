@@ -55,7 +55,10 @@ unidic-lite>=1.0.8
 # Audio processing
 audioop-lts>=0.2.1; python_version >= "3.13"
 librosa>=0.10.0
-soundfile>=0.12.0
+# 0.13.0 is the first wheel bundling libsndfile 1.2.2, which is what makes
+# the MP3/Opus export formats work without ffmpeg. 0.12.x ships 1.1.0,
+# which cannot write either -- see EXPORT_FORMATS in utils/audio.py.
+soundfile>=0.13.0
 numpy>=1.24.0,<2.0
 numba>=0.60.0,<0.61.0
 pedalboard>=0.9.0

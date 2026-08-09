@@ -87,12 +87,22 @@ export function FolderSection({
           e.dataTransfer.dropEffect = 'move';
           setDragOver(true);
         }}
-        onDragLeave={() => setDragOver(false)}
+        onDragLeave={(e) => {
+          // Fires again every time the pointer crosses into a child — the
+          // toggle button, the count badge — which makes the highlight flicker
+          // for the whole drag. Only a leave of the header itself counts.
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          setDragOver(false);
+        }}
         onDrop={(e) => {
+          // Cancel first, decide second. onDragOver already accepted this
+          // element as a drop target, so returning early on an unwanted
+          // payload lets the browser default run — and in a webview a dropped
+          // file or URL then navigates the page away.
+          e.preventDefault();
           setDragOver(false);
           const payload = readFolderDragData(e);
           if (!payload || payload.kind !== 'voice') return;
-          e.preventDefault();
           onDropItem?.(payload.id);
         }}
         className={cn(
