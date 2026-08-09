@@ -646,6 +646,7 @@
     }
   },
   "history": {
+    "dragHandle": "フォルダーにドラッグ",
     "empty": "音声生成はまだありません…",
       "searchPlaceholder": "クリップを検索…",
       "emptySearch": "その検索に一致するクリップはありません。",

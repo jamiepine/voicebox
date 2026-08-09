@@ -102,6 +102,14 @@ export function HistoryTable() {
   const { data: clipFolders } = useFolders('generation');
   const setGenerationFolder = useSetGenerationFolder();
 
+  // Invalidating the query is not enough on its own: allHistory accumulates
+  // pages, and past page 0 the refreshed first page is appended rather than
+  // replacing it — so a clip moved out of the current folder stays visible.
+  // Dropping back to page 0 makes the next response replace the list.
+  const moveToFolder = (generationId: string, folderId: string | null) => {
+    setGenerationFolder.mutate({ generationId, folderId }, { onSuccess: () => setPage(0) });
+  };
+
   // Folder first, then text — the folder is a scope, the search runs inside it.
   // Debounced because every keystroke would otherwise be a request; the search
   // runs server-side so it covers every clip in scope, not just loaded pages.
@@ -487,9 +495,7 @@ export function HistoryTable() {
       <ClipFolderTree
         selection={folderSelection}
         onSelect={setFolderSelection}
-        onDropItem={(generationId, folderId) =>
-          setGenerationFolder.mutate({ generationId, folderId })
-        }
+        onDropItem={moveToFolder}
       />
 
       {/* Also outside the empty-state branch, for the same reason as the tree:
@@ -785,10 +791,7 @@ export function HistoryTable() {
                                 <DropdownMenuItem
                                   disabled={!gen.folder_id}
                                   onClick={() =>
-                                    setGenerationFolder.mutate({
-                                      generationId: gen.id,
-                                      folderId: null,
-                                    })
+                                    moveToFolder(gen.id, null)
                                   }
                                 >
                                   {t('folders.uncategorised')}
@@ -798,10 +801,7 @@ export function HistoryTable() {
                                     key={folder.id}
                                     disabled={folder.id === gen.folder_id}
                                     onClick={() =>
-                                      setGenerationFolder.mutate({
-                                        generationId: gen.id,
-                                        folderId: folder.id,
-                                      })
+                                      moveToFolder(gen.id, folder.id)
                                     }
                                   >
                                     {folder.name}

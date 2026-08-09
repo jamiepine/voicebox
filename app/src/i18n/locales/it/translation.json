@@ -646,6 +646,7 @@
     }
   },
   "history": {
+    "dragHandle": "Trascina in una cartella",
     "empty": "Ancora nessuna generazione vocale…",
       "searchPlaceholder": "Cerca clip…",
       "emptySearch": "Nessuna clip corrisponde a questa ricerca.",

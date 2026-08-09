@@ -646,6 +646,7 @@
     }
   },
   "history": {
+    "dragHandle": "拖曳到資料夾",
     "empty": "尚無語音生成…",
       "searchPlaceholder": "搜尋片段…",
       "emptySearch": "沒有符合該搜尋的片段。",
