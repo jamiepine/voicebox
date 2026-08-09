@@ -13,6 +13,7 @@ from sqlalchemy import or_
 from ..models import GenerationRequest, GenerationResponse, HistoryQuery, HistoryResponse, HistoryListResponse, GenerationVersionResponse, EffectConfig
 from ..database import Generation as DBGeneration, GenerationVersion as DBGenerationVersion, VoiceProfile as DBVoiceProfile
 from .. import config
+from .folders import folder_and_descendants
 
 
 def _get_versions_for_generation(generation_id: str, db: Session) -> tuple:
@@ -192,7 +193,18 @@ async def list_generations(
     if query.search:
         search_pattern = f"%{query.search}%"
         q = q.filter(DBGeneration.text.like(search_pattern))
-    
+
+    # Apply folder filter.  uncategorised_only is checked first because it
+    # is the one folder request a plain folder_id cannot express.
+    if query.uncategorised_only:
+        q = q.filter(DBGeneration.folder_id.is_(None))
+    elif query.folder_id:
+        if query.include_subfolders:
+            folder_ids = folder_and_descendants(query.folder_id, db)
+            q = q.filter(DBGeneration.folder_id.in_(folder_ids))
+        else:
+            q = q.filter(DBGeneration.folder_id == query.folder_id)
+
     # Get total count before pagination
     total_count = q.count()
     
@@ -224,6 +236,7 @@ async def list_generations(
             status=generation.status or "completed",
             error=generation.error,
             is_favorited=bool(generation.is_favorited),
+            folder_id=generation.folder_id,
             created_at=generation.created_at,
             versions=versions,
             active_version_id=active_version_id,

@@ -43,6 +43,7 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_folders(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
 
 
@@ -334,3 +335,24 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         if total_fixed > 0:
             conn.commit()
             logger.info("Normalized %d stored file paths", total_fixed)
+
+
+def _migrate_folders(engine, inspector, tables: set[str]) -> None:
+    """Add folder_id to profiles and generations.
+
+    The ``folders`` table itself is left to ``Base.metadata.create_all()``,
+    which runs straight after migrations and creates missing tables.  Only
+    the columns on pre-existing tables need adding by hand.
+
+    Declared without a REFERENCES clause, matching story_items.version_id:
+    SQLite cannot add a column with a foreign key to a table that does not
+    exist yet, and on a fresh database ``folders`` is created after this
+    runs.  The relationship is still declared on the ORM models.
+    """
+    if "profiles" in tables:
+        if "folder_id" not in _get_columns(inspector, "profiles"):
+            _add_column(engine, "profiles", "folder_id VARCHAR", "folder_id")
+
+    if "generations" in tables:
+        if "folder_id" not in _get_columns(inspector, "generations"):
+            _add_column(engine, "generations", "folder_id VARCHAR", "folder_id")

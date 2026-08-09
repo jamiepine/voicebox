@@ -9,7 +9,8 @@
     "loading": "Loading…",
     "error": "Error",
     "unknown": "Unknown",
-    "unknownError": "Unknown error"
+    "unknownError": "Unknown error",
+    "create": "Create"
   },
   "nav": {
     "generate": "Generate",
@@ -399,19 +400,66 @@
       "export": "Export profile",
       "edit": "Edit profile",
       "delete": "Delete profile",
+      "duplicate": "Duplicate profile",
       "selectLabel": "{{name}}, {{language}}. Select as voice for generation.",
       "selectLabelSelected": "{{name}}, {{language}}. Selected as voice for generation."
+    },
+    "row": {
+      "actions": "Actions for {{name}}",
+      "moveTo": "Move to folder",
+      "hasEffects": "Has an effects chain",
+      "hasPersonality": "Has a personality"
     },
     "list": {
       "errorLoading": "Error loading profiles: {{message}}",
       "empty": "No voice profiles yet. Create your first profile to get started.",
       "createVoice": "Create Voice",
-      "unsupportedNote": "Only supported voice profiles can be selected for the current model."
+      "unsupportedNote": "Only supported voice profiles can be selected for the current model.",
+      "showCards": "Show voices as cards",
+      "showList": "Show voices as a list"
+    },
+    "duplicate": {
+      "successTitle": "Voice duplicated",
+      "successDescription": "Created \"{{name}}\" with the same samples, personality and effects.",
+      "failedTitle": "Could not duplicate voice"
     },
     "deleteDialog": {
       "title": "Delete Profile",
       "body": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
       "deleting": "Deleting…"
+    }
+  },
+  "folders": {
+    "new": "New folder",
+    "none": "No folders yet",
+    "uncategorised": "Uncategorised",
+    "emptyFolder": "Empty",
+    "rename": "Rename",
+    "delete": "Delete folder",
+    "actions": "Actions for folder {{name}}",
+    "voice": {
+      "label": "Voice folders"
+    },
+    "clip": {
+      "label": "Clip folders",
+      "newSubfolder": "New subfolder",
+      "moveTo": "Move to folder",
+      "moveToRoot": "Move to top level",
+      "filterTitle": "Folders",
+      "allClips": "All clips",
+      "emptyFilter": "No clips in this folder yet."
+    },
+    "newDialog": {
+      "title": "New folder",
+      "placeholder": "Folder name"
+    },
+    "renameDialog": {
+      "title": "Rename folder"
+    },
+    "deleteDialog": {
+      "title": "Delete folder",
+      "body": "Delete \"{{name}}\"? Everything inside it is kept — items move to Uncategorised and any subfolders move up one level.",
+      "confirm": "Delete folder"
     }
   },
   "effects": {

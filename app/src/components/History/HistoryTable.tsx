@@ -4,6 +4,7 @@ import {
   AudioLines,
   Download,
   FileArchive,
+  FolderInput,
   Loader2,
   MoreHorizontal,
   Play,
@@ -18,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { AudioBars } from '@/components/AudioBars';
 import { EffectsChainEditor } from '@/components/Effects/EffectsChainEditor';
+import { type ClipFolderSelection, ClipFolderTree } from '@/components/History/ClipFolderTree';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,6 +33,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -45,6 +52,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { EffectConfig, GenerationVersionResponse, HistoryResponse } from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
+import { useFolders, useSetGenerationFolder } from '@/lib/hooks/useFolders';
 import {
   useClearFailedGenerations,
   useDeleteGeneration,
@@ -86,6 +94,18 @@ export function HistoryTable() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [folderSelection, setFolderSelection] = useState<ClipFolderSelection>({ kind: 'all' });
+  const { data: clipFolders } = useFolders('generation');
+  const setGenerationFolder = useSetGenerationFolder();
+
+  // Invalidating the query is not enough on its own: allHistory accumulates
+  // pages, and past page 0 the refreshed first page is appended rather than
+  // replacing it — so a clip moved out of the current folder stays visible.
+  // Dropping back to page 0 makes the next response replace the list.
+  const moveToFolder = (generationId: string, folderId: string | null) => {
+    setGenerationFolder.mutate({ generationId, folderId }, { onSuccess: () => setPage(0) });
+  };
+
   const {
     data: historyData,
     isLoading,
@@ -93,6 +113,8 @@ export function HistoryTable() {
   } = useHistory({
     limit,
     offset: page * limit,
+    folder_id: folderSelection.kind === 'folder' ? folderSelection.folderId : undefined,
+    uncategorised_only: folderSelection.kind === 'uncategorised' || undefined,
   });
 
   const deleteGeneration = useDeleteGeneration();
@@ -143,6 +165,15 @@ export function HistoryTable() {
       }
     }
   }, [historyData, page]);
+
+  // Changing the folder filter changes what page 0 even means, so the
+  // accumulated pages have to be dropped — otherwise clips from the previous
+  // filter stay on screen underneath the new results.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: folderSelection is the trigger, not a value the effect reads
+  useEffect(() => {
+    setPage(0);
+    setAllHistory([]);
+  }, [folderSelection]);
 
   // Reset to page 0 when deletions, imports, or generation completions occur
   const pendingCount = useGenerationStore((state) => state.pendingGenerationIds.size);
@@ -430,9 +461,13 @@ export function HistoryTable() {
 
   return (
     <div className="flex flex-col h-full min-h-0 relative">
+      {/* Rendered outside the empty-state branch below: filtering to an empty
+          folder must not remove the only control that can clear the filter. */}
+      <ClipFolderTree selection={folderSelection} onSelect={setFolderSelection} />
+
       {history.length === 0 ? (
         <div className="text-center py-12 px-5 border-2 border-dashed mb-5 border-muted rounded-md text-muted-foreground flex-1 flex items-center justify-center">
-          {t('history.empty')}
+          {folderSelection.kind === 'all' ? t('history.empty') : t('folders.clip.emptyFilter')}
         </div>
       ) : (
         <>
@@ -678,6 +713,39 @@ export function HistoryTable() {
                               <RotateCcw className="mr-2 h-4 w-4" />
                               {t('history.actions.regenerate')}
                             </DropdownMenuItem>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                <FolderInput className="mr-2 h-4 w-4" />
+                                {t('folders.clip.moveTo')}
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                                <DropdownMenuLabel>{t('folders.clip.label')}</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={!gen.folder_id}
+                                  onClick={() =>
+                                    moveToFolder(gen.id, null)
+                                  }
+                                >
+                                  {t('folders.uncategorised')}
+                                </DropdownMenuItem>
+                                {(clipFolders ?? []).map((folder) => (
+                                  <DropdownMenuItem
+                                    key={folder.id}
+                                    disabled={folder.id === gen.folder_id}
+                                    onClick={() =>
+                                      moveToFolder(gen.id, folder.id)
+                                    }
+                                  >
+                                    {folder.name}
+                                  </DropdownMenuItem>
+                                ))}
+                                {(clipFolders ?? []).length === 0 && (
+                                  <DropdownMenuItem disabled>{t('folders.none')}</DropdownMenuItem>
+                                )}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleDeleteClick(gen.id, gen.profile_name)}
                               disabled={deleteGeneration.isPending}

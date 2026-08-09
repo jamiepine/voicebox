@@ -2,7 +2,8 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+from typing_extensions import Annotated
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,6 +11,71 @@ from .utils.capture_chords import (
     default_push_to_talk_chord,
     default_toggle_to_talk_chord,
 )
+
+
+FOLDER_KIND_PATTERN = "^(voice|generation)$"
+
+# Names arrive from text inputs, so a value of "   " passes a raw
+# min_length check and then stores as an empty label once stripped.
+# Strip first, then length-check the result.
+TrimmedName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
+
+
+class FolderCreate(BaseModel):
+    """Request model for creating a folder."""
+
+    name: TrimmedName
+    kind: str = Field(default="voice", pattern=FOLDER_KIND_PATTERN)
+    # Only meaningful for kind="generation"; voice folders are flat and the
+    # route rejects a non-null parent for them.
+    parent_id: Optional[str] = None
+
+
+class FolderUpdate(BaseModel):
+    """Request model for renaming or reparenting a folder.
+
+    Every field is optional so a rename doesn't have to restate the parent.
+    ``parent_id`` therefore can't distinguish "unset" from "move to root" —
+    use the dedicated move endpoint to detach a folder to the root.
+    """
+
+    name: Optional[TrimmedName] = None
+    parent_id: Optional[str] = None
+    position: Optional[int] = Field(None, ge=0)
+
+
+class FolderResponse(BaseModel):
+    """Response model for a folder."""
+
+    id: str
+    name: str
+    kind: str
+    parent_id: Optional[str] = None
+    position: int = 0
+    # Direct members only — a parent folder does not count its children's items.
+    item_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FolderAssign(BaseModel):
+    """Request model for moving an item into a folder (null = uncategorised)."""
+
+    folder_id: Optional[str] = None
+
+
+class ProfileDuplicateRequest(BaseModel):
+    """Optional overrides when duplicating a profile.
+
+    Omit entirely to accept the default "<name> (copy)" name.
+    """
+
+    name: Optional[TrimmedName] = None
 
 
 class VoiceProfileCreate(BaseModel):
@@ -26,6 +92,7 @@ class VoiceProfileCreate(BaseModel):
     design_prompt: Optional[str] = Field(None, max_length=2000)
     default_engine: Optional[str] = Field(None, max_length=50)
     personality: Optional[str] = Field(None, max_length=2000)
+    folder_id: Optional[str] = None
 
 
 class VoiceProfileResponse(BaseModel):
@@ -43,6 +110,7 @@ class VoiceProfileResponse(BaseModel):
     design_prompt: Optional[str] = None
     default_engine: Optional[str] = None
     personality: Optional[str] = None
+    folder_id: Optional[str] = None
     generation_count: int = 0
     sample_count: int = 0
     created_at: datetime
@@ -119,6 +187,7 @@ class GenerationResponse(BaseModel):
     error: Optional[str] = None
     is_favorited: bool = False
     source: str = "manual"
+    folder_id: Optional[str] = None
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
@@ -132,6 +201,14 @@ class HistoryQuery(BaseModel):
 
     profile_id: Optional[str] = None
     search: Optional[str] = None
+    # Folder filter.  A plain absent/None folder_id means "no filter, show
+    # everything"; selecting the Uncategorised bucket is a distinct request
+    # that a nullable field can't express, hence the explicit flag below.
+    folder_id: Optional[str] = None
+    uncategorised_only: bool = False
+    # Whether folder_id also matches clips in that folder's descendants.
+    # Clip folders nest, so a parent should be able to show the whole subtree.
+    include_subfolders: bool = True
     limit: int = Field(default=50, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
 
@@ -153,6 +230,7 @@ class HistoryResponse(BaseModel):
     status: str = "completed"
     error: Optional[str] = None
     is_favorited: bool = False
+    folder_id: Optional[str] = None
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None

@@ -55,6 +55,25 @@ export function useDeleteProfile() {
   });
 }
 
+/**
+ * Copy a voice in one step. Unlike export-then-import this keeps the
+ * personality, effects chain, default engine and preset fields, and works
+ * for voices with no samples.
+ */
+export function useDuplicateProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ profileId, name }: { profileId: string; name?: string }) =>
+      apiClient.duplicateProfile(profileId, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      // The copy lands in the source's folder, changing that folder's count.
+      queryClient.invalidateQueries({ queryKey: ['folders', 'voice'] });
+    },
+  });
+}
+
 export function useProfileSamples(profileId: string) {
   return useQuery({
     queryKey: ['profiles', profileId, 'samples'],
