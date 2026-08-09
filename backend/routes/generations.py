@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, tts
+from ..services import history, personality, profiles, pronunciation, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
@@ -363,9 +363,15 @@ async def stream_speech(
 
         runaway_detector = has_tts_runaway
 
+    # Same respelling the persisted path does, so a streamed preview matches
+    # what /generate would produce.
+    stream_text, _applied = pronunciation.apply_pronunciations(
+        data.text, data.language, db, profile_id=data.profile_id
+    )
+
     audio, sample_rate = await generate_chunked(
         tts_model,
-        data.text,
+        stream_text,
         voice_prompt,
         language=data.language,
         seed=data.seed,
