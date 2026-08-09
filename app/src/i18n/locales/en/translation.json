@@ -416,7 +416,8 @@
       "errorLoading": "Error loading profiles: {{message}}",
       "empty": "No voice profiles yet. Create your first profile to get started.",
       "createVoice": "Create Voice",
-      "unsupportedNote": "Only supported voice profiles can be selected for the current model."
+      "unsupportedNote": "Only supported voice profiles can be selected for the current model.",
+      "noVoicesMatch": "No profiles match \"{{query}}\""
     },
     "deleteDialog": {
       "title": "Delete Profile",

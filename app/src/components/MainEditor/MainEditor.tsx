@@ -118,6 +118,7 @@ export function MainEditor() {
               <button
                 type="button"
                 onClick={() => setSearch('')}
+                aria-label={t('main.clearSearch')}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors z-10"
               >
                 <X className="h-3.5 w-3.5" />

@@ -118,7 +118,7 @@ export function ProfileList({ search = '', onClearSearch }: ProfileListProps) {
               <Search className="h-10 w-10 text-muted-foreground mb-3 opacity-50" />
               <p className="font-medium text-sm mb-1">{t('main.noVoicesFound')}</p>
               <p className="text-xs text-muted-foreground mb-4">
-                No profiles match "{search}"
+                {t('profiles.list.noVoicesMatch', { query: search })}
               </p>
               {onClearSearch && (
                 <Button variant="outline" size="sm" onClick={onClearSearch}>
