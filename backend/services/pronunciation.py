@@ -16,7 +16,7 @@ rewriting history, and the History tab never shows a reader ``ban-DEH-ha``.
 import logging
 import re
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from ..database import PronunciationEntry
@@ -146,10 +146,12 @@ def apply_pronunciations(
 
     result = pattern.sub(substitute, text)
     if applied:
-        logger.info(
-            "Pronunciation dictionary rewrote %d term(s): %s",
-            len(applied),
-            ", ".join(f"{a['term']}->{a['replacement']}" for a in applied[:5]),
+        # Terms are user-supplied and are often names, so the values stay at
+        # DEBUG; INFO carries only how many were rewritten.
+        logger.info("Pronunciation dictionary rewrote %d term(s)", len(applied))
+        logger.debug(
+            "Pronunciation substitutions: %s",
+            ", ".join(f"{a['term']}->{a['replacement']}" for a in applied),
         )
     return result, applied
 
@@ -163,11 +165,17 @@ def find_duplicate(
 ) -> PronunciationEntry | None:
     """An existing entry for the same term in the same scope.
 
-    Enforced here rather than as a unique constraint because SQL treats NULLs
-    as distinct, so a constraint would happily accept two global entries for
-    the same term — exactly the case worth catching.
+    An early check so the caller can return a useful 409 naming the existing
+    entry. The database enforces the same rule via ``uq_pronunciation_scope``,
+    which is what actually holds under concurrent creates.
+
+    Compares ``lower(term)`` rather than ``ilike``: a term is a literal, and
+    ``ilike`` would read ``%`` and ``_`` in it as wildcards, so ``band_ja``
+    would collide with ``bandeja``. Trimmed first, because the route stores the
+    trimmed value and an untrimmed lookup would miss its own duplicate.
     """
-    q = db.query(PronunciationEntry).filter(PronunciationEntry.term.ilike(term))
+    normalized = term.strip().lower()
+    q = db.query(PronunciationEntry).filter(func.lower(PronunciationEntry.term) == normalized)
     q = (
         q.filter(PronunciationEntry.language.is_(None))
         if language is None

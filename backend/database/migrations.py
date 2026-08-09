@@ -43,7 +43,57 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_pronunciation_entries(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
+
+
+def _migrate_pronunciation_entries(engine, inspector, tables: set[str]) -> None:
+    """Add the scope-uniqueness index to an existing pronunciation_entries table.
+
+    ``create_all`` builds the index with the table, so a fresh install needs
+    nothing here. A database created by an earlier build of this feature has the
+    table but not the index, and ``create_all`` will not add one to a table that
+    already exists.
+
+    Duplicates that predate the index would make CREATE UNIQUE INDEX fail, so
+    they are collapsed first, keeping the oldest row in each scope.
+
+    ``IF NOT EXISTS`` rather than relying on the inspector check alone: the
+    inspector reflects a snapshot, and a migration that raises takes startup
+    down with it. The check stays as the fast path that skips the dedup scan.
+    """
+    if "pronunciation_entries" not in tables:
+        return
+    existing = {ix["name"] for ix in inspector.get_indexes("pronunciation_entries")}
+    if "uq_pronunciation_scope" in existing:
+        return
+
+    with engine.connect() as conn:
+        removed = conn.execute(
+            text(
+                """
+                DELETE FROM pronunciation_entries WHERE id NOT IN (
+                    SELECT MIN(id) FROM pronunciation_entries
+                    GROUP BY lower(term), COALESCE(language, ''), COALESCE(profile_id, '')
+                )
+                """
+            )
+        ).rowcount
+        conn.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_pronunciation_scope
+                ON pronunciation_entries (
+                    lower(term), COALESCE(language, ''), COALESCE(profile_id, '')
+                )
+                """
+            )
+        )
+        conn.commit()
+
+    if removed:
+        logger.info("Collapsed %d duplicate pronunciation entries before indexing", removed)
+    logger.info("Added uq_pronunciation_scope index to pronunciation_entries")
 
 
 # -- helpers ---------------------------------------------------------------

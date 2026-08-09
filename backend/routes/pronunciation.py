@@ -3,6 +3,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -12,6 +13,28 @@ from ..services import pronunciation
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+_SCOPE_TAKEN = (
+    "That scope already has an entry for this term. Update the existing entry instead."
+)
+
+
+def _commit_or_conflict(db: Session) -> None:
+    """Commit, turning a scope collision into a 409.
+
+    ``find_duplicate`` runs first and gives a friendlier message naming the
+    existing row, but it is a check-then-act pair: two concurrent creates can
+    both pass it. ``uq_pronunciation_scope`` is what actually holds, so its
+    violation has to surface as a conflict rather than a 500.
+    """
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if "uq_pronunciation_scope" in str(exc.orig):
+            raise HTTPException(status_code=409, detail=_SCOPE_TAKEN) from exc
+        raise
 
 
 def _validate_profile(profile_id: str | None, db: Session) -> None:
@@ -64,15 +87,15 @@ async def create_pronunciation(
         )
 
     entry = PronunciationEntry(
-        term=data.term.strip(),
-        replacement=data.replacement.strip(),
+        term=data.term,
+        replacement=data.replacement,
         language=data.language,
         profile_id=data.profile_id,
         enabled=data.enabled,
         notes=data.notes,
     )
     db.add(entry)
-    db.commit()
+    _commit_or_conflict(db)
     db.refresh(entry)
     return entry
 
@@ -108,9 +131,9 @@ async def update_pronunciation(
             )
 
     for key, value in fields.items():
-        setattr(entry, key, value.strip() if key in {"term", "replacement"} and value else value)
+        setattr(entry, key, value)
 
-    db.commit()
+    _commit_or_conflict(db)
     db.refresh(entry)
     return entry
 
@@ -137,6 +160,7 @@ async def preview_pronunciations(
     stored, so without this there is no way to see what a rule actually does
     short of listening to the output.
     """
+    _validate_profile(data.profile_id, db)
     result, applied = pronunciation.apply_pronunciations(
         data.text, data.language, db, profile_id=data.profile_id
     )
