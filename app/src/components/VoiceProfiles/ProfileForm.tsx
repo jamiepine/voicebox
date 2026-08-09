@@ -360,6 +360,10 @@ export function ProfileForm() {
         avatarFile: undefined,
       });
       setSampleMode(profileFormDraft.sampleMode);
+      // Reopen in the mode the draft was written in, otherwise a designed
+      // draft comes back as a clone with its description dropped.
+      setVoiceSource(profileFormDraft.voiceSource ?? 'clone');
+      setDesignPrompt(profileFormDraft.designPrompt ?? '');
       // Restore the file if we have it saved
       if (
         profileFormDraft.sampleFileData &&
@@ -810,7 +814,11 @@ export function ProfileForm() {
       // Save draft when closing the create modal
       const values = form.getValues();
       const hasContent =
-        values.name || values.description || values.referenceText || values.sampleFile;
+        values.name ||
+        values.description ||
+        values.referenceText ||
+        values.sampleFile ||
+        designPrompt.trim();
 
       if (hasContent) {
         const draft: ProfileFormDraft = {
@@ -820,6 +828,8 @@ export function ProfileForm() {
           personality: values.personality || '',
           referenceText: values.referenceText || '',
           sampleMode,
+          voiceSource,
+          designPrompt,
         };
 
         // Save file as base64 if present

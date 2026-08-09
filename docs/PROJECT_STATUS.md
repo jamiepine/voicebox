@@ -687,7 +687,7 @@ The generation form now uses a flat model dropdown with engine-based routing. Pe
 
 ### 7. Engine Sprawl — NEW
 
-Seven TTS engines shipped, more candidates queued. Issue #419 asks for a first-class vs experimental distinction. Related: issue #420 asks for formalized platform support tiers. Combined, these would let us ship more engines more confidently with clearer expectations for users.
+Eight TTS engines shipped, more candidates queued. Issue #419 asks for a first-class vs experimental distinction. Related: issue #420 asks for formalized platform support tiers. Combined, these would let us ship more engines more confidently with clearer expectations for users.
 
 ---
 

@@ -371,7 +371,7 @@ Full API documentation available at `http://127.0.0.1:17493/docs`.
 | Frontend      | React, TypeScript, Tailwind CSS                                                 |
 | State         | Zustand, React Query                                                            |
 | Backend       | FastAPI (Python)                                                                |
-| TTS Engines   | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
+| TTS Engines   | Qwen3-TTS, Qwen CustomVoice, Qwen VoiceDesign, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
 | STT           | Whisper / Whisper Turbo (PyTorch or MLX)                                        |
 | Local LLM     | Qwen3 (0.6B / 1.7B / 4B), shared runtime with TTS / STT                         |
 | MCP Server    | FastMCP mounted at `/mcp` (Streamable HTTP) + bundled stdio shim binary         |
