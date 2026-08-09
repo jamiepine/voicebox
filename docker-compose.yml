@@ -28,6 +28,7 @@ services:
     environment:
       - LOG_LEVEL=info
       - NUMBA_CACHE_DIR=/tmp/numba_cache
+      - NUMBA_DISABLE_JIT=1
 
     networks:
       - voicebox-net
