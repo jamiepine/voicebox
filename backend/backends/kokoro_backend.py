@@ -276,12 +276,13 @@ class KokoroTTSBackend:
 
             # Generate all chunks and concatenate
             audio_chunks = []
-            for result in pipeline(text, voice=voice_name, speed=1.0):
-                if result.audio is not None:
-                    chunk = result.audio
-                    if isinstance(chunk, torch.Tensor):
-                        chunk = chunk.detach().cpu().numpy()
-                    audio_chunks.append(chunk.squeeze())
+            with torch.inference_mode():
+                for result in pipeline(text, voice=voice_name, speed=1.0):
+                    if result.audio is not None:
+                        chunk = result.audio
+                        if isinstance(chunk, torch.Tensor):
+                            chunk = chunk.detach().cpu().numpy()
+                        audio_chunks.append(chunk.squeeze())
 
             if not audio_chunks:
                 # Return 1 second of silence as fallback

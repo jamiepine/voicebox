@@ -167,18 +167,21 @@ class LuxTTSBackend:
             if seed is not None:
                 manual_seed(seed, self.device)
 
-            wav = self.model.generate_speech(
-                text=text,
-                encode_dict=voice_prompt,
-                num_steps=4,
-                guidance_scale=3.0,
-                t_shift=0.5,
-                speed=1.0,
-                return_smooth=False,  # 48kHz output
-            )
+            import torch
 
-            # LuxTTS returns a tensor (may be on GPU/MPS), move to CPU first
-            audio = wav.detach().cpu().numpy().squeeze()
+            with torch.inference_mode():
+                wav = self.model.generate_speech(
+                    text=text,
+                    encode_dict=voice_prompt,
+                    num_steps=4,
+                    guidance_scale=3.0,
+                    t_shift=0.5,
+                    speed=1.0,
+                    return_smooth=False,  # 48kHz output
+                )
+
+                # LuxTTS returns a tensor (may be on GPU/MPS), move to CPU first
+                audio = wav.detach().cpu().numpy().squeeze()
             return audio, 48000
 
         return await asyncio.to_thread(_generate_sync)

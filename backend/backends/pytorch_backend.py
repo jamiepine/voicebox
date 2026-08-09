@@ -231,12 +231,13 @@ class PyTorchTTSBackend:
 
             # See _create_prompt_sync comment — inference runs with the
             # process's default HF_HUB_OFFLINE state (issue #462).
-            wavs, sample_rate = self.model.generate_voice_clone(
-                text=text,
-                voice_clone_prompt=voice_prompt,
-                language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
-                instruct=instruct,
-            )
+            with torch.inference_mode():
+                wavs, sample_rate = self.model.generate_voice_clone(
+                    text=text,
+                    voice_clone_prompt=voice_prompt,
+                    language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
+                    instruct=instruct,
+                )
             return wavs[0], sample_rate
 
         # Run blocking inference in thread pool to avoid blocking event loop

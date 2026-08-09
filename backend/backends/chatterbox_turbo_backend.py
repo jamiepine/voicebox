@@ -184,20 +184,21 @@ class ChatterboxTurboTTSBackend:
 
             logger.info("[Chatterbox Turbo] Generating (English)")
 
-            wav = self.model.generate(
-                text,
-                audio_prompt_path=ref_audio,
-                temperature=0.8,
-                top_k=1000,
-                top_p=0.95,
-                repetition_penalty=1.2,
-            )
+            with torch.inference_mode():
+                wav = self.model.generate(
+                    text,
+                    audio_prompt_path=ref_audio,
+                    temperature=0.8,
+                    top_k=1000,
+                    top_p=0.95,
+                    repetition_penalty=1.2,
+                )
 
-            # Convert tensor -> numpy
-            if isinstance(wav, torch.Tensor):
-                audio = wav.squeeze().cpu().numpy().astype(np.float32)
-            else:
-                audio = np.asarray(wav, dtype=np.float32)
+                # Convert tensor -> numpy
+                if isinstance(wav, torch.Tensor):
+                    audio = wav.squeeze().cpu().numpy().astype(np.float32)
+                else:
+                    audio = np.asarray(wav, dtype=np.float32)
 
             sample_rate = getattr(self.model, "sr", None) or getattr(self.model, "sample_rate", 24000)
 
