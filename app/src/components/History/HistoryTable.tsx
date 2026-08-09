@@ -459,7 +459,7 @@ export function HistoryTable() {
           <div
             ref={scrollRef}
             className={cn(
-              'flex-1 min-h-0 overflow-y-auto space-y-2 pb-4',
+              'flex-1 min-h-0 overflow-y-auto hover-scrollbar space-y-2 pb-4',
               isPlayerVisible && BOTTOM_SAFE_AREA_PADDING,
             )}
           >
