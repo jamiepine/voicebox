@@ -14,35 +14,40 @@ for dev in /dev/kfd /dev/dri/render*; do
 done
 # Docker creates the HF volume mountpoint's parent (~/.cache) as root on every
 # container create, and a fresh volume is root-owned too — without this the app
-# user can't write any cache (torch, spacy) outside the HF mount.
-mkdir -p /home/voicebox/.cache/huggingface
-chown voicebox:voicebox /home/voicebox/.cache /home/voicebox/.cache/huggingface
+# user can't write any cache (torch, spacy) outside the HF mount. Tolerate a
+# read-only or root-squashed cache mount: the app only warns about that.
+mkdir -p /home/voicebox/.cache/huggingface 2>/dev/null || true
+chown voicebox:voicebox /home/voicebox/.cache /home/voicebox/.cache/huggingface 2>/dev/null || true
 
 # Ensure the app data directories are writable by the non-root user.
-# /app/data/generations is normally a host bind-mount, so never chown/chmod it:
-# adopt the uid/gid that owns it instead, the same way we adopt the GPU groups
-# above. The rest of /app/data lives in the image or a named volume and is ours
-# to fix, so it gets chowned to match (dirs only, no -R on user content).
-gen=/app/data/generations
-mkdir -p "$gen"
-gen_uid=$(stat -c %u "$gen")
-gen_gid=$(stat -c %g "$gen")
-if [ "$gen_uid" = 0 ]; then
-    # Docker created it for us; nothing on the host cares who owns it.
-    chown voicebox:voicebox "$gen"
-elif [ "$gen_uid" != "$(id -u voicebox)" ]; then
-    getent group "$gen_gid" >/dev/null || groupadd -g "$gen_gid" hostdata
-    usermod -u "$gen_uid" -g "$gen_gid" voicebox
+# /app/data or /app/data/generations may be a host bind-mount, so never
+# chown/chmod a host-owned one: adopt the uid/gid that owns it instead, the
+# same way we adopt the GPU groups above (generated files then land on the
+# host owned by the host user). Root-owned dirs were created by Docker or the
+# image and are ours to fix, so they get chowned (dirs only, no -R on content).
+data=/app/data
+gen=$data/generations
+host_uid=$(stat -c %u "$data")
+host_gid=$(stat -c %g "$data")
+if [ "$host_uid" = 0 ] || [ "$host_uid" = "$(id -u voicebox)" ]; then
+    mkdir -p "$gen"
+    host_uid=$(stat -c %u "$gen")
+    host_gid=$(stat -c %g "$gen")
+fi
+if [ "$host_uid" != 0 ] && [ "$host_uid" != "$(id -u voicebox)" ]; then
+    old_uid=$(id -u voicebox)
+    getent group "$host_gid" >/dev/null || groupadd -g "$host_gid" hostdata
+    usermod -u "$host_uid" -g "$host_gid" voicebox
     # Re-own what the old uid owned inside the image / named volume.
-    find /app/data -path "$gen" -prune -o -exec chown "$gen_uid:$gen_gid" {} +
+    find "$data" -uid "$old_uid" -exec chown "$host_uid:$host_gid" {} +
 fi
 
-for dir in /app/data/cache /app/data/profiles "$gen"; do
-    mkdir -p "$dir"
-    [ "$dir" = "$gen" ] || chown voicebox:voicebox "$dir"
+for dir in "$data" "$data/cache" "$data/profiles" "$gen"; do
+    mkdir -p "$dir" 2>/dev/null || true
+    [ "$(stat -c %u "$dir")" = 0 ] && chown voicebox:voicebox "$dir" 2>/dev/null || true
     gosu voicebox test -w "$dir" || {
         echo "error: $dir is not writable by the voicebox user (uid $(id -u voicebox))" >&2
-        [ "$dir" = "$gen" ] && echo "hint: make the host dir mounted there writable by that uid" >&2
+        echo "hint: make the host dir mounted there writable by that uid" >&2
         exit 1
     }
 done
