@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import config
 from ..database import Generation as DBGeneration, ProfileSample as DBProfileSample, VoiceProfile as DBVoiceProfile
+from ..database.models import Folder as DBFolder
 from ..models import (
     EffectConfig,
     ProfileSampleResponse,
@@ -190,6 +191,16 @@ async def create_profile(
     )
     if validation_error:
         raise ValueError(validation_error)
+
+    # The folder-assignment endpoint enforces that a voice only lands in a
+    # voice folder; creation has to enforce the same contract, or a client can
+    # file a new profile straight into a clip folder and bypass it.
+    if data.folder_id is not None:
+        folder = db.query(DBFolder).filter_by(id=data.folder_id).first()
+        if folder is None:
+            raise ValueError(f"Folder not found: {data.folder_id}")
+        if folder.kind != "voice":
+            raise ValueError("Target folder does not hold voices")
 
     db_profile = DBVoiceProfile(
         id=str(uuid.uuid4()),

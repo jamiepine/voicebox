@@ -2,7 +2,8 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+from typing_extensions import Annotated
 from typing import Optional, List
 from datetime import datetime
 
@@ -14,11 +15,18 @@ from .utils.capture_chords import (
 
 FOLDER_KIND_PATTERN = "^(voice|generation|story)$"
 
+# Names arrive from text inputs, so a value of "   " passes a raw
+# min_length check and then stores as an empty label once stripped.
+# Strip first, then length-check the result.
+TrimmedName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
+
 
 class FolderCreate(BaseModel):
     """Request model for creating a folder."""
 
-    name: str = Field(..., min_length=1, max_length=100)
+    name: TrimmedName
     kind: str = Field(default="voice", pattern=FOLDER_KIND_PATTERN)
     # Only meaningful for kind="generation"; voice folders are flat and the
     # route rejects a non-null parent for them.
@@ -33,7 +41,7 @@ class FolderUpdate(BaseModel):
     use the dedicated move endpoint to detach a folder to the root.
     """
 
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    name: Optional[TrimmedName] = None
     parent_id: Optional[str] = None
     position: Optional[int] = Field(None, ge=0)
 
@@ -67,7 +75,7 @@ class ProfileDuplicateRequest(BaseModel):
     Omit entirely to accept the default "<name> (copy)" name.
     """
 
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    name: Optional[TrimmedName] = None
 
 
 class VoiceProfileCreate(BaseModel):
