@@ -203,21 +203,22 @@ class ChatterboxTTSBackend:
 
             logger.info(f"[Chatterbox] Generating: lang={language}")
 
-            wav = self.model.generate(
-                text,
-                language_id=language,
-                audio_prompt_path=ref_audio,
-                exaggeration=lang_defaults["exaggeration"],
-                cfg_weight=lang_defaults["cfg_weight"],
-                temperature=lang_defaults["temperature"],
-                repetition_penalty=lang_defaults["repetition_penalty"],
-            )
+            with torch.inference_mode():
+                wav = self.model.generate(
+                    text,
+                    language_id=language,
+                    audio_prompt_path=ref_audio,
+                    exaggeration=lang_defaults["exaggeration"],
+                    cfg_weight=lang_defaults["cfg_weight"],
+                    temperature=lang_defaults["temperature"],
+                    repetition_penalty=lang_defaults["repetition_penalty"],
+                )
 
-            # Convert tensor -> numpy
-            if isinstance(wav, torch.Tensor):
-                audio = wav.squeeze().cpu().numpy().astype(np.float32)
-            else:
-                audio = np.asarray(wav, dtype=np.float32)
+                # Convert tensor -> numpy
+                if isinstance(wav, torch.Tensor):
+                    audio = wav.squeeze().cpu().numpy().astype(np.float32)
+                else:
+                    audio = np.asarray(wav, dtype=np.float32)
 
             sample_rate = getattr(self.model, "sr", None) or getattr(self.model, "sample_rate", 24000)
 
