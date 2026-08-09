@@ -369,6 +369,7 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             engine="kokoro",
             hf_repo_id="hexgrad/Kokoro-82M",
             size_mb=350,
+            needs_trim=True,
             languages=["en", "es", "fr", "hi", "it", "pt", "ja", "zh"],
         ),
     ]
