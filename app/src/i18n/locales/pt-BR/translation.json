@@ -243,12 +243,20 @@
     "discard": "Descartar",
     "source": {
       "clone": "Clonar de áudio",
-      "builtin": "Voz integrada"
+      "builtin": "Voz integrada",
+      "design": "Descrever uma voz"
     },
     "builtin": {
       "hint": "Escolha uma voz pré-construída. Estas não precisam de uma amostra de áudio.",
       "badge": "Voz Integrada",
       "note": "Este perfil usa uma voz integrada. A voz não pode ser alterada após a criação."
+    },
+    "design": {
+      "hint": "Descreva a voz que você quer em linguagem natural. Não é preciso amostra de áudio.",
+      "placeholder": "Um homem mais velho de voz quente e rouca, com sotaque escocês pausado e um toque de humor.",
+      "engineNote": "Usa Qwen VoiceDesign",
+      "badge": "Voz projetada",
+      "note": "Este perfil usa uma voz descrita. A descrição não pode ser alterada após a criação."
     },
     "sampleTabs": {
       "upload": "Enviar",
@@ -264,6 +272,7 @@
       "descriptionPlaceholder": "Descreva esta voz…",
       "language": "Idioma",
       "referenceText": "Texto de Referência",
+      "designPrompt": "Descrição da voz",
       "referenceTextPlaceholder": "Digite o texto exato falado no áudio…",
       "defaultEngine": "Motor Padrão",
       "noPreference": "Sem preferência",
@@ -316,8 +325,11 @@
       "voiceUpdatedDescription": "\"{{name}}\" foi atualizada com sucesso.",
       "noVoiceSelected": "Nenhuma voz selecionada",
       "noVoiceSelectedDescription": "Selecione uma voz integrada.",
+      "noDesignPrompt": "Nenhuma descrição informada",
+      "noDesignPromptDescription": "Descreva a voz que você quer.",
       "profileCreated": "Perfil criado",
       "profileCreatedBuiltin": "\"{{name}}\" foi criado com uma voz integrada.",
+      "profileCreatedDesigned": "\"{{name}}\" foi criado a partir de uma descrição de voz.",
       "profileCreatedSample": "\"{{name}}\" foi criado com uma amostra.",
       "sampleRequired": "Amostra de áudio obrigatória",
       "sampleRequiredDescription": "Forneça uma amostra de áudio para criar o perfil de voz.",

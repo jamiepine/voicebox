@@ -243,12 +243,20 @@
     "discard": "Discard",
     "source": {
       "clone": "Clone from audio",
-      "builtin": "Built-in voice"
+      "builtin": "Built-in voice",
+      "design": "Describe a voice"
     },
     "builtin": {
       "hint": "Choose a pre-built voice. These don't require an audio sample.",
       "badge": "Built-in Voice",
       "note": "This profile uses a built-in voice. The voice cannot be changed after creation."
+    },
+    "design": {
+      "hint": "Describe the voice you want in plain language. No audio sample needed.",
+      "placeholder": "A warm, gravelly older man with a slow Scottish lilt and a hint of amusement.",
+      "engineNote": "Uses Qwen VoiceDesign",
+      "badge": "Designed Voice",
+      "note": "This profile uses a described voice. The description cannot be changed after creation."
     },
     "sampleTabs": {
       "upload": "Upload",
@@ -264,6 +272,7 @@
       "descriptionPlaceholder": "Describe this voice…",
       "language": "Language",
       "referenceText": "Reference Text",
+      "designPrompt": "Voice Description",
       "referenceTextPlaceholder": "Enter the exact text spoken in the audio…",
       "defaultEngine": "Default Engine",
       "noPreference": "No preference",
@@ -316,8 +325,11 @@
       "voiceUpdatedDescription": "\"{{name}}\" has been updated successfully.",
       "noVoiceSelected": "No voice selected",
       "noVoiceSelectedDescription": "Please select a built-in voice.",
+      "noDesignPrompt": "No description given",
+      "noDesignPromptDescription": "Please describe the voice you want.",
       "profileCreated": "Profile created",
       "profileCreatedBuiltin": "\"{{name}}\" has been created with a built-in voice.",
+      "profileCreatedDesigned": "\"{{name}}\" has been created from a voice description.",
       "profileCreatedSample": "\"{{name}}\" has been created with a sample.",
       "sampleRequired": "Audio sample required",
       "sampleRequiredDescription": "Please provide an audio sample to create the voice profile.",

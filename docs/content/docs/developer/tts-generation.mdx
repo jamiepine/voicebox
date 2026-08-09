@@ -5,7 +5,7 @@ description: "How text-to-speech generation works across Voicebox's multi-engine
 
 ## Overview
 
-Voicebox ships seven TTS engines — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, TADA, and Kokoro — behind a single `TTSBackend` Protocol. All of them expose the same async interface so the routes and services don't need per-engine branching.
+Voicebox ships eight TTS engines — Qwen3-TTS, Qwen CustomVoice, Qwen VoiceDesign, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, TADA, and Kokoro — behind a single `TTSBackend` Protocol. All of them expose the same async interface so the routes and services don't need per-engine branching.
 
 This page covers how generation flows through that abstraction. For the step-by-step guide to adding a new engine, see [TTS Engines](/developer/tts-engines).
 

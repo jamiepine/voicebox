@@ -211,6 +211,7 @@ _llm_backends_lock = threading.Lock()
 TTS_ENGINES = {
     "qwen": "Qwen TTS",
     "qwen_custom_voice": "Qwen CustomVoice",
+    "qwen_voice_design": "Qwen VoiceDesign",
     "luxtts": "LuxTTS",
     "chatterbox": "Chatterbox TTS",
     "chatterbox_turbo": "Chatterbox Turbo",
@@ -283,6 +284,25 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             hf_repo_id="Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
             model_size="0.6B",
             size_mb=1200,
+            supports_instruct=True,
+            languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
+        ),
+    ]
+
+
+def _get_qwen_voice_design_configs() -> list[ModelConfig]:
+    """Return Qwen VoiceDesign model configs.
+
+    Upstream ships a single 1.7B checkpoint — there is no 0.6B VoiceDesign.
+    """
+    return [
+        ModelConfig(
+            model_name="qwen-voice-design-1.7B",
+            display_name="Qwen VoiceDesign 1.7B",
+            engine="qwen_voice_design",
+            hf_repo_id="Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+            model_size="1.7B",
+            size_mb=3500,
             supports_instruct=True,
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
@@ -471,6 +491,7 @@ def get_all_model_configs() -> list[ModelConfig]:
     return (
         _get_qwen_model_configs()
         + _get_qwen_custom_voice_configs()
+        + _get_qwen_voice_design_configs()
         + _get_non_qwen_tts_configs()
         + _get_whisper_configs()
         + _get_qwen_llm_configs()
@@ -479,7 +500,12 @@ def get_all_model_configs() -> list[ModelConfig]:
 
 def get_tts_model_configs() -> list[ModelConfig]:
     """Return only TTS model configs."""
-    return _get_qwen_model_configs() + _get_qwen_custom_voice_configs() + _get_non_qwen_tts_configs()
+    return (
+        _get_qwen_model_configs()
+        + _get_qwen_custom_voice_configs()
+        + _get_qwen_voice_design_configs()
+        + _get_non_qwen_tts_configs()
+    )
 
 
 def get_llm_model_configs() -> list[ModelConfig]:
@@ -723,6 +749,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 
             backend = QwenCustomVoiceBackend()
+        elif engine == "qwen_voice_design":
+            from .qwen_voice_design_backend import QwenVoiceDesignBackend
+
+            backend = QwenVoiceDesignBackend()
         else:
             raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
 

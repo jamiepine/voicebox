@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery } from '@tanstack/react-query';
-import { Edit2, Mic, Monitor, Music, Upload, X } from 'lucide-react';
+import { Edit2, Mic, Monitor, Music, Sparkles, Upload, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -61,10 +61,15 @@ import { AudioSampleUpload } from './AudioSampleUpload';
 import { SampleList } from './SampleList';
 
 const MAX_AUDIO_DURATION_SECONDS = 30;
-const PRESET_ONLY_ENGINES = new Set(['kokoro', 'qwen_custom_voice']);
+const MAX_DESIGN_PROMPT_LENGTH = 500;
+/** Engines that can't be a default for a sample-based (cloned) profile. */
+const PRESET_ONLY_ENGINES = new Set(['kokoro', 'qwen_custom_voice', 'qwen_voice_design']);
+/** The engine a designed profile is created against. */
+const DESIGN_ENGINE = 'qwen_voice_design';
 const DEFAULT_ENGINE_OPTIONS = [
   { value: 'qwen', label: 'Qwen3-TTS' },
   { value: 'qwen_custom_voice', label: 'Qwen CustomVoice' },
+  { value: 'qwen_voice_design', label: 'Qwen VoiceDesign' },
   { value: 'luxtts', label: 'LuxTTS' },
   { value: 'chatterbox', label: 'Chatterbox' },
   { value: 'chatterbox_turbo', label: 'Chatterbox Turbo' },
@@ -147,7 +152,8 @@ export function ProfileForm() {
   const deleteAvatar = useDeleteAvatar();
   const transcribe = useTranscription();
   const { toast } = useToast();
-  const [voiceSource, setVoiceSource] = useState<'clone' | 'builtin'>('clone');
+  const [voiceSource, setVoiceSource] = useState<'clone' | 'builtin' | 'design'>('clone');
+  const [designPrompt, setDesignPrompt] = useState<string>('');
   const [sampleMode, setSampleMode] = useState<'upload' | 'record' | 'system'>('record');
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
   const [isValidatingAudio, setIsValidatingAudio] = useState(false);
@@ -288,7 +294,7 @@ export function ProfileForm() {
   const presetVoices = presetVoicesData?.voices ?? [];
   const isSampleBasedProfile = isCreating
     ? voiceSource === 'clone'
-    : editingProfile?.voice_type !== 'preset';
+    : editingProfile?.voice_type !== 'preset' && editingProfile?.voice_type !== 'designed';
   const availableDefaultEngines = DEFAULT_ENGINE_OPTIONS.filter(
     (option) => !isSampleBasedProfile || !PRESET_ONLY_ENGINES.has(option.value),
   );
@@ -354,6 +360,10 @@ export function ProfileForm() {
         avatarFile: undefined,
       });
       setSampleMode(profileFormDraft.sampleMode);
+      // Reopen in the mode the draft was written in, otherwise a designed
+      // draft comes back as a clone with its description dropped.
+      setVoiceSource(profileFormDraft.voiceSource ?? 'clone');
+      setDesignPrompt(profileFormDraft.designPrompt ?? '');
       // Restore the file if we have it saved
       if (
         profileFormDraft.sampleFileData &&
@@ -591,6 +601,51 @@ export function ProfileForm() {
           title: t('profileForm.toast.profileCreated'),
           description: t('profileForm.toast.profileCreatedBuiltin', { name: data.name }),
         });
+      } else if (voiceSource === 'design') {
+        // Creating a designed profile from a written voice description
+        const trimmedDesign = designPrompt.trim();
+        if (!trimmedDesign) {
+          toast({
+            title: t('profileForm.toast.noDesignPrompt'),
+            description: t('profileForm.toast.noDesignPromptDescription'),
+            variant: 'destructive',
+          });
+          return;
+        }
+
+        const profile = await createProfile.mutateAsync({
+          name: data.name,
+          description: data.description,
+          language: data.language,
+          voice_type: 'designed' as VoiceType,
+          design_prompt: trimmedDesign,
+          default_engine: DESIGN_ENGINE,
+          personality: data.personality?.trim() ? data.personality.trim() : undefined,
+        });
+
+        // Handle avatar upload if provided
+        if (data.avatarFile) {
+          try {
+            await uploadAvatar.mutateAsync({
+              profileId: profile.id,
+              file: data.avatarFile,
+            });
+          } catch (avatarError) {
+            toast({
+              title: t('profileForm.toast.avatarUploadFailed'),
+              description:
+                avatarError instanceof Error
+                  ? avatarError.message
+                  : t('profileForm.toast.avatarUploadFailedFallback'),
+              variant: 'destructive',
+            });
+          }
+        }
+
+        toast({
+          title: t('profileForm.toast.profileCreated'),
+          description: t('profileForm.toast.profileCreatedDesigned', { name: data.name }),
+        });
       } else {
         // Creating cloned profile: require sample file and reference text
         const sampleFile = form.getValues('sampleFile');
@@ -742,6 +797,7 @@ export function ProfileForm() {
       // Clear draft and reset form on success
       setProfileFormDraft(null);
       form.reset();
+      setDesignPrompt('');
       setEditingProfileId(null);
       setOpen(false);
     } catch (error) {
@@ -758,7 +814,11 @@ export function ProfileForm() {
       // Save draft when closing the create modal
       const values = form.getValues();
       const hasContent =
-        values.name || values.description || values.referenceText || values.sampleFile;
+        values.name ||
+        values.description ||
+        values.referenceText ||
+        values.sampleFile ||
+        designPrompt.trim();
 
       if (hasContent) {
         const draft: ProfileFormDraft = {
@@ -768,6 +828,8 @@ export function ProfileForm() {
           personality: values.personality || '',
           referenceText: values.referenceText || '',
           sampleMode,
+          voiceSource,
+          designPrompt,
         };
 
         // Save file as base64 if present
@@ -834,6 +896,7 @@ export function ProfileForm() {
                       avatarFile: undefined,
                     });
                     setSampleMode('record');
+                    setDesignPrompt('');
                   }}
                 >
                   <X className="h-3 w-3 mr-1" />
@@ -877,10 +940,48 @@ export function ProfileForm() {
                             <Music className="h-3.5 w-3.5" />
                             {t('profileForm.source.builtin')}
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setVoiceSource('design')}
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-md transition-colors ${
+                              voiceSource === 'design'
+                                ? 'bg-accent text-accent-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                            }`}
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            {t('profileForm.source.design')}
+                          </button>
                         </div>
                       </div>
 
-                      {voiceSource === 'builtin' ? (
+                      {voiceSource === 'design' ? (
+                        <div className="space-y-4">
+                          <FormDescription>{t('profileForm.design.hint')}</FormDescription>
+
+                          <FormItem>
+                            <FormLabel>{t('profileForm.fields.designPrompt')}</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                value={designPrompt}
+                                onChange={(e) => setDesignPrompt(e.target.value)}
+                                placeholder={t('profileForm.design.placeholder')}
+                                maxLength={MAX_DESIGN_PROMPT_LENGTH}
+                                rows={6}
+                                className="resize-none"
+                              />
+                            </FormControl>
+                            <div className="flex justify-between">
+                              <p className="text-xs text-muted-foreground">
+                                {t('profileForm.design.engineNote')}
+                              </p>
+                              <p className="text-xs text-muted-foreground tabular-nums">
+                                {designPrompt.length}/{MAX_DESIGN_PROMPT_LENGTH}
+                              </p>
+                            </div>
+                          </FormItem>
+                        </div>
+                      ) : voiceSource === 'builtin' ? (
                         <div className="space-y-4">
                           <FormDescription>{t('profileForm.builtin.hint')}</FormDescription>
 
@@ -1101,6 +1202,23 @@ export function ProfileForm() {
                           {t('profileForm.builtin.note')}
                         </p>
                       </div>
+                    ) : editingProfile.voice_type === 'designed' ? (
+                      <div className="space-y-4 pt-4">
+                        <div className="rounded-lg border border-border p-4 space-y-3">
+                          <div className="text-sm font-medium text-muted-foreground">
+                            {t('profileForm.design.badge')}
+                          </div>
+                          <p className="text-sm leading-relaxed">
+                            {editingProfile.design_prompt}
+                          </p>
+                          <Badge variant="secondary" className="text-xs">
+                            {editingProfile.default_engine}
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {t('profileForm.design.note')}
+                        </p>
+                      </div>
                     ) : (
                       <div>
                         <SampleList profileId={editingProfileId} />
@@ -1248,7 +1366,10 @@ export function ProfileForm() {
                         setDefaultEngine(v === '_none' ? '' : v);
                       }}
                       disabled={
-                        voiceSource === 'builtin' || editingProfile?.voice_type === 'preset'
+                        voiceSource === 'builtin' ||
+                        voiceSource === 'design' ||
+                        editingProfile?.voice_type === 'preset' ||
+                        editingProfile?.voice_type === 'designed'
                       }
                     >
                       <FormControl>

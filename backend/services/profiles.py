@@ -26,6 +26,11 @@ logger = logging.getLogger(__name__)
 
 CLONING_ENGINES = {"qwen", "luxtts", "chatterbox", "chatterbox_turbo", "tada"}
 
+# Engines that synthesise a voice from a natural-language description
+# (voice_type "designed") rather than from samples or a preset id.
+DEFAULT_DESIGN_ENGINE = "qwen_voice_design"
+DESIGN_ENGINES = {DEFAULT_DESIGN_ENGINE}
+
 
 def _profile_to_response(
     profile: DBVoiceProfile,
@@ -100,6 +105,8 @@ def _validate_profile_fields(
             return "Designed profiles require a design_prompt"
         if preset_engine or preset_voice_id:
             return "Designed profiles cannot set preset_engine or preset_voice_id"
+        if default_engine and default_engine not in DESIGN_ENGINES:
+            return f"Designed profiles cannot use default engine '{default_engine}'"
         return None
 
     if preset_engine or preset_voice_id:
@@ -129,6 +136,8 @@ def validate_profile_engine(profile, engine: str) -> None:
         design_prompt = getattr(profile, "design_prompt", None)
         if not design_prompt or not design_prompt.strip():
             raise ValueError(f"Designed profile {profile.id} is missing design_prompt")
+        if engine not in DESIGN_ENGINES:
+            raise ValueError(f"Engine '{engine}' does not support designed voice profiles")
         return
 
     if engine not in CLONING_ENGINES:
@@ -156,11 +165,15 @@ async def create_profile(
     if existing_profile:
         raise ValueError(f"A profile with the name '{data.name}' already exists. Please choose a different name.")
 
-    # Auto-set default_engine for preset profiles
+    # Auto-set default_engine for preset and designed profiles
     default_engine = data.default_engine
     voice_type = data.voice_type or "cloned"
     if voice_type == "preset" and data.preset_engine and not default_engine:
         default_engine = data.preset_engine
+    elif voice_type == "designed" and not default_engine:
+        # Pick the design engine so the profile is usable straight after
+        # creation without the client having to know the engine name.
+        default_engine = DEFAULT_DESIGN_ENGINE
 
     validation_error = _validate_profile_fields(
         voice_type=voice_type,
@@ -524,7 +537,7 @@ async def create_voice_prompt_for_profile(
 
     For cloned profiles: combines all audio samples into a voice prompt.
     For preset profiles: returns the engine-specific preset voice reference.
-    For designed profiles: returns the text design prompt (future).
+    For designed profiles: returns the text design prompt.
 
     Args:
         profile_id: Profile ID
@@ -558,7 +571,7 @@ async def create_voice_prompt_for_profile(
             "preset_voice_id": profile.preset_voice_id,
         }
 
-    # ── Designed profiles: return text description (future) ──
+    # ── Designed profiles: return text description ──
     if voice_type == "designed":
         if not profile.design_prompt or not profile.design_prompt.strip():
             raise ValueError(f"Designed profile {profile_id} is missing design_prompt")

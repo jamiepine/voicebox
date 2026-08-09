@@ -22,6 +22,10 @@ export interface ProfileFormDraft {
   personality: string;
   referenceText: string;
   sampleMode: 'upload' | 'record' | 'system';
+  /** Which creation mode was open, so a restored draft reopens as itself. */
+  voiceSource?: 'clone' | 'builtin' | 'design';
+  /** Voice description for a designed profile. */
+  designPrompt?: string;
   // Note: File objects can't be persisted, so we store metadata
   sampleFileName?: string;
   sampleFileType?: string;

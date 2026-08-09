@@ -47,7 +47,7 @@ class MatrixRow:
     label: str            # human-readable (appears in report)
     engine: str           # /generate engine
     model_size: Optional[str]  # /generate model_size (None = omit)
-    profile_kind: str     # "cloned" | "preset_kokoro" | "preset_qwen_cv"
+    profile_kind: str     # "cloned" | "preset_kokoro" | "preset_qwen_cv" | "designed"
     model_name: str       # /models/status key for cache lookup
 
 
@@ -56,6 +56,7 @@ MATRIX: list[MatrixRow] = [
     MatrixRow("qwen 0.6B",              "qwen",              "0.6B", "cloned",          "qwen-tts-0.6B"),
     MatrixRow("qwen_custom_voice 1.7B", "qwen_custom_voice", "1.7B", "preset_qwen_cv",  "qwen-custom-voice-1.7B"),
     MatrixRow("qwen_custom_voice 0.6B", "qwen_custom_voice", "0.6B", "preset_qwen_cv",  "qwen-custom-voice-0.6B"),
+    MatrixRow("qwen_voice_design 1.7B", "qwen_voice_design", None,   "designed",        "qwen-voice-design-1.7B"),
     MatrixRow("luxtts",                 "luxtts",            None,   "cloned",          "luxtts"),
     MatrixRow("chatterbox",             "chatterbox",        None,   "cloned",          "chatterbox-tts"),
     MatrixRow("chatterbox_turbo",       "chatterbox_turbo",  None,   "cloned",          "chatterbox-turbo"),
@@ -266,6 +267,17 @@ def create_preset_profile(client: httpx.Client, base_url: str, name: str, engine
         "language": "en",
         "preset_engine": engine,
         "preset_voice_id": voice_id,
+    })
+    r.raise_for_status()
+    return r.json()["id"]
+
+
+def create_designed_profile(client: httpx.Client, base_url: str, name: str, design_prompt: str) -> str:
+    r = client.post(f"{base_url}/profiles", json={
+        "name": name,
+        "voice_type": "designed",
+        "language": "en",
+        "design_prompt": design_prompt,
     })
     r.raise_for_status()
     return r.json()["id"]
@@ -539,6 +551,7 @@ def main() -> int:
             cloned_profile_id: Optional[str] = None
             kokoro_profile_id: Optional[str] = None
             qwen_cv_profile_id: Optional[str] = None
+            designed_profile_id: Optional[str] = None
             needed_kinds = {r.profile_kind for r in rows}
             if "cloned" in needed_kinds:
                 assert ref_wav is not None and ref_text is not None
@@ -550,11 +563,20 @@ def main() -> int:
             if "preset_qwen_cv" in needed_kinds:
                 print("[profile] creating qwen_custom_voice preset...", flush=True)
                 qwen_cv_profile_id = create_preset_profile(client, base_url, "e2e-qwen-cv", "qwen_custom_voice", "Ryan")
+            if "designed" in needed_kinds:
+                print("[profile] creating designed profile...", flush=True)
+                designed_profile_id = create_designed_profile(
+                    client,
+                    base_url,
+                    "e2e-designed",
+                    "A calm, warm middle-aged woman with a measured, unhurried delivery.",
+                )
 
             profile_lookup = {
                 "cloned": cloned_profile_id,
                 "preset_kokoro": kokoro_profile_id,
                 "preset_qwen_cv": qwen_cv_profile_id,
+                "designed": designed_profile_id,
             }
 
             # Matrix loop

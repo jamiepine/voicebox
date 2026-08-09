@@ -83,7 +83,7 @@ export default function Home() {
 						className="fade-in mx-auto mt-6 max-w-2xl text-lg text-muted-foreground md:text-xl"
 						style={{animationDelay: "200ms"}}
 					>
-						Clone voices, generate speech across seven TTS engines, dictate into
+						Clone voices, generate speech across eight TTS engines, dictate into
 						any app, and talk to agents in voices you own. A free and local alternative
 						to ElevenLabs and WisprFlow, running{" "}
 						<b className="text-white">entirely on your machine.</b>

@@ -243,12 +243,20 @@
     "discard": "Annuler",
     "source": {
       "clone": "Cloner à partir de l'audio",
-      "builtin": "Voix intégrée"
+      "builtin": "Voix intégrée",
+      "design": "Décrire une voix"
     },
     "builtin": {
       "hint": "Choisissez une voix pré-construite. Ces voix ne nécessitent pas d'échantillon audio.",
       "badge": "Voix intégrée",
       "note": "Ce profil utilise une voix intégrée. La voix ne peut pas être modifiée après la création."
+    },
+    "design": {
+      "hint": "Décrivez la voix souhaitée en langage courant. Aucun échantillon audio requis.",
+      "placeholder": "Un homme âgé à la voix chaude et rocailleuse, avec un accent écossais lent et une pointe d'amusement.",
+      "engineNote": "Utilise Qwen VoiceDesign",
+      "badge": "Voix conçue",
+      "note": "Ce profil utilise une voix décrite. La description ne peut pas être modifiée après la création."
     },
     "sampleTabs": {
       "upload": "Importer",
@@ -264,6 +272,7 @@
       "descriptionPlaceholder": "Décrivez cette voix…",
       "language": "Langue",
       "referenceText": "Texte de référence",
+      "designPrompt": "Description de la voix",
       "referenceTextPlaceholder": "Saisissez le texte exact prononcé dans l'audio…",
       "defaultEngine": "Moteur par défaut",
       "noPreference": "Aucune préférence",
@@ -316,8 +325,11 @@
       "voiceUpdatedDescription": "\"{{name}}\" a été mis à jour avec succès.",
       "noVoiceSelected": "Aucune voix sélectionnée",
       "noVoiceSelectedDescription": "Veuillez sélectionner une voix intégrée.",
+      "noDesignPrompt": "Aucune description fournie",
+      "noDesignPromptDescription": "Veuillez décrire la voix souhaitée.",
       "profileCreated": "Profil créé",
       "profileCreatedBuiltin": "\"{{name}}\" a été créé avec une voix intégrée.",
+      "profileCreatedDesigned": "\"{{name}}\" a été créé à partir d'une description de voix.",
       "profileCreatedSample": "\"{{name}}\" a été créé avec un échantillon.",
       "sampleRequired": "Échantillon audio requis",
       "sampleRequiredDescription": "Veuillez fournir un échantillon audio pour créer le profil vocal.",

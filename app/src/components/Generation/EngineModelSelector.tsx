@@ -21,6 +21,7 @@ const ENGINE_OPTIONS = [
   { value: 'qwen:0.6B', label: 'Qwen3-TTS 0.6B', engine: 'qwen' },
   { value: 'qwen_custom_voice:1.7B', label: 'Qwen CustomVoice 1.7B', engine: 'qwen_custom_voice' },
   { value: 'qwen_custom_voice:0.6B', label: 'Qwen CustomVoice 0.6B', engine: 'qwen_custom_voice' },
+  { value: 'qwen_voice_design', label: 'Qwen VoiceDesign 1.7B', engine: 'qwen_voice_design' },
   { value: 'luxtts', label: 'LuxTTS', engine: 'luxtts' },
   { value: 'chatterbox', label: 'Chatterbox', engine: 'chatterbox' },
   { value: 'chatterbox_turbo', label: 'Chatterbox Turbo', engine: 'chatterbox_turbo' },
@@ -32,6 +33,7 @@ const ENGINE_OPTIONS = [
 const ENGINE_DESCRIPTIONS: Record<string, string> = {
   qwen: 'Multi-language, two sizes',
   qwen_custom_voice: '9 preset voices, instruct control',
+  qwen_voice_design: 'Voices described in plain language',
   luxtts: 'Fast, English-focused',
   chatterbox: '23 languages, incl. Hebrew',
   chatterbox_turbo: 'English, [laugh] [cough] tags',
@@ -44,6 +46,19 @@ const ENGLISH_ONLY_ENGINES = new Set(['luxtts', 'chatterbox_turbo']);
 
 /** Engines that support cloned (reference audio) profiles. */
 const CLONING_ENGINES = new Set(['qwen', 'luxtts', 'chatterbox', 'chatterbox_turbo', 'tada']);
+
+/** Engines that synthesise a voice from a written description. */
+export const DESIGN_ENGINES = new Set(['qwen_voice_design']);
+
+/**
+ * Engines that actually honor the instruct kwarg at model level. Base
+ * Qwen3-TTS accepts it but ignores it, so it is deliberately absent.
+ */
+const INSTRUCT_ENGINES = new Set(['qwen_custom_voice', 'qwen_voice_design']);
+
+export function engineSupportsInstruct(engine?: string): boolean {
+  return !!engine && INSTRUCT_ENGINES.has(engine);
+}
 
 function getAvailableOptions(selectedProfile?: VoiceProfileResponse | null) {
   if (!selectedProfile) return ENGINE_OPTIONS;
@@ -166,5 +181,6 @@ export function isProfileCompatibleWithEngine(
   const voiceType = profile.voice_type || 'cloned';
   if (voiceType === 'preset') return profile.preset_engine === engine;
   if (voiceType === 'cloned') return CLONING_ENGINES.has(engine);
-  return true; // designed — future
+  if (voiceType === 'designed') return DESIGN_ENGINES.has(engine);
+  return true;
 }
