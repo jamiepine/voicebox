@@ -74,6 +74,14 @@ FROM python:3.11-slim
 RUN groupadd -r voicebox && \
     useradd -r -g voicebox -m -s /bin/bash voicebox
 
+# Create HuggingFace cache directory for the named volume
+RUN mkdir -p /home/voicebox/.cache/huggingface \
+    && chown -R voicebox:voicebox /home/voicebox/.cache/huggingface
+
+# Create voice generations directory for the named volume
+RUN mkdir -p /app/data/generations \
+    && chown -R voicebox:voicebox /app/data/generations
+
 WORKDIR /app
 
 # Install only runtime system dependencies (gosu drops root in the entrypoint)
