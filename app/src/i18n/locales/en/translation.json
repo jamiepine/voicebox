@@ -173,6 +173,16 @@
     "avatarAlt": "{{name}} avatar",
     "selectChannels": "Select channels…",
     "channelDefaultLabel": "{{name}} (Default)",
+    "filterType": "Filter Type",
+    "filterLanguage": "Filter Language",
+    "allTypes": "All Types",
+    "allLanguages": "All Languages",
+    "typeCloned": "Cloned",
+    "typePreset": "Preset",
+    "typeDesigned": "Designed",
+    "noVoicesFound": "No voices match your search or active filters",
+    "noVoicesFoundDesc": "Try adjusting your search query or clearing your active filters.",
+    "clearFilters": "Clear filters",
     "columns": {
       "name": "Name",
       "language": "Language",
@@ -723,6 +733,9 @@
   "main": {
     "importVoice": "Import Voice",
     "createVoice": "Create Voice",
+    "searchPlaceholder": "Search voices…",
+    "noVoicesFound": "No voices found matching your search",
+    "clearSearch": "Clear search",
     "import": {
       "invalidTitle": "Invalid file type",
       "invalidDescription": "Please select a valid .voicebox.zip file",
