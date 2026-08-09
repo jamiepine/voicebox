@@ -1,6 +1,7 @@
 import { Copy, Download, Edit, Sparkles, Trash2, Volume2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +34,7 @@ interface ProfileCardProps {
 
 export function ProfileCard({ profile, disabled, onPreview }: ProfileCardProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const deleteProfile = useDeleteProfile();
@@ -67,6 +69,29 @@ export function ProfileCard({ profile, disabled, onPreview }: ProfileCardProps) 
   const handleDeleteConfirm = () => {
     deleteProfile.mutate(profile.id);
     setDeleteDialogOpen(false);
+  };
+
+  // Same feedback as the list view. Without the callbacks a failed
+  // duplicate did nothing at all — the button just went idle again.
+  const handleDuplicate = () => {
+    duplicateProfile.mutate(
+      { profileId: profile.id },
+      {
+        onSuccess: (copy) => {
+          toast({
+            title: t('profiles.duplicate.successTitle'),
+            description: t('profiles.duplicate.successDescription', { name: copy.name }),
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: t('profiles.duplicate.failedTitle'),
+            description: error.message,
+            variant: 'destructive',
+          });
+        },
+      },
+    );
   };
 
   const handleExport = (e: React.MouseEvent) => {
@@ -144,7 +169,7 @@ export function ProfileCard({ profile, disabled, onPreview }: ProfileCardProps) 
               icon={Copy}
               onClick={(e) => {
                 e.stopPropagation();
-                duplicateProfile.mutate({ profileId: profile.id });
+                handleDuplicate();
               }}
               disabled={duplicateProfile.isPending}
               aria-label={t('profiles.card.duplicate')}

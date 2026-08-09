@@ -212,6 +212,10 @@ async def upsert_story_track(
     db: Session = Depends(get_db),
 ):
     """Create or update one lane's mixer settings."""
+    # A lane ducking under itself would attenuate by its own envelope — quieter
+    # wherever it is loudest, which is never what anyone means.
+    if data.duck_under_track is not None and data.duck_under_track == index:
+        raise HTTPException(status_code=400, detail="A track cannot duck under itself")
     track = await stories.upsert_story_track(story_id, index, data, db)
     if track is None:
         raise HTTPException(status_code=404, detail="Story not found")

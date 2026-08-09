@@ -1242,14 +1242,23 @@ async def export_story_audio(
     # --- ducking ------------------------------------------------------------
     # Runs after gain so the envelope reflects what will actually be heard,
     # and after mute/solo so a silenced lane ducks nothing.
-    for index, lane in lanes.items():
+    # Envelopes are computed from the pre-ducking lanes, before any are
+    # attenuated. Applying them inside the loop instead would make the result
+    # depend on dict order whenever two lanes duck under each other: whichever
+    # ran first would read an untouched source, the second an already-ducked
+    # one. Same input, different mixdown.
+    envelopes: dict[int, np.ndarray] = {}
+    for index in lanes:
         track = tracks.get(index)
         if track is None or track.duck_under_track is None:
             continue
         source = lanes.get(track.duck_under_track)
         if source is None:
             continue
-        lane *= _duck_envelope(source, project_sr)
+        envelopes[index] = _duck_envelope(source, project_sr)
+
+    for index, envelope in envelopes.items():
+        lanes[index] *= envelope
 
     final_audio = np.zeros((2, total_samples), dtype=np.float32)
     for lane in lanes.values():

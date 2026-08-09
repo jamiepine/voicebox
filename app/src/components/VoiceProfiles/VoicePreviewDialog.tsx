@@ -28,7 +28,7 @@ interface VoicePreviewDialogProps {
  */
 export function VoicePreviewDialog({ profile, onOpenChange }: VoicePreviewDialogProps) {
   const { t } = useTranslation();
-  const { data: samples, isLoading } = useProfileSamples(profile?.id ?? '');
+  const { data: samples, isLoading, isError } = useProfileSamples(profile?.id ?? '');
 
   return (
     <Dialog open={profile !== null} onOpenChange={onOpenChange}>
@@ -52,6 +52,12 @@ export function VoicePreviewDialog({ profile, onOpenChange }: VoicePreviewDialog
         <div className="max-h-[50vh] space-y-3 overflow-y-auto">
           {isLoading ? (
             <p className="py-6 text-center text-sm text-muted-foreground">{t('common.loading')}</p>
+          ) : isError ? (
+            // A failed request must not read as "this voice has no audio" —
+            // one is a problem to retry, the other is normal for presets.
+            <p className="py-6 text-center text-sm text-destructive">
+              {t('profiles.preview.loadFailed')}
+            </p>
           ) : !samples || samples.length === 0 ? (
             // Preset and designed voices have no reference audio to play —
             // say so rather than showing an empty box.

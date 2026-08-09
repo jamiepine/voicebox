@@ -407,6 +407,7 @@
     },
     "preview": {
       "action": "Preview voice",
+      "loadFailed": "Couldn't load this voice's samples.",
       "noSamples": "This voice has no reference audio to play. Preset and designed voices are generated on demand."
     },
     "row": {

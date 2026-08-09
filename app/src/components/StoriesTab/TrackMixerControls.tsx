@@ -1,4 +1,5 @@
 import { Headphones, VolumeX, Waves } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
@@ -52,6 +53,17 @@ export function TrackMixerControls({
   // an explicit mute, so the user knows why a lane went quiet.
   const dimmedBySolo = anySoloed && !soloed && !muted;
 
+  // The slider drives local state while dragging and only persists on
+  // release. Writing on every step fired dozens of PUTs per drag, each
+  // invalidating the track query, and out-of-order responses snapped the
+  // thumb backwards mid-gesture. Same approach as ClipVolumePopover.
+  const [localVolume, setLocalVolume] = useState(volume);
+  // Re-sync when the persisted value changes from elsewhere, or when this
+  // row is reused for a different lane.
+  useEffect(() => {
+    setLocalVolume(volume);
+  }, [volume]);
+
   const patch = (changes: Partial<StoryTrackResponse>) =>
     onChange({ volume, muted, soloed, duck_under_track: duckUnder, ...changes });
 
@@ -80,13 +92,14 @@ export function TrackMixerControls({
       </Button>
 
       <Slider
-        value={[volume]}
+        value={[localVolume]}
         min={0}
         max={2}
         step={0.05}
         className="w-16"
         aria-label={t('storyTracks.volumeTrack', { index })}
-        onValueChange={([next]) => patch({ volume: next })}
+        onValueChange={([next]) => setLocalVolume(next)}
+        onValueCommit={([next]) => patch({ volume: next })}
       />
 
       <DropdownMenu>
