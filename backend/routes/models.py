@@ -47,6 +47,19 @@ def _copy_with_progress(src: Path, dst: Path, progress_manager, copied_so_far: i
     return copied_so_far
 
 
+@router.get("/engines", response_model=models.EngineCapabilitiesListResponse)
+async def list_engine_capabilities():
+    """What each TTS engine supports, derived from the model registry.
+
+    Clients should gate features on these flags rather than matching engine
+    names — the registry is where support is declared, so a new engine that
+    honours ``instruct`` becomes usable without a client change.
+    """
+    from ..backends import get_engine_capabilities
+
+    return {"engines": get_engine_capabilities()}
+
+
 @router.post("/models/load")
 async def load_model(model_size: str = "1.7B"):
     """Manually load TTS model."""

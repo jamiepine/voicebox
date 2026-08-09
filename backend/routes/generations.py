@@ -4,12 +4,14 @@ import asyncio
 import logging
 import uuid
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
+from ..backends import engine_supports_instruct, get_engine_capabilities
 from ..services import history, personality, profiles, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
@@ -53,6 +55,27 @@ def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
     return data.engine or getattr(profile, "default_engine", None) or getattr(profile, "preset_engine", None) or "qwen"
 
 
+def _warn_if_instruct_ignored(instruct: Optional[str], engine: str) -> None:
+    """Log when delivery instructions are about to be discarded.
+
+    Base Qwen3-TTS takes ``instruct`` and ignores it. The desktop app hides
+    the field for such engines, but API and MCP callers have no such cue and
+    would otherwise watch their instructions vanish with no signal anywhere —
+    which reads as the model refusing to follow them.
+    """
+    if not instruct or not instruct.strip():
+        return
+    if engine_supports_instruct(engine):
+        return
+    logger.warning(
+        "Engine %r does not honour `instruct`; the delivery instruction was "
+        "ignored. Engines that honour it: %s. See GET /engines.",
+        engine,
+        ", ".join(sorted(e["engine"] for e in get_engine_capabilities() if e["supports_instruct"]))
+        or "none",
+    )
+
+
 @router.post("/generate", response_model=models.GenerationResponse)
 async def generate_speech(
     data: models.GenerationRequest,
@@ -73,6 +96,7 @@ async def generate_speech(
         profiles.validate_profile_engine(profile, engine)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    _warn_if_instruct_ignored(data.instruct, engine)
 
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
@@ -338,6 +362,7 @@ async def stream_speech(
         profiles.validate_profile_engine(profile, engine)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    _warn_if_instruct_ignored(data.instruct, engine)
     tts_model = get_tts_backend_for_engine(engine)
     model_size = data.model_size or "1.7B"
 
