@@ -407,6 +407,7 @@
       "errorLoading": "載入聲音檔案時出錯:{{message}}",
       "empty": "尚無聲音檔案。建立您的第一個檔案以開始使用。",
       "createVoice": "建立聲音",
+      "noVoicesMatch": "沒有與「{{query}}」相符的設定檔",
       "unsupportedNote": "目前模型僅可選擇支援的聲音檔案。"
     },
     "deleteDialog": {

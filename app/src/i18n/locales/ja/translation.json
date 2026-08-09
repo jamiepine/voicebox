@@ -407,6 +407,7 @@
       "errorLoading": "プロファイルの読み込みエラー:{{message}}",
       "empty": "ボイスプロファイルがまだありません。最初のプロファイルを作成して始めましょう。",
       "createVoice": "ボイスを作成",
+      "noVoicesMatch": "\"{{query}}\" に一致するプロファイルはありません",
       "unsupportedNote": "現在のモデルでは、対応しているボイスプロファイルのみ選択できます。"
     },
     "deleteDialog": {

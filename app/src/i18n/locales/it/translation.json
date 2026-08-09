@@ -407,6 +407,7 @@
       "errorLoading": "Errore durante il caricamento dei profili: {{message}}",
       "empty": "Ancora nessun profilo vocale. Crea il tuo primo profilo per iniziare.",
       "createVoice": "Crea voce",
+      "noVoicesMatch": "Nessun profilo corrisponde a \"{{query}}\"",
       "unsupportedNote": "È possibile selezionare solo i profili vocali supportati dal modello attuale."
     },
     "deleteDialog": {

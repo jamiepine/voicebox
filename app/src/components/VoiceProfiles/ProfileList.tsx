@@ -1,4 +1,4 @@
-import { FolderPlus, Info, LayoutGrid, List, Mic, Sparkles } from 'lucide-react';
+import { FolderPlus, Info, LayoutGrid, List, Mic, Search, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,22 @@ const PRESET_ENGINES = new Set(['kokoro', 'qwen_custom_voice']);
 /** Sentinel key for the Uncategorised bucket, which has no folder id. */
 const UNCATEGORISED = '__uncategorised__';
 
-export function ProfileList() {
+/** Fields a search query is matched against. Mirrors #1016. */
+const matchesQuery = (p: VoiceProfileResponse, q: string) =>
+  p.name.toLowerCase().includes(q) ||
+  p.description?.toLowerCase().includes(q) ||
+  p.language.toLowerCase().includes(q) ||
+  p.preset_engine?.toLowerCase().includes(q) ||
+  p.default_engine?.toLowerCase().includes(q);
+
+interface ProfileListProps {
+  /** Active search query. Filtering happens before folder bucketing, so a
+   *  match keeps its folder rather than collapsing into one flat list. */
+  search?: string;
+  onClearSearch?: () => void;
+}
+
+export function ProfileList({ search = '', onClearSearch }: ProfileListProps) {
   const { t } = useTranslation();
   const { data: profiles, isLoading, error } = useProfiles();
   const { data: folders } = useFolders('voice');
@@ -93,12 +108,24 @@ export function ProfileList() {
     [isPresetEngine, selectedEngine],
   );
 
+  const query = search.trim().toLowerCase();
+
+  const visibleProfiles = useMemo(
+    () => (query ? allProfiles.filter((p) => matchesQuery(p, query)) : allProfiles),
+    [allProfiles, query],
+  );
+
   // Sort so supported profiles come first, then bucket by folder. Sorting
-  // before grouping keeps the supported-first ordering inside each folder.
+  // before grouping keeps the supported-first ordering inside each folder;
+  // filtering before bucketing keeps a match in the folder it belongs to.
   const grouped = useMemo(() => {
-    const sorted = [...allProfiles].sort(
-      (a, b) => (isSupported(a) ? 0 : 1) - (isSupported(b) ? 0 : 1),
-    );
+    const sorted = [...visibleProfiles].sort((a, b) => {
+      const supported = (isSupported(a) ? 0 : 1) - (isSupported(b) ? 0 : 1);
+      if (supported !== 0) return supported;
+      // Alphabetical tiebreak, from #1016 — without it the order within a
+      // folder is whatever the API happened to return.
+      return a.name.localeCompare(b.name);
+    });
 
     const buckets = new Map<string, VoiceProfileResponse[]>();
     buckets.set(UNCATEGORISED, []);
@@ -112,9 +139,17 @@ export function ProfileList() {
       buckets.get(key)?.push(profile);
     }
     return buckets;
-  }, [allProfiles, voiceFolders, isSupported]);
+  }, [visibleProfiles, voiceFolders, isSupported]);
 
-  const hasUnsupported = allProfiles.some((p) => !isSupported(p));
+  const hasUnsupported = visibleProfiles.some((p) => !isSupported(p));
+
+  // A folder with no matches is noise while searching, but its header is how
+  // you drop a voice into it the rest of the time.
+  const searchableFolders = useMemo(
+    () => (query ? voiceFolders.filter((f) => (grouped.get(f.id)?.length ?? 0) > 0) : voiceFolders),
+    [voiceFolders, grouped, query],
+  );
+  const showUncategorised = !query || (grouped.get(UNCATEGORISED)?.length ?? 0) > 0;
 
   if (isLoading) {
     return null;
@@ -226,7 +261,23 @@ export function ProfileList() {
               </Button>
             </div>
 
-            {voiceFolders.map((folder) => (
+            {query && visibleProfiles.length === 0 && (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <Search className="h-10 w-10 text-muted-foreground mb-3 opacity-50" />
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {t('profiles.list.noVoicesMatch', { query: search.trim() })}
+                  </p>
+                  {onClearSearch && (
+                    <Button variant="outline" size="sm" onClick={onClearSearch}>
+                      {t('common.clearSearch')}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {searchableFolders.map((folder) => (
               <FolderSection
                 key={folder.id}
                 folderId={folder.id}
@@ -245,7 +296,7 @@ export function ProfileList() {
             ))}
 
             {/* Only worth a header once folders exist to contrast it with. */}
-            {voiceFolders.length > 0 ? (
+            {!showUncategorised ? null : voiceFolders.length > 0 ? (
               <FolderSection
                 folderId={null}
                 name={t('folders.uncategorised')}

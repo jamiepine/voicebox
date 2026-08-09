@@ -407,6 +407,7 @@
       "errorLoading": "프로필 로딩 오류: {{message}}",
       "empty": "아직 음성 프로필이 없습니다. 첫 번째 프로필을 만들어 시작하세요.",
       "createVoice": "음성 만들기",
+      "noVoicesMatch": "\"{{query}}\"와(과) 일치하는 프로필이 없습니다",
       "unsupportedNote": "현재 모델에서 지원되는 음성 프로필만 선택할 수 있습니다."
     },
     "deleteDialog": {

@@ -421,6 +421,7 @@
       "errorLoading": "Error loading profiles: {{message}}",
       "empty": "No voice profiles yet. Create your first profile to get started.",
       "createVoice": "Create Voice",
+      "noVoicesMatch": "No profiles match \"{{query}}\"",
       "unsupportedNote": "Only supported voice profiles can be selected for the current model.",
       "showCards": "Show voices as cards",
       "showList": "Show voices as a list"
