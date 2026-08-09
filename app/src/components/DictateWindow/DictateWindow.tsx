@@ -5,6 +5,7 @@ import { CapturePill } from '@/components/CapturePill/CapturePill';
 import { apiClient } from '@/lib/api/client';
 import type { FocusSnapshot } from '@/lib/api/types';
 import { useCaptureRecordingSession } from '@/lib/hooks/useCaptureRecordingSession';
+import { usePlatform } from '@/platform/PlatformContext';
 
 /**
  * Floating dictate surface shown in a separate transparent Tauri window.
@@ -22,6 +23,9 @@ import { useCaptureRecordingSession } from '@/lib/hooks/useCaptureRecordingSessi
  *      ``dictate:hide`` so Rust tucks the window away.
  */
 export function DictateWindow() {
+  const platform = usePlatform();
+  const isTauri = platform.metadata.isTauri;
+
   // Force the host document chrome to be transparent so the Tauri window
   // takes on the pill's own shape.
   useEffect(() => {
@@ -70,6 +74,7 @@ export function DictateWindow() {
   sessionRef.current = session;
 
   useEffect(() => {
+    if (!isTauri) return;
     let disposed = false;
     const unlistens: UnlistenFn[] = [];
     const registrations = [
@@ -98,7 +103,7 @@ export function DictateWindow() {
       disposed = true;
       for (const unlisten of unlistens) unlisten();
     };
-  }, []);
+  }, [isTauri]);
 
   useEffect(() => {
     if (micWarm) void session.prewarm();
@@ -157,9 +162,7 @@ export function DictateWindow() {
     audio.onplaying = () => {
       emit('dictate:show').catch(() => {});
       setSpeaking((prev) =>
-        prev && prev.generationId === generationId
-          ? { ...prev, startedAt: Date.now() }
-          : prev,
+        prev && prev.generationId === generationId ? { ...prev, startedAt: Date.now() } : prev,
       );
       setSpeakElapsed(0);
     };
@@ -171,6 +174,7 @@ export function DictateWindow() {
   };
 
   useEffect(() => {
+    if (!isTauri) return;
     const unlistens: Promise<UnlistenFn>[] = [];
 
     // Rust emits the SSE payload as a JSON *string* (not a parsed object);
@@ -265,7 +269,7 @@ export function DictateWindow() {
       for (const p of unlistens) p.then((fn) => fn()).catch(() => {});
       dismissSpeak();
     };
-  }, []);
+  }, [isTauri]);
 
   // Advance the pill's elapsed-time label while audio is playing. Paused
   // during the pre-playback generation window (startedAt is null) so the

@@ -12,6 +12,7 @@ and a model config registry that eliminates per-engine dispatch maps.
 # HF_HUB_OFFLINE=1 and on network failures.
 from ..utils import hf_offline_patch  # noqa: F401
 
+import os
 import threading
 from dataclasses import dataclass, field
 from typing import Protocol, Optional, Tuple, List
@@ -677,6 +678,13 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
         TTS backend instance
     """
     global _tts_backends
+
+    # Test mode: every engine resolves to the fake backend so the full
+    # generation pipeline runs without model weights (see fake_backend.py).
+    if os.environ.get("VOICEBOX_FAKE_TTS") == "1":
+        from .fake_backend import get_fake_backend
+
+        return get_fake_backend()
 
     # Fast path: check without lock
     if engine in _tts_backends:

@@ -27,13 +27,24 @@
     "format:check": "biome format .",
     "check": "biome check .",
     "check:fix": "biome check --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "ci": "bun run typecheck && bun run build:web"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.12",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^20.0.0",
+    "@vitejs/plugin-react": "^6.0.5",
+    "@vitest/browser": "^4.1.10",
+    "@vitest/browser-playwright": "^4.1.10",
+    "happy-dom": "^20.11.2",
+    "msw": "^2.15.0",
+    "playwright": "^1.62.1",
     "tailwindcss": "^4.1.18",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10",
+    "vitest-browser-react": "^2.2.0"
   },
   "engines": {
     "bun": ">=1.0.0"

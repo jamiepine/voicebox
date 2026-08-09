@@ -10,7 +10,7 @@ export const tauriFilesystem: PlatformFilesystem = {
       filters: filters || [],
     });
 
-    if (!filePath) return; // User cancelled the dialog
+    if (!filePath) return null; // User cancelled the dialog
 
     const resolvedPath =
       typeof filePath === 'string' ? filePath : (filePath as { path: string }).path;
@@ -21,6 +21,7 @@ export const tauriFilesystem: PlatformFilesystem = {
 
     const arrayBuffer = await blob.arrayBuffer();
     await writeFile(resolvedPath, new Uint8Array(arrayBuffer));
+    return resolvedPath;
   },
 
   async openPath(path: string) {

@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import {
   Captions,
   Check,
@@ -28,6 +26,14 @@ import { CapturePill } from '@/components/CapturePill/CapturePill';
 import { CaptureInlinePlayer } from '@/components/CapturesTab/CaptureInlinePlayer';
 import { DictationReadinessChecklist } from '@/components/CapturesTab/DictationReadinessChecklist';
 import {
+  ListPane,
+  ListPaneHeader,
+  ListPaneScroll,
+  ListPaneSearch,
+  ListPaneTitle,
+  ListPaneTitleRow,
+} from '@/components/ListPane';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -48,14 +54,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  ListPane,
-  ListPaneHeader,
-  ListPaneScroll,
-  ListPaneSearch,
-  ListPaneTitle,
-  ListPaneTitleRow,
-} from '@/components/ListPane';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type {
@@ -72,6 +70,7 @@ import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { cn } from '@/lib/utils/cn';
 import { formatAbsoluteDate, formatDate } from '@/lib/utils/format';
 import { displayLabelForKey, modifierSideHint } from '@/lib/utils/keyCodes';
+import { usePlatform } from '@/platform/PlatformContext';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
 
@@ -135,6 +134,7 @@ export function CapturesTab() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const platform = usePlatform();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
 
@@ -202,6 +202,7 @@ export function CapturesTab() {
   // the race window between ``setSelectedId(new)`` and the refetched list
   // actually containing the new row.
   useEffect(() => {
+    if (!platform.metadata.isTauri) return;
     const unlistens: Promise<UnlistenFn>[] = [];
     unlistens.push(
       listen<{ capture: CaptureResponse }>('capture:created', (event) => {
@@ -225,7 +226,7 @@ export function CapturesTab() {
     return () => {
       for (const p of unlistens) p.then((fn) => fn()).catch(() => {});
     };
-  }, [queryClient]);
+  }, [queryClient, platform.metadata.isTauri]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -243,9 +244,7 @@ export function CapturesTab() {
   // referenced profile was deleted) fall through to the first profile.
   const storedVoiceId = captureSettings?.default_playback_voice_id ?? null;
   const playAsVoice =
-    (storedVoiceId && profiles?.find((p) => p.id === storedVoiceId)) ||
-    profiles?.[0] ||
-    null;
+    (storedVoiceId && profiles?.find((p) => p.id === storedVoiceId)) || profiles?.[0] || null;
   const playAsVoiceId = playAsVoice?.id ?? null;
 
   const deleteMutation = useMutation({
@@ -255,12 +254,22 @@ export function CapturesTab() {
       queryClient.invalidateQueries({ queryKey: ['captures'] });
     },
     onError: (err: Error) => {
-      toast({ title: t('captures.toast.deleteFailed'), description: err.message, variant: 'destructive' });
+      toast({
+        title: t('captures.toast.deleteFailed'),
+        description: err.message,
+        variant: 'destructive',
+      });
     },
   });
 
   const playAsMutation = useMutation({
-    mutationFn: async ({ capture, voice }: { capture: CaptureResponse; voice: VoiceProfileResponse }) => {
+    mutationFn: async ({
+      capture,
+      voice,
+    }: {
+      capture: CaptureResponse;
+      voice: VoiceProfileResponse;
+    }) => {
       const text = capture.transcript_refined || capture.transcript_raw;
       if (!text.trim()) throw new Error(t('captures.noTranscriptError'));
       const language = (capture.language || voice.language) as LanguageCode;
@@ -268,8 +277,13 @@ export function CapturesTab() {
       // profile's stored engine preference. Cloned profiles without an
       // override fall through to whatever the backend picks.
       const engine = voice.default_engine as
-        | 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox'
-        | 'chatterbox_turbo' | 'tada' | 'kokoro'
+        | 'qwen'
+        | 'qwen_custom_voice'
+        | 'luxtts'
+        | 'chatterbox'
+        | 'chatterbox_turbo'
+        | 'tada'
+        | 'kokoro'
         | undefined;
       return apiClient.generateSpeech({
         profile_id: voice.id,
@@ -286,7 +300,11 @@ export function CapturesTab() {
       addPendingGeneration(result.id);
     },
     onError: (err: Error) => {
-      toast({ title: t('captures.toast.playAsFailed'), description: err.message, variant: 'destructive' });
+      toast({
+        title: t('captures.toast.playAsFailed'),
+        description: err.message,
+        variant: 'destructive',
+      });
     },
   });
 
@@ -336,16 +354,15 @@ export function CapturesTab() {
   const handleExportAudio = async () => {
     if (!selected) return;
     try {
-      const dest = await save({
-        defaultPath: `capture_${selected.id.slice(0, 8)}.wav`,
-        filters: [{ name: 'Audio', extensions: ['wav'] }],
-      });
-      if (!dest) return;
       const res = await fetch(apiClient.getCaptureAudioUrl(selected.id));
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const buf = new Uint8Array(await res.arrayBuffer());
-      await writeFile(dest, buf);
-      exportToastSuccess(dest);
+      const blob = new Blob([await res.arrayBuffer()], { type: 'audio/wav' });
+      const dest = await platform.filesystem.saveFile(
+        `capture_${selected.id.slice(0, 8)}.wav`,
+        blob,
+        [{ name: 'Audio', extensions: ['wav'] }],
+      );
+      if (dest) exportToastSuccess(dest);
     } catch (err) {
       exportToastError(err);
     }
@@ -359,13 +376,12 @@ export function CapturesTab() {
       return;
     }
     try {
-      const dest = await save({
-        defaultPath: `capture_${selected.id.slice(0, 8)}.txt`,
-        filters: [{ name: 'Text', extensions: ['txt'] }],
-      });
-      if (!dest) return;
-      await writeTextFile(dest, text);
-      exportToastSuccess(dest);
+      const dest = await platform.filesystem.saveFile(
+        `capture_${selected.id.slice(0, 8)}.txt`,
+        new Blob([text], { type: 'text/plain' }),
+        [{ name: 'Text', extensions: ['txt'] }],
+      );
+      if (dest) exportToastSuccess(dest);
     } catch (err) {
       exportToastError(err);
     }
@@ -376,7 +392,8 @@ export function CapturesTab() {
     lines.push(`# Capture ${capture.id}`, '');
     lines.push(`- **Source:** ${capture.source}`);
     lines.push(`- **Created:** ${capture.created_at}`);
-    if (capture.duration_ms != null) lines.push(`- **Duration:** ${formatDuration(capture.duration_ms)}`);
+    if (capture.duration_ms != null)
+      lines.push(`- **Duration:** ${formatDuration(capture.duration_ms)}`);
     if (capture.language) lines.push(`- **Language:** ${capture.language}`);
     if (capture.stt_model) lines.push(`- **STT model:** ${capture.stt_model}`);
     if (capture.llm_model) lines.push(`- **LLM model:** ${capture.llm_model}`);
@@ -398,13 +415,12 @@ export function CapturesTab() {
       return;
     }
     try {
-      const dest = await save({
-        defaultPath: `capture_${selected.id.slice(0, 8)}.md`,
-        filters: [{ name: 'Markdown', extensions: ['md'] }],
-      });
-      if (!dest) return;
-      await writeTextFile(dest, buildCaptureMarkdown(selected));
-      exportToastSuccess(dest);
+      const dest = await platform.filesystem.saveFile(
+        `capture_${selected.id.slice(0, 8)}.md`,
+        new Blob([buildCaptureMarkdown(selected)], { type: 'text/markdown' }),
+        [{ name: 'Markdown', extensions: ['md'] }],
+      );
+      if (dest) exportToastSuccess(dest);
     } catch (err) {
       exportToastError(err);
     }
@@ -486,48 +502,48 @@ export function CapturesTab() {
                 </div>
               ) : (
                 filtered.map((capture) => {
-                const isActive = selectedId === capture.id;
-                const refined = !!capture.transcript_refined;
-                return (
-                  <button
-                    type="button"
-                    key={capture.id}
-                    onClick={() => setSelectedId(capture.id)}
-                    className={cn(
-                      'w-full text-left p-3 rounded-lg transition-colors block',
-                      isActive
-                        ? 'bg-muted/70 border border-border'
-                        : 'border border-transparent hover:bg-muted/30',
-                    )}
-                  >
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-[11px] text-muted-foreground font-medium">
-                        {formatDate(capture.created_at)}
-                      </span>
-                      <div className="flex-1" />
-                      <span className="text-[10px] text-muted-foreground/70 tabular-nums">
-                        {formatDuration(capture.duration_ms)}
-                      </span>
-                    </div>
-                    <div className="text-[13px] text-foreground/90 line-clamp-2 leading-snug mb-2">
-                      {snippetOf(capture)}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <SourceBadge source={capture.source} />
-                      {refined && (
-                        <Badge
-                          variant="secondary"
-                          className="h-5 px-1.5 text-[10px] gap-1 font-medium bg-accent/10 text-accent border border-accent/20"
-                        >
-                          <Sparkles className="h-2.5 w-2.5" />
-                          {t('captures.transcript.refined')}
-                        </Badge>
+                  const isActive = selectedId === capture.id;
+                  const refined = !!capture.transcript_refined;
+                  return (
+                    <button
+                      type="button"
+                      key={capture.id}
+                      onClick={() => setSelectedId(capture.id)}
+                      className={cn(
+                        'w-full text-left p-3 rounded-lg transition-colors block',
+                        isActive
+                          ? 'bg-muted/70 border border-border'
+                          : 'border border-transparent hover:bg-muted/30',
                       )}
-                    </div>
-                  </button>
-                );
-              })
-            )}
+                    >
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[11px] text-muted-foreground font-medium">
+                          {formatDate(capture.created_at)}
+                        </span>
+                        <div className="flex-1" />
+                        <span className="text-[10px] text-muted-foreground/70 tabular-nums">
+                          {formatDuration(capture.duration_ms)}
+                        </span>
+                      </div>
+                      <div className="text-[13px] text-foreground/90 line-clamp-2 leading-snug mb-2">
+                        {snippetOf(capture)}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <SourceBadge source={capture.source} />
+                        {refined && (
+                          <Badge
+                            variant="secondary"
+                            className="h-5 px-1.5 text-[10px] gap-1 font-medium bg-accent/10 text-accent border border-accent/20"
+                          >
+                            <Sparkles className="h-2.5 w-2.5" />
+                            {t('captures.transcript.refined')}
+                          </Badge>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </ListPaneScroll>
         </ListPane>
@@ -578,7 +594,9 @@ export function CapturesTab() {
                     ) : (
                       <Upload className="h-4 w-4 mr-2" />
                     )}
-                    {session.isUploading ? t('captures.actions.importing') : t('captures.actions.import')}
+                    {session.isUploading
+                      ? t('captures.actions.importing')
+                      : t('captures.actions.import')}
                   </Button>
                 )}
               </>
@@ -748,11 +766,7 @@ export function CapturesTab() {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     {profiles?.map((v) => (
-                      <DropdownMenuItem
-                        key={v.id}
-                        onClick={() => handlePlayAs(v)}
-                        className="py-2"
-                      >
+                      <DropdownMenuItem key={v.id} onClick={() => handlePlayAs(v)} className="py-2">
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">{v.name}</div>
                           <div className="text-[11px] text-muted-foreground truncate">
@@ -864,9 +878,7 @@ export function CapturesTab() {
                     </div>
                   ) : null}
                 </div>
-                <p className="text-sm">
-                  {t('captures.empty.pressShortcut')}
-                </p>
+                <p className="text-sm">{t('captures.empty.pressShortcut')}</p>
               </div>
             ) : (
               <div className="max-w-sm mx-auto text-center space-y-3">
@@ -888,7 +900,9 @@ export function CapturesTab() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('captures.deleteDialog.title')}</AlertDialogTitle>
-            <AlertDialogDescription>{t('captures.deleteDialog.description')}</AlertDialogDescription>
+            <AlertDialogDescription>
+              {t('captures.deleteDialog.description')}
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
@@ -898,7 +912,9 @@ export function CapturesTab() {
                 disabled={deleteMutation.isPending}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
-                {deleteMutation.isPending ? t('captures.deleteDialog.deleting') : t('common.delete')}
+                {deleteMutation.isPending
+                  ? t('captures.deleteDialog.deleting')
+                  : t('common.delete')}
               </Button>
             </AlertDialogAction>
           </AlertDialogFooter>

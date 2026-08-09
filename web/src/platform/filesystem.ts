@@ -11,6 +11,7 @@ export const webFilesystem: PlatformFilesystem = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+    return filename;
   },
 
   async openPath(_path: string) {

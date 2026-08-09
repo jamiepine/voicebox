@@ -9,7 +9,8 @@ export interface FileFilter {
 }
 
 export interface PlatformFilesystem {
-  saveFile(filename: string, blob: Blob, filters?: FileFilter[]): Promise<void>;
+  /** Returns the saved path (or filename on web), or null if the user cancelled. */
+  saveFile(filename: string, blob: Blob, filters?: FileFilter[]): Promise<string | null>;
   openPath(path: string): Promise<void>;
   pickDirectory(title: string): Promise<string | null>;
 }

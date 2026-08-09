@@ -113,7 +113,7 @@ const voicesRoute = createRoute({
   component: VoicesTab,
 });
 
-// Captures route (prototype — will replace AudioTab once the new flow is ready)
+// Captures route
 const capturesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/captures',
@@ -199,8 +199,8 @@ const serverRedirectRoute = createRoute({
   },
 });
 
-// Route tree
-const routeTree = rootRoute.addChildren([
+// Route tree — exported so tests can build routers over memory history
+export const routeTree = rootRoute.addChildren([
   indexRoute,
   storiesRoute,
   capturesRoute,

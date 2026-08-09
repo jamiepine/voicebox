@@ -1,0 +1,25 @@
+# Minimal dependency set to boot the backend on a CPU-only CI runner.
+# No TTS/STT model libraries — inference is covered by the fake TTS
+# backend (VOICEBOX_FAKE_TTS=1). Install CPU torch first on Linux:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# then: pip install -r backend/requirements-ci.txt
+
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+sqlalchemy>=2.0.0
+alembic>=1.13.0
+torch>=2.2.0
+huggingface_hub>=0.20.0
+numpy
+soundfile
+python-multipart
+sse-starlette
+psutil
+requests
+httpx
+fastmcp
+librosa
+pillow
+pydub
+pedalboard
