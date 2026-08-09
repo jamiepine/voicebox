@@ -36,6 +36,10 @@ def _version_response(v: DBGenerationVersion) -> GenerationVersionResponse:
         effects_chain=effects_chain,
         source_version_id=v.source_version_id,
         is_default=v.is_default,
+        text=v.text,
+        language=v.language,
+        instruct=v.instruct,
+        seed=v.seed,
         created_at=v.created_at,
     )
 
@@ -87,11 +91,20 @@ def create_version(
     effects_chain: Optional[List[dict]] = None,
     is_default: bool = False,
     source_version_id: Optional[str] = None,
+    text: Optional[str] = None,
+    language: Optional[str] = None,
+    instruct: Optional[str] = None,
+    seed: Optional[int] = None,
 ) -> GenerationVersionResponse:
     """Create a new version for a generation.
 
     If ``is_default`` is True, all other versions for this generation
     are un-defaulted first.
+
+    ``text``, ``language``, ``instruct`` and ``seed`` record what produced this
+    take when it differs from the generation's own settings. Leave them None
+    when the take used the generation's settings unchanged -- NULL reads as
+    "same as the generation", which is what keeps pre-existing rows correct.
     """
     if is_default:
         _clear_defaults(generation_id, db)
@@ -104,6 +117,10 @@ def create_version(
         effects_chain=json.dumps(effects_chain) if effects_chain else None,
         source_version_id=source_version_id,
         is_default=is_default,
+        text=text,
+        language=language,
+        instruct=instruct,
+        seed=seed,
     )
     db.add(version)
     db.commit()

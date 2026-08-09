@@ -42,6 +42,7 @@ async def run_generation(
     max_chunk_chars: Optional[int] = None,
     crossfade_ms: Optional[int] = None,
     version_id: Optional[str] = None,
+    version_overrides: Optional[dict] = None,
 ) -> None:
     """Execute TTS inference and persist the result.
 
@@ -81,7 +82,14 @@ async def run_generation(
 
         gen_kwargs: dict = dict(
             language=language,
-            seed=seed if mode != "regenerate" else None,
+            # A regenerate normally drops the seed so the take varies. An
+            # explicitly requested one is the caller asking for a specific
+            # result -- usually to reproduce a take they liked -- so it wins.
+            seed=(
+                seed
+                if mode != "regenerate" or (version_overrides or {}).get("seed") is not None
+                else None
+            ),
             instruct=instruct,
             trim_fn=trim_fn,
             runaway_detector=runaway_detector,
@@ -124,6 +132,7 @@ async def run_generation(
                 sample_rate=sample_rate,
                 save_audio=save_audio,
                 db=bg_db,
+                overrides=version_overrides,
             )
 
         await history.update_generation_status(
@@ -331,8 +340,13 @@ def _save_regenerate(
     sample_rate: int,
     save_audio,
     db,
+    overrides: Optional[dict] = None,
 ) -> str:
     """Save regeneration output as a new version with auto-label.
+
+    ``overrides`` records what produced this take when it differed from the
+    generation's settings, so a corrected take stays attributable to the text
+    that made it rather than being confused with its siblings.
 
     Returns the audio path.
     """
@@ -350,6 +364,7 @@ def _save_regenerate(
     count = db.query(DBGenerationVersion).filter_by(generation_id=generation_id).count()
     label = f"take-{count + 1}"
 
+    overrides = overrides or {}
     versions_mod.create_version(
         generation_id=generation_id,
         label=label,
@@ -357,6 +372,10 @@ def _save_regenerate(
         db=db,
         effects_chain=None,
         is_default=True,
+        text=overrides.get("text"),
+        language=overrides.get("language"),
+        instruct=overrides.get("instruct"),
+        seed=overrides.get("seed"),
     )
 
     return config.to_storage_path(audio_path)
