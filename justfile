@@ -174,30 +174,36 @@ setup-python:
         & $py -m venv "{{ venv }}"; \
         if ($LASTEXITCODE -ne 0 -or -not (Test-Pip)) { Write-Host "ERROR: could not create a working venv with $py"; exit 1 }; \
     }
-    Write-Host "Installing Python dependencies..."
-    & "{{ python }}" -m pip install --upgrade pip -q
+    # PowerShell does not fail the recipe when a native command returns nonzero, so
+    # wrap every pip invocation and exit on $LASTEXITCODE.
+    Write-Host "Installing Python dependencies..."; \
+    function Invoke-Pip { \
+        & "{{ python }}" -m pip @args; \
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; \
+    }; \
+    Invoke-Pip install --upgrade pip -q; \
     $gpus = Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name; \
     Write-Host "Detected GPUs: $($gpus -join ', ')"; \
     $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0; \
     $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0; \
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
-        & "{{ python }}" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
+        Invoke-Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
     } elseif ($hasIntelArc) { \
         Write-Host "Intel Arc GPU detected — installing PyTorch with XPU support..."; \
-        & "{{ python }}" -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
-        & "{{ python }}" -m pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
+        Invoke-Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
+        Invoke-Pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
     } else { \
         Write-Host "No NVIDIA or Intel Arc GPU detected — using CPU-only PyTorch."; \
         Write-Host "If you have an Intel Arc GPU, install XPU support manually:"; \
         Write-Host "  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
         Write-Host "  python -m pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
-    }
-    & "{{ python }}" -m pip install -r {{ backend_dir }}/requirements.txt
-    & "{{ python }}" -m pip install --no-deps chatterbox-tts
-    & "{{ python }}" -m pip install --no-deps hume-tada
-    & "{{ python }}" -m pip install git+https://github.com/QwenLM/Qwen3-TTS.git
-    & "{{ python }}" -m pip install pyinstaller ruff pytest pytest-asyncio -q
+    }; \
+    Invoke-Pip install -r {{ backend_dir }}/requirements.txt; \
+    Invoke-Pip install --no-deps chatterbox-tts; \
+    Invoke-Pip install --no-deps hume-tada; \
+    Invoke-Pip install git+https://github.com/QwenLM/Qwen3-TTS.git; \
+    Invoke-Pip install pyinstaller ruff pytest pytest-asyncio -q; \
     Write-Host "Python environment ready."
 
 # Install JavaScript dependencies
