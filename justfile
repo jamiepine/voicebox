@@ -12,13 +12,15 @@ venv := backend_dir / "venv"
 # Platform-aware paths
 venv_bin := if os() == "windows" { venv / "Scripts" } else { venv / "bin" }
 python := if os() == "windows" { venv_bin / "python.exe" } else { venv_bin / "python" }
-pip := if os() == "windows" { venv_bin / "pip.exe" } else { venv_bin / "pip" }
 
 # Shell selection: use powershell on Windows, bash elsewhere
 set windows-shell := ["powershell", "-NoProfile", "-Command"]
 
-# Detect best python for venv creation (platform-aware)
-system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
+# Pin the venv to one version instead of following whatever `python3` happens to be;
+# a newer interpreter fails `pip install` with "no matching distribution". See
+# requires-python in backend/pyproject.toml for which dependencies set the ceiling.
+# Keep in sync with that and with actions/setup-python in .github/workflows.
+python_version := "3.12"
 
 # ─── Setup ────────────────────────────────────────────────────────────
 
@@ -32,17 +34,69 @@ setup: setup-python setup-js
 setup-python:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ ! -d "{{ venv }}" ]; then
-        echo "Creating Python virtual environment..."
-        PY_MINOR=$({{ system_python }} -c "import sys; print(sys.version_info[1])")
-        if [ "$PY_MINOR" -gt 13 ]; then
-            echo "Warning: Python 3.$PY_MINOR detected. ML packages may not be compatible."
-            echo "Recommended: brew install python@3.12"
+
+    is_pinned() {
+        "$1" -c 'import sys; sys.exit(sys.version_info[:2] != tuple(map(int, "{{ python_version }}".split("."))))' 2>/dev/null
+    }
+
+    # Invoke pip via the venv's python so validation and installs share the same
+    # interpreter. A copied venv can keep a working `pip` console script whose
+    # shebang still points at the original tree — that would make `pip --version`
+    # succeed while later installs land in the wrong environment.
+    pip_works() {
+        "{{ python }}" -m pip --version >/dev/null 2>&1
+    }
+
+    # Every interpreter on PATH that could be the pinned version, plus uv's, which
+    # keeps its Pythons off PATH. More than one can match, and the first is not
+    # necessarily the good one.
+    candidates() {
+        type -aP "python{{ python_version }}" python3 python 2>/dev/null || true
+        if command -v uv >/dev/null 2>&1; then
+            uv python find "{{ python_version }}" 2>/dev/null || true
         fi
-        {{ system_python }} -m venv {{ venv }}
+    }
+
+    # Reuse the venv only if it is on the pinned version and has a working pip: a
+    # wrong-version venv resolves dependencies against the wrong Python, and a
+    # broken pip means an earlier `-m venv` was interrupted or the venv was moved.
+    if [ -d "{{ venv }}" ] && ! { is_pinned "{{ python }}" && pip_works; }; then
+        echo "Existing venv is not a working Python {{ python_version }} environment — recreating..."
+        rm -rf "{{ venv }}"
+    fi
+
+    if [ ! -d "{{ venv }}" ]; then
+        # Building the venv is itself the test, so there is no separate probe to keep
+        # in sync. An interpreter can report the right version and still fail inside
+        # `-m venv` — Debian packages ensurepip separately, and Homebrew has shipped a
+        # pyexpat that won't dlopen — so fall through to the next candidate rather
+        # than giving up on the first. Their output is held back until every candidate
+        # has failed, so a run that recovers doesn't look like a broken one.
+        log="$(mktemp)"
+        while IFS= read -r py; do
+            is_pinned "$py" || continue
+            echo "Creating Python virtual environment with $py ..."
+            "$py" -m venv "{{ venv }}" >>"$log" 2>&1 && pip_works && break
+            echo "  ...it reports {{ python_version }} but cannot build a working venv; trying the next."
+            rm -rf "{{ venv }}"
+        done < <(candidates | sed 's|//*|/|g' | awk '!seen[$0]++')
+        pip_works || cat "$log"
+        rm -f "$log"
+    fi
+
+    if ! pip_works; then
+        echo ""
+        echo "ERROR: Voicebox needs a Python {{ python_version }} that can create virtual"
+        echo "       environments (see requires-python in backend/pyproject.toml)."
+        echo "  Any:    uv python install {{ python_version }}"
+        echo "  macOS:  brew install python@{{ python_version }}"
+        echo "  Debian: sudo apt install python{{ python_version }} python{{ python_version }}-venv"
+        echo ""
+        echo "Then re-run: just setup"
+        exit 1
     fi
     echo "Installing Python dependencies..."
-    {{ pip }} install --upgrade pip -q
+    "{{ python }}" -m pip install --upgrade pip -q
     if [ "$(uname)" = "Linux" ]; then
         torch_index=""
         if [ -e /proc/driver/nvidia/version ] || [ -d /sys/module/nvidia ]; then
@@ -60,63 +114,96 @@ setup-python:
             torch_index="https://download.pytorch.org/whl/rocm${rocm_ver}"
         fi
         if [ -n "$torch_index" ]; then
-            {{ pip }} install torch torchaudio --index-url "$torch_index"
+            "{{ python }}" -m pip install torch torchaudio --index-url "$torch_index"
         fi
     fi
-    {{ pip }} install -r {{ backend_dir }}/requirements.txt
+    "{{ python }}" -m pip install -r {{ backend_dir }}/requirements.txt
     # Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
-    {{ pip }} install --no-deps chatterbox-tts
+    "{{ python }}" -m pip install --no-deps chatterbox-tts
     # HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
-    {{ pip }} install --no-deps hume-tada
+    "{{ python }}" -m pip install --no-deps hume-tada
     # Apple Silicon: install MLX backend
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
-        {{ pip }} install -r {{ backend_dir }}/requirements-mlx.txt
+        "{{ python }}" -m pip install -r {{ backend_dir }}/requirements-mlx.txt
         # mlx-lm and mlx-audio declare transformers>=5.x, which conflicts with
         # our transformers<=4.57.x cap, so install them --no-deps (their other
         # runtime deps are covered by requirements.txt / requirements-mlx.txt —
         # see the note in requirements-mlx.txt and .github/workflows/release.yml)
-        {{ pip }} install --no-deps mlx-lm==0.31.1
-        {{ pip }} install --no-deps mlx-audio==0.4.1
+        "{{ python }}" -m pip install --no-deps mlx-lm==0.31.1
+        "{{ python }}" -m pip install --no-deps mlx-audio==0.4.1
     fi
-    {{ pip }} install git+https://github.com/QwenLM/Qwen3-TTS.git
-    {{ pip }} install pyinstaller ruff pytest pytest-asyncio -q
+    "{{ python }}" -m pip install git+https://github.com/QwenLM/Qwen3-TTS.git
+    "{{ python }}" -m pip install pyinstaller ruff pytest pytest-asyncio -q
     echo "Python environment ready."
 
 [windows]
 setup-python:
+    $target = "{{ python_version }}"; \
+    function Test-Py($exe) { \
+        if (-not $exe -or -not (Test-Path $exe)) { return $false }; \
+        $v = & $exe -c "import sys; print('%s.%s' % sys.version_info[:2])" 2>$null; \
+        return ($LASTEXITCODE -eq 0 -and $v -eq $target); \
+    }; \
+    function Test-Pip { \
+        if (-not (Test-Path "{{ python }}")) { return $false }; \
+        & "{{ python }}" -m pip --version *> $null; \
+        return ($LASTEXITCODE -eq 0); \
+    }; \
+    $py = $null; \
+    if (Get-Command py -ErrorAction SilentlyContinue) { \
+        $p = & py "-$target" -c "import sys; print(sys.executable)" 2>$null; \
+        if ($LASTEXITCODE -eq 0) { $py = $p }; \
+    }; \
+    if (-not $py) { foreach ($n in @("python$target", "python")) { \
+        $c = Get-Command $n -ErrorAction SilentlyContinue; \
+        if ($c -and (Test-Py $c.Source)) { $py = $c.Source; break }; \
+    } }; \
+    if (-not $py) { \
+        Write-Host "ERROR: Voicebox requires Python $target (see requires-python in backend/pyproject.toml)."; \
+        Write-Host "Install it from https://python.org or:  winget install -e --id Python.Python.$target"; \
+        Write-Host "Then re-run: just setup"; \
+        exit 1; \
+    }; \
+    if ((Test-Path "{{ venv }}") -and (-not (Test-Py "{{ python }}") -or -not (Test-Pip))) { \
+        Write-Host "Existing venv is not a working Python $target env - recreating..."; \
+        Remove-Item -Recurse -Force "{{ venv }}"; \
+    }; \
     if (-not (Test-Path "{{ venv }}")) { \
-        Write-Host "Creating Python virtual environment..."; \
-        $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
-        if ([int]$pyMinor -gt 13) { \
-            Write-Host "Warning: Python 3.$pyMinor detected. ML packages may not be compatible."; \
-        }; \
-        & {{ system_python }} -m venv {{ venv }}; \
+        Write-Host "Creating Python virtual environment with $py ..."; \
+        & $py -m venv "{{ venv }}"; \
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Pip)) { Write-Host "ERROR: could not create a working venv with $py"; exit 1 }; \
     }
-    Write-Host "Installing Python dependencies..."
-    & "{{ python }}" -m pip install --upgrade pip -q
+    # PowerShell does not fail the recipe when a native command returns nonzero, so
+    # wrap every pip invocation and exit on $LASTEXITCODE.
+    Write-Host "Installing Python dependencies..."; \
+    function Invoke-Pip { \
+        & "{{ python }}" -m pip @args; \
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; \
+    }; \
+    Invoke-Pip install --upgrade pip -q; \
     $gpus = Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name; \
     Write-Host "Detected GPUs: $($gpus -join ', ')"; \
     $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0; \
     $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0; \
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
-        & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
+        Invoke-Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
     } elseif ($hasIntelArc) { \
         Write-Host "Intel Arc GPU detected — installing PyTorch with XPU support..."; \
-        & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
-        & "{{ pip }}" install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
+        Invoke-Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
+        Invoke-Pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
     } else { \
         Write-Host "No NVIDIA or Intel Arc GPU detected — using CPU-only PyTorch."; \
         Write-Host "If you have an Intel Arc GPU, install XPU support manually:"; \
-        Write-Host "  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
-        Write-Host "  pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
-    }
-    & "{{ pip }}" install -r {{ backend_dir }}/requirements.txt
-    & "{{ pip }}" install --no-deps chatterbox-tts
-    & "{{ pip }}" install --no-deps hume-tada
-    & "{{ pip }}" install git+https://github.com/QwenLM/Qwen3-TTS.git
-    & "{{ pip }}" install pyinstaller ruff pytest pytest-asyncio -q
+        Write-Host "  python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
+        Write-Host "  python -m pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
+    }; \
+    Invoke-Pip install -r {{ backend_dir }}/requirements.txt; \
+    Invoke-Pip install --no-deps chatterbox-tts; \
+    Invoke-Pip install --no-deps hume-tada; \
+    Invoke-Pip install git+https://github.com/QwenLM/Qwen3-TTS.git; \
+    Invoke-Pip install pyinstaller ruff pytest pytest-asyncio -q; \
     Write-Host "Python environment ready."
 
 # Install JavaScript dependencies

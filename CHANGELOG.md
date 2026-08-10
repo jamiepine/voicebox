@@ -7,6 +7,25 @@
 
 ## [Unreleased]
 
+### Developer Experience
+
+- **`just setup` now pins the Python venv to 3.12.** Setup preferred `python3.12` when
+  it found one but silently fell back to 3.13 or bare `python3`, so a machine on
+  3.13/3.14 built a venv that then failed to install dependencies capped below 3.13
+  (kokoro, misaki, numpy, numba) with `Could not find a version that satisfies the
+  requirement`. Setup now requires 3.12, and recreates a venv that is on the wrong
+  version or whose pip doesn't run, so a stale or half-built one heals on the next
+  `just setup` rather than needing a manual `rm -rf backend/venv`. Reporting 3.12
+  isn't enough for an interpreter to be chosen — it has to actually build a working
+  venv, so setup falls through to the next candidate when one can't (Debian packages
+  `ensurepip` separately as `python3.12-venv`; current Homebrew `python@3.12` bottles
+  carry a `pyexpat` that won't load on macOS 26). If none work it exits with the
+  install command for your platform instead of failing deep inside pip. Windows
+  resolves it through the `py -3.12` launcher, since Windows installers don't create
+  a `python3.12` command.
+- **The 3.12 requirement is now machine-readable.** `backend/pyproject.toml`
+  declares `requires-python = ">=3.12,<3.13"` rather than an open-ended `>=3.12`,
+  so the constraint the docs describe is the one tooling resolves against.
 ### Linux
 
 - **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch

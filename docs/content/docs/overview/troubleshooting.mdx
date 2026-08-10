@@ -292,13 +292,22 @@ This is expected behavior. The first generation downloads the selected TTS engin
 
 <AccordionGroup>
   <Accordion title="Python Version">
-    Ensure Python 3.11 or higher:
+    Ensure Python 3.12:
 
     ```bash
-    python --version
+    python3.12 --version  # macOS/Linux
+    py -3.12 --version    # Windows
     ```
 
-    If not, install Python 3.11+ and recreate the virtual environment.
+    Voicebox pins its venv to Python 3.12 because some dependencies have no 3.13
+    release yet. `just setup` recreates a venv that was built on the wrong version,
+    so re-running it is usually the fix.
+
+    If `just setup` can't find a usable 3.12, install one: `uv python install 3.12`
+    works anywhere; `brew install python@3.12` on macOS; `sudo apt install
+    python3.12 python3.12-venv` on Debian/Ubuntu; or on Windows install from
+    [python.org](https://python.org) / `winget install -e --id Python.Python.3.12`
+    and use the `py -3.12` launcher.
   </Accordion>
 
   <Accordion title="Virtual Environment">
