@@ -43,7 +43,88 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_pronunciation_entries(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
+
+
+def _migrate_pronunciation_entries(engine, inspector, tables: set[str]) -> None:
+    """Add the scope-uniqueness index to an existing pronunciation_entries table.
+
+    ``create_all`` builds the index with the table, so a fresh install needs
+    nothing here. A database created by an earlier build of this feature has the
+    table but not the index, and ``create_all`` will not add one to a table that
+    already exists.
+
+    Duplicates that predate the index would make CREATE UNIQUE INDEX fail, so
+    they are collapsed first, keeping the oldest row in each scope.
+
+    "Oldest" has to mean ``created_at``, not ``MIN(id)``: ids are random UUIDs,
+    so ordering by id would keep an arbitrary row and pick a different one on a
+    different machine. The concatenated key sorts by timestamp first and falls
+    back to id, which keeps the choice deterministic when two rows share a
+    timestamp -- ISO-8601 text sorts chronologically, so this needs no window
+    function and stays portable across SQLite builds.
+
+    ``IF NOT EXISTS`` rather than relying on the inspector check alone: the
+    inspector reflects a snapshot, and a migration that raises takes startup
+    down with it. The check stays as the fast path that skips the dedup scan.
+    """
+    if "pronunciation_entries" not in tables:
+        return
+
+    # Strategy columns. Existing rows are all respellings, which is the
+    # default, so no backfill is needed.
+    columns = _get_columns(inspector, "pronunciation_entries")
+    for column, ddl in (
+        ("strategy", "strategy VARCHAR NOT NULL DEFAULT 'respell'"),
+        ("spoken_language", "spoken_language VARCHAR"),
+        ("phonemes", "phonemes VARCHAR"),
+    ):
+        if column not in columns:
+            _add_column(engine, "pronunciation_entries", ddl, column)
+
+    # sqlite_master rather than the inspector: SQLAlchemy cannot reflect an
+    # expression-based index and skips it with a warning, so the inspector
+    # never reports this one and the guard would never fire -- leaving the
+    # dedup scan to run on every startup for nothing.
+    with engine.connect() as conn:
+        already = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'index' AND name = 'uq_pronunciation_scope'"
+            )
+        ).first()
+    if already:
+        return
+
+    with engine.connect() as conn:
+        removed = conn.execute(
+            text(
+                """
+                DELETE FROM pronunciation_entries
+                WHERE COALESCE(created_at, '') || '|' || id NOT IN (
+                    SELECT MIN(COALESCE(created_at, '') || '|' || id)
+                    FROM pronunciation_entries
+                    GROUP BY lower(term), COALESCE(language, ''), COALESCE(profile_id, '')
+                )
+                """
+            )
+        ).rowcount
+        conn.execute(
+            text(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_pronunciation_scope
+                ON pronunciation_entries (
+                    lower(term), COALESCE(language, ''), COALESCE(profile_id, '')
+                )
+                """
+            )
+        )
+        conn.commit()
+
+    if removed:
+        logger.info("Collapsed %d duplicate pronunciation entries before indexing", removed)
+    logger.info("Added uq_pronunciation_scope index to pronunciation_entries")
 
 
 # -- helpers ---------------------------------------------------------------

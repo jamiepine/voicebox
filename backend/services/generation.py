@@ -42,6 +42,7 @@ async def run_generation(
     max_chunk_chars: Optional[int] = None,
     crossfade_ms: Optional[int] = None,
     version_id: Optional[str] = None,
+    prosody: bool = True,
 ) -> None:
     """Execute TTS inference and persist the result.
 
@@ -56,6 +57,7 @@ async def run_generation(
     )
     from ..utils.chunked_tts import generate_chunked
     from ..utils.audio import has_tts_runaway, normalize_audio, save_audio, trim_tts_output
+    from .prosody.pipeline import engine_capabilities, generate_with_prosody
 
     task_manager = get_task_manager()
     bg_db = next(get_db())
@@ -76,6 +78,7 @@ async def run_generation(
         )
 
         await history.update_generation_status(generation_id, "generating", bg_db)
+
         trim_fn = trim_tts_output if engine_needs_trim(engine) else None
         runaway_detector = has_tts_runaway if engine_retries_runaway(engine) else None
 
@@ -91,7 +94,28 @@ async def run_generation(
         if crossfade_ms is not None:
             gen_kwargs["crossfade_ms"] = crossfade_ms
 
-        audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
+        # The transformer resolves dictionary entries and prosody markup into a
+        # plan. Unmarked text with no dictionary hits compiles to one plain run
+        # and takes the same single-shot call as before -- the row in
+        # `generations` keeps what the author wrote either way, so History
+        # stays readable and editing an entry changes future audio without
+        # rewriting the past.
+        supports_instruct, engine_langs = engine_capabilities(engine)
+        audio, sample_rate = await generate_with_prosody(
+            text,
+            engine=engine,
+            language=language,
+            generate_chunked_fn=generate_chunked,
+            tts_model=tts_model,
+            voice_prompt=voice_prompt,
+            gen_kwargs=gen_kwargs,
+            db=bg_db,
+            profile_id=profile_id,
+            supports_instruct=supports_instruct,
+            engine_languages=engine_langs,
+            seed=seed,
+            enabled=prosody,
+        )
 
         # --- Normalize (generate and regenerate always; retry skips) -----
         if normalize or mode == "regenerate":

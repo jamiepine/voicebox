@@ -139,6 +139,7 @@ async def generate_speech(
             mode="generate",
             max_chunk_chars=data.max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
+            prosody=data.prosody,
         )
     )
 
@@ -363,17 +364,34 @@ async def stream_speech(
 
         runaway_detector = has_tts_runaway
 
-    audio, sample_rate = await generate_chunked(
-        tts_model,
+    from ..services.prosody.pipeline import engine_capabilities, generate_with_prosody
+
+    supports_instruct, engine_langs = engine_capabilities(engine)
+
+    # The same transformer the persisted path uses, so a streamed preview
+    # matches what /generate would produce rather than approximating it.
+    audio, sample_rate = await generate_with_prosody(
         data.text,
-        voice_prompt,
+        engine=engine,
         language=data.language,
+        generate_chunked_fn=generate_chunked,
+        tts_model=tts_model,
+        voice_prompt=voice_prompt,
+        gen_kwargs=dict(
+            language=data.language,
+            seed=data.seed,
+            instruct=data.instruct,
+            max_chunk_chars=data.max_chunk_chars,
+            crossfade_ms=data.crossfade_ms,
+            trim_fn=trim_fn,
+            runaway_detector=runaway_detector,
+        ),
+        db=db,
+        profile_id=data.profile_id,
+        supports_instruct=supports_instruct,
+        engine_languages=engine_langs,
         seed=data.seed,
-        instruct=data.instruct,
-        max_chunk_chars=data.max_chunk_chars,
-        crossfade_ms=data.crossfade_ms,
-        trim_fn=trim_fn,
-        runaway_detector=runaway_detector,
+        enabled=data.prosody,
     )
 
     effects_chain_config = None

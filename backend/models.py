@@ -2,7 +2,8 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+from typing_extensions import Annotated
 from typing import Optional, List
 from datetime import datetime
 
@@ -97,6 +98,16 @@ class GenerationRequest(BaseModel):
         default=50, ge=0, le=500, description="Crossfade duration in ms between chunks (0 for hard cut)"
     )
     normalize: bool = Field(default=True, description="Normalize output audio volume")
+    prosody: bool = Field(
+        default=True,
+        description=(
+            "Resolve pronunciation entries and prosody markup (<lang>, <break>, "
+            "<prosody>, <sub>) before synthesis. Set false to speak the text "
+            "literally, for a script that genuinely contains something shaped "
+            "like a tag. Text with no markup and no dictionary hits is "
+            "unaffected either way."
+        ),
+    )
     effects_chain: Optional[List["EffectConfig"]] = Field(
         None, description="Effects chain to apply after generation (overrides profile default)"
     )
@@ -125,6 +136,191 @@ class GenerationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# A value of "   " passes a raw min_length check and then stores as empty once
+# the route strips it. Strip first, then length-check the result.
+TrimmedTerm = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
+TrimmedReplacement = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+]
+
+
+PRONUNCIATION_STRATEGIES = "^(respell|language|phoneme)$"
+
+
+class PronunciationEntryCreate(BaseModel):
+    """Request model for creating a pronunciation entry."""
+
+    term: TrimmedTerm
+    # Always required, and always plain text every engine can read: it is the
+    # fallback whenever the chosen strategy is unavailable on the target
+    # engine. For a `language` entry, repeat the term -- the text does not
+    # change, only which language reads it.
+    replacement: TrimmedReplacement
+    strategy: str = Field(
+        default="respell",
+        pattern=PRONUNCIATION_STRATEGIES,
+        description=(
+            "How to realise the term. 'respell' substitutes text and works "
+            "everywhere; 'language' renders it in another language; 'phoneme' "
+            "passes phonemes on engines that accept them."
+        ),
+    )
+    spoken_language: Optional[str] = Field(
+        None,
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+        description="For strategy='language': the language to read this term in.",
+    )
+    phonemes: Optional[str] = Field(
+        None, max_length=500, description="For strategy='phoneme'."
+    )
+    language: Optional[str] = Field(
+        None,
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+        description="Apply only when generating in this language. Omit for all languages.",
+    )
+    profile_id: Optional[str] = Field(
+        None, description="Scope to one voice. Omit for a global entry."
+    )
+    enabled: bool = True
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class PronunciationEntryUpdate(BaseModel):
+    """Request model for updating a pronunciation entry. Omitted fields are left alone."""
+
+    term: Optional[TrimmedTerm] = None
+    replacement: Optional[TrimmedReplacement] = None
+    strategy: Optional[str] = Field(None, pattern=PRONUNCIATION_STRATEGIES)
+    spoken_language: Optional[str] = Field(
+        None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    phonemes: Optional[str] = Field(None, max_length=500)
+    language: Optional[str] = Field(
+        None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    profile_id: Optional[str] = None
+    enabled: Optional[bool] = None
+    notes: Optional[str] = Field(None, max_length=1000)
+
+
+class PronunciationEntryResponse(BaseModel):
+    """Response model for a pronunciation entry."""
+
+    id: str
+    term: str
+    replacement: str
+    strategy: str = "respell"
+    spoken_language: Optional[str] = None
+    phonemes: Optional[str] = None
+    language: Optional[str] = None
+    profile_id: Optional[str] = None
+    enabled: bool = True
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PronunciationPreviewRequest(BaseModel):
+    """Request to see what the dictionary would do to a piece of text."""
+
+    text: str = Field(..., min_length=1, max_length=50000)
+    language: Optional[str] = None
+    profile_id: Optional[str] = None
+
+
+class PronunciationSubstitution(BaseModel):
+    """One replacement the dictionary made."""
+
+    term: str
+    replacement: str
+    entry_id: str
+
+
+class PronunciationPreviewResponse(BaseModel):
+    """What the engine would actually be given, and why it differs."""
+
+    original: str
+    result: str
+    applied: List[PronunciationSubstitution]
+
+
+class ProsodyPreviewRequest(BaseModel):
+    """Ask what a script compiles to, without generating anything."""
+
+    text: str = Field(..., min_length=1, max_length=50000)
+    engine: str = Field(default="qwen", max_length=50)
+    language: str = Field(
+        default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    profile_id: Optional[str] = None
+    instruct: Optional[str] = Field(None, max_length=500)
+
+
+class ProsodyPlanNode(BaseModel):
+    """One step of the plan: a generation call, or a silence."""
+
+    kind: str
+    text: Optional[str] = None
+    language: Optional[str] = None
+    rate: Optional[float] = None
+    instruct: Optional[str] = None
+    # Set when a substitution changed what the engine hears, so a reviewer can
+    # see the difference rather than only the result.
+    source_text: Optional[str] = None
+    ms: Optional[int] = None
+
+
+class ProsodyPlanWarning(BaseModel):
+    """Something the target engine cannot honour."""
+
+    code: str
+    detail: str
+
+
+class ProsodyPreviewResponse(BaseModel):
+    """The compiled plan, before any audio exists."""
+
+    original: str
+    # The script with dictionary entries resolved into markup -- the same
+    # directives an author could have typed.
+    markup: str
+    dictionary_terms: List[str]
+    nodes: List[ProsodyPlanNode]
+    warnings: List[ProsodyPlanWarning]
+    run_count: int
+    # True when the script needs none of the harness and takes the ordinary
+    # single-shot generation path.
+    is_trivial: bool
+
+
+class ProsodyAnnotateRequest(BaseModel):
+    """Ask the local LLM to draft markup for a script."""
+
+    text: str = Field(..., min_length=1, max_length=10000)
+    language: str = Field(
+        default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    model_size: Optional[str] = Field(default=None, pattern=r"^(0\.6B|1\.7B|4B)$")
+
+
+class ProsodyAnnotateResponse(BaseModel):
+    """A suggestion for a human to review. Nothing is stored or generated."""
+
+    original: str
+    # Safe to use unconditionally: on rejection this is the original text.
+    markup: str
+    accepted: bool
+    changed: bool
+    rejected_reason: Optional[str] = None
+    model_size: Optional[str] = None
+    attempts: int = 0
 
 
 class HistoryQuery(BaseModel):
