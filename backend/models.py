@@ -241,6 +241,78 @@ class PronunciationPreviewResponse(BaseModel):
     applied: List[PronunciationSubstitution]
 
 
+class ProsodyPreviewRequest(BaseModel):
+    """Ask what a script compiles to, without generating anything."""
+
+    text: str = Field(..., min_length=1, max_length=50000)
+    engine: str = Field(default="qwen", max_length=50)
+    language: str = Field(
+        default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    profile_id: Optional[str] = None
+    instruct: Optional[str] = Field(None, max_length=500)
+
+
+class ProsodyPlanNode(BaseModel):
+    """One step of the plan: a generation call, or a silence."""
+
+    kind: str
+    text: Optional[str] = None
+    language: Optional[str] = None
+    rate: Optional[float] = None
+    instruct: Optional[str] = None
+    # Set when a substitution changed what the engine hears, so a reviewer can
+    # see the difference rather than only the result.
+    source_text: Optional[str] = None
+    ms: Optional[int] = None
+
+
+class ProsodyPlanWarning(BaseModel):
+    """Something the target engine cannot honour."""
+
+    code: str
+    detail: str
+
+
+class ProsodyPreviewResponse(BaseModel):
+    """The compiled plan, before any audio exists."""
+
+    original: str
+    # The script with dictionary entries resolved into markup -- the same
+    # directives an author could have typed.
+    markup: str
+    dictionary_terms: List[str]
+    nodes: List[ProsodyPlanNode]
+    warnings: List[ProsodyPlanWarning]
+    run_count: int
+    # True when the script needs none of the harness and takes the ordinary
+    # single-shot generation path.
+    is_trivial: bool
+
+
+class ProsodyAnnotateRequest(BaseModel):
+    """Ask the local LLM to draft markup for a script."""
+
+    text: str = Field(..., min_length=1, max_length=10000)
+    language: str = Field(
+        default="en", pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    model_size: Optional[str] = Field(default=None, pattern=r"^(0\.6B|1\.7B|4B)$")
+
+
+class ProsodyAnnotateResponse(BaseModel):
+    """A suggestion for a human to review. Nothing is stored or generated."""
+
+    original: str
+    # Safe to use unconditionally: on rejection this is the original text.
+    markup: str
+    accepted: bool
+    changed: bool
+    rejected_reason: Optional[str] = None
+    model_size: Optional[str] = None
+    attempts: int = 0
+
+
 class HistoryQuery(BaseModel):
     """Query model for generation history."""
 

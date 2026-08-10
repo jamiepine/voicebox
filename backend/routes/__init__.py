@@ -16,6 +16,7 @@ def register_routers(app: FastAPI) -> None:
     from .stories import router as stories_router
     from .effects import router as effects_router
     from .pronunciation import router as pronunciation_router
+    from .prosody import router as prosody_router
     from .audio import router as audio_router
     from .models import router as models_router
     from .settings import router as settings_router
@@ -38,6 +39,7 @@ def register_routers(app: FastAPI) -> None:
     app.include_router(stories_router)
     app.include_router(effects_router)
     app.include_router(pronunciation_router)
+    app.include_router(prosody_router)
     app.include_router(audio_router)
     app.include_router(models_router)
     app.include_router(settings_router)
