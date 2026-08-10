@@ -144,16 +144,23 @@ class RenderPlan:
 
     @property
     def is_trivial(self) -> bool:
-        """Whether this is a single plain run needing none of the harness.
+        """Whether this needs none of the harness: one run, no assembly.
 
-        The overwhelmingly common case. The renderer takes the existing
-        single-shot path for these, so unmarked text costs nothing.
+        The overwhelmingly common case, and the caller takes the existing
+        single-shot path for it, so unmarked text costs nothing.
+
+        A substitution does *not* make a plan non-trivial. ``source_text`` is
+        provenance for display -- by this point the respelling is already in
+        ``text``, and one run with no silences and no rate change has nothing
+        for the renderer to assemble. Treating it as non-trivial would send
+        every respelled sentence through the renderer for no benefit, and would
+        contradict the property that makes respelling the preferred strategy:
+        that it does not cut the sentence.
         """
         return (
             len(self.nodes) == 1
             and isinstance(self.nodes[0], Speech)
             and self.nodes[0].rate == 1.0
-            and self.nodes[0].source_text is None
         )
 
     def with_seeds(self, base_seed: int | None) -> RenderPlan:

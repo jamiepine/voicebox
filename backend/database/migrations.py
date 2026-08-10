@@ -83,8 +83,18 @@ def _migrate_pronunciation_entries(engine, inspector, tables: set[str]) -> None:
         if column not in columns:
             _add_column(engine, "pronunciation_entries", ddl, column)
 
-    existing = {ix["name"] for ix in inspector.get_indexes("pronunciation_entries")}
-    if "uq_pronunciation_scope" in existing:
+    # sqlite_master rather than the inspector: SQLAlchemy cannot reflect an
+    # expression-based index and skips it with a warning, so the inspector
+    # never reports this one and the guard would never fire -- leaving the
+    # dedup scan to run on every startup for nothing.
+    with engine.connect() as conn:
+        already = conn.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'index' AND name = 'uq_pronunciation_scope'"
+            )
+        ).first()
+    if already:
         return
 
     with engine.connect() as conn:

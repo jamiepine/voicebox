@@ -98,6 +98,16 @@ class GenerationRequest(BaseModel):
         default=50, ge=0, le=500, description="Crossfade duration in ms between chunks (0 for hard cut)"
     )
     normalize: bool = Field(default=True, description="Normalize output audio volume")
+    prosody: bool = Field(
+        default=True,
+        description=(
+            "Resolve pronunciation entries and prosody markup (<lang>, <break>, "
+            "<prosody>, <sub>) before synthesis. Set false to speak the text "
+            "literally, for a script that genuinely contains something shaped "
+            "like a tag. Text with no markup and no dictionary hits is "
+            "unaffected either way."
+        ),
+    )
     effects_chain: Optional[List["EffectConfig"]] = Field(
         None, description="Effects chain to apply after generation (overrides profile default)"
     )

@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, pronunciation, tts
+from ..services import history, personality, profiles, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
@@ -139,6 +139,7 @@ async def generate_speech(
             mode="generate",
             max_chunk_chars=data.max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
+            prosody=data.prosody,
         )
     )
 
@@ -363,23 +364,34 @@ async def stream_speech(
 
         runaway_detector = has_tts_runaway
 
-    # Same respelling the persisted path does, so a streamed preview matches
-    # what /generate would produce.
-    stream_text, _applied = pronunciation.apply_pronunciations(
-        data.text, data.language, db, profile_id=data.profile_id
-    )
+    from ..services.prosody.pipeline import engine_capabilities, generate_with_prosody
 
-    audio, sample_rate = await generate_chunked(
-        tts_model,
-        stream_text,
-        voice_prompt,
+    supports_instruct, engine_langs = engine_capabilities(engine)
+
+    # The same transformer the persisted path uses, so a streamed preview
+    # matches what /generate would produce rather than approximating it.
+    audio, sample_rate = await generate_with_prosody(
+        data.text,
+        engine=engine,
         language=data.language,
+        generate_chunked_fn=generate_chunked,
+        tts_model=tts_model,
+        voice_prompt=voice_prompt,
+        gen_kwargs=dict(
+            language=data.language,
+            seed=data.seed,
+            instruct=data.instruct,
+            max_chunk_chars=data.max_chunk_chars,
+            crossfade_ms=data.crossfade_ms,
+            trim_fn=trim_fn,
+            runaway_detector=runaway_detector,
+        ),
+        db=db,
+        profile_id=data.profile_id,
+        supports_instruct=supports_instruct,
+        engine_languages=engine_langs,
         seed=data.seed,
-        instruct=data.instruct,
-        max_chunk_chars=data.max_chunk_chars,
-        crossfade_ms=data.crossfade_ms,
-        trim_fn=trim_fn,
-        runaway_detector=runaway_detector,
+        enabled=data.prosody,
     )
 
     effects_chain_config = None

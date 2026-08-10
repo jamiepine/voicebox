@@ -21,32 +21,11 @@ from ..services.prosody.llm_annotate import (
     is_llm_available,
 )
 from ..services.prosody.parser import ProsodyParseError
+from ..services.prosody.pipeline import engine_capabilities
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def _engine_capabilities(engine: str) -> tuple[bool, list[str] | None]:
-    """What the target engine can honour.
-
-    Read from the model registry rather than assumed, so a plan's warnings
-    describe the engine that will actually run.
-    """
-    try:
-        from ..backends import get_tts_model_configs
-
-        configs = [c for c in get_tts_model_configs() if c.engine == engine]
-        if not configs:
-            return False, None
-        supports_instruct = all(c.supports_instruct for c in configs)
-        languages: list[str] = []
-        for cfg in configs:
-            languages.extend(lang for lang in cfg.languages if lang not in languages)
-        return supports_instruct, languages or None
-    except Exception:
-        logger.debug("Engine capability lookup failed for %r", engine, exc_info=True)
-        return False, None
 
 
 @router.post("/prosody/preview", response_model=models.ProsodyPreviewResponse)
@@ -66,7 +45,7 @@ async def preview_prosody(
     )
     annotated, applied_terms = annotate(data.text, rules_from_entries(entries))
 
-    supports_instruct, languages = _engine_capabilities(data.engine)
+    supports_instruct, languages = engine_capabilities(data.engine)
     try:
         plan = compile_plan(
             annotated,

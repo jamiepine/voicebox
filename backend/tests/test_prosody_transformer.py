@@ -351,3 +351,14 @@ def test_an_unseeded_plan_stays_unseeded():
     """Takes should still vary when no seed was requested."""
     p = plan("a b c").with_seeds(None)
     assert all(n.seed is None for n in p.nodes if isinstance(n, Speech))
+
+
+def test_a_respelled_run_is_still_trivial():
+    """The respelling is already in the text by this point, so there is nothing
+    for the renderer to assemble. Sending it through anyway would contradict
+    the property that makes respelling preferred: it does not cut."""
+    assert plan('a <sub alias="bandeha">bandeja</sub> b').is_trivial
+
+
+def test_a_break_makes_a_plan_non_trivial():
+    assert not plan('a<break time="700ms"/>b').is_trivial
