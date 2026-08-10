@@ -12,11 +12,14 @@ and a model config registry that eliminates per-engine dispatch maps.
 # HF_HUB_OFFLINE=1 and on network failures.
 from ..utils import hf_offline_patch  # noqa: F401
 
+import logging
 import threading
 from dataclasses import dataclass, field
 from typing import Protocol, Optional, Tuple, List
 from typing_extensions import runtime_checkable
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
@@ -794,3 +797,45 @@ def reset_backends():
     _tts_backends.clear()
     _stt_backend = None
     _llm_backends.clear()
+
+
+def unload_all_models() -> None:
+    """Unload every registered backend and release accelerator caches.
+
+    Generation workers call this after each job so chained TTS, STT, and LLM
+    work cannot retain model weights indefinitely. Backend instances are
+    removed from the registry afterwards and recreated lazily on the next
+    request.
+    """
+    registered = [*_tts_backends.values(), *_llm_backends.values()]
+    if _stt_backend is not None:
+        registered.append(_stt_backend)
+    if _tts_backend is not None:
+        registered.append(_tts_backend)
+
+    # Keep the cleanup idempotent even if a legacy singleton points at an
+    # instance already present in one of the engine registries.
+    backends = list({id(backend): backend for backend in registered}.values())
+    for backend in backends:
+        try:
+            backend.unload_model()
+        except Exception:
+            logger.warning("Failed to unload backend %r", backend, exc_info=True)
+
+    reset_backends()
+
+    # Return cached blocks to the driver. torch is optional in MLX/CPU builds.
+    try:
+        import torch
+    except ImportError:
+        return
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        logger.warning("Failed to empty CUDA cache", exc_info=True)
+    try:
+        if hasattr(torch, "mps") and torch.mps.is_available():
+            torch.mps.empty_cache()
+    except Exception:
+        logger.warning("Failed to empty MPS cache", exc_info=True)

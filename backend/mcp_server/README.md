@@ -15,7 +15,7 @@ Preferred — direct HTTP:
 {
   "mcpServers": {
     "voicebox": {
-      "url": "http://127.0.0.1:17493/mcp",
+      "url": "http://127.0.0.1:17493/mcp/",
       "headers": { "X-Voicebox-Client-Id": "claude-code" }
     }
   }
@@ -41,18 +41,18 @@ Claude Code one-liner:
 ```
 claude mcp add voicebox \
   --transport http \
-  --url http://127.0.0.1:17493/mcp \
+  --url http://127.0.0.1:17493/mcp/ \
   --header "X-Voicebox-Client-Id: claude-code"
 ```
 
 ## Tools
 
-| Name | Purpose |
-|---|---|
-| `voicebox.speak`          | Speak text in a voice profile. Returns a generation id you can poll. |
-| `voicebox.transcribe`     | Whisper transcription of a base64 blob or an absolute local path. |
-| `voicebox.list_captures`  | Recent captures (dictation / recording / file) with transcripts. |
-| `voicebox.list_profiles`  | Available voice profiles (cloned + preset). |
+| Name                     | Purpose                                                              |
+| ------------------------ | -------------------------------------------------------------------- |
+| `voicebox.speak`         | Speak text in a voice profile. Returns a generation id you can poll. |
+| `voicebox.transcribe`    | Whisper transcription of a base64 blob or an absolute local path.    |
+| `voicebox.list_captures` | Recent captures (dictation / recording / file) with transcripts.     |
+| `voicebox.list_profiles` | Available voice profiles (cloned + preset).                          |
 
 All tools resolve voice profiles in this precedence:
 
@@ -66,7 +66,7 @@ Settings → MCP.
 ## Debug with MCP Inspector
 
 ```
-npx @modelcontextprotocol/inspector http://127.0.0.1:17493/mcp
+npx @modelcontextprotocol/inspector http://127.0.0.1:17493/mcp/
 ```
 
 Point it at the URL, hit "List tools," call `voicebox.list_profiles`

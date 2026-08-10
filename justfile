@@ -325,6 +325,38 @@ fix-python: _ensure-venv
 test: _ensure-venv
     {{ venv_bin }}/python -m pytest {{ backend_dir }}/tests -v
 
+# Run deterministic CI-safe tests (excludes GPU, real-server E2E and slow builds)
+[unix]
+test-ci: _ensure-venv
+    {{ venv_bin }}/python -m pytest {{ backend_dir }}/tests -m "not gpu and not e2e and not slow" -v
+
+[windows]
+test-ci: _ensure-venv
+    & "{{ python }}" -m pytest {{ backend_dir }}/tests -m "not gpu and not e2e and not slow" -v
+
+# Run local evaluation harnesses; GPU/model tests remain opt-in via --gpu.
+[unix]
+eval-local: _ensure-venv
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{ venv_bin }}/python -m pytest {{ backend_dir }}/tests -m "not e2e and not slow" -v
+    bash scripts/test_backend_detection.sh
+    if [[ -f "${VOICEBOX_DICTATE_SCRIPT:-$HOME/.local/bin/voicebox-dictate.sh}" ]]; then
+        VOICEBOX_DICTATE_SCRIPT="${VOICEBOX_DICTATE_SCRIPT:-$HOME/.local/bin/voicebox-dictate.sh}" bash scripts/test_dictate_e2e.sh
+    else
+        echo "Skipping dictation harness: no installed script found."
+    fi
+    if [[ "${GPU:-0}" == "1" ]]; then
+        {{ venv_bin }}/python -m pytest {{ backend_dir }}/tests -m gpu -v
+    else
+        echo "Skipping GPU suite. Re-run with GPU=1 after model/fixture setup."
+    fi
+
+[windows]
+eval-local: _ensure-venv
+    & "{{ python }}" -m pytest {{ backend_dir }}/tests -m "not e2e and not slow" -v
+    Write-Host "Run scripts/test_backend_detection.sh separately under a Unix shell."
+
 # E2E: generate with every TTS model against the frozen binary (pass extra flags like --only kokoro)
 [unix]
 test-models *ARGS: _ensure-venv

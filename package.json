@@ -30,11 +30,15 @@
     "format:check": "biome format .",
     "check": "biome check .",
     "check:fix": "biome check --write .",
-    "ci": "bun run typecheck && bun run build:web"
+    "ci": "bun run typecheck && bun run build:web",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.12",
     "@types/node": "^20.0.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "prettier": "^3.9.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.6.0"
   },

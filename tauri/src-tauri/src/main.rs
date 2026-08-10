@@ -1655,5 +1655,17 @@ pub fn run() {
 }
 
 fn main() {
+    // On Wayland + NVIDIA, WebKitGTK's DMA-BUF renderer produces blank or
+    // corrupted webviews unless it is disabled via this env var (upstream
+    // webkitgtk bug: https://bugs.webkit.org/show_bug.cgi?id=261037).
+    // Without it the AppImage renders a broken window unless the user sets
+    // the variable manually. Set it here, before any GTK/WebKit init, so
+    // double-clicking the AppImage just works. An explicit user override
+    // (including `=0` to re-enable the renderer) is respected.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+
     run();
 }
