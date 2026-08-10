@@ -313,3 +313,40 @@ async def test_a_single_run_is_returned_untouched():
     raw, _ = await engine(Speech("a", "en"))
     audio, sr = await render(RenderPlan(nodes=[Speech("a", "en")]), engine)
     assert secs(audio, sr) == pytest.approx(secs(raw, sr), abs=0.01)
+
+
+# ── Time stretching (WSOLA) ──────────────────────────────────────────
+
+
+@pytest.mark.parametrize("rate", [0.5, 0.8, 0.9, 1.25, 2.0])
+def test_the_stretch_ratio_is_accurate(rate):
+    """An early version fed the search offset back into the read pointer, so a
+    run of forward-biased matches accelerated the read and produced 1.47s where
+    2.0s was asked for. The nominal pointer must advance independently."""
+    out = apply_rate(tone(1.0), rate, SR)
+    assert secs(out) == pytest.approx(1.0 / rate, rel=0.06)
+
+
+def test_stretching_preserves_pitch():
+    """The reason not to just resample: that would transpose the voice, which
+    is not what a rate directive means."""
+    import numpy as np
+
+    original = tone(1.0, freq=220.0)
+    slower = apply_rate(original, 0.5, SR)
+
+    def dominant_hz(x):
+        spectrum = np.abs(np.fft.rfft(x))
+        return np.fft.rfftfreq(len(x), 1 / SR)[int(np.argmax(spectrum))]
+
+    assert dominant_hz(slower) == pytest.approx(dominant_hz(original), rel=0.05)
+
+
+def test_stretching_does_not_resynthesise_silence_into_noise():
+    """WSOLA overlap-adds real waveform, so silence stays silent -- a vocoder
+    can ring on the transition into one."""
+    import numpy as np
+
+    quiet = np.zeros(SR // 2, dtype=np.float32)
+    out = apply_rate(np.concatenate([tone(0.5), quiet]), 0.8, SR)
+    assert float(np.max(np.abs(out[-SR // 4 :]))) < 0.02

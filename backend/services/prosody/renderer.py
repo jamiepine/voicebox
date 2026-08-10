@@ -90,15 +90,87 @@ def trim_edges(
     return audio[start:end] if end > start else audio
 
 
-def apply_rate(audio: np.ndarray, rate: float) -> np.ndarray:
+# WSOLA windowing. 30ms frames are long enough to hold a pitch period at any
+# adult speaking F0 and short enough that a splice lands inside one phoneme.
+_WSOLA_FRAME_MS = 30
+_WSOLA_SEARCH_MS = 10
+
+
+def _wsola(audio: np.ndarray, rate: float, sr: int) -> np.ndarray:
+    """Time-stretch by waveform-similarity overlap-add.
+
+    A phase vocoder reconstructs from magnitudes and re-estimated phase, which
+    on speech smears transients and leaves the characteristic "phasey" ring.
+    WSOLA never leaves the time domain: it overlap-adds real waveform segments,
+    choosing each splice point by cross-correlation so successive pitch periods
+    line up. Consonants stay crisp because nothing is resynthesised.
+
+    Args:
+        rate: Playback rate. <1 lengthens (slower), >1 shortens.
+    """
+    frame = max(2, int(sr * _WSOLA_FRAME_MS / 1000))
+    search = max(1, int(sr * _WSOLA_SEARCH_MS / 1000))
+    synthesis_hop = frame // 2
+    analysis_hop = round(synthesis_hop * rate)
+    if analysis_hop < 1:
+        return audio
+
+    window = np.hanning(frame).astype(np.float32)
+    out = np.zeros(int(len(audio) / rate) + frame, dtype=np.float32)
+    weights = np.zeros_like(out)
+
+    read = 0
+    write = 0
+    # Kept from the previous frame: the samples the next one should continue
+    # from, which is what the search is trying to match.
+    expected = audio[:frame].astype(np.float32)
+
+    while read + frame + search < len(audio) and write + frame < len(out):
+        # Search near the nominal read position for the segment that best
+        # continues what was just written.
+        lo = max(0, read - search)
+        hi = min(len(audio) - frame, read + search)
+        if hi <= lo:
+            offset = read
+        else:
+            candidates = np.arange(lo, hi + 1)
+            scores = [
+                float(np.dot(audio[c : c + frame], expected)) for c in candidates
+            ]
+            offset = int(candidates[int(np.argmax(scores))])
+
+        segment = audio[offset : offset + frame].astype(np.float32)
+        out[write : write + frame] += segment * window
+        weights[write : write + frame] += window
+
+        expected = audio[offset + synthesis_hop : offset + synthesis_hop + frame]
+        if len(expected) < frame:
+            break
+        # The nominal pointer advances by analysis_hop regardless of where the
+        # search landed. Folding the offset back in would let a run of
+        # forward-biased matches accelerate the read and cut the output short.
+        read += analysis_hop
+        write += synthesis_hop
+
+    nonzero = weights > 1e-6
+    out[nonzero] /= weights[nonzero]
+    return out[: write + frame]
+
+
+def apply_rate(audio: np.ndarray, rate: float, sr: int = 24000) -> np.ndarray:
     """Change tempo without changing pitch.
 
-    Phase vocoder, matching the story mixer -- resampling would transpose the
-    voice, which is not what a rate directive means.
+    WSOLA rather than a phase vocoder: the vocoder resynthesises from magnitude
+    and estimated phase, which on speech smears consonants and adds a phasey
+    ring -- audible enough to be rejected in listening. WSOLA overlap-adds real
+    waveform segments, so nothing is resynthesised.
+
+    Resampling is not an option either; it would transpose the voice, which is
+    not what a rate directive means.
     """
     if rate == 1.0 or audio.size == 0:
         return audio
-    return librosa.effects.time_stretch(audio.astype(np.float32), rate=rate)
+    return _wsola(audio.astype(np.float32), rate, sr)
 
 
 def _crossfade(a: np.ndarray, b: np.ndarray, samples: int) -> np.ndarray:
@@ -213,7 +285,7 @@ async def render(
                 lead=index != first_speech,
                 trail=index != last_speech,
             )
-        audio = apply_rate(audio, node.rate)
+        audio = apply_rate(audio, node.rate, sample_rate)
 
         if audio.size:
             pieces.append((audio, False))
