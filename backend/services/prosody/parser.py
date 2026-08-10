@@ -71,8 +71,24 @@ def parse_duration(raw: str) -> int:
     return ms
 
 
+# Attribute values are quoted, so anything writing one has to escape a quote
+# inside it -- and this has to undo that, or the engine speaks the entity.
+# Ampersand is unescaped last so "&amp;quot;" survives as the literal
+# "&quot;" rather than collapsing into a quote.
+_ENTITIES = (("&quot;", '"'), ("&apos;", "'"), ("&lt;", "<"), ("&gt;", ">"), ("&amp;", "&"))
+
+
+def _unescape(value: str) -> str:
+    for entity, char in _ENTITIES:
+        value = value.replace(entity, char)
+    return value
+
+
 def _parse_attrs(raw: str) -> dict[str, str]:
-    return {m.group("key").lower(): m.group("value") for m in _ATTR_RE.finditer(raw or "")}
+    return {
+        m.group("key").lower(): _unescape(m.group("value"))
+        for m in _ATTR_RE.finditer(raw or "")
+    }
 
 
 def _rate_from(raw: str | None) -> float | None:

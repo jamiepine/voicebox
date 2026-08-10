@@ -489,3 +489,89 @@ def test_dedup_migration_keeps_the_oldest_row(client, db):
     rows = db.query(PronunciationEntry).all()
     assert len(rows) == 1
     assert rows[0].replacement == "KEEP"
+
+
+# ── Strategies (prosody transformer, phase 3) ────────────────────────
+
+
+def test_a_language_strategy_entry_roundtrips(client, db):
+    r = client.post(
+        "/pronunciations",
+        json={
+            "term": "víbora",
+            "replacement": "víbora",
+            "strategy": "language",
+            "spoken_language": "es",
+        },
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["strategy"] == "language"
+    assert body["spoken_language"] == "es"
+
+
+def test_a_phoneme_strategy_entry_roundtrips(client, db):
+    r = client.post(
+        "/pronunciations",
+        json={
+            "term": "chiquita",
+            "replacement": "chi-KEE-ta",
+            "strategy": "phoneme",
+            "phonemes": "tʃiˈkita",  # noqa: RUF001
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["phonemes"] == "tʃiˈkita"  # noqa: RUF001
+
+
+def test_entries_default_to_respell(client, db):
+    """Every pre-existing entry is a respelling, so that has to be the default
+    or the migration would need a backfill."""
+    r = client.post("/pronunciations", json={"term": "x", "replacement": "y"})
+    assert r.json()["strategy"] == "respell"
+
+
+def test_a_language_strategy_without_a_language_is_rejected(client, db):
+    """Storing it would show the user the strategy they picked while silently
+    falling back to the replacement."""
+    r = client.post(
+        "/pronunciations",
+        json={"term": "x", "replacement": "y", "strategy": "language"},
+    )
+    assert r.status_code == 400
+    assert "spoken_language" in r.json()["detail"]
+
+
+def test_a_phoneme_strategy_without_phonemes_is_rejected(client, db):
+    r = client.post(
+        "/pronunciations",
+        json={"term": "x", "replacement": "y", "strategy": "phoneme"},
+    )
+    assert r.status_code == 400
+
+
+def test_an_unknown_strategy_is_rejected(client, db):
+    r = client.post(
+        "/pronunciations", json={"term": "x", "replacement": "y", "strategy": "vibes"}
+    )
+    assert r.status_code == 422
+
+
+def test_switching_strategy_validates_against_the_stored_row(client, db):
+    """A strategy change can rely on a field set by an earlier request, so the
+    check has to consider the row as it will be, not just what was sent."""
+    created = client.post(
+        "/pronunciations",
+        json={"term": "x", "replacement": "y", "spoken_language": "es"},
+    ).json()
+
+    # spoken_language is already stored, so switching strategy is legitimate.
+    r = client.put(f"/pronunciations/{created['id']}", json={"strategy": "language"})
+    assert r.status_code == 200, r.text
+    assert r.json()["strategy"] == "language"
+
+
+def test_switching_to_a_strategy_it_cannot_satisfy_is_rejected(client, db):
+    created = client.post("/pronunciations", json={"term": "x", "replacement": "y"}).json()
+    r = client.put(f"/pronunciations/{created['id']}", json={"strategy": "phoneme"})
+    assert r.status_code == 400

@@ -37,6 +37,24 @@ def _commit_or_conflict(db: Session) -> None:
         raise
 
 
+def _validate_strategy(strategy: str, spoken_language: str | None, phonemes: str | None) -> None:
+    """A strategy has to carry what it needs to be realisable.
+
+    Accepting `strategy="language"` with no language would store an entry that
+    silently degrades to its fallback -- the user would see the strategy they
+    picked and hear something else.
+    """
+    if strategy == "language" and not spoken_language:
+        raise HTTPException(
+            status_code=400,
+            detail="strategy='language' needs spoken_language, e.g. 'es'.",
+        )
+    if strategy == "phoneme" and not (phonemes or "").strip():
+        raise HTTPException(
+            status_code=400, detail="strategy='phoneme' needs phonemes."
+        )
+
+
 def _validate_profile(profile_id: str | None, db: Session) -> None:
     if profile_id is None:
         return
@@ -75,6 +93,7 @@ async def create_pronunciation(
 ):
     """Add a term and how to say it."""
     _validate_profile(data.profile_id, db)
+    _validate_strategy(data.strategy, data.spoken_language, data.phonemes)
 
     existing = pronunciation.find_duplicate(db, data.term, data.language, data.profile_id)
     if existing is not None:
@@ -89,6 +108,9 @@ async def create_pronunciation(
     entry = PronunciationEntry(
         term=data.term,
         replacement=data.replacement,
+        strategy=data.strategy,
+        spoken_language=data.spoken_language,
+        phonemes=data.phonemes,
         language=data.language,
         profile_id=data.profile_id,
         enabled=data.enabled,
@@ -114,6 +136,15 @@ async def update_pronunciation(
     fields = data.model_dump(exclude_unset=True)
     if "profile_id" in fields:
         _validate_profile(fields["profile_id"], db)
+
+    # Validate against the row as it will be, not just what was sent -- a
+    # strategy change can rely on a field set by an earlier request.
+    if {"strategy", "spoken_language", "phonemes"} & fields.keys():
+        _validate_strategy(
+            fields.get("strategy", entry.strategy),
+            fields.get("spoken_language", entry.spoken_language),
+            fields.get("phonemes", entry.phonemes),
+        )
 
     # Re-check the scope only when something that defines it moved.
     if {"term", "language", "profile_id"} & fields.keys():

@@ -138,11 +138,35 @@ TrimmedReplacement = Annotated[
 ]
 
 
+PRONUNCIATION_STRATEGIES = "^(respell|language|phoneme)$"
+
+
 class PronunciationEntryCreate(BaseModel):
     """Request model for creating a pronunciation entry."""
 
     term: TrimmedTerm
+    # Always required, and always plain text every engine can read: it is the
+    # fallback whenever the chosen strategy is unavailable on the target
+    # engine. For a `language` entry, repeat the term -- the text does not
+    # change, only which language reads it.
     replacement: TrimmedReplacement
+    strategy: str = Field(
+        default="respell",
+        pattern=PRONUNCIATION_STRATEGIES,
+        description=(
+            "How to realise the term. 'respell' substitutes text and works "
+            "everywhere; 'language' renders it in another language; 'phoneme' "
+            "passes phonemes on engines that accept them."
+        ),
+    )
+    spoken_language: Optional[str] = Field(
+        None,
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+        description="For strategy='language': the language to read this term in.",
+    )
+    phonemes: Optional[str] = Field(
+        None, max_length=500, description="For strategy='phoneme'."
+    )
     language: Optional[str] = Field(
         None,
         pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
@@ -160,6 +184,11 @@ class PronunciationEntryUpdate(BaseModel):
 
     term: Optional[TrimmedTerm] = None
     replacement: Optional[TrimmedReplacement] = None
+    strategy: Optional[str] = Field(None, pattern=PRONUNCIATION_STRATEGIES)
+    spoken_language: Optional[str] = Field(
+        None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+    )
+    phonemes: Optional[str] = Field(None, max_length=500)
     language: Optional[str] = Field(
         None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
     )
@@ -174,6 +203,9 @@ class PronunciationEntryResponse(BaseModel):
     id: str
     term: str
     replacement: str
+    strategy: str = "respell"
+    spoken_language: Optional[str] = None
+    phonemes: Optional[str] = None
     language: Optional[str] = None
     profile_id: Optional[str] = None
     enabled: bool = True

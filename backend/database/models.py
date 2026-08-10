@@ -165,7 +165,24 @@ class PronunciationEntry(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     term = Column(String, nullable=False)
+
+    # How to say it. Always populated, and always something every engine can
+    # read, so it doubles as the fallback when a richer strategy is not
+    # available on the target engine. For a `language` entry it is the term
+    # itself, since the text does not change -- only which language reads it.
     replacement = Column(String, nullable=False)
+
+    # Which realisation to prefer: "respell" | "language" | "phoneme".
+    # The compiler drops to `replacement` whenever the engine cannot do the
+    # preferred one, which is the same native-or-structural rule the
+    # directives follow.
+    strategy = Column(String, nullable=False, default="respell")
+    # For strategy="language": the language this term should be read in.
+    # Distinct from `language` below, which is about *when* the entry applies.
+    spoken_language = Column(String, nullable=True)
+    # For strategy="phoneme": engine-specific phoneme string.
+    phonemes = Column(String, nullable=True)
+
     # NULL applies in every generation language. A code restricts the entry to
     # that language -- a Spanish word needs respelling when the engine is
     # reading English, but not when it is already reading Spanish.

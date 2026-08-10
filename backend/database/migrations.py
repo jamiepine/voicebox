@@ -71,6 +71,18 @@ def _migrate_pronunciation_entries(engine, inspector, tables: set[str]) -> None:
     """
     if "pronunciation_entries" not in tables:
         return
+
+    # Strategy columns. Existing rows are all respellings, which is the
+    # default, so no backfill is needed.
+    columns = _get_columns(inspector, "pronunciation_entries")
+    for column, ddl in (
+        ("strategy", "strategy VARCHAR NOT NULL DEFAULT 'respell'"),
+        ("spoken_language", "spoken_language VARCHAR"),
+        ("phonemes", "phonemes VARCHAR"),
+    ):
+        if column not in columns:
+            _add_column(engine, "pronunciation_entries", ddl, column)
+
     existing = {ix["name"] for ix in inspector.get_indexes("pronunciation_entries")}
     if "uq_pronunciation_scope" in existing:
         return
