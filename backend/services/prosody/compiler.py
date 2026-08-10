@@ -45,26 +45,44 @@ def _flatten(nodes: list[Node], inherited: Attrs, out: list[tuple[str, Attrs] | 
             _flatten(node.children, inherited.merged_with(node.attrs), out)
 
 
-def _coalesce(items: list[tuple[str, Attrs] | int]) -> list[tuple[str, Attrs] | int]:
-    """Merge neighbouring runs that share settings.
+def _resolve(items: list[tuple[str, Attrs] | int]) -> list[tuple[str, str, Attrs] | int]:
+    """Apply substitutions, producing (spoken, written, attrs).
 
-    Without this, ``a<lang xml:lang="es">b</lang>c`` would still cut between
-    the plain runs elsewhere in the sentence. Every avoided cut is one less
-    place the model restarts its prosody, which is the whole cost of this
-    approach.
+    Once ``<sub>``/``<phoneme>`` has been materialised into the spoken text it
+    stops being a setting, so it must not keep the run apart from its
+    neighbours afterwards. ``spoken_as`` is cleared here for exactly that
+    reason -- it governs inheritance, not rendering.
     """
-    merged: list[tuple[str, Attrs] | int] = []
+    out: list[tuple[str, str, Attrs] | int] = []
+    for item in items:
+        if isinstance(item, int):
+            out.append(item)
+            continue
+        written, attrs = item
+        spoken = written if attrs.spoken_as is None else attrs.spoken_as
+        out.append((spoken, written, replace(attrs, spoken_as=None)))
+    return out
+
+
+def _coalesce(items: list[tuple[str, str, Attrs] | int]) -> list[tuple[str, str, Attrs] | int]:
+    """Merge neighbouring runs that render identically.
+
+    Every avoided cut is one less place the model restarts its prosody, which
+    is the entire cost of this approach. It matters most for ``<sub>``: a
+    respelling changes the characters, not the settings, so the sentence around
+    it should stay in one piece. Cutting there would buy the seams that
+    respelling exists to avoid.
+    """
+    merged: list[tuple[str, str, Attrs] | int] = []
     for item in items:
         if (
             isinstance(item, tuple)
             and merged
             and isinstance(merged[-1], tuple)
-            and merged[-1][1] == item[1]
-            # A substitution applies to specific words; merging would extend it
-            # over neighbouring text that was never inside the <sub>.
-            and item[1].spoken_as is None
+            and merged[-1][2] == item[2]
         ):
-            merged[-1] = (merged[-1][0] + item[0], merged[-1][1])
+            prev = merged[-1]
+            merged[-1] = (prev[0] + item[0], prev[1] + item[1], prev[2])
         else:
             merged.append(item)
     return merged
@@ -94,7 +112,7 @@ def compile_plan(
             ``<emphasis>`` composes with rather than replaces.
     """
     nodes = parse(markup)
-    flat = _coalesce([item for item in _walk(nodes)])
+    flat = _coalesce(_resolve(_walk(nodes)))
 
     plan_nodes: list[Speech | Silence] = []
     warnings: list[PlanWarning] = []
@@ -107,8 +125,7 @@ def compile_plan(
                 plan_nodes.append(Silence(item))
             continue
 
-        raw_text, attrs = item
-        text = raw_text if attrs.spoken_as is None else attrs.spoken_as
+        text, raw_text, attrs = item
         if not text.strip():
             # Whitespace between tags is not a run of its own, but it must not
             # be lost either -- glue it onto the previous run.
@@ -162,7 +179,7 @@ def compile_plan(
         stripped = raw_text.strip()
         if (
             attrs.language
-            and attrs.spoken_as is None
+            and text == raw_text
             # A single short word, not merely a short span: extending the span
             # to a clause boundary is the usual fix, and a clause never trips
             # this. That is the tight-vs-clause-aligned distinction.
@@ -186,7 +203,7 @@ def compile_plan(
                 language=language,
                 rate=attrs.rate or 1.0,
                 instruct=instruct,
-                source_text=raw_text if attrs.spoken_as is not None else None,
+                source_text=raw_text if text != raw_text else None,
             )
         )
 

@@ -128,16 +128,24 @@ def test_bad_rates_are_rejected(raw):
 
 def test_sub_replaces_what_the_engine_hears_but_records_the_original():
     p = plan('a <sub alias="ban-DEH-ha">bandeja</sub> b')
-    sub = next(n for n in p.nodes if isinstance(n, Speech) and n.source_text)
-    assert sub.text == "ban-DEH-ha"
-    assert sub.source_text == "bandeja"
+    run = next(n for n in p.nodes if isinstance(n, Speech) and n.source_text)
+    assert run.text == "a ban-DEH-ha b", "the engine hears the respelling"
+    assert run.source_text == "a bandeja b", "the original is kept for preview"
+
+
+def test_a_respelling_does_not_cut_the_sentence():
+    """The whole point of <sub>: it changes characters, not settings, so the
+    sentence stays in one piece. Cutting there would buy exactly the seams that
+    respelling exists to avoid."""
+    p = plan('The shot he plays is a <sub alias="ban-DEH-ha">bandeja</sub>, not a smash.')
+    assert len([n for n in p.nodes if isinstance(n, Speech)]) == 1
 
 
 def test_phoneme_is_carried_as_a_substitution():
     p = plan('a <phoneme alphabet="ipa" ph="banˈdexa">bandeja</phoneme> b')  # noqa: RUF001
-    sub = next(n for n in p.nodes if isinstance(n, Speech) and n.source_text)
-    assert sub.text == "banˈdexa"  # noqa: RUF001
-    assert sub.source_text == "bandeja"
+    run = next(n for n in p.nodes if isinstance(n, Speech) and n.source_text)
+    assert "banˈdexa" in run.text  # noqa: RUF001
+    assert run.source_text == "a bandeja b"
 
 
 # ── Nesting and inheritance ──────────────────────────────────────────
@@ -157,11 +165,12 @@ def test_the_inner_span_wins_on_conflict():
 
 def test_a_substitution_does_not_leak_to_siblings():
     """<sub> applies to the words it wraps. Inheriting it would put unrelated
-    text through a substitution the author never asked for."""
+    text through a substitution the author never asked for -- the run merges
+    with its neighbours, but only the wrapped word is replaced."""
     p = plan('<prosody rate="0.9"><sub alias="X">a</sub> b</prosody>')
-    plain = [n for n in p.nodes if isinstance(n, Speech) and n.source_text is None]
-    assert plain
-    assert all("X" not in n.text for n in plain)
+    run = next(n for n in p.nodes if isinstance(n, Speech))
+    assert run.text == "X b", "only the wrapped word is substituted"
+    assert run.source_text == "a b"
 
 
 # ── Cutting as little as possible ────────────────────────────────────
