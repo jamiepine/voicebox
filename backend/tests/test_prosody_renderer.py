@@ -273,3 +273,43 @@ async def test_a_compiled_script_renders():
     audio, sr = await render(plan, fake_engine(seconds=0.5))
     assert sr == SR
     assert secs(audio, sr) > 0.7, "should contain every run plus the pause"
+
+
+# ── The outer boundary is not an interior join ───────────────────────
+
+
+@pytest.mark.asyncio
+async def test_the_utterances_own_lead_and_release_survive():
+    """Trimming the outer edges made every clip end ~30ms after the last sound,
+    which reads as a forced delivery even on text with no markup at all. Only
+    the joins between runs accumulate dead air worth removing."""
+    plan = RenderPlan(nodes=[Speech("a", "en"), Speech("b", "en")])
+    audio, sr = await render(plan, fake_engine(lead_ms=340, trail_ms=290), crossfade_ms=0)
+
+    lead, trail = edge_silence_ms(audio, sr)
+    assert lead == pytest.approx(340, abs=40), "the model's lead-in is natural"
+    assert trail == pytest.approx(290, abs=40), "the release is natural"
+
+
+@pytest.mark.asyncio
+async def test_the_join_between_runs_is_still_trimmed():
+    """The outer edges survive, but the interior must not double up."""
+    two = RenderPlan(nodes=[Speech("aaa", "en"), Speech("bbb", "en")])
+    one = RenderPlan(nodes=[Speech("aaabbb", "en")])
+    engine = proportional_engine(lead_ms=340, trail_ms=290)
+
+    joined, sr = await render(two, engine, crossfade_ms=0)
+    single, _ = await render(one, engine, crossfade_ms=0)
+    # Same words, same outer edges; only the interior join differs.
+    assert secs(joined, sr) - secs(single, sr) < 0.15
+
+
+@pytest.mark.asyncio
+async def test_a_single_run_is_returned_untouched():
+    """A trivial plan takes the single-shot path in production. Rendered here it
+    must still come back as the engine produced it, or the baseline sounds
+    processed when nothing was asked for."""
+    engine = fake_engine(lead_ms=340, trail_ms=290)
+    raw, _ = await engine(Speech("a", "en"))
+    audio, sr = await render(RenderPlan(nodes=[Speech("a", "en")]), engine)
+    assert secs(audio, sr) == pytest.approx(secs(raw, sr), abs=0.01)

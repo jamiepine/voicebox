@@ -7,11 +7,16 @@ engines including the ones that accept no directives at all.
 
 Two things this must get right, both measured rather than assumed:
 
-*trim the edges*
-    Every generation carries roughly 340ms of leading and 100ms of trailing
-    silence. Left in, a three-run sentence runs ~0.7s longer than the same
-    words in one shot. Trimmed, the difference is ~0.03s -- segmentation
-    becomes duration-neutral, which is what makes it viable at all.
+*trim the interior joins only*
+    Every generation carries its own leading and trailing silence (250-360ms
+    lead, 100-400ms trail on the voices measured). Where two runs meet, that is
+    two lots of dead air the author never asked for, and it compounds: a
+    three-run sentence runs ~0.7s longer than the same words in one shot.
+    Trimmed at the joins, the difference is ~0.03s.
+
+    But the *outer* edges are the utterance's natural lead-in and release.
+    Trimming those makes every clip end abruptly after its last sound, which
+    reads as a forced delivery even on text carrying no markup at all.
 
 *do not crossfade into a pause*
     A crossfade across a Silence eats the pause from both ends. Runs joined to
@@ -55,18 +60,33 @@ def edge_silence_ms(audio: np.ndarray, sr: int) -> tuple[float, float]:
     return float(loud[0] * _FRAME_MS), float((len(frames) - 1 - loud[-1]) * _FRAME_MS)
 
 
-def trim_edges(audio: np.ndarray, sr: int, cushion_ms: int = _EDGE_CUSHION_MS) -> np.ndarray:
-    """Strip the model's own leading and trailing silence.
+def trim_edges(
+    audio: np.ndarray,
+    sr: int,
+    cushion_ms: int = _EDGE_CUSHION_MS,
+    *,
+    lead: bool = True,
+    trail: bool = True,
+) -> np.ndarray:
+    """Strip the model's own silence from the chosen edges.
 
-    Without this every cut inserts dead air the author did not ask for, and the
-    cost compounds with the number of runs.
+    Only *interior* edges should be trimmed. A generation's trailing silence is
+    the utterance's natural release -- roughly 290ms on the voices measured --
+    and cutting it back to the cushion makes every clip end abruptly, which
+    reads as a forced delivery even on text with no markup at all. The leading
+    silence at the very start is the same story.
+
+    What genuinely accumulates is the *join*: run N's trail butted against run
+    N+1's lead is two lots of dead air the author never asked for, and it
+    compounds with the number of runs. So the renderer trims where runs meet
+    and leaves the outer boundary of the whole utterance alone.
     """
     if audio.size == 0:
         return audio
-    lead, trail = edge_silence_ms(audio, sr)
+    lead_ms, trail_ms = edge_silence_ms(audio, sr)
     cushion = int(sr * cushion_ms / 1000)
-    start = max(0, int(sr * lead / 1000) - cushion)
-    end = len(audio) - max(0, int(sr * trail / 1000) - cushion)
+    start = max(0, int(sr * lead_ms / 1000) - cushion) if lead else 0
+    end = len(audio) - (max(0, int(sr * trail_ms / 1000) - cushion) if trail else 0)
     return audio[start:end] if end > start else audio
 
 
@@ -138,8 +158,9 @@ async def render(
             rather than imported so the renderer can be tested without a model
             and so long runs can still go through ``generate_chunked``.
         crossfade_ms: Overlap between adjacent speech runs. 0 for a butt join.
-        trim_runs: Strip each run's own leading/trailing silence before
-            joining. Off, every cut adds dead air.
+        trim_runs: Trim silence at the joins between runs. The first run's
+            lead-in and the last run's release are always kept -- they are the
+            utterance's own boundary, not an artefact of cutting.
 
     Returns:
         ``(audio, sample_rate)``.
@@ -148,7 +169,14 @@ async def render(
     sample_rate: int | None = None
     pending_silence_ms = 0
 
-    for node in plan.nodes:
+    # Which speech runs sit at the very start and very end of the utterance.
+    # Those outer edges keep the model's own lead-in and release; everything
+    # between them is an interior join and gets trimmed.
+    speech_positions = [i for i, n in enumerate(plan.nodes) if isinstance(n, Speech)]
+    first_speech = speech_positions[0] if speech_positions else None
+    last_speech = speech_positions[-1] if speech_positions else None
+
+    for index, node in enumerate(plan.nodes):
         if isinstance(node, Silence):
             # Held until a sample rate is known -- a plan can legitimately open
             # with a pause, before any run has told us the rate.
@@ -179,7 +207,12 @@ async def render(
             audio = librosa.resample(audio, orig_sr=int(run_sr), target_sr=sample_rate)
 
         if trim_runs:
-            audio = trim_edges(audio, sample_rate)
+            audio = trim_edges(
+                audio,
+                sample_rate,
+                lead=index != first_speech,
+                trail=index != last_speech,
+            )
         audio = apply_rate(audio, node.rate)
 
         if audio.size:
