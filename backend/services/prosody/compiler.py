@@ -26,11 +26,20 @@ from dataclasses import replace
 from .ir import Attrs, Break, Node, PlanWarning, RenderPlan, Silence, Span, Speech, Text
 from .parser import parse
 
-# Below this, a language span is usually a worse trade than leaving the word in
-# the surrounding language: prosody restarts at every cut, and a one-word
-# utterance is where these models are least stable. The compiler notes it
-# rather than overriding the author.
-SHORT_SPAN_CHARS = 12
+
+def _is_over_articulated(alias: str) -> bool:
+    """Whether a respelling is shaped like the one that tested worst.
+
+    ``ban-DEH-ha`` -- syllable hyphens plus capitals for stress -- was judged
+    exaggerated on every voice tried, and measurably so: it ran about 30%
+    longer than the same sentence unmarked. ``ban-deh-ha`` was acceptable and
+    plain ``bandeha`` sounded most natural, so it is the *combination* that
+    misfires, not either alone.
+
+    Acronym expansions like ``W C A G`` are capitals without hyphens and are
+    deliberately not flagged.
+    """
+    return "-" in alias and any(c.isupper() for c in alias[1:])
 
 
 def _flatten(nodes: list[Node], inherited: Attrs, out: list[tuple[str, Attrs] | int]) -> None:
@@ -176,23 +185,15 @@ def compile_plan(
                     )
                 )
 
-        stripped = raw_text.strip()
-        if (
-            attrs.language
-            and text == raw_text
-            # A single short word, not merely a short span: extending the span
-            # to a clause boundary is the usual fix, and a clause never trips
-            # this. That is the tight-vs-clause-aligned distinction.
-            and " " not in stripped
-            and len(stripped) < SHORT_SPAN_CHARS
-        ):
+        if text != raw_text and _is_over_articulated(text):
             warnings.append(
                 PlanWarning(
-                    code="short_language_span",
+                    code="over_articulated_respelling",
                     detail=(
-                        f"{stripped!r} is a single short word in its own run. Prosody restarts "
-                        f"at each cut, so extending the span to the surrounding clause, or a "
-                        f"<sub> respelling, often sounds smoother."
+                        f"{text!r} combines hyphens with capitals, which makes the engine "
+                        f"over-articulate: in testing that read as exaggerated and ran ~30% "
+                        f"longer than the same sentence. A plain letter substitution "
+                        f"(bandeja -> bandeha) sounded most natural."
                     ),
                 )
             )

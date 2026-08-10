@@ -11,7 +11,7 @@ The subset is chosen so that the two pronunciation strategies are SSML's own
 
 Supported::
 
-    <break time="700ms"/>            silence, also 0.7s
+    <break time="700ms"/>            silence, also 0.7s; bare <break/> is 700ms
     <lang xml:lang="es">…</lang>     render this run in another language
     <prosody rate="0.9">…</prosody>  speaking rate
     <emphasis level="strong">…</emphasis>
@@ -47,6 +47,12 @@ _ATTR_RE = re.compile(r"""(?P<key>[\w:.-]+)\s*=\s*(?P<quote>["'])(?P<value>.*?)(
 _DURATION_RE = re.compile(r"^\s*(?P<value>\d+(?:\.\d+)?)\s*(?P<unit>ms|s)?\s*$", re.IGNORECASE)
 
 MAX_BREAK_MS = 60_000
+
+# What a bare <break/> means. 700ms was judged a good pause on every voice
+# tried; 1500ms read as too long unless the script genuinely wants a beat to
+# stop and think. The natural gap after a full stop is already 210-440ms
+# depending on the voice, so this adds to a pause rather than creating one.
+DEFAULT_BREAK_MS = 700
 
 
 class ProsodyParseError(ValueError):
@@ -160,7 +166,9 @@ def parse(markup: str) -> list[Node]:
 
         if name in _VOID_TAGS or self_closing:
             if name == "break":
-                stack[-1].children.append(Break(parse_duration(attrs.get("time", "0ms"))))
+                raw_time = attrs.get("time")
+                ms = DEFAULT_BREAK_MS if raw_time is None else parse_duration(raw_time)
+                stack[-1].children.append(Break(ms))
             continue
 
         span = Span(attrs=_attrs_for(name, attrs), children=[], tag=name)

@@ -250,14 +250,35 @@ def test_each_unsupported_language_warns_once():
     assert codes(p).count("language_unsupported") == 1
 
 
-def test_a_single_short_word_span_is_flagged():
-    """The tight-vs-clause-aligned trade the prototype measured."""
-    assert "short_language_span" in codes(plan('a <lang xml:lang="es">bandeja</lang> b'))
+def test_a_tight_single_word_span_is_not_flagged():
+    """Listening across three voices found tight spans good, so warning against
+    them would steer people away from what works."""
+    assert not codes(plan('a <lang xml:lang="es">bandeja</lang> b'))
 
 
 def test_a_clause_length_span_is_not_flagged():
-    p = plan('a <lang xml:lang="es">bandeja, no un smash,</lang> b')
-    assert "short_language_span" not in codes(p)
+    assert not codes(plan('a <lang xml:lang="es">bandeja, no un smash,</lang> b'))
+
+
+@pytest.mark.parametrize("alias", ["bandeha", "ban-deh-ha", "W C A G", "Bandeha"])
+def test_a_reasonable_respelling_is_not_flagged(alias):
+    """Plain substitution, syllable hyphens alone, an acronym expansion, and a
+    capitalised proper noun are all fine."""
+    assert not codes(plan(f'a <sub alias="{alias}">x</sub> b'))
+
+
+def test_hyphens_plus_capitals_are_flagged():
+    """`ban-DEH-ha` was judged exaggerated on every voice and measured ~30%
+    longer than the same sentence unmarked. It is the combination that
+    misfires, not either alone."""
+    assert "over_articulated_respelling" in codes(plan('a <sub alias="ban-DEH-ha">x</sub> b'))
+
+
+def test_a_bare_break_is_a_good_default_pause():
+    """700ms was judged right on every voice; 1500ms too long unless the script
+    wants a beat to stop and think."""
+    p = plan("one<break/>two")
+    assert Silence(700) in p.nodes
 
 
 # ── Malformed markup ─────────────────────────────────────────────────
