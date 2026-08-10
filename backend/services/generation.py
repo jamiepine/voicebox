@@ -17,6 +17,7 @@ Mode differences:
 from __future__ import annotations
 
 import asyncio
+import logging
 import traceback
 from typing import Literal, Optional
 
@@ -24,6 +25,26 @@ from .. import config
 from . import history, profiles
 from ..database import get_db
 from ..utils.tasks import get_task_manager
+
+logger = logging.getLogger(__name__)
+
+#: tada degenerates on long inputs (produces ~1s of audio or hallucinated
+#: text), so its chunks are capped well below the global 800-char default.
+TADA_MAX_CHUNK_CHARS = 250
+
+
+def effective_max_chunk_chars(engine: str, requested: Optional[int]) -> Optional[int]:
+    """Resolve the chunk size used for long-text TTS splitting.
+
+    ``GenerationRequest.max_chunk_chars`` defaults to 800, so callers almost
+    never pass ``None``. For tada we force :data:`TADA_MAX_CHUNK_CHARS`
+    unless the caller explicitly asked for an even smaller chunk.
+
+    Returns the requested value unchanged for other engines.
+    """
+    if engine == "tada" and (requested is None or requested > TADA_MAX_CHUNK_CHARS):
+        return TADA_MAX_CHUNK_CHARS
+    return requested
 
 
 async def run_generation(
@@ -55,6 +76,8 @@ async def run_generation(
         load_engine_model,
     )
     from ..utils.chunked_tts import generate_chunked
+
+    max_chunk_chars = effective_max_chunk_chars(engine, max_chunk_chars)
     from ..utils.audio import has_tts_runaway, normalize_audio, save_audio, trim_tts_output
 
     task_manager = get_task_manager()
@@ -156,6 +179,14 @@ async def run_generation(
     finally:
         task_manager.complete_generation(generation_id)
         bg_db.close()
+        # Liberar TODA la VRAM tras cada generación (TTS + Whisper + LLM).
+        # Liberar solo el motor usado dejaba Whisper cargado y la GPU de 8 GB
+        # acababa en CUDA OOM al encadenar varias generaciones.
+        try:
+            from ..backends import unload_all_models
+            unload_all_models()
+        except Exception:
+            logger.warning("Failed to unload models after generation", exc_info=True)
 
 
 def _notify_speak_end(generation_id: str, *, status: str) -> None:
@@ -281,6 +312,8 @@ async def generate_audio_sync(
         load_engine_model,
     )
     from ..utils.chunked_tts import generate_chunked
+
+    max_chunk_chars = effective_max_chunk_chars(engine, max_chunk_chars)
     from ..utils.audio import has_tts_runaway, normalize_audio, trim_tts_output
     from . import tts
 
@@ -297,6 +330,13 @@ async def generate_audio_sync(
         )
     finally:
         bg_db.close()
+        # Unload TTS model to free VRAM after speak
+        try:
+            tts_backend = get_tts_backend_for_engine(engine)
+            if tts_backend.is_loaded():
+                tts_backend.unload_model()
+        except Exception:
+            logger.warning("Failed to unload TTS model after speak", exc_info=True)
 
     trim_fn = trim_tts_output if engine_needs_trim(engine) else None
     runaway_detector = has_tts_runaway if engine_retries_runaway(engine) else None
