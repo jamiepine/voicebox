@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "Annuler",
+    "clearSearch": "Effacer la recherche",
     "save": "Enregistrer",
     "delete": "Supprimer",
     "edit": "Modifier",
@@ -406,6 +407,7 @@
       "errorLoading": "Erreur lors du chargement des profils : {{message}}",
       "empty": "Encore aucun profil vocal. Créez votre premier profil pour commencer.",
       "createVoice": "Créer une voix",
+      "noVoicesMatch": "Aucun profil ne correspond à \"{{query}}\"",
       "unsupportedNote": "Seuls les profils vocaux pris en charge peuvent être sélectionnés pour le modèle actuel."
     },
     "deleteDialog": {
@@ -645,7 +647,10 @@
     }
   },
   "history": {
+    "dragHandle": "Faire glisser vers un dossier",
     "empty": "Encore aucune génération vocale…",
+      "searchPlaceholder": "Rechercher des clips…",
+      "emptySearch": "Aucun clip ne correspond à cette recherche.",
     "actions": {
       "menu": "Actions",
       "play": "Lire",

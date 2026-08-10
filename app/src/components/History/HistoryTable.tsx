@@ -4,6 +4,8 @@ import {
   AudioLines,
   Download,
   FileArchive,
+  FolderInput,
+  GripVertical,
   Loader2,
   MoreHorizontal,
   Play,
@@ -18,6 +20,8 @@ import { useTranslation } from 'react-i18next';
 
 import { AudioBars } from '@/components/AudioBars';
 import { EffectsChainEditor } from '@/components/Effects/EffectsChainEditor';
+import { type ClipFolderSelection, ClipFolderTree } from '@/components/History/ClipFolderTree';
+import { ListPaneSearch } from '@/components/ListPane';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -31,6 +35,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -45,6 +54,8 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { EffectConfig, GenerationVersionResponse, HistoryResponse } from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
+import { useDebouncedValue } from '@/lib/hooks/useDebouncedValue';
+import { useFolders, useSetGenerationFolder } from '@/lib/hooks/useFolders';
 import {
   useClearFailedGenerations,
   useDeleteGeneration,
@@ -54,6 +65,7 @@ import {
   useImportGeneration,
 } from '@/lib/hooks/useHistory';
 import { cn } from '@/lib/utils/cn';
+import { setFolderDragData } from '@/lib/utils/folderDrag';
 import { formatDate, formatDuration, formatEngineName } from '@/lib/utils/format';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -86,13 +98,35 @@ export function HistoryTable() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [folderSelection, setFolderSelection] = useState<ClipFolderSelection>({ kind: 'all' });
+  const { data: clipFolders } = useFolders('generation');
+  const setGenerationFolder = useSetGenerationFolder();
+
+  // Invalidating the query is not enough on its own: allHistory accumulates
+  // pages, and past page 0 the refreshed first page is appended rather than
+  // replacing it — so a clip moved out of the current folder stays visible.
+  // Dropping back to page 0 makes the next response replace the list.
+  const moveToFolder = (generationId: string, folderId: string | null) => {
+    setGenerationFolder.mutate({ generationId, folderId }, { onSuccess: () => setPage(0) });
+  };
+
+  // Folder first, then text — the folder is a scope, the search runs inside it.
+  // Debounced because every keystroke would otherwise be a request; the search
+  // runs server-side so it covers every clip in scope, not just loaded pages.
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 250);
+
   const {
     data: historyData,
     isLoading,
     isFetching,
+    isPlaceholderData,
   } = useHistory({
     limit,
     offset: page * limit,
+    search: debouncedSearch.trim() || undefined,
+    folder_id: folderSelection.kind === 'folder' ? folderSelection.folderId : undefined,
+    uncategorised_only: folderSelection.kind === 'uncategorised' || undefined,
   });
 
   const deleteGeneration = useDeleteGeneration();
@@ -143,6 +177,32 @@ export function HistoryTable() {
       }
     }
   }, [historyData, page]);
+
+  // Changing the folder filter restarts paging. Deliberately only resets the
+  // page and not the accumulated list: this effect is declared after the one
+  // that fills the list, so clearing here wiped rows that React Query had
+  // already served for the new folder in the same commit — and since
+  // historyData then never changed again, the list stayed empty. Replacing on
+  // page 0 above is what actually discards the previous folder's rows.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: folderSelection is the trigger, not a value the effect reads
+  useEffect(() => {
+    setPage(0);
+  }, [folderSelection]);
+
+  // Same for the search term: a new query must start from page 0, or the first
+  // response lands at a stale offset and the list looks empty.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: debouncedSearch is the trigger, not a value the effect reads
+  useEffect(() => {
+    setPage(0);
+  }, [debouncedSearch]);
+
+  // A new scope means new results, so keep the viewport at the top. Otherwise
+  // you stay scrolled where the old, longer list had you and land in the
+  // middle of the new one — or past its end, looking at nothing.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these are triggers, not values the effect reads
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [debouncedSearch, folderSelection]);
 
   // Reset to page 0 when deletions, imports, or generation completions occur
   const pendingCount = useGenerationStore((state) => state.pendingGenerationIds.size);
@@ -430,9 +490,35 @@ export function HistoryTable() {
 
   return (
     <div className="flex flex-col h-full min-h-0 relative">
+      {/* Rendered outside the empty-state branch below: filtering to an empty
+          folder must not remove the only control that can clear the filter. */}
+      <ClipFolderTree
+        selection={folderSelection}
+        onSelect={setFolderSelection}
+        onDropItem={moveToFolder}
+      />
+
+      {/* Also outside the empty-state branch, for the same reason as the tree:
+          a search that matches nothing must not hide its own input. */}
+      <ListPaneSearch
+        value={search}
+        onChange={setSearch}
+        placeholder={t('history.searchPlaceholder')}
+        className="pb-2"
+      />
+
       {history.length === 0 ? (
         <div className="text-center py-12 px-5 border-2 border-dashed mb-5 border-muted rounded-md text-muted-foreground flex-1 flex items-center justify-center">
-          {t('history.empty')}
+          {/* Only claim "nothing here" once something has actually loaded.
+              On the very first fetch there is no previous page to keep, so
+              without this the empty state flashes before the rows arrive. */}
+          {isLoading
+            ? ''
+            : debouncedSearch.trim()
+              ? t('history.emptySearch')
+              : folderSelection.kind === 'all'
+                ? t('history.empty')
+                : t('folders.clip.emptyFilter')}
         </div>
       ) : (
         <>
@@ -459,8 +545,12 @@ export function HistoryTable() {
           <div
             ref={scrollRef}
             className={cn(
-              'flex-1 min-h-0 overflow-y-auto space-y-2 pb-4',
+              'flex-1 min-h-0 overflow-y-auto space-y-2 pb-4 transition-opacity',
               isPlayerVisible && BOTTOM_SAFE_AREA_PADDING,
+              // These are the previous scope's rows, still on screen while the
+              // new ones load. Dim them so they read as stale rather than as
+              // results that don't match what you just typed.
+              isPlaceholderData && 'opacity-50',
             )}
           >
             {history.map((gen) => {
@@ -477,10 +567,22 @@ export function HistoryTable() {
                 <div
                   key={gen.id}
                   className={cn(
-                    'border rounded-md bg-card transition-colors text-left w-full',
+                    'group/clip relative border rounded-md bg-card transition-colors text-left w-full',
                     isCurrentlyPlaying && 'bg-muted/70',
                   )}
                 >
+                  {/* Drag handle — the row body is interactive, and browsers
+                      won't reliably start a native drag from inside a button. */}
+                  <span
+                    draggable
+                    onDragStart={(e) => setFolderDragData(e, { kind: 'generation', id: gen.id })}
+                    title={t('history.dragHandle')}
+                    aria-label={t('history.dragHandle')}
+                    className="absolute left-0 top-0 bottom-0 z-10 flex w-4 cursor-grab items-center justify-center text-muted-foreground/30 opacity-0 transition-opacity hover:text-foreground active:cursor-grabbing group-hover/clip:opacity-100"
+                  >
+                    <GripVertical className="h-3.5 w-3.5" />
+                  </span>
+
                   {/* Main row */}
                   <div
                     role={isPlayable ? 'button' : undefined}
@@ -678,6 +780,39 @@ export function HistoryTable() {
                               <RotateCcw className="mr-2 h-4 w-4" />
                               {t('history.actions.regenerate')}
                             </DropdownMenuItem>
+                            <DropdownMenuSub>
+                              <DropdownMenuSubTrigger>
+                                <FolderInput className="mr-2 h-4 w-4" />
+                                {t('folders.clip.moveTo')}
+                              </DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                                <DropdownMenuLabel>{t('folders.clip.label')}</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  disabled={!gen.folder_id}
+                                  onClick={() =>
+                                    moveToFolder(gen.id, null)
+                                  }
+                                >
+                                  {t('folders.uncategorised')}
+                                </DropdownMenuItem>
+                                {(clipFolders ?? []).map((folder) => (
+                                  <DropdownMenuItem
+                                    key={folder.id}
+                                    disabled={folder.id === gen.folder_id}
+                                    onClick={() =>
+                                      moveToFolder(gen.id, folder.id)
+                                    }
+                                  >
+                                    {folder.name}
+                                  </DropdownMenuItem>
+                                ))}
+                                {(clipFolders ?? []).length === 0 && (
+                                  <DropdownMenuItem disabled>{t('folders.none')}</DropdownMenuItem>
+                                )}
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => handleDeleteClick(gen.id, gen.profile_name)}
                               disabled={deleteGeneration.isPending}

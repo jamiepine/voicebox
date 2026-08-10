@@ -43,6 +43,8 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_folders(engine, inspector, tables)
+    _migrate_story_item_audio(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
 
 
@@ -334,3 +336,47 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         if total_fixed > 0:
             conn.commit()
             logger.info("Normalized %d stored file paths", total_fixed)
+
+
+def _migrate_folders(engine, inspector, tables: set[str]) -> None:
+    """Add folder_id to profiles and generations.
+
+    The ``folders`` table itself is left to ``Base.metadata.create_all()``,
+    which runs straight after migrations and creates missing tables.  Only
+    the columns on pre-existing tables need adding by hand.
+
+    Declared without a REFERENCES clause, matching story_items.version_id:
+    SQLite cannot add a column with a foreign key to a table that does not
+    exist yet, and on a fresh database ``folders`` is created after this
+    runs.  The relationship is still declared on the ORM models.
+    """
+    if "profiles" in tables:
+        if "folder_id" not in _get_columns(inspector, "profiles"):
+            _add_column(engine, "profiles", "folder_id VARCHAR", "folder_id")
+
+    if "generations" in tables:
+        if "folder_id" not in _get_columns(inspector, "generations"):
+            _add_column(engine, "generations", "folder_id VARCHAR", "folder_id")
+
+    if "stories" in tables:
+        if "folder_id" not in _get_columns(inspector, "stories"):
+            _add_column(engine, "stories", "folder_id VARCHAR", "folder_id")
+
+
+def _migrate_story_item_audio(engine, inspector, tables: set[str]) -> None:
+    """Add per-clip fade and speed columns to story_items.
+
+    The ``story_tracks`` table is left to ``Base.metadata.create_all()``, which
+    runs straight after migrations and creates missing tables; only columns on
+    pre-existing tables need adding by hand.
+    """
+    if "story_items" not in tables:
+        return
+
+    columns = _get_columns(inspector, "story_items")
+    if "fade_in_ms" not in columns:
+        _add_column(engine, "story_items", "fade_in_ms INTEGER NOT NULL DEFAULT 0", "fade_in_ms")
+    if "fade_out_ms" not in columns:
+        _add_column(engine, "story_items", "fade_out_ms INTEGER NOT NULL DEFAULT 0", "fade_out_ms")
+    if "speed" not in columns:
+        _add_column(engine, "story_items", "speed FLOAT NOT NULL DEFAULT 1.0", "speed")

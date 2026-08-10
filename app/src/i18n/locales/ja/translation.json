@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "キャンセル",
+    "clearSearch": "検索をクリア",
     "save": "保存",
     "delete": "削除",
     "edit": "編集",
@@ -406,6 +407,7 @@
       "errorLoading": "プロファイルの読み込みエラー:{{message}}",
       "empty": "ボイスプロファイルがまだありません。最初のプロファイルを作成して始めましょう。",
       "createVoice": "ボイスを作成",
+      "noVoicesMatch": "\"{{query}}\" に一致するプロファイルはありません",
       "unsupportedNote": "現在のモデルでは、対応しているボイスプロファイルのみ選択できます。"
     },
     "deleteDialog": {
@@ -645,7 +647,10 @@
     }
   },
   "history": {
+    "dragHandle": "フォルダーにドラッグ",
     "empty": "音声生成はまだありません…",
+      "searchPlaceholder": "クリップを検索…",
+      "emptySearch": "その検索に一致するクリップはありません。",
     "actions": {
       "menu": "操作",
       "play": "再生",

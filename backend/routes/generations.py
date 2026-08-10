@@ -14,6 +14,7 @@ from ..services import history, personality, profiles, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
+from ..utils import ffmpeg
 from ..utils.audio import load_audio
 from ..utils.tasks import get_task_manager
 
@@ -429,6 +430,18 @@ async def import_audio(
         raise HTTPException(
             status_code=400,
             detail=f"Unsupported audio format '{suffix}'. Allowed: {sorted(IMPORT_AUDIO_EXTENSIONS)}",
+        )
+
+    # libsndfile cannot open these, so librosa falls through to audioread,
+    # which shells out to ffmpeg. Without it the decode fails much later with
+    # an opaque error, so say so up front.
+    if ffmpeg.requires_ffmpeg(suffix) and not ffmpeg.is_available():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Importing '{suffix}' files needs ffmpeg, which was not found on PATH. "
+                "Install ffmpeg, or convert the file to WAV, FLAC, OGG or MP3 first."
+            ),
         )
 
     chunks: list[bytes] = []

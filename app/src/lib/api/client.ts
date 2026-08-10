@@ -8,6 +8,10 @@ import type {
   EffectConfig,
   EffectPresetCreate,
   EffectPresetResponse,
+  FolderCreate,
+  FolderKind,
+  FolderResponse,
+  FolderUpdate,
   GenerationRequest,
   GenerationResponse,
   GenerationVersionResponse,
@@ -23,16 +27,21 @@ import type {
   RocmStatus,
   StoryCreate,
   StoryDetailResponse,
+  ExportAudioFormat,
   StoryItemBatchUpdate,
   StoryItemCreate,
   StoryItemDetail,
+  StoryItemFadeUpdate,
   StoryItemMove,
   StoryItemReorder,
+  StoryItemSpeedUpdate,
   StoryItemSplit,
   StoryItemTrim,
   StoryItemVersionUpdate,
   StoryItemVolumeUpdate,
   StoryResponse,
+  StoryTrackResponse,
+  StoryTrackUpsert,
   TranscriptionResponse,
   VoiceProfileCreate,
   VoiceProfileResponse,
@@ -131,6 +140,87 @@ class ApiClient {
   async deleteProfile(profileId: string): Promise<void> {
     await this.request<void>(`/profiles/${profileId}`, {
       method: 'DELETE',
+    });
+  }
+
+  /**
+   * Copy a voice, including its samples, avatar, personality and effects.
+   * Not an export/import round-trip — that transfer format drops everything
+   * except name, description and language.
+   */
+  async duplicateProfile(profileId: string, name?: string): Promise<VoiceProfileResponse> {
+    return this.request<VoiceProfileResponse>(`/profiles/${profileId}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify(name ? { name } : {}),
+    });
+  }
+
+  // ── Folders ────────────────────────────────────────────────────────
+
+  async listFolders(kind: FolderKind): Promise<FolderResponse[]> {
+    return this.request<FolderResponse[]>(`/folders?kind=${kind}`);
+  }
+
+  async createFolder(data: FolderCreate): Promise<FolderResponse> {
+    return this.request<FolderResponse>('/folders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateFolder(folderId: string, data: FolderUpdate): Promise<FolderResponse> {
+    return this.request<FolderResponse>(`/folders/${folderId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Move a folder back to the root. Separate from updateFolder because a
+   *  null parent_id there is indistinguishable from an omitted field. */
+  async detachFolder(folderId: string): Promise<FolderResponse> {
+    return this.request<FolderResponse>(`/folders/${folderId}/detach`, {
+      method: 'POST',
+    });
+  }
+
+  /** Deletes the folder only — members become uncategorised and child
+   *  folders rise to this folder's parent. */
+  async deleteFolder(folderId: string): Promise<void> {
+    await this.request<void>(`/folders/${folderId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  /** Pass null to move the voice out of any folder. */
+  async setProfileFolder(
+    profileId: string,
+    folderId: string | null,
+  ): Promise<VoiceProfileResponse> {
+    return this.request<VoiceProfileResponse>(`/profiles/${profileId}/folder`, {
+      method: 'PUT',
+      body: JSON.stringify({ folder_id: folderId }),
+    });
+  }
+
+  /** Pass null to move the story out of any folder. */
+  async setStoryFolder(
+    storyId: string,
+    folderId: string | null,
+  ): Promise<{ id: string; folder_id: string | null }> {
+    return this.request(`/stories/${storyId}/folder`, {
+      method: 'PUT',
+      body: JSON.stringify({ folder_id: folderId }),
+    });
+  }
+
+  /** Pass null to move the clip out of any folder. */
+  async setGenerationFolder(
+    generationId: string,
+    folderId: string | null,
+  ): Promise<{ id: string; folder_id: string | null }> {
+    return this.request(`/history/${generationId}/folder`, {
+      method: 'PUT',
+      body: JSON.stringify({ folder_id: folderId }),
     });
   }
 
@@ -301,6 +391,10 @@ class ApiClient {
     const params = new URLSearchParams();
     if (query?.profile_id) params.append('profile_id', query.profile_id);
     if (query?.search) params.append('search', query.search);
+    if (query?.folder_id) params.append('folder_id', query.folder_id);
+    if (query?.uncategorised_only) params.append('uncategorised_only', 'true');
+    // Server-side default is true, so only the opt-out needs sending.
+    if (query?.include_subfolders === false) params.append('include_subfolders', 'false');
     if (query?.limit) params.append('limit', query.limit.toString());
     if (query?.offset) params.append('offset', query.offset.toString());
 
@@ -802,6 +896,54 @@ class ApiClient {
     });
   }
 
+  async updateStoryItemFades(
+    storyId: string,
+    itemId: string,
+    data: StoryItemFadeUpdate,
+  ): Promise<StoryItemDetail> {
+    return this.request<StoryItemDetail>(`/stories/${storyId}/items/${itemId}/fades`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateStoryItemSpeed(
+    storyId: string,
+    itemId: string,
+    data: StoryItemSpeedUpdate,
+  ): Promise<StoryItemDetail> {
+    return this.request<StoryItemDetail>(`/stories/${storyId}/items/${itemId}/speed`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ── Story track mixer settings ─────────────────────────────────────
+  // Lanes without a row here mix at unity gain, so this list is often
+  // shorter than the number of lanes on screen.
+
+  async listStoryTracks(storyId: string): Promise<StoryTrackResponse[]> {
+    return this.request<StoryTrackResponse[]>(`/stories/${storyId}/tracks`);
+  }
+
+  async upsertStoryTrack(
+    storyId: string,
+    index: number,
+    data: StoryTrackUpsert,
+  ): Promise<StoryTrackResponse> {
+    return this.request<StoryTrackResponse>(`/stories/${storyId}/tracks/${index}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Resets the lane to defaults; clips on it are kept. */
+  async deleteStoryTrack(storyId: string, index: number): Promise<void> {
+    await this.request<void>(`/stories/${storyId}/tracks/${index}`, {
+      method: 'DELETE',
+    });
+  }
+
   async splitStoryItem(
     storyId: string,
     itemId: string,
@@ -830,8 +972,21 @@ class ApiClient {
     });
   }
 
-  async exportStoryAudio(storyId: string): Promise<Blob> {
-    const url = `${this.getBaseUrl()}/stories/${storyId}/export-audio`;
+  /**
+   * Mix a story down to one file. `format` defaults to wav server-side.
+   * `normalizeLoudness` needs ffmpeg and is silently skipped without it —
+   * check `ffmpeg_available` on /health before offering it.
+   */
+  async exportStoryAudio(
+    storyId: string,
+    options?: { format?: ExportAudioFormat; normalizeLoudness?: boolean },
+  ): Promise<Blob> {
+    const params = new URLSearchParams();
+    if (options?.format) params.append('format', options.format);
+    if (options?.normalizeLoudness) params.append('normalize_loudness', 'true');
+
+    const query = params.toString();
+    const url = `${this.getBaseUrl()}/stories/${storyId}/export-audio${query ? `?${query}` : ''}`;
     const response = await fetch(url);
 
     if (!response.ok) {

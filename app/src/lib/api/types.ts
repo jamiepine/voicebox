@@ -29,10 +29,40 @@ export interface VoiceProfileResponse {
   design_prompt?: string;
   default_engine?: string;
   personality?: string | null;
+  /** null / undefined means the voice sits in the Uncategorised bucket. */
+  folder_id?: string | null;
   generation_count: number;
   sample_count: number;
   created_at: string;
   updated_at: string;
+}
+
+/** What a folder groups. Voice folders are flat; clip and story folders nest. */
+export type FolderKind = 'voice' | 'generation' | 'story';
+
+export interface FolderResponse {
+  id: string;
+  name: string;
+  kind: FolderKind;
+  /** Always null for voice folders. */
+  parent_id?: string | null;
+  position: number;
+  /** Direct members only — a parent does not count its children's items. */
+  item_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FolderCreate {
+  name: string;
+  kind: FolderKind;
+  parent_id?: string | null;
+}
+
+export interface FolderUpdate {
+  name?: string;
+  parent_id?: string;
+  position?: number;
 }
 
 /** Response returned by /profiles/{id}/compose. */
@@ -121,6 +151,15 @@ export interface GenerationResponse {
 export interface HistoryQuery {
   profile_id?: string;
   search?: string;
+  /** Show only this folder's clips. Ignored when uncategorised_only is set. */
+  folder_id?: string;
+  /**
+   * Show only clips in no folder at all. Distinct from an absent folder_id,
+   * which means "no folder filter" rather than "the Uncategorised bucket".
+   */
+  uncategorised_only?: boolean;
+  /** Whether folder_id also matches clips in that folder's descendants. */
+  include_subfolders?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -129,6 +168,8 @@ export interface HistoryResponse extends GenerationResponse {
   profile_name: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
+  /** null / undefined means the clip sits in the Uncategorised bucket. */
+  folder_id?: string | null;
 }
 
 export interface HistoryListResponse {
@@ -271,6 +312,11 @@ export interface HealthResponse {
   backend_type?: string;
   backend_variant?: string; // "cpu", "cuda", or "rocm"
   supports_rocm?: boolean; // AMD GPU on Windows — the ROCm backend is applicable
+  /**
+   * ffmpeg is optional. Without it, loudness normalisation is unavailable and
+   * m4a/aac/webm cannot be imported — libsndfile cannot open those.
+   */
+  ffmpeg_available?: boolean;
 }
 
 export interface CudaDownloadProgress {
@@ -392,6 +438,8 @@ export interface StoryResponse {
   id: string;
   name: string;
   description?: string;
+  /** null / undefined means the story sits in the Uncategorised bucket. */
+  folder_id?: string | null;
   created_at: string;
   updated_at: string;
   item_count: number;
@@ -417,6 +465,10 @@ export interface StoryItemDetail {
   instruct?: string;
   engine?: string;
   volume: number;
+  fade_in_ms: number;
+  fade_out_ms: number;
+  /** >1 plays faster and therefore shorter. */
+  speed: number;
   generation_created_at: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
@@ -424,6 +476,42 @@ export interface StoryItemDetail {
 
 export interface StoryItemVolumeUpdate {
   volume: number;
+}
+
+export interface StoryItemFadeUpdate {
+  fade_in_ms: number;
+  fade_out_ms: number;
+}
+
+export interface StoryItemSpeedUpdate {
+  speed: number;
+}
+
+/** Containers the bundled libsndfile can write — none of them need ffmpeg. */
+export type ExportAudioFormat = 'wav' | 'mp3' | 'ogg' | 'opus' | 'flac';
+
+/**
+ * Mixer settings for one timeline lane. A lane with no entry mixes at unity
+ * gain, so the list is often shorter than the lanes on screen.
+ */
+export interface StoryTrackResponse {
+  id: string;
+  story_id: string;
+  index: number;
+  name?: string | null;
+  volume: number;
+  muted: boolean;
+  soloed: boolean;
+  /** Lane whose loudness ducks this one; null disables ducking. */
+  duck_under_track?: number | null;
+}
+
+export interface StoryTrackUpsert {
+  name?: string | null;
+  volume: number;
+  muted: boolean;
+  soloed: boolean;
+  duck_under_track?: number | null;
 }
 
 export interface StoryItemVersionUpdate {

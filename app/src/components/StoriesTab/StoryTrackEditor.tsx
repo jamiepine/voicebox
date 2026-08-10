@@ -2,8 +2,11 @@ import {
   Check,
   Copy,
   GalleryVerticalEnd,
+  Gauge,
   GripHorizontal,
+  Magnet,
   Minus,
+  MoveHorizontal,
   Pause,
   Play,
   Plus,
@@ -11,35 +14,53 @@ import {
   Scissors,
   Square,
   Trash2,
+  TrendingUp,
+  Upload,
   Volume2,
   VolumeX,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { StoryItemDetail } from '@/lib/api/types';
 import {
+  useAddStoryItem,
+  useDeleteStoryTrack,
   useDuplicateStoryItem,
   useMoveStoryItem,
   useRemoveStoryItem,
   useSetStoryItemVersion,
   useSplitStoryItem,
+  useStoryTracks,
   useTrimStoryItem,
+  useUpdateStoryItemFades,
+  useUpdateStoryItemSpeed,
   useUpdateStoryItemVolume,
+  useUpsertStoryTrack,
 } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
 import { useGenerationStore } from '@/stores/generationStore';
 import { useStoryStore } from '@/stores/storyStore';
+import { TrackMixerControls } from './TrackMixerControls';
 
 // Clip waveform component with trim support
 function ClipWaveform({
@@ -136,6 +157,145 @@ function ClipWaveform({
   );
 }
 
+// Per-clip fade popover. Same local-state-then-commit shape as the volume
+// control, so dragging doesn't fire a request per pixel.
+function ClipFadePopover({
+  storyId,
+  itemId,
+  fadeInMs,
+  fadeOutMs,
+  onChange,
+}: {
+  storyId: string;
+  itemId: string;
+  fadeInMs: number;
+  fadeOutMs: number;
+  onChange: (fadeIn: number, fadeOut: number) => void;
+}) {
+  const [localIn, setLocalIn] = useState(fadeInMs);
+  const [localOut, setLocalOut] = useState(fadeOutMs);
+
+  // Re-sync when the selected clip changes or the persisted value updates
+  // out-of-band (split carries the fade-out to the tail).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: itemId/storyId are re-sync triggers, not values the effect reads
+  useEffect(() => {
+    setLocalIn(fadeInMs);
+    setLocalOut(fadeOutMs);
+  }, [fadeInMs, fadeOutMs, itemId, storyId]);
+
+  const active = localIn > 0 || localOut > 0;
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn('h-7 w-7', active && 'text-accent')}
+          title={`Fades — ${localIn}ms in, ${localOut}ms out`}
+          aria-label="Adjust clip fades"
+        >
+          <TrendingUp className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-56 p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-muted-foreground">Fade in</span>
+          <span className="text-xs tabular-nums">{localIn} ms</span>
+        </div>
+        <Slider
+          value={[localIn]}
+          onValueChange={([v]) => setLocalIn(v)}
+          onValueCommit={([v]) => onChange(v, localOut)}
+          min={0}
+          max={5000}
+          step={50}
+          aria-label="Fade in"
+        />
+        <div className="flex items-center justify-between mt-3 mb-2">
+          <span className="text-xs text-muted-foreground">Fade out</span>
+          <span className="text-xs tabular-nums">{localOut} ms</span>
+        </div>
+        <Slider
+          value={[localOut]}
+          onValueChange={([v]) => setLocalOut(v)}
+          onValueCommit={([v]) => onChange(localIn, v)}
+          min={0}
+          max={5000}
+          step={50}
+          aria-label="Fade out"
+        />
+        <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
+          Fades longer than the clip are scaled down together, so the clip never re-brightens in the
+          middle.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// Per-clip speed popover. Changing speed changes the clip's own length; because
+// clips are absolutely positioned, neighbours don't move.
+function ClipSpeedPopover({
+  storyId,
+  itemId,
+  speed,
+  onChange,
+}: {
+  storyId: string;
+  itemId: string;
+  speed: number;
+  onChange: (value: number) => void;
+}) {
+  const [localSpeed, setLocalSpeed] = useState(speed);
+
+  // Re-sync when the selected clip changes or the persisted value updates
+  // out-of-band (split carries the speed forward to both halves).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: itemId/storyId are re-sync triggers, not values the effect reads
+  useEffect(() => {
+    setLocalSpeed(speed);
+  }, [speed, itemId, storyId]);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn('h-7 w-7', localSpeed !== 1 && 'text-accent')}
+          title={`Speed — ${localSpeed.toFixed(2)}x`}
+          aria-label="Adjust clip speed"
+        >
+          <Gauge className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="center" className="w-56 p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-muted-foreground">Speed</span>
+          <span className="text-xs tabular-nums">{localSpeed.toFixed(2)}x</span>
+        </div>
+        <Slider
+          value={[localSpeed * 100]}
+          onValueChange={([v]) => setLocalSpeed(v / 100)}
+          onValueCommit={([v]) => onChange(v / 100)}
+          min={50}
+          max={200}
+          step={5}
+          aria-label="Clip speed"
+        />
+        <div className="flex justify-between mt-2 text-[10px] text-muted-foreground tabular-nums">
+          <span>0.5x</span>
+          <span>1x</span>
+          <span>2x</span>
+        </div>
+        <p className="mt-3 text-[10px] leading-snug text-muted-foreground">
+          Pitch is preserved. Faster clips get shorter without moving the clips around them.
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 // Per-clip volume popover. Local state drives the slider during a drag so
 // each pointer-move pixel doesn't fire a PATCH; commits on release.
 function ClipVolumePopover({
@@ -204,7 +364,11 @@ interface StoryTrackEditorProps {
 const TRACK_HEIGHT = 48;
 const TIME_RULER_HEIGHT = 24; // h-6 = 1.5rem = 24px
 const SCRUB_BAR_HEIGHT = 16;
-const LABEL_COL_WIDTH = 64; // w-16 = 4rem = 64px
+// Wide enough for the per-lane strip: import, remove, mute, solo, volume,
+// duck and the percentage readout. The label cell is sized from this constant
+// rather than a Tailwind width so the timeline's coordinate maths can never
+// drift from what is rendered.
+const LABEL_COL_WIDTH = 246;
 // Zoom is expressed to the user as how many seconds of timeline are visible
 // at once. Min scope = the most you can zoom IN; max scope = the entire
 // project. Default scope is what we land on when the editor first measures.
@@ -214,11 +378,22 @@ const FALLBACK_PIXELS_PER_SECOND = 50; // used until containerWidth is measured
 const DEFAULT_TRACKS = [1, 0, -1]; // Default 3 tracks
 const MIN_EDITOR_HEIGHT = 120;
 const MAX_EDITOR_HEIGHT = 500;
+// How far the pointer must travel before a press on a clip becomes a drag.
+// Below this it stays a click, so selecting a clip can never move it.
+const DRAG_THRESHOLD_PX = 4;
+// Snap radius, in screen pixels rather than milliseconds so the feel stays the
+// same at every zoom level.
+const SNAP_TOLERANCE_PX = 8;
 
 export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   const [pixelsPerSecond, setPixelsPerSecond] = useState(FALLBACK_PIXELS_PER_SECOND);
   const hasAppliedDefaultZoomRef = useRef(false);
   const [draggingItem, setDraggingItem] = useState<string | null>(null);
+  // Press that may or may not become a drag. The ref carries the coordinates
+  // so the threshold check reads them without waiting for a re-render; the
+  // state exists purely to attach the move/up handlers on that same press.
+  const pendingDragRef = useRef<{ itemId: string; startX: number; startY: number } | null>(null);
+  const [pressedItemId, setPressedItemId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
   const [isResizing, setIsResizing] = useState(false);
@@ -234,12 +409,38 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   const removeItem = useRemoveStoryItem();
   const setItemVersion = useSetStoryItemVersion();
   const updateVolume = useUpdateStoryItemVolume();
+  const updateFades = useUpdateStoryItemFades();
+  const updateSpeed = useUpdateStoryItemSpeed();
+  const { data: storyTracks } = useStoryTracks(storyId);
+  const upsertTrack = useUpsertStoryTrack();
+  const deleteTrack = useDeleteStoryTrack();
+  const addItem = useAddStoryItem();
   const { toast } = useToast();
+
+  // Lanes without a row mix at unity gain, so this map is usually sparse.
+  const trackSettings = useMemo(
+    () => new Map((storyTracks ?? []).map((t) => [t.index, t])),
+    [storyTracks],
+  );
+  // Solo is a property of the whole story, matching the mixer: one soloed
+  // lane silences the rest, including lanes with no settings row.
+  const anySoloed = useMemo(() => (storyTracks ?? []).some((t) => t.soloed), [storyTracks]);
   const addPendingGeneration = useGenerationStore((s) => s.addPendingGeneration);
   // User-added empty tracks. Live in component state because a track only
   // earns its keep once a clip lands on it — no need to persist an unused
   // row across reloads.
   const [extraTracks, setExtraTracks] = useState<number[]>([]);
+  // Snap dragged clips flush to their neighbours. On by default because
+  // butt-joining by eye is the common case; hold it off for free placement.
+  const [snapEnabled, setSnapEnabled] = useState(true);
+  // Ripple: moving a clip carries everything later on its track. Off by
+  // default because it rewrites clips the user didn't touch.
+  const [rippleEnabled, setRippleEnabled] = useState(false);
+  // Right-click target: set an exact length or speed rather than dragging for
+  // it. The two are two views of one number, so the dialog shows both.
+  const [lengthTargetId, setLengthTargetId] = useState<string | null>(null);
+  const [lengthDraft, setLengthDraft] = useState('');
+  const [speedDraft, setSpeedDraft] = useState('');
 
   // Selection state
   const selectedClipId = useStoryStore((state) => state.selectedClipId);
@@ -322,7 +523,10 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
         ...items.map((item) => {
           const trimStart = item.trim_start_ms || 0;
           const trimEnd = item.trim_end_ms || 0;
-          const effectiveDuration = item.duration * 1000 - trimStart - trimEnd;
+          // Same formula as getEffectiveDuration below — speed included, so a
+          // re-timed clip doesn't leave the story's length overstated.
+          const effectiveDuration =
+            (item.duration * 1000 - trimStart - trimEnd) / (item.speed || 1);
           return item.start_time_ms + effectiveDuration;
         }),
         0,
@@ -375,6 +579,50 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
       return [...prev, next];
     });
   }, [items]);
+
+  /** Whether a lane can be removed: only ever the empty, non-default ones, so
+   *  removing a lane can never take clips with it. */
+  const canRemoveTrack = useCallback(
+    (trackNumber: number) =>
+      !DEFAULT_TRACKS.includes(trackNumber) && !items.some((i) => i.track === trackNumber),
+    [items],
+  );
+
+  const handleRemoveTrack = useCallback(
+    (trackNumber: number) => {
+      setExtraTracks((prev) => prev.filter((t) => t !== trackNumber));
+      // Drop any mixer settings for the lane too, so a later lane reusing the
+      // index doesn't silently inherit a mute or a duck target.
+      if (trackSettings.has(trackNumber)) {
+        deleteTrack.mutate({ storyId, index: trackNumber });
+      }
+    },
+    [trackSettings, deleteTrack, storyId],
+  );
+
+  /** Import an audio file straight onto a specific lane at the playhead. */
+  const handleImportToTrack = useCallback(
+    async (trackNumber: number, file: File) => {
+      try {
+        const generation = await apiClient.importAudio(file);
+        await addItem.mutateAsync({
+          storyId,
+          data: {
+            generation_id: generation.id,
+            track: trackNumber,
+            start_time_ms: Math.max(0, Math.round(currentTimeMs)),
+          },
+        });
+      } catch (error) {
+        toast({
+          title: 'Import failed',
+          description: error instanceof Error ? error.message : String(error),
+          variant: 'destructive',
+        });
+      }
+    },
+    [storyId, addItem, currentTimeMs, toast],
+  );
 
   // Track container width for full-width minimum
   useEffect(() => {
@@ -432,10 +680,13 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
     return () => ro.disconnect();
   }, []);
 
-  // Calculate effective duration (accounting for trims)
-  const getEffectiveDuration = (item: StoryItemDetail) => {
-    return item.duration * 1000 - (item.trim_start_ms || 0) - (item.trim_end_ms || 0);
-  };
+  // Calculate effective duration (accounting for trims and speed).
+  // Must match the mixer's formula in services/stories.py, or the timeline
+  // will draw a re-timed clip at the wrong length and the playhead will drift.
+  const getEffectiveDuration = useCallback((item: StoryItemDetail) => {
+    const trimmed = item.duration * 1000 - (item.trim_start_ms || 0) - (item.trim_end_ms || 0);
+    return trimmed / (item.speed || 1);
+  }, []);
 
   // Calculate total duration (using effective durations)
   const totalDurationMs = useMemo(() => {
@@ -466,7 +717,10 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   useEffect(() => {
     if (hasAppliedDefaultZoomRef.current) return;
     if (visibleTrackWidth <= 0) return;
-    const defaultScope = Math.min(DEFAULT_VISIBLE_SECONDS, Math.max(projectSeconds, MIN_VISIBLE_SECONDS));
+    const defaultScope = Math.min(
+      DEFAULT_VISIBLE_SECONDS,
+      Math.max(projectSeconds, MIN_VISIBLE_SECONDS),
+    );
     setPixelsPerSecond(visibleTrackWidth / defaultScope);
     hasAppliedDefaultZoomRef.current = true;
   }, [visibleTrackWidth, projectSeconds]);
@@ -864,24 +1118,40 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
         tracksRef.current.scrollLeft -
         LABEL_COL_WIDTH,
       // Subtract ruler height since clips are positioned relative to tracks area, not the scrollable container
-      y: rect.top - tracksRef.current.getBoundingClientRect().top - TIME_RULER_HEIGHT,
+      y:
+        rect.top -
+        tracksRef.current.getBoundingClientRect().top +
+        tracksRef.current.scrollTop -
+        TIME_RULER_HEIGHT,
     });
-    setDraggingItem(item.id);
+    // Arm the drag, but don't enter drag mode yet — see handleDragMove. A
+    // plain click must select the clip and nothing else.
+    pendingDragRef.current = { itemId: item.id, startX: e.clientX, startY: e.clientY };
+    setPressedItemId(item.id);
   };
 
   const handleDragMove = useCallback(
     (e: React.MouseEvent) => {
-      if (!draggingItem || !tracksRef.current) return;
+      if (!tracksRef.current) return;
+
+      // Promote an armed press into a real drag only once the pointer has
+      // travelled far enough. Without this, mousedown alone entered drag mode
+      // and mouseup committed a move, so simply clicking a clip could drop it
+      // on a neighbouring track — selection was destructive.
+      const pending = pendingDragRef.current;
+      if (pending && !draggingItem) {
+        const travelled = Math.hypot(e.clientX - pending.startX, e.clientY - pending.startY);
+        if (travelled < DRAG_THRESHOLD_PX) return;
+        setDraggingItem(pending.itemId);
+      }
+      if (!pendingDragRef.current) return;
 
       const rect = tracksRef.current.getBoundingClientRect();
       const x =
-        e.clientX -
-        rect.left +
-        tracksRef.current.scrollLeft -
-        dragOffset.x -
-        LABEL_COL_WIDTH;
+        e.clientX - rect.left + tracksRef.current.scrollLeft - dragOffset.x - LABEL_COL_WIDTH;
       // Subtract ruler height since clips are positioned relative to tracks area
-      const y = e.clientY - rect.top - dragOffset.y - TIME_RULER_HEIGHT;
+      const y =
+        e.clientY - rect.top + tracksRef.current.scrollTop - dragOffset.y - TIME_RULER_HEIGHT;
 
       setDragPosition({ x: Math.max(0, x), y });
     },
@@ -889,6 +1159,11 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
   );
 
   const handleDragEnd = useCallback(() => {
+    // A press that never crossed the threshold was a click, not a drag: clear
+    // the arming and commit nothing.
+    pendingDragRef.current = null;
+    setPressedItemId(null);
+
     if (!draggingItem || !tracksRef.current) {
       setDraggingItem(null);
       return;
@@ -901,38 +1176,94 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
     }
 
     // Calculate new time from x position
-    const newTimeMs = Math.max(0, Math.round(pixelsToMs(dragPosition.x)));
+    const rawTimeMs = Math.max(0, Math.round(pixelsToMs(dragPosition.x)));
 
     // Calculate new track from y position
     const trackIndex = Math.floor(dragPosition.y / TRACK_HEIGHT);
     const clampedTrackIndex = Math.max(0, Math.min(trackIndex, tracks.length - 1));
     const newTrack = tracks[clampedTrackIndex] ?? 0;
 
+    // Snap flush against a neighbour on the destination track. Butt-joining
+    // clips by eye is fiddly at any zoom, and a few ms of silence between two
+    // lines is audible. Snap distance is in pixels so it stays consistent as
+    // you zoom rather than getting stickier the further out you go.
+    const duration = getEffectiveDuration(item);
+    const newTimeMs = snapEnabled
+      ? (() => {
+          const toleranceMs = pixelsToMs(SNAP_TOLERANCE_PX);
+          const edges: number[] = [0];
+          for (const other of items) {
+            if (other.id === item.id || other.track !== newTrack) continue;
+            edges.push(other.start_time_ms + getEffectiveDuration(other)); // our start to their end
+            edges.push(Math.max(0, other.start_time_ms - duration)); // our end to their start
+          }
+          let best = rawTimeMs;
+          let bestGap = toleranceMs;
+          for (const edge of edges) {
+            const gap = Math.abs(edge - rawTimeMs);
+            if (gap <= bestGap) {
+              best = edge;
+              bestGap = gap;
+            }
+          }
+          return Math.max(0, Math.round(best));
+        })()
+      : rawTimeMs;
+
     // Check if position changed
     if (newTimeMs !== item.start_time_ms || newTrack !== item.track) {
+      const onError = (error: unknown) => {
+        toast({
+          title: 'Failed to move item',
+          description: error instanceof Error ? error.message : String(error),
+          variant: 'destructive',
+        });
+      };
+
       moveItem.mutate(
-        {
-          storyId,
-          itemId: item.id,
-          data: {
-            start_time_ms: newTimeMs,
-            track: newTrack,
-          },
-        },
-        {
-          onError: (error) => {
-            toast({
-              title: 'Failed to move item',
-              description: error instanceof Error ? error.message : String(error),
-              variant: 'destructive',
-            });
-          },
-        },
+        { storyId, itemId: item.id, data: { start_time_ms: newTimeMs, track: newTrack } },
+        { onError },
       );
+
+      // Ripple: carry everything that started after this clip on its original
+      // track by the same delta, so inserting an intro pushes the rest of the
+      // track along instead of leaving a hole or an overlap.
+      if (rippleEnabled && newTrack === item.track) {
+        const delta = newTimeMs - item.start_time_ms;
+        if (delta !== 0) {
+          for (const other of items) {
+            if (other.id === item.id || other.track !== item.track) continue;
+            if (other.start_time_ms < item.start_time_ms) continue;
+            moveItem.mutate(
+              {
+                storyId,
+                itemId: other.id,
+                data: {
+                  start_time_ms: Math.max(0, other.start_time_ms + delta),
+                  track: other.track,
+                },
+              },
+              { onError },
+            );
+          }
+        }
+      }
     }
 
     setDraggingItem(null);
-  }, [draggingItem, dragPosition, items, tracks, pixelsToMs, storyId, moveItem, toast]);
+  }, [
+    draggingItem,
+    dragPosition,
+    items,
+    tracks,
+    pixelsToMs,
+    storyId,
+    moveItem,
+    toast,
+    snapEnabled,
+    rippleEnabled,
+    getEffectiveDuration,
+  ]);
 
   // Get track index for rendering
   const getTrackIndex = (trackNumber: number) => tracks.indexOf(trackNumber);
@@ -1032,8 +1363,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
 
       // Recompute the thumb width that corresponded to the drag start, then
       // apply the mouse delta to the dragged edge.
-      const startTimelinePx =
-        (totalDurationMs / 1000) * drag.startPixelsPerSecond + 200;
+      const startTimelinePx = (totalDurationMs / 1000) * drag.startPixelsPerSecond + 200;
       const startThumbWidth = Math.max(
         30,
         Math.min(scrollbarTrackWidth, (containerWidth / startTimelinePx) * scrollbarTrackWidth),
@@ -1058,8 +1388,7 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
             }
           : {
               type: 'right',
-              timeMs:
-                ((drag.startScrollLeft + containerWidth) / drag.startPixelsPerSecond) * 1000,
+              timeMs: ((drag.startScrollLeft + containerWidth) / drag.startPixelsPerSecond) * 1000,
             };
 
       setPixelsPerSecond(newPps);
@@ -1074,7 +1403,15 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
-  }, [maxTimelineScroll, thumbRange, scrollbarTrackWidth, containerWidth, totalDurationMs, minPps, maxPps]);
+  }, [
+    maxTimelineScroll,
+    thumbRange,
+    scrollbarTrackWidth,
+    containerWidth,
+    totalDurationMs,
+    minPps,
+    maxPps,
+  ]);
 
   if (items.length === 0) {
     return null;
@@ -1126,6 +1463,34 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           </div>
 
           {/* Clip editing controls - center */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-7 w-7', snapEnabled && 'text-accent')}
+            onClick={() => setSnapEnabled((v) => !v)}
+            title={snapEnabled ? 'Snapping on — clips join flush' : 'Snapping off — free placement'}
+            aria-label="Toggle snapping"
+            aria-pressed={snapEnabled}
+          >
+            <Magnet className="h-4 w-4" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-7 w-7', rippleEnabled && 'text-accent')}
+            onClick={() => setRippleEnabled((v) => !v)}
+            title={
+              rippleEnabled
+                ? 'Ripple on - moving a clip shifts everything after it on its track'
+                : 'Ripple off - clips move independently'
+            }
+            aria-label="Toggle ripple move"
+            aria-pressed={rippleEnabled}
+          >
+            <MoveHorizontal className="h-4 w-4" />
+          </Button>
+
           {selectedClipId && (
             <div className="flex items-center gap-1">
               <Button
@@ -1164,6 +1529,57 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                         onError: (error) => {
                           toast({
                             title: 'Failed to update volume',
+                            description: error instanceof Error ? error.message : String(error),
+                            variant: 'destructive',
+                          });
+                        },
+                      },
+                    )
+                  }
+                />
+              )}
+              {selectedItem && (
+                <ClipFadePopover
+                  storyId={storyId}
+                  itemId={selectedItem.id}
+                  fadeInMs={selectedItem.fade_in_ms}
+                  fadeOutMs={selectedItem.fade_out_ms}
+                  onChange={(fadeIn, fadeOut) =>
+                    updateFades.mutate(
+                      {
+                        storyId,
+                        itemId: selectedItem.id,
+                        data: { fade_in_ms: fadeIn, fade_out_ms: fadeOut },
+                      },
+                      {
+                        onError: (error) => {
+                          toast({
+                            title: 'Failed to update fades',
+                            description: error instanceof Error ? error.message : String(error),
+                            variant: 'destructive',
+                          });
+                        },
+                      },
+                    )
+                  }
+                />
+              )}
+              {selectedItem && (
+                <ClipSpeedPopover
+                  storyId={storyId}
+                  itemId={selectedItem.id}
+                  speed={selectedItem.speed}
+                  onChange={(value) =>
+                    updateSpeed.mutate(
+                      {
+                        storyId,
+                        itemId: selectedItem.id,
+                        data: { speed: value },
+                      },
+                      {
+                        onError: (error) => {
+                          toast({
+                            title: 'Failed to update speed',
                             description: error instanceof Error ? error.message : String(error),
                             variant: 'destructive',
                           });
@@ -1265,22 +1681,31 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           </div>
         </div>
 
-        {/* Timeline scroll container */}
+        {/* Timeline scroll container.
+
+            The drag handlers below attach while a press is merely *armed* as
+            well as while a drag is live. Listening only on draggingItem
+            deadlocked: the threshold that promotes a press into a drag lives
+            in handleDragMove, which could never run because the handler was
+            not attached yet. */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: Container handles drag events for child clips */}
         <div
           ref={tracksRef}
           className="overflow-auto relative"
           style={{ height: `${timelineContainerHeight}px` }}
-          onMouseMove={draggingItem ? handleDragMove : undefined}
-          onMouseUp={draggingItem ? handleDragEnd : undefined}
-          onMouseLeave={draggingItem ? handleDragEnd : undefined}
+          onMouseMove={pressedItemId || draggingItem ? handleDragMove : undefined}
+          onMouseUp={pressedItemId || draggingItem ? handleDragEnd : undefined}
+          onMouseLeave={pressedItemId || draggingItem ? handleDragEnd : undefined}
         >
           {/* Ruler row: corner spacer + time ruler, sticky to top */}
           <div
             className="flex sticky top-0 z-30"
             style={{ width: `${timelineWidth + LABEL_COL_WIDTH}px` }}
           >
-            <div className="w-16 h-6 shrink-0 border-b border-r bg-muted/30 sticky left-0 z-40" />
+            <div
+              className="h-6 shrink-0 border-b border-r bg-muted/30 sticky left-0 z-40"
+              style={{ width: `${LABEL_COL_WIDTH}px` }}
+            />
             <button
               type="button"
               className="h-6 border-b bg-muted/20 cursor-pointer text-left relative"
@@ -1324,11 +1749,65 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                     height: `${TRACK_HEIGHT}px`,
                   }}
                 >
-                  <div className="w-16 shrink-0 border-b border-r flex items-center justify-center sticky left-0 z-20 h-full bg-background">
+                  <div
+                    className="shrink-0 border-b border-r flex items-center gap-1 px-1 sticky left-0 z-20 h-full bg-background"
+                    style={{ width: `${LABEL_COL_WIDTH}px` }}
+                  >
                     <div className="absolute inset-0 bg-muted/20 pointer-events-none" />
-                    <span className="relative text-[10px] text-muted-foreground select-none">
+                    <span className="relative w-3 shrink-0 text-[10px] text-muted-foreground select-none">
                       {trackNumber}
                     </span>
+                    <div className="relative flex items-center gap-0.5">
+                      {/* Import onto this specific lane, at the playhead. The
+                          story-level import always lands on a free lane at 0,
+                          which is wrong when you want a stinger mid-timeline. */}
+                      <label
+                        className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground/60 hover:bg-muted/50 hover:text-foreground"
+                        title={`Import audio onto track ${trackNumber}`}
+                      >
+                        <Upload className="h-3 w-3" />
+                        <input
+                          type="file"
+                          accept=".wav,.mp3,.flac,.ogg,.m4a,.aac,.webm"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleImportToTrack(trackNumber, file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                      {canRemoveTrack(trackNumber) && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTrack(trackNumber)}
+                          title={`Remove empty track ${trackNumber}`}
+                          aria-label={`Remove empty track ${trackNumber}`}
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground/60 hover:bg-destructive/20 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                      <TrackMixerControls
+                        index={trackNumber}
+                        track={trackSettings.get(trackNumber)}
+                        otherTracks={tracks.filter((n) => n !== trackNumber)}
+                        anySoloed={anySoloed}
+                        onChange={(patch) =>
+                          upsertTrack.mutate({
+                            storyId,
+                            index: trackNumber,
+                            data: {
+                              name: trackSettings.get(trackNumber)?.name ?? null,
+                              volume: patch.volume ?? 1,
+                              muted: patch.muted ?? false,
+                              soloed: patch.soloed ?? false,
+                              duck_under_track: patch.duck_under_track ?? null,
+                            },
+                          })
+                        }
+                      />
+                    </div>
                     {isFirst && (
                       <button
                         type="button"
@@ -1407,6 +1886,13 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                     )}
                     style={style}
                   >
+                    {/* Live length while trimming — dragging a handle blind and
+                        checking afterwards is the slow way to hit a target. */}
+                    {isTrimming && (
+                      <span className="absolute -top-5 left-0 z-30 rounded bg-popover px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-popover-foreground shadow-sm ring-1 ring-border">
+                        {(effectiveDuration / 1000).toFixed(2)}s
+                      </span>
+                    )}
                     <button
                       type="button"
                       className={cn(
@@ -1417,6 +1903,13 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
                         !isDragging && 'transition-all duration-100',
                       )}
                       onClick={(e) => handleClipClick(e, item)}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setSelectedClipId(item.id);
+                        setLengthTargetId(item.id);
+                        setLengthDraft((getEffectiveDuration(item) / 1000).toFixed(2));
+                        setSpeedDraft((item.speed || 1).toFixed(2));
+                      }}
                       onMouseDown={(e) => {
                         // Only start drag if not clicking on trim handles
                         if (!(e.target as HTMLElement).closest('.trim-handle')) {
@@ -1478,15 +1971,9 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
         </div>
 
         {/* Horizontal timeline scrollbar + zoom handles */}
-        <div
-          className="flex border-t bg-background/40"
-          style={{ height: `${SCRUB_BAR_HEIGHT}px` }}
-        >
-          <div className="w-16 shrink-0 border-r" />
-          <div
-            ref={scrollbarTrackRef}
-            className="relative flex-1 overflow-hidden select-none px-1"
-          >
+        <div className="flex border-t bg-background/40" style={{ height: `${SCRUB_BAR_HEIGHT}px` }}>
+          <div className="shrink-0 border-r" style={{ width: `${LABEL_COL_WIDTH}px` }} />
+          <div ref={scrollbarTrackRef} className="relative flex-1 overflow-hidden select-none px-1">
             <div
               className="absolute top-1 bottom-1 bg-foreground/10 hover:bg-foreground/15 transition-colors group rounded-full"
               style={{ width: `${thumbWidth}px`, left: `${thumbLeft}px` }}
@@ -1526,6 +2013,91 @@ export function StoryTrackEditor({ storyId, items }: StoryTrackEditorProps) {
           </div>
         </div>
       </div>
+
+      <Dialog open={lengthTargetId !== null} onOpenChange={() => setLengthTargetId(null)}>
+        <DialogContent className="max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Clip timing</DialogTitle>
+          </DialogHeader>
+
+          {/* Length and speed are two views of the same number: editing one
+              recomputes the other, and only the resulting speed is stored. */}
+          <div className="space-y-3">
+            <div>
+              <span className="mb-1 block text-xs text-muted-foreground">Target length</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={lengthDraft}
+                  onChange={(e) => {
+                    setLengthDraft(e.target.value);
+                    const target = Number.parseFloat(e.target.value);
+                    const clip = items.find((i) => i.id === lengthTargetId);
+                    if (clip && target > 0) {
+                      const natural =
+                        clip.duration * 1000 - (clip.trim_start_ms || 0) - (clip.trim_end_ms || 0);
+                      setSpeedDraft((natural / 1000 / target).toFixed(2));
+                    }
+                  }}
+                  className="h-8"
+                  inputMode="decimal"
+                  aria-label="Target length in seconds"
+                />
+                <span className="text-xs text-muted-foreground">s</span>
+              </div>
+            </div>
+
+            <div>
+              <span className="mb-1 block text-xs text-muted-foreground">Speed</span>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={speedDraft}
+                  onChange={(e) => {
+                    setSpeedDraft(e.target.value);
+                    const rate = Number.parseFloat(e.target.value);
+                    const clip = items.find((i) => i.id === lengthTargetId);
+                    if (clip && rate > 0) {
+                      const natural =
+                        clip.duration * 1000 - (clip.trim_start_ms || 0) - (clip.trim_end_ms || 0);
+                      setLengthDraft((natural / 1000 / rate).toFixed(2));
+                    }
+                  }}
+                  className="h-8"
+                  inputMode="decimal"
+                  aria-label="Speed multiplier"
+                />
+                <span className="text-xs text-muted-foreground">x</span>
+              </div>
+            </div>
+            <p className="text-[10px] leading-snug text-muted-foreground">
+              Pitch is preserved. 0.25x to 4x; outside that the stretch smears speech.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLengthTargetId(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const rate = Number.parseFloat(speedDraft);
+                if (lengthTargetId && rate >= 0.25 && rate <= 4) {
+                  updateSpeed.mutate({
+                    storyId,
+                    itemId: lengthTargetId,
+                    data: { speed: rate },
+                  });
+                }
+                setLengthTargetId(null);
+              }}
+              disabled={
+                !(Number.parseFloat(speedDraft) >= 0.25 && Number.parseFloat(speedDraft) <= 4)
+              }
+            >
+              Apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

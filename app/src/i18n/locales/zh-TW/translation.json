@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "取消",
+    "clearSearch": "清除搜尋",
     "save": "儲存",
     "delete": "刪除",
     "edit": "編輯",
@@ -406,6 +407,7 @@
       "errorLoading": "載入聲音檔案時出錯:{{message}}",
       "empty": "尚無聲音檔案。建立您的第一個檔案以開始使用。",
       "createVoice": "建立聲音",
+      "noVoicesMatch": "沒有與「{{query}}」相符的設定檔",
       "unsupportedNote": "目前模型僅可選擇支援的聲音檔案。"
     },
     "deleteDialog": {
@@ -645,7 +647,10 @@
     }
   },
   "history": {
+    "dragHandle": "拖曳到資料夾",
     "empty": "尚無語音生成…",
+      "searchPlaceholder": "搜尋片段…",
+      "emptySearch": "沒有符合該搜尋的片段。",
     "actions": {
       "menu": "操作",
       "play": "播放",

@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { FolderKind } from '@/lib/api/types';
 
 export type Theme = 'light' | 'dark' | 'system';
+
+/** How the Generate tab lists voices. */
+export type VoiceViewMode = 'list' | 'card';
 
 function resolveTheme(theme: Theme): 'light' | 'dark' {
   if (theme !== 'system') return theme;
@@ -58,6 +62,16 @@ interface UIStore {
   profileFormDraft: ProfileFormDraft | null;
   setProfileFormDraft: (draft: ProfileFormDraft | null) => void;
 
+  // How the Generate tab renders voices
+  voiceViewMode: VoiceViewMode;
+  setVoiceViewMode: (mode: VoiceViewMode) => void;
+
+  // Collapsed folder ids, keyed by folder kind. Collapsed rather than
+  // expanded ids so a newly created folder starts open without having to
+  // touch this set.
+  collapsedFolderIds: Partial<Record<FolderKind, string[]>>;
+  toggleFolderCollapsed: (kind: FolderKind, folderId: string) => void;
+
   // Theme
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -89,6 +103,19 @@ export const useUIStore = create<UIStore>()(
       profileFormDraft: null,
       setProfileFormDraft: (draft) => set({ profileFormDraft: draft }),
 
+      voiceViewMode: 'list',
+      setVoiceViewMode: (mode) => set({ voiceViewMode: mode }),
+
+      collapsedFolderIds: { voice: [], generation: [], story: [] },
+      toggleFolderCollapsed: (kind, folderId) =>
+        set((state) => {
+          const current = state.collapsedFolderIds[kind] ?? [];
+          const next = current.includes(folderId)
+            ? current.filter((id) => id !== folderId)
+            : [...current, folderId];
+          return { collapsedFolderIds: { ...state.collapsedFolderIds, [kind]: next } };
+        }),
+
       theme: 'system',
       setTheme: (theme) => {
         set({ theme });
@@ -100,9 +127,16 @@ export const useUIStore = create<UIStore>()(
       partialize: (state) => ({
         selectedProfileId: state.selectedProfileId,
         theme: state.theme,
+        voiceViewMode: state.voiceViewMode,
+        collapsedFolderIds: state.collapsedFolderIds,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) applyTheme(state.theme);
+        // Persisted before folders existed, so an older store has no map —
+        // and a store persisted before story folders has no 'story' key.
+        if (state && !state.collapsedFolderIds) {
+          state.collapsedFolderIds = { voice: [], generation: [], story: [] };
+        }
       },
     },
   ),

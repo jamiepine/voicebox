@@ -1,6 +1,7 @@
-import { Download, Edit, Sparkles, Trash2, Wand2 } from 'lucide-react';
+import { Copy, Download, Edit, Sparkles, Trash2, Volume2, Wand2 } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +15,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { VoiceProfileResponse } from '@/lib/api/types';
-import { useDeleteProfile, useExportProfile } from '@/lib/hooks/useProfiles';
+import { useDeleteProfile, useDuplicateProfile, useExportProfile } from '@/lib/hooks/useProfiles';
 import { cn } from '@/lib/utils/cn';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -27,14 +28,18 @@ const ENGINE_DISPLAY_NAMES: Record<string, string> = {
 interface ProfileCardProps {
   profile: VoiceProfileResponse;
   disabled?: boolean;
+  /** Open the preview dialog for this voice. */
+  onPreview?: (profile: VoiceProfileResponse) => void;
 }
 
-export function ProfileCard({ profile, disabled }: ProfileCardProps) {
+export function ProfileCard({ profile, disabled, onPreview }: ProfileCardProps) {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const deleteProfile = useDeleteProfile();
   const exportProfile = useExportProfile();
+  const duplicateProfile = useDuplicateProfile();
   const setEditingProfileId = useUIStore((state) => state.setEditingProfileId);
   const setProfileDialogOpen = useUIStore((state) => state.setProfileDialogOpen);
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
@@ -64,6 +69,29 @@ export function ProfileCard({ profile, disabled }: ProfileCardProps) {
   const handleDeleteConfirm = () => {
     deleteProfile.mutate(profile.id);
     setDeleteDialogOpen(false);
+  };
+
+  // Same feedback as the list view. Without the callbacks a failed
+  // duplicate did nothing at all — the button just went idle again.
+  const handleDuplicate = () => {
+    duplicateProfile.mutate(
+      { profileId: profile.id },
+      {
+        onSuccess: (copy) => {
+          toast({
+            title: t('profiles.duplicate.successTitle'),
+            description: t('profiles.duplicate.successDescription', { name: copy.name }),
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: t('profiles.duplicate.failedTitle'),
+            description: error.message,
+            variant: 'destructive',
+          });
+        },
+      },
+    );
   };
 
   const handleExport = (e: React.MouseEvent) => {
@@ -126,11 +154,26 @@ export function ProfileCard({ profile, disabled }: ProfileCardProps) {
             {profile.effects_chain && profile.effects_chain.length > 0 && (
               <Sparkles className="h-3.5 w-3.5 text-accent fill-accent" />
             )}
-            {profile.personality?.trim() && (
-              <Wand2 className="h-3.5 w-3.5 text-accent" />
-            )}
+            {profile.personality?.trim() && <Wand2 className="h-3.5 w-3.5 text-accent" />}
           </div>
           <div className="flex gap-0.5 justify-end items-end mt-auto">
+            <CircleButton
+              icon={Volume2}
+              onClick={(e) => {
+                e.stopPropagation();
+                onPreview?.(profile);
+              }}
+              aria-label={t('profiles.preview.action')}
+            />
+            <CircleButton
+              icon={Copy}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDuplicate();
+              }}
+              disabled={duplicateProfile.isPending}
+              aria-label={t('profiles.card.duplicate')}
+            />
             <CircleButton
               icon={Download}
               onClick={handleExport}

@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "Cancelar",
+    "clearSearch": "Borrar búsqueda",
     "save": "Guardar",
     "delete": "Eliminar",
     "edit": "Editar",
@@ -406,6 +407,7 @@
       "errorLoading": "Error al cargar los perfiles: {{message}}",
       "empty": "Aún no hay perfiles de voz. Crea tu primer perfil para empezar.",
       "createVoice": "Crear voz",
+      "noVoicesMatch": "Ningún perfil coincide con \"{{query}}\"",
       "unsupportedNote": "Solo se pueden seleccionar los perfiles de voz compatibles con el modelo actual."
     },
     "deleteDialog": {
@@ -645,7 +647,10 @@
     }
   },
   "history": {
+    "dragHandle": "Arrastrar a una carpeta",
     "empty": "Aún no hay generaciones de voz…",
+      "searchPlaceholder": "Buscar clips…",
+      "emptySearch": "Ningún clip coincide con esa búsqueda.",
     "actions": {
       "menu": "Acciones",
       "play": "Reproducir",

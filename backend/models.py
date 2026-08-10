@@ -2,7 +2,8 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
+from typing_extensions import Annotated
 from typing import Optional, List
 from datetime import datetime
 
@@ -10,6 +11,71 @@ from .utils.capture_chords import (
     default_push_to_talk_chord,
     default_toggle_to_talk_chord,
 )
+
+
+FOLDER_KIND_PATTERN = "^(voice|generation|story)$"
+
+# Names arrive from text inputs, so a value of "   " passes a raw
+# min_length check and then stores as an empty label once stripped.
+# Strip first, then length-check the result.
+TrimmedName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+]
+
+
+class FolderCreate(BaseModel):
+    """Request model for creating a folder."""
+
+    name: TrimmedName
+    kind: str = Field(default="voice", pattern=FOLDER_KIND_PATTERN)
+    # Only meaningful for kind="generation"; voice folders are flat and the
+    # route rejects a non-null parent for them.
+    parent_id: Optional[str] = None
+
+
+class FolderUpdate(BaseModel):
+    """Request model for renaming or reparenting a folder.
+
+    Every field is optional so a rename doesn't have to restate the parent.
+    ``parent_id`` therefore can't distinguish "unset" from "move to root" —
+    use the dedicated move endpoint to detach a folder to the root.
+    """
+
+    name: Optional[TrimmedName] = None
+    parent_id: Optional[str] = None
+    position: Optional[int] = Field(None, ge=0)
+
+
+class FolderResponse(BaseModel):
+    """Response model for a folder."""
+
+    id: str
+    name: str
+    kind: str
+    parent_id: Optional[str] = None
+    position: int = 0
+    # Direct members only — a parent folder does not count its children's items.
+    item_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class FolderAssign(BaseModel):
+    """Request model for moving an item into a folder (null = uncategorised)."""
+
+    folder_id: Optional[str] = None
+
+
+class ProfileDuplicateRequest(BaseModel):
+    """Optional overrides when duplicating a profile.
+
+    Omit entirely to accept the default "<name> (copy)" name.
+    """
+
+    name: Optional[TrimmedName] = None
 
 
 class VoiceProfileCreate(BaseModel):
@@ -26,6 +92,7 @@ class VoiceProfileCreate(BaseModel):
     design_prompt: Optional[str] = Field(None, max_length=2000)
     default_engine: Optional[str] = Field(None, max_length=50)
     personality: Optional[str] = Field(None, max_length=2000)
+    folder_id: Optional[str] = None
 
 
 class VoiceProfileResponse(BaseModel):
@@ -43,6 +110,7 @@ class VoiceProfileResponse(BaseModel):
     design_prompt: Optional[str] = None
     default_engine: Optional[str] = None
     personality: Optional[str] = None
+    folder_id: Optional[str] = None
     generation_count: int = 0
     sample_count: int = 0
     created_at: datetime
@@ -119,6 +187,7 @@ class GenerationResponse(BaseModel):
     error: Optional[str] = None
     is_favorited: bool = False
     source: str = "manual"
+    folder_id: Optional[str] = None
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
@@ -132,6 +201,14 @@ class HistoryQuery(BaseModel):
 
     profile_id: Optional[str] = None
     search: Optional[str] = None
+    # Folder filter.  A plain absent/None folder_id means "no filter, show
+    # everything"; selecting the Uncategorised bucket is a distinct request
+    # that a nullable field can't express, hence the explicit flag below.
+    folder_id: Optional[str] = None
+    uncategorised_only: bool = False
+    # Whether folder_id also matches clips in that folder's descendants.
+    # Clip folders nest, so a parent should be able to show the whole subtree.
+    include_subfolders: bool = True
     limit: int = Field(default=50, ge=1, le=100)
     offset: int = Field(default=0, ge=0)
 
@@ -153,6 +230,7 @@ class HistoryResponse(BaseModel):
     status: str = "completed"
     error: Optional[str] = None
     is_favorited: bool = False
+    folder_id: Optional[str] = None
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
@@ -445,6 +523,10 @@ class HealthResponse(BaseModel):
     backend_variant: Optional[str] = None  # Binary variant (cpu, cuda, or rocm)
     supports_rocm: bool = False  # AMD GPU on Windows — the ROCm backend is applicable
     gpu_compatibility_warning: Optional[str] = None  # Warning if GPU arch unsupported
+    # ffmpeg is optional; when absent, loudness normalisation is unavailable
+    # and m4a/aac/webm cannot be imported. The UI labels those rather than
+    # letting them fail silently.
+    ffmpeg_available: bool = False
 
 
 class DirectoryCheck(BaseModel):
@@ -576,6 +658,7 @@ class StoryResponse(BaseModel):
     id: str
     name: str
     description: Optional[str]
+    folder_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     item_count: int = 0
@@ -607,6 +690,9 @@ class StoryItemDetail(BaseModel):
     instruct: Optional[str]
     engine: Optional[str] = None
     volume: float = 1.0
+    fade_in_ms: int = 0
+    fade_out_ms: int = 0
+    speed: float = 1.0
     generation_created_at: datetime
     # Versions available for this generation
     versions: Optional[List["GenerationVersionResponse"]] = None
@@ -635,7 +721,10 @@ class StoryItemCreate(BaseModel):
 
     generation_id: str
     start_time_ms: Optional[int] = None  # If not provided, will be calculated automatically
-    track: Optional[int] = 0  # Track number (0 = main track)
+    # Lane index. None means "decide for me": TTS clips append to track 0,
+    # imported audio gets its own empty lane so it plays under the narration.
+    # Must stay nullable to tell "omitted" apart from an explicit track 0.
+    track: Optional[int] = None
 
 
 class StoryItemUpdateTime(BaseModel):
@@ -692,6 +781,57 @@ class StoryItemVolumeUpdate(BaseModel):
     """
 
     volume: float = Field(..., ge=0.0, le=2.0)
+
+
+class StoryItemFadeUpdate(BaseModel):
+    """Request model for a story item's fade in/out lengths, in milliseconds.
+
+    The mixer scales both down proportionally if together they exceed the
+    clip, so no cross-field validation is needed here.
+    """
+
+    fade_in_ms: int = Field(..., ge=0, le=60000)
+    fade_out_ms: int = Field(..., ge=0, le=60000)
+
+
+class StoryItemSpeedUpdate(BaseModel):
+    """Request model for a story item's playback rate.
+
+    Above 1.0 plays faster and therefore shorter. Bounded because the phase
+    vocoder smears badly on speech outside roughly half to double speed.
+    """
+
+    speed: float = Field(..., ge=0.25, le=4.0)
+
+
+class StoryTrackUpsert(BaseModel):
+    """Request model for creating or updating a lane's mixer settings."""
+
+    name: Optional[str] = Field(None, max_length=100)
+    volume: float = Field(default=1.0, ge=0.0, le=2.0)
+    muted: bool = False
+    soloed: bool = False
+    # Lane index whose loudness ducks this one; null disables ducking.
+    # Bounded because lane indices are non-negative -- a negative value is not
+    # a lane, and would silently never match one at mix time. Self-ducking is
+    # rejected in the route, which is where the lane's own index is known.
+    duck_under_track: Optional[int] = Field(None, ge=0)
+
+
+class StoryTrackResponse(BaseModel):
+    """Response model for a lane's mixer settings."""
+
+    id: str
+    story_id: str
+    index: int
+    name: Optional[str] = None
+    volume: float = 1.0
+    muted: bool = False
+    soloed: bool = False
+    duck_under_track: Optional[int] = None
+
+    class Config:
+        from_attributes = True
 
 
 class EffectConfig(BaseModel):
