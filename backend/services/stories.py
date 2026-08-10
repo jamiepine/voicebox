@@ -35,7 +35,7 @@ from ..database import (
 )
 from ..database.models import StoryTrack as DBStoryTrack
 from .history import _get_versions_for_generation
-from ..utils.audio import encode_audio
+from ..utils.audio import encode_audio, time_stretch_speech
 import librosa
 import numpy as np
 
@@ -1186,8 +1186,11 @@ async def export_story_audio(
 
         speed = float(getattr(item, "speed", 1.0) or 1.0)
         if speed != 1.0:
-            # Phase vocoder, so pitch survives the tempo change.
-            audio = np.stack([librosa.effects.time_stretch(ch, rate=speed) for ch in audio])
+            # WSOLA rather than a phase vocoder: the vocoder resynthesises from
+            # magnitude and estimated phase, which on speech smears consonants
+            # and leaves a phasey ring. Pitch survives either way; only the
+            # artefacts differ.
+            audio = time_stretch_speech(audio, speed, project_sr)
 
         audio = _apply_fades(
             audio,

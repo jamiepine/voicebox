@@ -367,3 +367,41 @@ def test_a_valid_duck_target_is_accepted(client, story):
     r = client.put(f"/stories/{story['id']}/tracks/1", json={"duck_under_track": 0})
     assert r.status_code == 200, r.text
     assert r.json()["duck_under_track"] == 0
+
+
+# ── Time stretching for per-clip speed ───────────────────────────────
+
+
+@pytest.mark.parametrize("rate", [0.5, 0.8, 1.25, 2.0])
+def test_speed_change_has_an_accurate_ratio(rate):
+    from backend.utils.audio import time_stretch_speech
+
+    out = time_stretch_speech(_tone(1.0, 24000, 220.0), rate, 24000)
+    assert len(out) / 24000 == pytest.approx(1.0 / rate, rel=0.06)
+
+
+def test_speed_change_preserves_pitch():
+    """Resampling would transpose the voice, which is not what a speed control
+    means. WSOLA keeps the pitch and only changes the tempo."""
+    from backend.utils.audio import time_stretch_speech
+
+    sr = 24000
+    original = _tone(1.0, sr, 220.0)
+    slower = time_stretch_speech(original, 0.5, sr)
+
+    def dominant_hz(x):
+        return np.fft.rfftfreq(len(x), 1 / sr)[int(np.argmax(np.abs(np.fft.rfft(x))))]
+
+    assert dominant_hz(slower) == pytest.approx(dominant_hz(original), rel=0.05)
+
+
+def test_speed_change_handles_stereo():
+    """The mixer works in (channels, samples); both channels must stretch by
+    the same amount or the image tears."""
+    from backend.utils.audio import time_stretch_speech
+
+    sr = 24000
+    stereo = np.stack([_tone(1.0, sr, 220.0), _tone(1.0, sr, 330.0)])
+    out = time_stretch_speech(stereo, 0.8, sr)
+    assert out.shape[0] == 2
+    assert out.shape[1] == pytest.approx(sr / 0.8, rel=0.06)
