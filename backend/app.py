@@ -129,7 +129,7 @@ def safe_content_disposition(disposition_type: str, filename: str) -> str:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    from .mcp_server.server import build_mcp_server, compose_lifespan
+    from .mcp_server.server import MountRootSlashRewrite, build_mcp_server, compose_lifespan
     from .mcp_server.context import ClientIdMiddleware
 
     # Build the MCP app up-front so we can wire its lifespan into FastAPI's —
@@ -167,7 +167,7 @@ def create_app() -> FastAPI:
     _configure_cors(application)
     application.add_middleware(ClientIdMiddleware)
     register_routers(application)
-    application.mount("/mcp", mcp_app)
+    application.mount("/mcp", MountRootSlashRewrite(mcp_app))
     logger.info("MCP: mounted at /mcp")
     _mount_frontend(application)
 

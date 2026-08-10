@@ -9,6 +9,9 @@
 
 ### Linux
 
+- **Evaluation and regression coverage for Whisper/TTS/MCP.** Added CI-safe
+  unload and MCP slash tests, opt-in Common Voice long-audio fixture generation,
+  backend/dictation contract harnesses, and documented GPU evaluation commands.
 - **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch
   on the ROCm wheel index during dependency installation, so later installs do
   not replace it with CUDA wheels. The ROCm compose overlay no longer assumes
@@ -137,6 +140,7 @@ A patch focused on two user-impacting reliability fixes: macOS DMG notarization 
 This release localizes the entire app. English, Simplified Chinese (zh-CN), Traditional Chinese (zh-TW), and Japanese (ja) are wired up end-to-end across every tab, modal, dialog, and toast — 559 translation keys per locale, parity verified. Plus a batch of reliability fixes: offline-mode now actually stays offline, Chatterbox accepts reference samples it used to reject, MLX Qwen 0.6B points at the right repo, and macOS system audio survives backgrounding.
 
 ### Internationalization ([#508](https://github.com/jamiepine/voicebox/pull/508))
+
 - **i18next foundation** with an in-app language switcher that re-renders the tree on change — lazy-loaded components were holding stale strings without an explicit key-bump on the React root.
 - **Four locales** at full coverage: English, Simplified Chinese, Traditional Chinese, Japanese. No partial/English-fallback surfaces.
 - **Every user-visible surface translated**: Stories (list, content editor, dialogs, toasts), Effects (list, detail, chain editor, built-in preset names), Voices (table, search, inspector, Create/Edit modal, audio sample panels), Audio Channels (list, dialogs, device picker), history + story dropdown menus, ProfileCard / ProfileList / HistoryTable, and the unsupported-model note.
@@ -145,6 +149,7 @@ This release localizes the entire app. English, Simplified Chinese (zh-CN), Trad
 - **559 translation keys** across all four locales.
 
 ### Reliability
+
 - **`HF_HUB_OFFLINE` now guards every inference path** ([#503](https://github.com/jamiepine/voicebox/pull/503)) — some engines were still attempting a HuggingFace metadata roundtrip on first load when offline mode was enabled, causing hangs on airgapped or flaky networks.
 - **Chatterbox reference samples are preprocessed instead of rejected** ([#502](https://github.com/jamiepine/voicebox/pull/502)) — samples outside the expected sample rate or channel layout are resampled to match, rather than failing with an opaque error.
 - **MLX Qwen 0.6B repo path fixed** ([#501](https://github.com/jamiepine/voicebox/pull/501)) — now points at the published `mlx-community` repo so the model actually downloads on Apple Silicon.
@@ -152,15 +157,18 @@ This release localizes the entire app. English, Simplified Chinese (zh-CN), Trad
 - **MLX backend `miniaudio` dependency pinned** ([#506](https://github.com/jamiepine/voicebox/pull/506)) — `mlx_audio.stt` needs it at runtime and nothing else transitively pulled it in, so `--no-deps` installs were breaking on first use.
 
 ### Landing / Docs
+
 - **New `/download` page** ([#487](https://github.com/jamiepine/voicebox/pull/487)) — no more dumping first-time visitors onto the GitHub releases list. The API example snippet on the landing page also got an accuracy pass.
 - **Download redirects work behind reverse proxies** ([#498](https://github.com/jamiepine/voicebox/pull/498)) — uses the public origin instead of `localhost` when resolving platform-specific installer URLs.
 - **MDX docs audited against the multi-engine backend** ([#484](https://github.com/jamiepine/voicebox/pull/484)) — stale single-engine assumptions removed.
 - **Three more tutorials + mobile navbar / hero CTA fixes** ([#483](https://github.com/jamiepine/voicebox/pull/483)).
 
 ### Linux
+
 - **Still not shipping.** The re-enable attempt ([#488](https://github.com/jamiepine/voicebox/pull/488)) landed on `main` but CI still hangs in the `tauri-action` bundler step on `ubuntu-22.04` — no output for 25+ minutes after `rpm` bundling, even with `createUpdaterArtifacts: false` and `--bundles deb,rpm`. The matrix entry is disabled again for 0.4.2; the ubuntu-specific setup steps stay in the workflow so re-enabling is a one-line change once we identify the hang. Next release will take another pass.
 
 ### New Contributors
+
 - [@shekharyv](https://github.com/shekharyv) — download redirects behind reverse proxies ([#498](https://github.com/jamiepine/voicebox/pull/498))
 
 ## [0.4.1] - 2026-04-18
@@ -170,33 +178,40 @@ A fast follow-up to 0.4.0 focused on making the new engines actually load in the
 0.4.0 introduced three new TTS engines, but the frozen PyInstaller binary tripped over several Python-ecosystem quirks that don't show up in the dev venv: `transformers` opening `.py` sources at runtime, `scipy.stats._distn_infrastructure` hitting a frozen-importer `NameError`, and `chatterbox-multilingual` failing to find its Chinese segmenter dictionary. This release patches all of those in one sweep.
 
 ### Frozen-Binary Reliability ([#438](https://github.com/jamiepine/voicebox/pull/438))
+
 - **Kokoro** now bundles `.py` sources alongside `.pyc` via `--collect-all kokoro` so `transformers`' `_can_set_attn_implementation` regex scan can read them — previously `FileNotFoundError: kokoro/modules.py` killed Kokoro loading in production builds
 - **Chatterbox Multilingual** now bundles `spacy_pkuseg/dicts/default.pkl` and the package's native `.so` extensions via `--collect-all spacy_pkuseg` — previously the Chinese word segmenter crashed with `FileNotFoundError` on first load
-- **scipy.stats._distn_infrastructure** — new runtime hook source-patches the trailing `del obj` (which raises `NameError` under PyInstaller's frozen importer because the preceding list comprehension evaluates empty) to `globals().pop('obj', None)`, unblocking `librosa` → `scipy.signal` → `scipy.stats` for every TTS engine that depends on librosa
+- **scipy.stats.\_distn_infrastructure** — new runtime hook source-patches the trailing `del obj` (which raises `NameError` under PyInstaller's frozen importer because the preceding list comprehension evaluates empty) to `globals().pop('obj', None)`, unblocking `librosa` → `scipy.signal` → `scipy.stats` for every TTS engine that depends on librosa
 - **transformers.masking_utils** — same runtime hook forces `_is_torch_greater_or_equal_than_2_6 = False` so the older `sdpa_mask_older_torch` path is selected; the 2.6+ path uses `TransformGetItemToIndex()`, a real `torch._dynamo` graph transform our permissive stub can't reproduce
-- **torch._dynamo** — no-op stub replaces the real module before `transformers` imports it, preventing the `torch._numpy._ufuncs` import crash (`NameError: name 'name' is not defined`) that blocked Kokoro and every engine pulling in `flex_attention`
+- **torch.\_dynamo** — no-op stub replaces the real module before `transformers` imports it, preventing the `torch._numpy._ufuncs` import crash (`NameError: name 'name' is not defined`) that blocked Kokoro and every engine pulling in `flex_attention`
 - `.spec` paths are now repo-relative instead of absolute, so the generated spec is portable across machines and CI
 
 ### Generation
+
 - **Cancel queued or running generations** ([#444](https://github.com/jamiepine/voicebox/pull/444)) — new `/generate/{id}/cancel` endpoint and a Stop button on the history row while generating. The serial queue now tracks per-ID state (queued / running / cancelled) so queued jobs are skipped before the worker picks them up and running jobs are `.cancel()`-ed mid-flight; `run_generation` catches `CancelledError` and marks the row `failed` with a "cancelled" error.
 - **Legacy `data/` path prefix resolution** ([#440](https://github.com/jamiepine/voicebox/pull/440)) — generations stored with the old `data/` prefix under pre-0.4 installs now resolve correctly after the storage root moved, fixing 404s for historical audio.
 
 ### Model Migration
+
 - Migration dialog no longer hangs when the cache is empty ([#439](https://github.com/jamiepine/voicebox/pull/439)) — the backend now emits a completion SSE event even when zero models are moved.
 - Storage-change flow surfaces a toast when there's nothing to migrate ([#433](https://github.com/jamiepine/voicebox/pull/433)) instead of proceeding with a no-op move and restarting the server.
 - Deleting all generations from a voice profile now deletes the associated version files and DB rows too ([#447](https://github.com/jamiepine/voicebox/pull/447)) — previously orphaned versions accumulated in storage.
 
 ### Platform
+
 - **Linux system audio capture** ([#457](https://github.com/jamiepine/voicebox/pull/457)) — `cpal`'s ALSA backend doesn't expose PulseAudio/PipeWire monitor sources by name, so the previous device-name search never matched and silently fell back to the microphone. Detection now uses `pactl get-default-sink` + `pactl list short sources` and routes via `PULSE_SOURCE`, with the name-based search retained as a fallback when `pactl` is absent.
 
 ### Frontend CI
+
 - First PR-time quality gate ([#418](https://github.com/jamiepine/voicebox/pull/418)) — new `.github/workflows/ci.yml` runs `bun run typecheck` + `bun run build:web` on every PR. Fixed pre-existing type issues that were being suppressed with `@ts-expect-error`, cleaned up a dep-array typo (`[platform.metadata.isTauricheckOnMountcheckForUpdates]`) in `useAutoUpdater`, and removed 100+ lines of dead `ModelItem` code from `ModelManagement.tsx`.
 - Follow-up: widened `apiClient.migrateModels()` return type to include `moved` and `errors` so the storage-change handler typechecks against the real backend response ([#470](https://github.com/jamiepine/voicebox/pull/470)).
 
 ### Docs
+
 - Clarified in the Quick Start + README that paralinguistic tags (`[laugh]`, `[sigh]`) only work with Chatterbox Turbo; other engines read them as literal text ([#450](https://github.com/jamiepine/voicebox/pull/450)).
 
 ### New Contributors
+
 - [@Bortlesboat](https://github.com/Bortlesboat) — generation cancellation (#444)
 - [@gaojulong](https://github.com/gaojulong) — migration dialog hang fix (#439)
 - [@fuleinist](https://github.com/fuleinist) — migration no-op toast (#433)
@@ -212,6 +227,7 @@ This release also marks a big community moment: **13 new contributors** shipped 
 ### New TTS Engines
 
 #### HumeAI TADA — Expressive English & Multilingual ([#296](https://github.com/jamiepine/voicebox/pull/296))
+
 - Added `tada-1b` (English) and `tada-3b-ml` (multilingual) backends
 - Replaced `descript-audio-codec` with a lightweight DAC shim to cut dependencies
 - Switched audio decoding to `soundfile` to sidestep `torchcodec` bundling issues
@@ -220,11 +236,13 @@ This release also marks a big community moment: **13 new contributors** shipped 
 - Fixed TorchScript error in frozen builds
 
 #### Kokoro 82M — Fast Lightweight TTS ([#325](https://github.com/jamiepine/voicebox/pull/325))
+
 - Added Kokoro 82M engine with a new voice profile type system that distinguishes preset voices from cloned profiles
 - Profile grid now handles engine compatibility directly — removed redundant dropdown filtering
 - Tightened Kokoro profile handling so preset voices can't be edited like cloned profiles
 
 #### Qwen CustomVoice ([#328](https://github.com/jamiepine/voicebox/pull/328))
+
 - Added `qwen-custom-voice` preset engine backed by Qwen3-TTS
 - Enforced preset/profile engine compatibility across the generation flow
 - Floating generator now shows all engines instead of silently filtering
@@ -246,22 +264,26 @@ This release ships the resolution before it ever reaches a tagged version:
 ### GPU & Platform
 
 #### Intel Arc (XPU) Support ([#320](https://github.com/jamiepine/voicebox/pull/320))
+
 - First-class Intel Arc support across all PyTorch-based backends
 - Device-aware seeding, XPU detection in the GPU status panel, and setup flow detection
 - Reports correct device name and VRAM in settings
 
 #### Blackwell / RTX 50-series Support ([#316](https://github.com/jamiepine/voicebox/pull/316), [#401](https://github.com/jamiepine/voicebox/pull/401))
+
 - Upgraded the CUDA backend from cu126 → cu128 for RTX 50-series support
 - Added `sm_120+PTX` to the CUDA build via `TORCH_CUDA_ARCH_LIST` for forward-compatibility with Blackwell architectures (closes 5 open reports: #386, #395, #396, #399, #400)
 - GPU settings UI fixes around install/uninstall state
 
 #### GPU Compatibility Diagnostics ([#367](https://github.com/jamiepine/voicebox/pull/367), adapted)
+
 - New `check_cuda_compatibility()` compares the current device's compute capability against the bundled PyTorch's architecture list
 - Health endpoint exposes a `gpu_compatibility_warning` field so the UI can surface mismatches
 - Startup logs a `WARN` when the installed PyTorch build doesn't support the detected GPU
 - GPU status label shows `[UNSUPPORTED - see logs]` — no more silent "no kernel image" failures
 
 #### Split CUDA Backend ([#298](https://github.com/jamiepine/voicebox/pull/298))
+
 - CUDA backend now ships as two independently versioned archives: a small server binary and a large libs archive (the ~4 GB of PyTorch/CUDA DLLs)
 - Upgrading Voicebox no longer redownloads the libs archive when only the server binary changed
 - Added `asyncio.Lock` around `download_cuda_binary()` so auto-update and manual download can't race on the same temp file ([#428](https://github.com/jamiepine/voicebox/pull/428))
@@ -271,9 +293,11 @@ This release ships the resolution before it ever reaches a tagged version:
 ### Bug Fixes
 
 #### Critical: TTS Generation
+
 - **numpy 2.x `torch.from_numpy` crash** ([#361](https://github.com/jamiepine/voicebox/pull/361)) — torch compiled against numpy 1.x ABI fails silently when paired with numpy 2.x, causing `RuntimeError: Numpy is not available` / `Unable to create tensor` on every TTS request in bundled macOS Intel / Rosetta builds. Pinned `numpy<2.0` in requirements and added a PyInstaller runtime hook with a `ctypes.memmove` fallback as belt-and-suspenders. Hardened afterward to raise on unknown dtypes instead of silently reinterpreting bytes as float32.
 
 #### Platform Reliability
+
 - **Windows background server** ([#402](https://github.com/jamiepine/voicebox/pull/402)) — "keep server running after close" now actually keeps the server running. The HTTP `/watchdog/disable` request could lose the race against process exit on Windows; added a `.keep-running` sentinel file as a synchronous fallback, with stale-sentinel cleanup on startup to avoid orphan server processes
 - **macOS 11 launch crash** ([#424](https://github.com/jamiepine/voicebox/pull/424)) — weak-linked ScreenCaptureKit so the app can launch on macOS < 12.3 instead of crashing at dyld resolution. Gated system audio capture behind a real `sw_vers` version check so unsupported systems cleanly advertise "not available" rather than crashing at runtime
 - **macOS Intel (x86_64) setup** ([#416](https://github.com/jamiepine/voicebox/pull/416)) — relaxed `torch>=2.7.0` → `torch>=2.2.0`. PyTorch dropped pre-built x86_64 wheels after 2.2.2, so Intel Mac devs could no longer `pip install`. Now resolves to the latest compatible torch per platform
@@ -285,18 +309,22 @@ This release ships the resolution before it ever reaches a tagged version:
 - **Effects service import** ([#384](https://github.com/jamiepine/voicebox/pull/384)) — fixed `ModuleNotFoundError` on preset create/update by switching to relative imports (#349)
 
 #### Audio & Playback
+
 - **cpal stream silent playback** ([#405](https://github.com/jamiepine/voicebox/pull/405)) — `cpal::Stream` was dropped on function return immediately after `play()`, causing every playback to fall silent. Now holds the stream until either the buffer drains or the stop flag fires (#404)
 
 #### Stories & History
+
 - **Clip-splitting race** ([#403](https://github.com/jamiepine/voicebox/pull/403)) — rapid double-clicks on split could race through `split_story_item` with inconsistent state. Added `with_for_update()` row locking on the backend and an `isPending` guard on the frontend (#366)
 - **History `status` staleness** ([#394](https://github.com/jamiepine/voicebox/pull/394)) — `GET /history/{id}` was hardcoding `status="completed"` regardless of the DB row, breaking any client polling for job completion. Now returns `status`, `error`, `engine`, `model_size`, and `is_favorited` from the actual row
 - **"Clear failed" bulk button** ([#412](https://github.com/jamiepine/voicebox/pull/412)) — new `DELETE /history/failed` endpoint and a header strip showing `"N failed generations"` with a Clear button, complementing the per-row trash icon added in #321 (#410)
 - **Delete failed generations** ([#321](https://github.com/jamiepine/voicebox/pull/321)) — added a trash icon next to the retry button so failed entries can be cleaned up without having to retry first
 
 #### Security & Safety
+
 - **Voice prompt cache hardening** ([#429](https://github.com/jamiepine/voicebox/pull/429)) — `torch.load(weights_only=True)` on cached voice prompts per PyTorch 2.6 recommendation; replaced string-based SPA path guard with `Path.is_relative_to()` for more robust path-traversal protection
 
 #### Infrastructure & Docker
+
 - **Docker web build** ([#344](https://github.com/jamiepine/voicebox/pull/344)) — include `CHANGELOG.md` in the Docker web build so the in-app changelog page works in Docker deployments
 - **Docker numba cache** ([#425](https://github.com/jamiepine/voicebox/pull/425)) — set `NUMBA_CACHE_DIR` in docker-compose so numba can write its JIT cache in container runtime (#308)
 - **Relative media paths** ([#332](https://github.com/jamiepine/voicebox/pull/332)) — media paths now stored relative to the configured data dir rather than resolved against CWD, so the data directory is portable between installs
@@ -321,6 +349,7 @@ This release rewrites the backend into a modular architecture, overhauls the set
 The backend's 3,000-line monolith `main.py` has been decomposed into domain routers, a services layer, and a proper database package. A style guide and ruff configuration now enforce consistency. On the frontend, settings have been split into dedicated routed pages with server logs, a changelog viewer, and an about page. The audio player no longer freezes mid-playback, and model loading status is now visible in the UI. Seven user-reported bugs have been fixed, including server crashes during sample uploads, generation list staleness, cryptic error messages, and CUDA support for RTX 50-series GPUs.
 
 ### Settings Overhaul ([#294](https://github.com/jamiepine/voicebox/pull/294))
+
 - Split settings into routed sub-tabs: General, Generation, GPU, Logs, Changelog, About
 - Added live server log viewer with auto-scroll
 - Added in-app changelog page that parses `CHANGELOG.md` at build time
@@ -328,6 +357,7 @@ The backend's 3,000-line monolith `main.py` has been decomposed into domain rout
 - Extracted reusable `SettingRow` component for consistent setting layouts
 
 ### Audio Player Fix ([#293](https://github.com/jamiepine/voicebox/pull/293))
+
 - Fixed audio player freezing during playback
 - Improved playback UX with better state management and listener cleanup
 - Fixed restart race condition during regeneration
@@ -335,6 +365,7 @@ The backend's 3,000-line monolith `main.py` has been decomposed into domain rout
 - Improved accessibility across player controls
 
 ### Backend Refactor ([#285](https://github.com/jamiepine/voicebox/pull/285))
+
 - Extracted all routes from `main.py` into 13 domain routers under `backend/routes/` — `main.py` dropped from ~3,100 lines to ~10
 - Moved CRUD and service modules into `backend/services/`, platform detection into `backend/utils/`
 - Split monolithic `database.py` into a `database/` package with separate `models`, `session`, `migrations`, and `seed` modules
@@ -348,6 +379,7 @@ The backend's 3,000-line monolith `main.py` has been decomposed into domain rout
 - Reject model migration when target is a subdirectory of source cache
 
 ### Documentation Rewrite ([#288](https://github.com/jamiepine/voicebox/pull/288))
+
 - Migrated docs site from Mintlify to Fumadocs (Next.js-based)
 - Rewrote introduction and root page with content from README
 - Added "Edit on GitHub" links and last-updated timestamps on all pages
@@ -357,6 +389,7 @@ The backend's 3,000-line monolith `main.py` has been decomposed into domain rout
 - Added OG image metadata and `/og` preview page
 
 ### UI & Frontend
+
 - Added model loading status indicator and effects preset dropdown ([3187344](https://github.com/jamiepine/voicebox/commit/3187344))
 - Fixed take-label race condition during regeneration
 - Added accessible focus styling to select component
@@ -364,6 +397,7 @@ The backend's 3,000-line monolith `main.py` has been decomposed into domain rout
 - Addressed 4 critical and 12 major issues from CodeRabbit review
 
 ### Bug Fixes ([#295](https://github.com/jamiepine/voicebox/pull/295))
+
 - Fixed sample uploads crashing the server — audio decoding now runs in a thread pool instead of blocking the async event loop ([#278](https://github.com/jamiepine/voicebox/issues/278))
 - Fixed generation list not updating when a generation completes — switched to `refetchQueries` for reliable cache busting, added SSE error fallback, and page reset on completion ([#231](https://github.com/jamiepine/voicebox/issues/231))
 - Fixed error toasts showing `[object Object]` instead of the actual error message ([#290](https://github.com/jamiepine/voicebox/issues/290))
@@ -375,12 +409,14 @@ The backend's 3,000-line monolith `main.py` has been decomposed into domain rout
 - Eliminated redundant double audio decode in sample processing pipeline
 
 ### Platform Fixes
+
 - Replaced `netstat` with `TcpStream` + PowerShell for Windows port detection ([#277](https://github.com/jamiepine/voicebox/pull/277))
 - Fixed Docker frontend build and cleaned up Docker docs
 - Fixed macOS download links to use `.dmg` instead of `.app.tar.gz`
 - Added dynamic download redirect routes to landing site
 
 ### Release Tooling
+
 - Added `draft-release-notes` and `release-bump` agent skills
 - Wired CI release workflow to extract notes from `CHANGELOG.md` for GitHub Releases
 - Backfilled changelog with all historical releases

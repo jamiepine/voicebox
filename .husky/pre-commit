@@ -1,0 +1,4 @@
+bunx lint-staged
+bun run typecheck
+python3 -m pytest backend/tests/test_fixture_contract.py -q
+ruff check backend/tests/conftest.py backend/tests/test_generation_unload.py backend/tests/test_mcp_mount_slashes.py backend/tests/test_fixture_contract.py backend/tests/test_tts_vram_churn.py backend/tests/test_whisper_long_audio_e2e.py

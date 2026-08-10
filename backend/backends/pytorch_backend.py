@@ -296,7 +296,13 @@ class PyTorchSTTBackend:
             logger.info("Loading Whisper model %s on %s...", model_size, self.device)
 
             self.processor = WhisperProcessor.from_pretrained(model_name)
-            self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
+            # Usar bfloat16 en lugar de float32 para ahorrar VRAM en GPUs
+            # modernas (RTX 40/50, Ada/Blackwell) sin incurrir en el bug de
+            # dtype de float16 (c10::Half) que se da en esta arquitectura.
+            self.model = WhisperForConditionalGeneration.from_pretrained(
+                model_name,
+                torch_dtype=torch.bfloat16,
+            )
 
         self.model.to(self.device)
         self.model_size = model_size
@@ -342,17 +348,24 @@ class PyTorchSTTBackend:
             # state — forcing offline here (issue #462) broke online users
             # whose `get_decoder_prompt_ids` / tokenizer calls issue
             # legitimate metadata lookups.
-            # Process audio
-            inputs = self.processor(
-                audio,
-                sampling_rate=16000,
-                return_tensors="pt",
-            )
-            inputs = inputs.to(self.device)
+            # Whisper's encoder only accepts 30s of audio per pass (3000 mel
+            # frames); feeding it a longer clip silently transcribes just the
+            # first 30 seconds. Chunk into 30s windows and join the results.
+            chunk_samples = 30 * 16000
+            chunks = [
+                audio[i : i + chunk_samples]
+                for i in range(0, len(audio), chunk_samples)
+            ] or [audio]
 
             # Generate transcription
             # If language is provided, force it; otherwise let Whisper auto-detect
-            generate_kwargs = {}
+            generate_kwargs = {
+                # Sin timestamps, Whisper a veces emite <|endoftext|> tras la
+                # primera frase de una ventana y descarta el resto del audio.
+                # Forzar timestamps obliga al modelo a recorrer la ventana
+                # completa en cada chunk.
+                "return_timestamps": True,
+            }
             if language:
                 forced_decoder_ids = self.processor.get_decoder_prompt_ids(
                     language=language,
@@ -360,19 +373,34 @@ class PyTorchSTTBackend:
                 )
                 generate_kwargs["forced_decoder_ids"] = forced_decoder_ids
 
-            with torch.no_grad():
-                predicted_ids = self.model.generate(
-                    inputs["input_features"],
-                    **generate_kwargs,
+            transcriptions = []
+            for chunk in chunks:
+                # Process audio
+                inputs = self.processor(
+                    chunk,
+                    sampling_rate=16000,
+                    return_tensors="pt",
+                )
+                # Mover al device y convertir al mismo dtype que el modelo para
+                # evitar el error "Input type (float) and bias type (...) should be
+                # the same" en GPUs como la RTX 5060.
+                inputs = inputs.to(device=self.device, dtype=self.model.dtype)
+
+                with torch.no_grad():
+                    predicted_ids = self.model.generate(
+                        inputs["input_features"],
+                        **generate_kwargs,
+                    )
+
+                # Decode
+                transcriptions.append(
+                    self.processor.batch_decode(
+                        predicted_ids,
+                        skip_special_tokens=True,
+                    )[0]
                 )
 
-            # Decode
-            transcription = self.processor.batch_decode(
-                predicted_ids,
-                skip_special_tokens=True,
-            )[0]
-
-            return transcription.strip()
+            return " ".join(t.strip() for t in transcriptions).strip()
 
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)
