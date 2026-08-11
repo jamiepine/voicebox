@@ -290,10 +290,18 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
 
 
 def _get_non_qwen_tts_configs() -> list[ModelConfig]:
-    """Return model configs for non-Qwen TTS engines.
+    """Return model configs for non-Qwen TTS engines."""
+    # Chatterbox multilingual follows the same backend-aware split as Qwen: the MLX
+    # backend loads pre-converted weights, so the download must match the backend that
+    # will consume it.
+    on_mlx = get_backend_type() == "mlx"
+    if on_mlx:
+        chatterbox_repo = "mlx-community/chatterbox-multilingual-v3"
+        chatterbox_size_mb = 2600
+    else:
+        chatterbox_repo = "ResembleAI/chatterbox"
+        chatterbox_size_mb = 3200
 
-    These are static — no backend-type branching needed.
-    """
     return [
         ModelConfig(
             model_name="luxtts",
@@ -307,9 +315,14 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             model_name="chatterbox-tts",
             display_name="Chatterbox TTS (Multilingual)",
             engine="chatterbox",
-            hf_repo_id="ResembleAI/chatterbox",
-            size_mb=3200,
+            hf_repo_id=chatterbox_repo,
+            size_mb=chatterbox_size_mb,
             needs_trim=True,
+            # Same EOS miss the qwen configs guard against: on mlx-audio the decoder can run past
+            # the end of the sentence and emit silence followed by codec noise, which reaches the
+            # listener as an endless hiss. Retrying the affected text as smaller chunks is the
+            # existing remedy; it just was not wired for this engine.
+            retries_runaway=on_mlx,
             languages=[
                 "zh",
                 "en",
@@ -704,9 +717,16 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
 
             backend = LuxTTSBackend()
         elif engine == "chatterbox":
-            from .chatterbox_backend import ChatterboxTTSBackend
+            # Same split the qwen engine already makes: on Apple Silicon the MLX/Metal
+            # port renders 7-9x faster than the CPU-pinned PyTorch path.
+            if get_backend_type() == "mlx":
+                from .chatterbox_mlx_backend import ChatterboxMLXTTSBackend
 
-            backend = ChatterboxTTSBackend()
+                backend = ChatterboxMLXTTSBackend()
+            else:
+                from .chatterbox_backend import ChatterboxTTSBackend
+
+                backend = ChatterboxTTSBackend()
         elif engine == "chatterbox_turbo":
             from .chatterbox_turbo_backend import ChatterboxTurboTTSBackend
 
