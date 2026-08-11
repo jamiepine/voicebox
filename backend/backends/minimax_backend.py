@@ -18,8 +18,9 @@ synchronous response (``data.audio``) and decoded locally — ``pcm`` is decoded
 directly to float32 with no codec dependency, while ``mp3`` / ``wav`` / ``flac``
 are decoded through soundfile.
 
-Voices are preset MiniMax system voices. Voice cloning is intentionally out of
-scope for this backend.
+Voices can use MiniMax system presets or the existing cloned-profile workflow.
+Cloned profiles upload their reference audio once, create a deterministic
+MiniMax voice ID, and cache that ID for subsequent synthesis requests.
 
 Requirements:
   - ``MINIMAX_API_KEY`` environment variable (or ``~/.env.local``)
@@ -32,9 +33,11 @@ import asyncio
 import io
 import logging
 import os
+from pathlib import Path
 
 import numpy as np
 
+from ..utils.cache import cache_voice_prompt, get_cache_key, get_cached_voice_prompt
 from .base import combine_voice_prompts as _combine_voice_prompts
 
 logger = logging.getLogger(__name__)
@@ -44,6 +47,14 @@ logger = logging.getLogger(__name__)
 MINIMAX_ENDPOINTS: dict[str, str] = {
     "global_en": "https://api.minimax.io/v1/t2a_v2",
     "cn_zh": "https://api.minimaxi.com/v1/t2a_v2",
+}
+MINIMAX_FILE_UPLOAD_ENDPOINTS: dict[str, str] = {
+    "global_en": "https://api.minimax.io/v1/files/upload",
+    "cn_zh": "https://api.minimaxi.com/v1/files/upload",
+}
+MINIMAX_VOICE_CLONE_ENDPOINTS: dict[str, str] = {
+    "global_en": "https://api.minimax.io/v1/voice_clone",
+    "cn_zh": "https://api.minimaxi.com/v1/voice_clone",
 }
 MINIMAX_DEFAULT_REGION = "global_en"
 
@@ -59,6 +70,13 @@ MINIMAX_TTS_MODELS = [
     "speech-01-turbo",
 ]
 MINIMAX_TTS_DEFAULT_MODEL = "speech-2.8-hd"
+MINIMAX_VOICE_CLONE_MODELS = [
+    "speech-2.8-hd",
+    "speech-2.6-hd",
+    "speech-02-hd",
+    "speech-01-hd",
+]
+MINIMAX_VOICE_CLONE_DEFAULT_MODEL = "speech-2.8-hd"
 
 # Supported synchronous-response audio formats.
 MINIMAX_AUDIO_FORMATS = ["mp3", "wav", "flac", "pcm"]
@@ -115,6 +133,16 @@ def resolve_region(region: str | None = None) -> str:
 def get_endpoint(region: str | None = None) -> str:
     """Return the T2A endpoint URL for the resolved region."""
     return MINIMAX_ENDPOINTS[resolve_region(region)]
+
+
+def get_file_upload_endpoint(region: str | None = None) -> str:
+    """Return the file-upload endpoint URL for the resolved region."""
+    return MINIMAX_FILE_UPLOAD_ENDPOINTS[resolve_region(region)]
+
+
+def get_voice_clone_endpoint(region: str | None = None) -> str:
+    """Return the voice-clone endpoint URL for the resolved region."""
+    return MINIMAX_VOICE_CLONE_ENDPOINTS[resolve_region(region)]
 
 
 def _load_api_key() -> str | None:
@@ -210,17 +238,27 @@ class MiniMaxTTSBackend:
         reference_text: str,
         use_cache: bool = True,
     ) -> tuple[dict, bool]:
-        """Return the default preset voice.
+        """Upload reference audio and create a reusable MiniMax cloned voice."""
+        await self.load_model()
 
-        MiniMax uses preset system voices rather than reference audio. Preset
-        profiles build the voice prompt in the profile service and never reach
-        this method; it exists only as a safe fallback.
-        """
-        return {
-            "voice_type": "preset",
-            "preset_engine": "minimax",
-            "preset_voice_id": MINIMAX_DEFAULT_VOICE,
-        }, False
+        audio_hash = get_cache_key(audio_path, reference_text)
+        cache_key = f"minimax_{audio_hash}" if use_cache else None
+        if cache_key:
+            cached = get_cached_voice_prompt(cache_key)
+            if isinstance(cached, dict) and cached.get("voice_id"):
+                return cached, True
+
+        requested_voice_id = f"voicebox_{audio_hash[:24]}"
+        voice_id = await asyncio.to_thread(self._create_cloned_voice_sync, audio_path, requested_voice_id)
+        voice_prompt = {
+            "voice_type": "cloned",
+            "voice_id": voice_id,
+        }
+
+        if cache_key:
+            cache_voice_prompt(cache_key, voice_prompt)
+
+        return voice_prompt, False
 
     async def combine_voice_prompts(
         self,
@@ -228,7 +266,55 @@ class MiniMaxTTSBackend:
         reference_texts: list[str],
     ) -> tuple[np.ndarray, str]:
         """Combine reference clips — delegates to the shared audio utility."""
-        return await _combine_voice_prompts(audio_paths, reference_texts, sample_rate=MINIMAX_DEFAULT_SAMPLE_RATE)
+        return await _combine_voice_prompts(audio_paths, reference_texts, sample_rate=24000)
+
+    def _create_cloned_voice_sync(self, audio_path: str, requested_voice_id: str) -> str:
+        """Upload reference audio, create a cloned voice, and return its ID."""
+        import httpx
+
+        api_key = self._api_key or _load_api_key()
+        if not api_key:
+            raise RuntimeError("MINIMAX_API_KEY is not configured.")
+
+        authorization = {"Authorization": f"Bearer {api_key}"}
+        with httpx.Client(timeout=60.0) as client:
+            with open(audio_path, "rb") as audio_file:
+                upload_response = client.post(
+                    get_file_upload_endpoint(),
+                    headers=authorization,
+                    data={"purpose": "voice_clone"},
+                    files={"file": (Path(audio_path).name, audio_file)},
+                )
+            upload_response.raise_for_status()
+            upload_body = upload_response.json()
+
+            upload_status = (upload_body.get("base_resp") or {}).get("status_code", 0)
+            if upload_status != 0:
+                message = (upload_body.get("base_resp") or {}).get("status_msg", "Unknown error")
+                raise RuntimeError(f"MiniMax file upload API error {upload_status}: {message}")
+
+            file_id = (upload_body.get("file") or {}).get("file_id")
+            if file_id is None:
+                raise RuntimeError("MiniMax file upload API returned no file_id.")
+
+            clone_response = client.post(
+                get_voice_clone_endpoint(),
+                headers={**authorization, "Content-Type": "application/json"},
+                json={
+                    "file_id": file_id,
+                    "voice_id": requested_voice_id,
+                    "model": MINIMAX_VOICE_CLONE_DEFAULT_MODEL,
+                },
+            )
+            clone_response.raise_for_status()
+            clone_body = clone_response.json()
+
+        clone_status = (clone_body.get("base_resp") or {}).get("status_code", 0)
+        if clone_status not in (0, 2039):
+            message = (clone_body.get("base_resp") or {}).get("status_msg", "Unknown error")
+            raise RuntimeError(f"MiniMax voice clone API error {clone_status}: {message}")
+
+        return clone_body.get("voice_id") or requested_voice_id
 
     # -- Core generation ------------------------------------------------------
 
@@ -256,7 +342,7 @@ class MiniMaxTTSBackend:
         """
         await self.load_model()
 
-        voice_id = voice_prompt.get("preset_voice_id") or MINIMAX_DEFAULT_VOICE
+        voice_id = voice_prompt.get("voice_id") or voice_prompt.get("preset_voice_id") or MINIMAX_DEFAULT_VOICE
 
         model = voice_prompt.get("tts_model") or MINIMAX_TTS_DEFAULT_MODEL
         if model not in MINIMAX_TTS_MODELS:
@@ -283,7 +369,7 @@ class MiniMaxTTSBackend:
         voice_prompt: dict,
     ) -> dict:
         """Assemble the T2A request body from the supported request controls."""
-        return {
+        payload = {
             "model": model,
             "text": text,
             "stream": False,
@@ -301,6 +387,10 @@ class MiniMaxTTSBackend:
                 "channel": 1,
             },
         }
+        for field in ("pronunciation_dict", "voice_modify", "subtitle_enable"):
+            if field in voice_prompt:
+                payload[field] = voice_prompt[field]
+        return payload
 
     def _generate_sync(self, payload: dict) -> bytes:
         """Blocking T2A call. Returns the raw (decoded-from-hex) audio bytes."""
