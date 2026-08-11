@@ -294,7 +294,8 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
     # Chatterbox multilingual follows the same backend-aware split as Qwen: the MLX
     # backend loads pre-converted weights, so the download must match the backend that
     # will consume it.
-    if get_backend_type() == "mlx":
+    on_mlx = get_backend_type() == "mlx"
+    if on_mlx:
         chatterbox_repo = "mlx-community/chatterbox-multilingual-v3"
         chatterbox_size_mb = 2600
     else:
@@ -317,6 +318,11 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             hf_repo_id=chatterbox_repo,
             size_mb=chatterbox_size_mb,
             needs_trim=True,
+            # Same EOS miss the qwen configs guard against: on mlx-audio the decoder can run past
+            # the end of the sentence and emit silence followed by codec noise, which reaches the
+            # listener as an endless hiss. Retrying the affected text as smaller chunks is the
+            # existing remedy; it just was not wired for this engine.
+            retries_runaway=on_mlx,
             languages=[
                 "zh",
                 "en",
