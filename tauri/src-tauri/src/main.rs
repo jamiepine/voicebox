@@ -1566,11 +1566,12 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     tokio::select! {
                         _ = rx.recv() => {
-                            window_for_close.close().ok();
+                            println!("Frontend cleanup complete, exiting application");
+                            window_for_close.app_handle().exit(0);
                         }
                         _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
-                            eprintln!("Window close timeout, closing anyway");
-                            window_for_close.close().ok();
+                            eprintln!("Window close timeout, exiting application anyway");
+                            window_for_close.app_handle().exit(0);
                         }
                     }
                     window_for_close.unlisten(listener_id);
