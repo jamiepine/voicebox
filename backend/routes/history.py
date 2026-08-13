@@ -10,6 +10,7 @@ from .. import config, models
 from ..services import export_import, history
 from ..app import safe_content_disposition
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
+from .audio import _audio_media_type
 
 router = APIRouter()
 
@@ -180,10 +181,22 @@ async def export_generation_audio(
     safe_text = "".join(c for c in generation.text[:30] if c.isalnum() or c in (" ", "-", "_")).strip()
     if not safe_text:
         safe_text = "generation"
-    filename = f"{safe_text}.wav"
+    filename = f"{safe_text}.mp3"
+
+    # Default export is MP3 (converted on demand and cached beside the WAV).
+    from .audio import _ensure_mp3
+
+    if audio_path.suffix.lower() in (".wav", ".flac", ".ogg"):
+        mp3_path = _ensure_mp3(audio_path)
+        if mp3_path is not None:
+            return FileResponse(
+                mp3_path,
+                media_type="audio/mpeg",
+                headers={"Content-Disposition": safe_content_disposition("attachment", filename)},
+            )
 
     return FileResponse(
         audio_path,
-        media_type="audio/wav",
+        media_type=_audio_media_type(audio_path),
         headers={"Content-Disposition": safe_content_disposition("attachment", filename)},
     )

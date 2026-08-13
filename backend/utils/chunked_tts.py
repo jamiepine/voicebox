@@ -211,6 +211,7 @@ async def generate_chunked(
     max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
     crossfade_ms: int = 50,
     trim_fn=None,
+    paragraph_pause_ms: int = 0,
 ) -> Tuple[np.ndarray, int]:
     """Generate audio with automatic chunking for long text.
 
@@ -244,6 +245,45 @@ async def generate_chunked(
     -------
     (audio, sample_rate) : Tuple[np.ndarray, int]
     """
+    # Newline-separated paragraphs: if a pause is configured, generate each
+    # paragraph independently and join them with a silence gap. This gives
+    # writers explicit timing control (e.g. "\n" = 1s pause) that the TTS
+    # models themselves do not support.
+    if paragraph_pause_ms > 0 and "\n" in text:
+        paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
+        if len(paragraphs) > 1:
+            logger.info(
+                "Splitting into %d paragraphs with %dms pause between them",
+                len(paragraphs),
+                paragraph_pause_ms,
+            )
+            audio_chunks: List[np.ndarray] = []
+            sample_rate: int | None = None
+            silence: np.ndarray | None = None
+            for para in paragraphs:
+                if sample_rate is not None and silence is not None:
+                    audio_chunks.append(silence)
+                para_audio, para_sr = await generate_chunked(
+                    backend,
+                    para,
+                    voice_prompt,
+                    language,
+                    seed,
+                    instruct,
+                    max_chunk_chars,
+                    crossfade_ms,
+                    trim_fn,
+                    paragraph_pause_ms=0,  # inner chunks never re-split
+                )
+                if sample_rate is None:
+                    sample_rate = para_sr
+                    silence = np.zeros(
+                        int(sample_rate * paragraph_pause_ms / 1000),
+                        dtype=np.float32,
+                    )
+                audio_chunks.append(np.asarray(para_audio, dtype=np.float32))
+            return np.concatenate(audio_chunks), sample_rate
+
     chunks = split_text_into_chunks(text, max_chunk_chars)
 
     if len(chunks) <= 1:

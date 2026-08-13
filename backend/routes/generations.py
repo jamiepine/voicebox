@@ -139,6 +139,7 @@ async def generate_speech(
             mode="generate",
             max_chunk_chars=data.max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
+            paragraph_pause_ms=data.paragraph_pause_ms,
         )
     )
 
@@ -346,11 +347,9 @@ async def stream_speech(
 
     from ..utils.chunked_tts import generate_chunked
 
-    trim_fn = None
-    if engine_needs_trim(engine):
-        from ..utils.audio import trim_tts_output
+    from ..utils.audio import build_trim_fn
 
-        trim_fn = trim_tts_output
+    trim_fn = build_trim_fn(engine)
 
     audio, sample_rate = await generate_chunked(
         tts_model,
@@ -361,6 +360,7 @@ async def stream_speech(
         instruct=data.instruct,
         max_chunk_chars=data.max_chunk_chars,
         crossfade_ms=data.crossfade_ms,
+        paragraph_pause_ms=data.paragraph_pause_ms,
         trim_fn=trim_fn,
     )
 

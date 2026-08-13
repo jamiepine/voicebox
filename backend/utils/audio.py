@@ -199,6 +199,146 @@ def trim_tts_output(
     return trimmed
 
 
+def trim_leading_artifact(
+    audio: np.ndarray,
+    sample_rate: int = 24000,
+    frame_ms: int = 10,
+    burst_threshold_db: float = -38.0,
+    dip_threshold_db: float = -58.0,
+    min_dip_ms: int = 30,
+    max_burst_ms: int = 800,
+    lookahead_ms: int = 1200,
+    speech_after_db: float = -45.0,
+    decay_diff_db: float = 6.0,
+    margin_ms: int = 20,
+    fade_ms: int = 10,
+) -> np.ndarray:
+    """
+    Remove the leading "beat" artifact some TTS engines emit at the start of
+    each chunk (e.g. Qwen3-TTS: a short breath/noise burst that decays into
+    silence before the real speech begins).
+
+    Signature it looks for:  [loud burst] -> [monotonic decay] -> [deep
+    silence dip] -> [real speech].  Only trims when ALL conditions hold, so
+    audio that starts with real speech is left untouched.
+
+    Args:
+        audio: Input audio array (mono float32)
+        sample_rate: Sample rate in Hz
+        frame_ms: Frame size for RMS energy calculation
+        burst_threshold_db: First frame above this dB counts as burst start
+        dip_threshold_db: Frames below this dB count as the silence dip
+        min_dip_ms: Minimum dip duration to qualify
+        max_burst_ms: Dip must appear within this many ms of burst start
+        lookahead_ms: After the dip, real speech must appear within this window
+        speech_after_db: "Real speech" = frames above this dB in lookahead
+        decay_diff_db: Mean RMS of burst's first half must be this many dB
+                       louder than the second half (decay signature)
+        margin_ms: Extra silence kept after the dip before the trim point
+        fade_ms: Cosine fade-in applied at the new start
+
+    Returns:
+        Trimmed audio array (unchanged if no artifact is detected)
+    """
+    frame_len = int(sample_rate * frame_ms / 1000)
+    if frame_len == 0 or len(audio) < frame_len * 4:
+        return audio
+
+    n_frames = len(audio) // frame_len
+    rms = np.array(
+        [
+            np.sqrt(np.mean(audio[i * frame_len : (i + 1) * frame_len] ** 2))
+            for i in range(n_frames)
+        ]
+    )
+    db = 20.0 * np.log10(rms + 1e-12)
+
+    burst_threshold = burst_threshold_db
+    dip_threshold = dip_threshold_db
+    min_dip_frames = max(1, int(min_dip_ms / frame_ms))
+    max_burst_frames = int(max_burst_ms / frame_ms)
+    lookahead_frames = int(lookahead_ms / frame_ms)
+
+    # 1) Find first "loud" frame (burst start)
+    loud_idx = np.where(db > burst_threshold)[0]
+    if len(loud_idx) == 0:
+        return audio
+    burst_start = int(loud_idx[0])
+
+    # 2) Find the first deep-silence dip after the burst (within max_burst_ms)
+    dip_start = -1
+    dip_len = 0
+    i = burst_start + 1
+    limit = min(n_frames, burst_start + max_burst_frames + min_dip_frames)
+    while i < limit:
+        if db[i] < dip_threshold:
+            j = i
+            while j < limit and db[j] < dip_threshold:
+                j += 1
+            if j - i >= min_dip_frames:
+                dip_start = i
+                dip_len = j - i
+                break
+            i = j
+        else:
+            i += 1
+
+    if dip_start == -1:
+        return audio
+
+    # 3) Decay signature: first half of the burst must be clearly louder
+    #    than the second half (the artifact decays; real speech does not).
+    seg = db[burst_start:dip_start]
+    if len(seg) >= 4:
+        half = len(seg) // 2
+        first_half = seg[:half]
+        second_half = seg[half : half * 2]
+        if float(np.mean(first_half) - np.mean(second_half)) < decay_diff_db:
+            return audio
+
+    # 4) Real speech must resume after the dip
+    after_start = dip_start + dip_len
+    window_end = min(n_frames, after_start + lookahead_frames)
+    if window_end <= after_start:
+        return audio
+    if float(np.max(db[after_start:window_end])) < speech_after_db:
+        return audio
+
+    # 5) Trim to just past the dip (+ small margin into the silence)
+    margin_frames = int(margin_ms / frame_ms)
+    trim_frame = after_start + margin_frames
+    start_sample = min(trim_frame * frame_len, len(audio) - 1)
+
+    trimmed = audio[start_sample:].copy()
+
+    # Short cosine fade-in to avoid any click at the new start
+    fade_samples = int(sample_rate * fade_ms / 1000)
+    if fade_samples > 0 and len(trimmed) > fade_samples:
+        fade = np.sin(np.linspace(0, np.pi / 2, fade_samples)) ** 2
+        trimmed[:fade_samples] *= fade
+
+    return trimmed
+
+
+def build_trim_fn(engine: str):
+    """Build the per-chunk trim pipeline for an engine.
+
+    Always removes the leading burst artifact (pattern-detected, safe for
+    all engines); additionally applies ``trim_tts_output`` for engines that
+    hallucinate trailing noise (e.g. Chatterbox).
+    """
+    # Local import to avoid any import cycle with backends.
+    from ..backends import engine_needs_trim
+
+    def _trim(audio: np.ndarray, sample_rate: int) -> np.ndarray:
+        audio = trim_leading_artifact(audio, sample_rate)
+        if engine_needs_trim(engine):
+            audio = trim_tts_output(audio, sample_rate)
+        return audio
+
+    return _trim
+
+
 def preprocess_reference_audio(
     audio: np.ndarray,
     sample_rate: int,

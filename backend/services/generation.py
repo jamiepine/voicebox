@@ -41,6 +41,7 @@ async def run_generation(
     mode: Literal["generate", "retry", "regenerate"],
     max_chunk_chars: Optional[int] = None,
     crossfade_ms: Optional[int] = None,
+    paragraph_pause_ms: Optional[int] = None,
     version_id: Optional[str] = None,
 ) -> None:
     """Execute TTS inference and persist the result.
@@ -50,7 +51,7 @@ async def run_generation(
     """
     from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
     from ..utils.chunked_tts import generate_chunked
-    from ..utils.audio import normalize_audio, save_audio, trim_tts_output
+    from ..utils.audio import normalize_audio, save_audio, build_trim_fn
 
     task_manager = get_task_manager()
     bg_db = next(get_db())
@@ -71,7 +72,7 @@ async def run_generation(
         )
 
         await history.update_generation_status(generation_id, "generating", bg_db)
-        trim_fn = trim_tts_output if engine_needs_trim(engine) else None
+        trim_fn = build_trim_fn(engine)
 
         gen_kwargs: dict = dict(
             language=language,
@@ -83,6 +84,8 @@ async def run_generation(
             gen_kwargs["max_chunk_chars"] = max_chunk_chars
         if crossfade_ms is not None:
             gen_kwargs["crossfade_ms"] = crossfade_ms
+        if paragraph_pause_ms is not None:
+            gen_kwargs["paragraph_pause_ms"] = paragraph_pause_ms
 
         audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
 
@@ -254,6 +257,7 @@ async def generate_audio_sync(
     normalize: bool = True,
     max_chunk_chars: Optional[int] = None,
     crossfade_ms: Optional[int] = None,
+    paragraph_pause_ms: Optional[int] = None,
 ) -> bytes:
     """Run a TTS generation synchronously and return the resulting wav bytes.
 
@@ -269,7 +273,7 @@ async def generate_audio_sync(
     """
     from ..backends import load_engine_model, get_tts_backend_for_engine, engine_needs_trim
     from ..utils.chunked_tts import generate_chunked
-    from ..utils.audio import normalize_audio, trim_tts_output
+    from ..utils.audio import normalize_audio, build_trim_fn
     from . import tts
 
     bg_db = next(get_db())
@@ -286,7 +290,7 @@ async def generate_audio_sync(
     finally:
         bg_db.close()
 
-    trim_fn = trim_tts_output if engine_needs_trim(engine) else None
+    trim_fn = build_trim_fn(engine)
 
     gen_kwargs: dict = dict(
         language=language,
@@ -298,6 +302,8 @@ async def generate_audio_sync(
         gen_kwargs["max_chunk_chars"] = max_chunk_chars
     if crossfade_ms is not None:
         gen_kwargs["crossfade_ms"] = crossfade_ms
+    if paragraph_pause_ms is not None:
+        gen_kwargs["paragraph_pause_ms"] = paragraph_pause_ms
 
     audio, sample_rate = await generate_chunked(
         tts_model, text, voice_prompt, **gen_kwargs

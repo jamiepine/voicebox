@@ -96,6 +96,10 @@ class GenerationRequest(BaseModel):
     crossfade_ms: int = Field(
         default=50, ge=0, le=500, description="Crossfade duration in ms between chunks (0 for hard cut)"
     )
+    paragraph_pause_ms: int = Field(
+        default=600, ge=0, le=10000,
+        description="Pause in ms inserted between newline-separated paragraphs (0 = disabled)",
+    )
     normalize: bool = Field(default=True, description="Normalize output audio volume")
     effects_chain: Optional[List["EffectConfig"]] = Field(
         None, description="Effects chain to apply after generation (overrides profile default)"

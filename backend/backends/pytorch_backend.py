@@ -223,21 +223,89 @@ class PyTorchTTSBackend:
         # Load model
         await self.load_model_async(None)
 
+        def _is_loop_artifact(audio: np.ndarray, sample_rate: int) -> bool:
+            """Detect the Qwen divergence loop ("no no no" garbage).
+
+            Two signatures are checked:
+            1. Periodicity: a clean repeated phrase (syllable-length lags have
+               a near-perfect autocorrelation peak).
+            2. Hum/drone: the loop can also be a low-energy continuous hum —
+               ~all frames are "active" (no pauses) with an extremely low
+               zero-crossing rate, unlike real speech which has pauses and
+               consonant-driven zero crossings.
+            """
+            if audio is None or len(audio) < sample_rate * 5:
+                return False
+
+            # --- Signature 1: periodicity -------------------------------
+            tail_secs = min(3.0, len(audio) / sample_rate * 0.4)
+            tail = audio[-int(sample_rate * tail_secs):]
+            step = max(1, sample_rate // 8000)
+            x = tail[::step].astype(np.float32)
+            x = x - x.mean()
+            n = len(x)
+            if n >= 512:
+                nfft = 1 << (2 * n - 1).bit_length()
+                ac = np.fft.irfft(
+                    np.fft.rfft(x, nfft) * np.conj(np.fft.rfft(x, nfft)), nfft
+                )[:n]
+                denom = float(np.sum(x * x))
+                if denom > 0:
+                    ac = ac / denom
+                    lag_min = int(0.12 * 8000)  # 120 ms
+                    lag_max = min(int(0.80 * 8000), n - 1)  # 800 ms
+                    if lag_max > lag_min and float(np.max(ac[lag_min:lag_max])) > 0.8:
+                        return True
+
+            # --- Signature 2: continuous low-zcr hum ---------------------
+            win = int(sample_rate * 0.02)
+            n_frames = len(audio) // win
+            if n_frames < 32:
+                return False
+            frames = audio[: n_frames * win].reshape(n_frames, win)
+            frms = np.sqrt(np.mean(frames ** 2, axis=1))
+            active = float(np.mean(frms > 10 ** (-45 / 20)))
+            zcr = float(
+                np.mean(np.abs(np.diff(np.signbit(audio).astype(np.int8))))
+            )
+            return active > 0.85 and zcr < 0.06
+
         def _generate_sync():
             """Run synchronous generation in thread pool."""
-            # Set seed if provided
-            if seed is not None:
-                manual_seed(seed, self.device)
-
-            # See _create_prompt_sync comment — inference runs with the
-            # process's default HF_HUB_OFFLINE state (issue #462).
-            wavs, sample_rate = self.model.generate_voice_clone(
-                text=text,
-                voice_clone_prompt=voice_prompt,
-                language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
-                instruct=instruct,
-            )
-            return wavs[0], sample_rate
+            # Cap the worst-case length: a divergence loop must not be able to
+            # generate 10+ minutes of garbage.  ~1.15 tokens/char + 50 headroom
+            # (≈ 0.35 s/char) is several times what real speech needs.
+            max_new_tokens = min(2048, int(len(text) * 1.15) + 50)
+            last_audio, last_sr = None, None
+            for attempt in range(3):
+                # Always seed so every attempt samples from a fresh RNG state;
+                # vary the seed on retries to escape the loop divergence.
+                attempt_seed = (
+                    seed if seed is not None else (hash(text) + attempt) & 0xFFFFFFFF
+                )
+                manual_seed(attempt_seed, self.device)
+                wavs, sample_rate = self.model.generate_voice_clone(
+                    text=text,
+                    voice_clone_prompt=voice_prompt,
+                    language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
+                    instruct=instruct,
+                    max_new_tokens=max_new_tokens,
+                )
+                audio = wavs[0]
+                last_audio, last_sr = audio, sample_rate
+                duration = len(audio) / sample_rate if audio is not None else 0.0
+                # A sane upper bound for real speech (~0.6 s/char + 20 s slack);
+                # the loop blows way past it.  The periodicity check catches
+                # short-but-repetitive loops that fit under the bound.
+                expected = len(text) * 0.6 + 20.0
+                if duration <= expected and not _is_loop_artifact(audio, sample_rate):
+                    return audio, sample_rate
+                logger.warning(
+                    "Qwen loop detectado (dur=%.1fs, texto=%d chars, intento %d/3) — "
+                    "reintentando con otro seed",
+                    duration, len(text), attempt + 1,
+                )
+            return last_audio, last_sr
 
         # Run blocking inference in thread pool to avoid blocking event loop
         audio, sample_rate = await asyncio.to_thread(_generate_sync)

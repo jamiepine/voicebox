@@ -215,6 +215,7 @@ TTS_ENGINES = {
     "chatterbox_turbo": "Chatterbox Turbo",
     "tada": "TADA",
     "kokoro": "Kokoro",
+    "openvoice": "OpenVoice V2",
 }
 
 LLM_ENGINES = {
@@ -363,6 +364,14 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             hf_repo_id="hexgrad/Kokoro-82M",
             size_mb=350,
             languages=["en", "es", "fr", "hi", "it", "pt", "ja", "zh"],
+        ),
+        ModelConfig(
+            model_name="openvoice-v2",
+            display_name="OpenVoice V2 (Multi-lingual Voice Clone)",
+            engine="openvoice",
+            hf_repo_id="myshell-ai/OpenVoiceV2",
+            size_mb=350,
+            languages=["en", "es", "fr", "zh", "ja", "ko"],
         ),
     ]
 
@@ -704,6 +713,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .kokoro_backend import KokoroTTSBackend
 
             backend = KokoroTTSBackend()
+        elif engine == "openvoice":
+            from .openvoice_backend import OpenVoiceBackend
+
+            backend = OpenVoiceBackend()
         elif engine == "qwen_custom_voice":
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 
