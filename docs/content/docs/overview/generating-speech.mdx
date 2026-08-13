@@ -47,6 +47,27 @@ Use formatting to suggest emphasis:
   The model interprets these hints but results may vary.
 </Callout>
 
+### Pauses (line breaks)
+
+A newline (`\n`) separates paragraphs. When `paragraph_pause_ms` is set
+(default `0` = disabled), each paragraph is generated independently and
+joined with a silence gap of that many milliseconds:
+
+```
+¡Hola! Primera parte de la frase.
+Segunda parte después de la pausa.
+Y aquí la tercera.
+```
+
+With `paragraph_pause_ms: 1000` this inserts a **1 second pause** between
+the three paragraphs. Works with every engine (qwen, kokoro, chatterbox,
+luxtts...).
+
+<Callout type="info">
+  Line breaks with pauses are handled post-generation, so the pause
+  duration is exact and independent of the TTS model's own pacing.
+</Callout>
+
 ## Advanced Features
 
 ### Batch Generation
