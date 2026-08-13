@@ -1,0 +1,199 @@
+---
+title: "Sinks"
+description: "Take a Voicebox generation and play it on a real phone call via Telnyx."
+---
+
+## Overview
+
+Voicebox today runs the full voice I/O loop locally — clone, generate,
+dictate, agent speech — but stops at the speaker. **Sinks** are the bridge
+from a local generation to an external destination. The first sink ships in
+this release: **Telnyx**, which dials a real phone number and plays the
+generation on the call.
+
+Generation stays local. Only the PSTN leg touches Telnyx.
+
+<Callout type="info">
+  Sinks are new and currently opt-in. The Telnyx sink is the reference
+  implementation of the `Sink` pattern. Future sinks (Apple Notes, Obsidian,
+  generic webhook) will follow the same shape.
+</Callout>
+
+## Why Telnyx
+
+- Carrier-grade PSTN, sub-second call setup, global reach.
+- Pay-per-minute, no monthly minimums — fits a hobbyist OSS install.
+- The API is REST + webhooks, no SIP stack required on the client side.
+- A user with a Telnyx account and a $1/mo number can dial out from
+  Voicebox in under five minutes.
+
+## Setup
+
+### 1. Get Telnyx credentials
+
+1. Sign up at [telnyx.com](https://telnyx.com) and grab an API key.
+2. Buy a phone number (~$1/mo) — you'll use this as the caller ID.
+3. Make sure your account has a **Call Control Application** set up. The
+   Telnyx console walks you through this; the API key from that application
+   is the one Voicebox needs.
+
+### 2. Expose your Voicebox server publicly
+
+Telnyx needs to reach your local Voicebox server to fire call-control
+webhooks. Pick any tunnel you like:
+
+- **ngrok**: `ngrok http 17493` → copy the `https://*.ngrok.app` URL.
+- **Tailscale Funnel**: `tailscale funnel 17493` → copy the funnel URL.
+- **Cloudflare Tunnel**: `cloudflared tunnel --url http://localhost:17493`.
+
+The public URL is the `public_base_url` setting in Voicebox — Telnyx will
+POST call-control events to `{public_base_url}/sinks/telnyx/webhook` and
+fetch playback audio from `{public_base_url}/audio/{generation_id}`.
+
+### 3. Configure Voicebox
+
+Open **Voicebox → Settings → Sinks → Telnyx** and fill in:
+
+| Field | Value |
+| --- | --- |
+| `api_key` | Your Telnyx API key |
+| `from_number` | The number you bought, in E.164 (`+1...`) |
+| `public_base_url` | The tunnel URL from step 2 |
+| `default_profile` | The voice profile to use when a caller doesn't specify one |
+| `auto_hangup` | Whether to hang up the call after playback ends (default: on) |
+
+Hit **Test connection** — Voicebox will ping Telnyx and tell you if the key
+is valid.
+
+## Using the sink
+
+### From the UI
+
+When the Telnyx sink is configured, a **Call** button appears on each
+generation card next to Play and Speak. Click it, enter a destination
+number, and dial. The generation plays on the call once the callee picks
+up.
+
+### From any MCP-aware agent
+
+```
+await voicebox.call({
+  to: "+15551234567",
+  profile: "Morgan",
+  text: "Deploy complete."
+});
+```
+
+Or play an existing generation:
+
+```
+await voicebox.call({
+  to: "+15551234567",
+  generation_id: "abc-123..."
+});
+```
+
+### From a shell script or any non-MCP client
+
+```bash
+curl -X POST http://127.0.0.1:17493/call \
+  -H "Content-Type: application/json" \
+  -H "X-Voicebox-Client-Id: my-script" \
+  -d '{
+    "to": "+15551234567",
+    "profile": "Morgan",
+    "text": "Deploy complete."
+  }'
+```
+
+Returns:
+
+```json
+{
+  "call_control_id": "abc...",
+  "status": "dialing",
+  "generation_id": "xyz...",
+  "profile": "Morgan",
+  "to": "+15551234567",
+  "poll_url": "/generate/xyz.../status"
+}
+```
+
+## How it works
+
+```
+Caller → POST /call (or voicebox.call)
+  ↓
+Voicebox resolves profile + generation (existing or fresh)
+  ↓
+Voicebox POST /v2/calls to Telnyx with webhook_url
+  ↓
+Telnyx returns call_control_id immediately
+  ↓
+Voicebox persists TelnyxCall row, returns to caller
+  ↓ (async)
+Callee picks up → Telnyx POST /sinks/telnyx/webhook (call.answered)
+  ↓
+Voicebox waits for generation to finish if needed
+  ↓
+Voicebox POST /v2/calls/{id}/actions/playback_start with media_url
+  ↓
+Telnyx fetches {public_base_url}/audio/{generation_id} and plays it
+  ↓
+If auto_hangup: Telnyx POST /sinks/telnyx/webhook (playback.ended) → hangup
+```
+
+The caller does not wait for the callee to pick up. The MCP/REST call
+returns as soon as Telnyx accepts the dial; playback happens
+asynchronously via the webhook.
+
+## Per-call webhook secret
+
+Each call carries a random `webhook_secret` token embedded in the
+`webhook_url`. Telnyx includes it back as the `token` query param when it
+calls the webhook; Voicebox rejects any webhook whose token doesn't match
+the row for that `call_control_id`. This stops a third party who knows the
+webhook URL from triggering playback on a live call.
+
+For full webhook signature verification against Telnyx's HMAC header, see
+the [Telnyx webhook docs](https://developers.telnyx.com/docs/api/v2/webhooks).
+This is a follow-up hardening step tracked in the sink's TODO.
+
+## What this does not do
+
+- **No inbound calls.** The sink dials out only. Inbound call handling
+  (use Voicebox as the agent voice on an incoming call) is on the roadmap
+  as a separate sink.
+- **No streaming audio over the call.** Playback uses Telnyx's
+  `playback_start` action with a media URL — Telnyx fetches the WAV file
+  over HTTPS. No SIPREC, no bidirectional audio.
+- **No Telnyx SDK.** Three HTTP endpoints via `httpx`, which is already in
+  `requirements.txt`. No new dependencies, no PyInstaller bundling changes.
+- **No cloud TTS.** Generation stays local. Only the PSTN leg touches
+  Telnyx.
+
+## Troubleshooting
+
+### Call connects but no audio plays
+
+- Check that `public_base_url` is reachable from the public internet. Telnyx
+  needs to fetch `{public_base_url}/audio/{generation_id}`.
+- Open `{public_base_url}/audio/{generation_id}` in a browser — if it
+  404s, the tunnel isn't pointing at Voicebox or the generation_id is wrong.
+- Check Voicebox logs for `playback_start failed` — Telnyx returns a 4xx
+  if the call is no longer in the `answered` state by the time we issue it.
+
+### Webhook never fires
+
+- Telnyx won't POST to `http://` URLs, only `https://`. Make sure your
+  tunnel gives you a TLS endpoint.
+- Check that `public_base_url` has no trailing slash. Voicebox appends
+  `/sinks/telnyx/webhook?token=...` to it.
+- Look for the call in the Telnyx console's Call Control logs — it shows
+  the webhook URL Telnyx actually attempted to reach and the response code.
+
+### "Telnyx sink not configured"
+
+The Settings UI prevents this, but the API will return a 400 with this
+message if you hit `POST /call` before configuring `api_key`,
+`from_number`, and `public_base_url`. Set all three and try again.

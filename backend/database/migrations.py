@@ -43,6 +43,8 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_telnyx_settings(engine, inspector, tables)
+    _migrate_telnyx_calls(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
 
 
@@ -290,6 +292,68 @@ def _supports_drop_column(engine) -> bool:
     if engine.dialect.name != "sqlite":
         return True
     return tuple(int(p) for p in sqlite3.sqlite_version.split(".")[:3]) >= (3, 35, 0)
+
+
+def _migrate_telnyx_settings(engine, inspector, tables: set[str]) -> None:
+    """Create the ``telnyx_settings`` table for the Telnyx PSTN sink.
+
+    One singleton row (id=1) holding the user's Telnyx API key, default
+    caller ID, public tunnel URL, and a few toggles. The table itself is
+    created here; the singleton row is lazily inserted by the settings
+    service on first read. Future sinks (Apple Notes, Obsidian, generic
+    webhook) ship their own singleton tables in their own PRs.
+    """
+    if "telnyx_settings" in tables:
+        return
+
+    with engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE telnyx_settings (
+                id INTEGER PRIMARY KEY DEFAULT 1,
+                enabled BOOLEAN NOT NULL DEFAULT 0,
+                api_key VARCHAR,
+                from_number VARCHAR,
+                public_base_url VARCHAR,
+                default_profile_id VARCHAR REFERENCES profiles(id),
+                auto_hangup BOOLEAN NOT NULL DEFAULT 1,
+                updated_at DATETIME
+            )
+            """
+        ))
+    logger.info("Created telnyx_settings table")
+
+
+def _migrate_telnyx_calls(engine, inspector, tables: set[str]) -> None:
+    """Create the ``telnyx_calls`` table that tracks pending outbound calls.
+
+    One row per call. The webhook handler reads this to know which
+    generation to play when Telnyx fires ``call.answered``. The
+    ``webhook_secret`` column is a per-call random token (sent as the
+    ``token`` query param on the webhook URL) so a third party who knows
+    the webhook URL can't trigger playback on someone else's call.
+    """
+    if "telnyx_calls" in tables:
+        return
+
+    with engine.begin() as conn:
+        conn.execute(text(
+            """
+            CREATE TABLE telnyx_calls (
+                call_control_id VARCHAR PRIMARY KEY,
+                generation_id VARCHAR NOT NULL REFERENCES generations(id),
+                to_number VARCHAR NOT NULL,
+                from_number VARCHAR NOT NULL,
+                webhook_secret VARCHAR,
+                status VARCHAR NOT NULL DEFAULT 'initiating',
+                auto_hangup BOOLEAN NOT NULL DEFAULT 1,
+                error TEXT,
+                started_at DATETIME NOT NULL,
+                completed_at DATETIME
+            )
+            """
+        ))
+    logger.info("Created telnyx_calls table")
 
 
 def _normalize_storage_paths(engine, tables: set[str]) -> None:

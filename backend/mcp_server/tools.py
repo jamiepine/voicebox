@@ -224,6 +224,132 @@ def register_tools(mcp: FastMCP) -> None:
         finally:
             db.close()
 
+    @mcp.tool(
+        name="voicebox.call",
+        description=(
+            "Dial a phone number via the Telnyx sink and play a Voicebox "
+            "generation on the call. Returns a `call_control_id` and a "
+            "`generation_id` you can poll at /generate/{id}/status. The "
+            "call dials as soon as Telnyx accepts; playback happens "
+            "asynchronously once the callee picks up. Requires the Telnyx "
+            "sink to be configured in Voicebox → Settings → Sinks."
+        ),
+    )
+    async def voicebox_call(
+        to: str,
+        text: str | None = None,
+        generation_id: str | None = None,
+        profile: str | None = None,
+        engine: str | None = None,
+        personality: bool | None = None,
+        language: str | None = None,
+        auto_hangup: bool | None = None,
+    ) -> dict[str, Any]:
+        """Dial ``to`` (E.164) and play a generation on the call.
+
+        Pass exactly one of ``text`` (generate fresh audio first) or
+        ``generation_id`` (reuse an existing completed generation).
+
+        ``profile`` accepts a voice profile name (e.g. "Morgan") or id, and
+        follows the same resolution chain as ``voicebox.speak``: explicit
+        arg → per-client MCP binding → sink default. If none resolve, the
+        tool raises a helpful error pointing at the Settings UI.
+
+        ``auto_hangup`` overrides the sink's default — when true (the
+        default), the call hangs up after playback ends; when false, the
+        call stays connected after playback so the caller can issue more
+        actions (future: DTMF, recording, etc.).
+        """
+        from ..database.models import MCPClientBinding
+        from ..services import sinks as sinks_service
+
+        db = next(get_db())
+        try:
+            if not sinks_service.is_configured(db):
+                raise ValueError(
+                    "Telnyx sink not configured. Set api_key, from_number, "
+                    "and public_base_url in Voicebox → Settings → Sinks → "
+                    "Telnyx, then retry."
+                )
+
+            if bool(text) == bool(generation_id):
+                raise ValueError(
+                    "Pass exactly one of `text` (generate inline) or "
+                    "`generation_id` (use an existing generation)."
+                )
+
+            client_id = current_client_id.get()
+            vp = None
+            if profile:
+                vp = resolve_profile(profile, client_id, db)
+                if vp is None:
+                    raise ValueError(
+                        f"Voice profile '{profile}' not found."
+                    )
+            if vp is None:
+                # Per-client binding next.
+                if client_id:
+                    binding = (
+                        db.query(MCPClientBinding)
+                        .filter(MCPClientBinding.client_id == client_id)
+                        .first()
+                    )
+                    if binding and binding.profile_id:
+                        vp = resolve_profile(binding.profile_id, client_id, db)
+            if vp is None:
+                # Sink default last.
+                s = sinks_service.get_settings(db)
+                if s.default_profile_id:
+                    vp = resolve_profile(s.default_profile_id, client_id, db)
+            if vp is None:
+                raise ValueError(
+                    "No voice profile resolved. Pass `profile=`, set a "
+                    "default in Voicebox → Settings → Sinks → Telnyx, or "
+                    "bind a profile to this client in Settings → MCP."
+                )
+
+            resolved_personality = personality
+            if resolved_personality is None and client_id:
+                binding = (
+                    db.query(MCPClientBinding)
+                    .filter(MCPClientBinding.client_id == client_id)
+                    .first()
+                )
+                if binding is not None:
+                    resolved_personality = bool(binding.default_personality)
+            use_persona = bool(resolved_personality) and bool(vp.personality)
+
+            try:
+                result = await sinks_service.place_call(
+                    to=to,
+                    text=text,
+                    generation_id=generation_id,
+                    profile_id=vp.id,
+                    profile_name=vp.name,
+                    engine=engine,
+                    language=language,
+                    personality=use_persona,
+                    auto_hangup=auto_hangup,
+                    db=db,
+                )
+            except ValueError as exc:
+                raise ValueError(str(exc)) from exc
+
+            mcp_events.publish(
+                "call-start",
+                {
+                    "call_control_id": result["call_control_id"],
+                    "generation_id": result["generation_id"],
+                    "to": to,
+                    "profile_name": vp.name,
+                    "source": "mcp",
+                    "client_id": client_id,
+                },
+            )
+            return result
+        finally:
+            db.close()
+
 
 # ─── Speak helper ──────────────────────────────────────────────────────────
 
