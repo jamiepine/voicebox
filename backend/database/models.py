@@ -317,6 +317,8 @@ class TelnyxSettings(Base):
     id = Column(Integer, primary_key=True, default=1)
     enabled = Column(Boolean, nullable=False, default=False)
     api_key = Column(String, nullable=True)
+    # Call Control Application ID — required on every outbound dial.
+    connection_id = Column(String, nullable=True)
     from_number = Column(String, nullable=True)  # E.164, used as caller ID
     public_base_url = Column(String, nullable=True)  # ngrok/funnel/etc.
     default_profile_id = Column(String, ForeignKey("profiles.id"), nullable=True)
@@ -336,8 +338,12 @@ class TelnyxCall(Base):
     verification (a follow-up hardening step).
 
     Status progression:
-        initiating → ringing → answered → playing → playback_ended → hangup
-                                                                  ↘ failed
+        initiating → preparing → playing → playback_ended → hangup
+                                                         ↘ failed
+
+    ``preparing`` is the claim state: the ``call.answered`` webhook sets it
+    before doing any slow work, so a retried delivery of the same event finds
+    the call already claimed and doesn't start a second playback.
     """
 
     __tablename__ = "telnyx_calls"

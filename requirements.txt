@@ -7,3 +7,4 @@ soundfile
 librosa
 python-multipart
 huggingface_hub
+httpx

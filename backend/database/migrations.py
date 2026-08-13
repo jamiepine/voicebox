@@ -304,6 +304,12 @@ def _migrate_telnyx_settings(engine, inspector, tables: set[str]) -> None:
     webhook) ship their own singleton tables in their own PRs.
     """
     if "telnyx_settings" in tables:
+        # Table predates connection_id (early builds of the sink omitted it
+        # and every dial 422'd). Backfill the column rather than recreate.
+        if "connection_id" not in _get_columns(inspector, "telnyx_settings"):
+            _add_column(
+                engine, "telnyx_settings", "connection_id VARCHAR", "connection_id"
+            )
         return
 
     with engine.begin() as conn:
@@ -313,6 +319,7 @@ def _migrate_telnyx_settings(engine, inspector, tables: set[str]) -> None:
                 id INTEGER PRIMARY KEY DEFAULT 1,
                 enabled BOOLEAN NOT NULL DEFAULT 0,
                 api_key VARCHAR,
+                connection_id VARCHAR,
                 from_number VARCHAR,
                 public_base_url VARCHAR,
                 default_profile_id VARCHAR REFERENCES profiles(id),

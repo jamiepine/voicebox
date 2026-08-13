@@ -265,12 +265,10 @@ def register_tools(mcp: FastMCP) -> None:
 
         db = next(get_db())
         try:
-            if not sinks_service.is_configured(db):
-                raise ValueError(
-                    "Telnyx sink not configured. Set api_key, from_number, "
-                    "and public_base_url in Voicebox → Settings → Sinks → "
-                    "Telnyx, then retry."
-                )
+            s = sinks_service.get_settings(db)
+            missing = sinks_service.missing_settings(s)
+            if missing:
+                raise ValueError(sinks_service.setup_hint(missing))
 
             if bool(text) == bool(generation_id):
                 raise ValueError(
@@ -279,28 +277,15 @@ def register_tools(mcp: FastMCP) -> None:
                 )
 
             client_id = current_client_id.get()
-            vp = None
-            if profile:
-                vp = resolve_profile(profile, client_id, db)
-                if vp is None:
-                    raise ValueError(
-                        f"Voice profile '{profile}' not found."
-                    )
-            if vp is None:
-                # Per-client binding next.
-                if client_id:
-                    binding = (
-                        db.query(MCPClientBinding)
-                        .filter(MCPClientBinding.client_id == client_id)
-                        .first()
-                    )
-                    if binding and binding.profile_id:
-                        vp = resolve_profile(binding.profile_id, client_id, db)
-            if vp is None:
-                # Sink default last.
-                s = sinks_service.get_settings(db)
-                if s.default_profile_id:
-                    vp = resolve_profile(s.default_profile_id, client_id, db)
+
+            # One resolve_profile call covers explicit arg → per-client
+            # binding → global capture default, the same chain
+            # voicebox.speak uses. The sink default is the last resort.
+            vp = resolve_profile(profile, client_id, db)
+            if vp is None and profile:
+                raise ValueError(f"Voice profile '{profile}' not found.")
+            if vp is None and s.default_profile_id:
+                vp = resolve_profile(s.default_profile_id, client_id, db)
             if vp is None:
                 raise ValueError(
                     "No voice profile resolved. Pass `profile=`, set a "
@@ -308,32 +293,35 @@ def register_tools(mcp: FastMCP) -> None:
                     "bind a profile to this client in Settings → MCP."
                 )
 
-            resolved_personality = personality
-            if resolved_personality is None and client_id:
+            binding = None
+            if client_id:
                 binding = (
                     db.query(MCPClientBinding)
                     .filter(MCPClientBinding.client_id == client_id)
                     .first()
                 )
-                if binding is not None:
-                    resolved_personality = bool(binding.default_personality)
+
+            resolved_personality = personality
+            if resolved_personality is None and binding is not None:
+                resolved_personality = bool(binding.default_personality)
             use_persona = bool(resolved_personality) and bool(vp.personality)
 
-            try:
-                result = await sinks_service.place_call(
-                    to=to,
-                    text=text,
-                    generation_id=generation_id,
-                    profile_id=vp.id,
-                    profile_name=vp.name,
-                    engine=engine,
-                    language=language,
-                    personality=use_persona,
-                    auto_hangup=auto_hangup,
-                    db=db,
-                )
-            except ValueError as exc:
-                raise ValueError(str(exc)) from exc
+            resolved_engine = engine
+            if resolved_engine is None and binding is not None:
+                resolved_engine = binding.default_engine
+
+            result = await sinks_service.place_call(
+                to=to,
+                text=text,
+                generation_id=generation_id,
+                profile_id=vp.id,
+                profile_name=vp.name,
+                engine=resolved_engine,
+                language=language,
+                personality=use_persona,
+                auto_hangup=auto_hangup,
+                db=db,
+            )
 
             mcp_events.publish(
                 "call-start",

@@ -890,10 +890,15 @@ class TelnyxSettingsResponse(BaseModel):
     enabled: bool
     api_key_masked: str
     api_key_set: bool
+    connection_id: Optional[str] = None
     from_number: Optional[str] = None
     public_base_url: Optional[str] = None
     default_profile_id: Optional[str] = None
     auto_hangup: bool = True
+    missing: List[str] = Field(
+        default_factory=list,
+        description="Settings fields still required before the sink can dial.",
+    )
 
 
 class TelnyxSettingsUpdate(BaseModel):
@@ -909,6 +914,13 @@ class TelnyxSettingsUpdate(BaseModel):
     api_key: Optional[str] = Field(
         None,
         description="Set to a non-empty string to update; pass null to leave unchanged.",
+    )
+    connection_id: Optional[str] = Field(
+        None,
+        description=(
+            "Telnyx Call Control Application ID. Required on every outbound "
+            "dial — find it in the Telnyx console under Call Control."
+        ),
     )
     from_number: Optional[str] = Field(
         None,

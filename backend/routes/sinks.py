@@ -14,9 +14,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from .. import models
-from ..database import get_db
+from ..database import MCPClientBinding, get_db
 from ..mcp_server import events as mcp_events
-from ..mcp_server.context import current_client_id
 from ..mcp_server.resolve import resolve_profile
 from ..services import sinks as sinks_service
 
@@ -38,16 +37,7 @@ async def get_telnyx_settings(db: Session = Depends(get_db)):
     """Read the Telnyx sink settings. The API key is masked in the response
     so the Settings UI can render a "configured" hint without ever shipping
     the secret to the browser."""
-    row = sinks_service.get_settings(db)
-    return models.TelnyxSettingsResponse(
-        enabled=bool(row.enabled),
-        api_key_masked=sinks_service.mask_key(row.api_key),
-        api_key_set=bool(row.api_key),
-        from_number=row.from_number,
-        public_base_url=row.public_base_url,
-        default_profile_id=row.default_profile_id,
-        auto_hangup=bool(row.auto_hangup),
-    )
+    return _settings_response(sinks_service.get_settings(db))
 
 
 @router.put(
@@ -67,14 +57,25 @@ async def update_telnyx_settings(
     if "api_key" in payload and payload["api_key"] is None:
         payload.pop("api_key")
     row = sinks_service.update_settings(db, payload)
+    return _settings_response(row)
+
+
+def _settings_response(row) -> models.TelnyxSettingsResponse:
+    """Shared serializer so GET and PUT can't drift out of sync.
+
+    ``missing`` is included so the Settings UI can tell the user exactly what
+    is still needed instead of only discovering it when a call fails.
+    """
     return models.TelnyxSettingsResponse(
         enabled=bool(row.enabled),
         api_key_masked=sinks_service.mask_key(row.api_key),
         api_key_set=bool(row.api_key),
+        connection_id=row.connection_id,
         from_number=row.from_number,
         public_base_url=row.public_base_url,
         default_profile_id=row.default_profile_id,
         auto_hangup=bool(row.auto_hangup),
+        missing=sinks_service.missing_settings(row),
     )
 
 
@@ -89,8 +90,11 @@ async def telnyx_health(db: Session = Depends(get_db)):
         async with sinks_service.TelnyxClient(row.api_key) as client:
             ok = await client.health()
         return {"ok": ok}
-    except Exception as exc:
-        return {"ok": False, "reason": str(exc)}
+    except Exception:
+        # Log the detail locally; the response stays generic so a failed probe
+        # can't echo internal state back through the API.
+        logger.exception("Telnyx health check failed")
+        return {"ok": False, "reason": "request_failed"}
 
 
 # ─── Call endpoint (REST mirror of voicebox.call) ──────────────────────────
@@ -111,14 +115,10 @@ async def call_endpoint(
     to know when the generation finished; the actual playback happens
     asynchronously once Telnyx fires the ``call.answered`` webhook.
     """
-    if not sinks_service.is_configured(db):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                "Telnyx sink not configured. Set api_key, from_number, and "
-                "public_base_url in Voicebox → Settings → Sinks → Telnyx."
-            ),
-        )
+    row = sinks_service.get_settings(db)
+    missing = sinks_service.missing_settings(row)
+    if missing:
+        raise HTTPException(status_code=400, detail=sinks_service.setup_hint(missing))
 
     if bool(data.text) == bool(data.generation_id):
         raise HTTPException(
@@ -128,20 +128,18 @@ async def call_endpoint(
 
     client_id = request.headers.get("X-Voicebox-Client-Id")
 
-    # Resolve profile: explicit arg → per-client binding → sink default → fail.
-    profile = None
-    if data.profile:
-        profile = resolve_profile(data.profile, client_id, db)
-        if profile is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Voice profile '{data.profile}' not found.",
-            )
-    if profile is None:
-        # Fall back to the sink's configured default profile.
-        row = sinks_service.get_settings(db)
-        if row.default_profile_id:
-            profile = resolve_profile(row.default_profile_id, client_id, db)
+    # Resolve profile the same way POST /speak does: one resolve_profile call
+    # handles explicit arg → per-client binding → global capture default. Only
+    # if all of those miss do we fall back to the sink's own default, so a
+    # caller with an MCP binding gets the same voice on /call as on /speak.
+    profile = resolve_profile(data.profile, client_id, db)
+    if profile is None and data.profile:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Voice profile '{data.profile}' not found.",
+        )
+    if profile is None and row.default_profile_id:
+        profile = resolve_profile(row.default_profile_id, client_id, db)
     if profile is None:
         raise HTTPException(
             status_code=400,
@@ -152,6 +150,23 @@ async def call_endpoint(
             ),
         )
 
+    # Per-client defaults for personality/engine, matching POST /speak.
+    binding = None
+    if client_id:
+        binding = (
+            db.query(MCPClientBinding)
+            .filter(MCPClientBinding.client_id == client_id)
+            .first()
+        )
+
+    personality_flag = data.personality
+    if personality_flag is None and binding is not None:
+        personality_flag = bool(binding.default_personality)
+
+    engine = data.engine
+    if engine is None and binding is not None:
+        engine = binding.default_engine
+
     try:
         result = await sinks_service.place_call(
             to=data.to,
@@ -159,9 +174,9 @@ async def call_endpoint(
             generation_id=data.generation_id,
             profile_id=profile.id,
             profile_name=profile.name,
-            engine=data.engine,
+            engine=engine,
             language=data.language,
-            personality=bool(data.personality),
+            personality=bool(personality_flag),
             auto_hangup=data.auto_hangup,
             db=db,
         )
