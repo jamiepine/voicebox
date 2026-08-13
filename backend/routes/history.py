@@ -1,13 +1,18 @@
 """Generation history endpoints."""
 
+import asyncio
 import io
+import os
+import tempfile
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
 from ..services import export_import, history
+from ..utils.ffmpeg import encode_audio
 from ..utils.http import safe_content_disposition
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 
@@ -162,12 +167,24 @@ async def export_generation(
     )
 
 
+_EXPORT_MIME = {"wav": "audio/wav", "mp3": "audio/mpeg"}
+
+
 @router.get("/history/{generation_id}/export-audio")
 async def export_generation_audio(
     generation_id: str,
+    format_: str = Query("wav", alias="format"),
     db: Session = Depends(get_db),
 ):
-    """Export only the audio file from a generation."""
+    """Export only the audio file from a generation.
+
+    ``format=wav`` (default) returns the stored file unchanged; ``format=mp3``
+    transcodes it with ffmpeg (192 kbps) and returns 503 when ffmpeg is missing.
+    """
+    fmt = (format_ or "wav").lower()
+    if fmt not in _EXPORT_MIME:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {format_}")
+
     generation = db.query(DBGeneration).filter_by(id=generation_id).first()
     if not generation:
         raise HTTPException(status_code=404, detail="Generation not found")
@@ -184,10 +201,22 @@ async def export_generation_audio(
         safe_text = "generation"
     # Append a short id so exports of similarly-worded generations don't collide
     # on the same filename (the first 30 chars are frequently identical).
-    filename = f"{safe_text}-{generation_id[:8]}.wav"
+    filename = f"{safe_text}-{generation_id[:8]}.{fmt}"
+    headers = {"Content-Disposition": safe_content_disposition("attachment", filename)}
 
-    return FileResponse(
-        audio_path,
-        media_type="audio/wav",
-        headers={"Content-Disposition": safe_content_disposition("attachment", filename)},
-    )
+    if fmt == "wav":
+        return FileResponse(audio_path, media_type="audio/wav", headers=headers)
+
+    fd, tmp_name = tempfile.mkstemp(suffix=".mp3")
+    os.close(fd)
+    tmp_path = Path(tmp_name)
+    try:
+        # ffmpeg is CPU-bound; keep it off the event loop.
+        await asyncio.to_thread(encode_audio, audio_path, tmp_path, fmt)
+        mp3_bytes = tmp_path.read_bytes()
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    return Response(content=mp3_bytes, media_type=_EXPORT_MIME[fmt], headers=headers)

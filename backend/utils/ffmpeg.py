@@ -10,7 +10,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 # GUI-launched apps on macOS get a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin),
 # so a Homebrew or MacPorts ffmpeg is invisible to shutil.which. Windows package
@@ -39,7 +38,7 @@ ENCODERS = {
 }
 
 
-def find_ffmpeg(name: str = "ffmpeg") -> Optional[str]:
+def find_ffmpeg(name: str = "ffmpeg") -> str | None:
     """Return the path to ``name`` (ffmpeg/ffprobe) or None when not installed."""
     override = os.environ.get("VOICEBOX_FFMPEG_DIR")
     if override:
@@ -60,7 +59,7 @@ def encode_audio(
     wav_path: Path,
     out_path: Path,
     fmt: str,
-    metadata_path: Optional[Path] = None,
+    metadata_path: Path | None = None,
     timeout: int = 600,
 ) -> None:
     """Transcode ``wav_path`` to ``fmt`` ("mp3" or "m4b") at ``out_path``.
@@ -76,7 +75,7 @@ def encode_audio(
     if ffmpeg is None:
         raise RuntimeError(MISSING_MESSAGE)
 
-    cmd: List[str] = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav_path)]
+    cmd: list[str] = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav_path)]
     if metadata_path is not None:
         cmd.extend(["-i", str(metadata_path), "-map_metadata", "1", "-map_chapters", "1"])
     cmd.extend(["-map", "0:a", *ENCODERS[fmt], str(out_path)])
