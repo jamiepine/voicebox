@@ -105,6 +105,7 @@ def register_tools(mcp: FastMCP) -> None:
                 text=text,
                 engine=resolved_engine,
                 language=language,
+                profile_language=vp.language,
                 personality=use_persona,
                 model_size=model_size,
                 db=db,
@@ -236,6 +237,7 @@ async def _speak(
     engine: str | None,
     language: str | None,
     personality: bool,
+    profile_language: str | None = None,
     model_size: str | None = None,
     db,
 ) -> dict[str, Any]:
@@ -246,10 +248,14 @@ async def _speak(
     # model_size=None is intentional: generate_speech normalizes it to the
     # engine default (see routes/generations.py), so an omitted size behaves
     # exactly like the REST /generate endpoint with no model_size in the body.
+    #
+    # language precedence: explicit tool arg → the resolved profile's own
+    # language → "en". Without the profile fallback, a non-English voice
+    # profile with no explicit language is phonemized as English.
     req = models.GenerationRequest(
         profile_id=profile_id,
         text=text,
-        language=language or "en",
+        language=language or profile_language or "en",
         engine=engine,
         personality=personality,
         model_size=model_size,
