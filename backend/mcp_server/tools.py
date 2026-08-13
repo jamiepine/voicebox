@@ -224,6 +224,120 @@ def register_tools(mcp: FastMCP) -> None:
         finally:
             db.close()
 
+    @mcp.tool(
+        name="voicebox.call",
+        description=(
+            "Dial a phone number via the Telnyx sink and play a Voicebox "
+            "generation on the call. Returns a `call_control_id` and a "
+            "`generation_id` you can poll at /generate/{id}/status. The "
+            "call dials as soon as Telnyx accepts; playback happens "
+            "asynchronously once the callee picks up. Requires the Telnyx "
+            "sink to be configured in Voicebox → Settings → Sinks."
+        ),
+    )
+    async def voicebox_call(
+        to: str,
+        text: str | None = None,
+        generation_id: str | None = None,
+        profile: str | None = None,
+        engine: str | None = None,
+        personality: bool | None = None,
+        language: str | None = None,
+        auto_hangup: bool | None = None,
+    ) -> dict[str, Any]:
+        """Dial ``to`` (E.164) and play a generation on the call.
+
+        Pass exactly one of ``text`` (generate fresh audio first) or
+        ``generation_id`` (reuse an existing completed generation).
+
+        ``profile`` accepts a voice profile name (e.g. "Morgan") or id, and
+        follows the same resolution chain as ``voicebox.speak``: explicit
+        arg → per-client MCP binding → sink default. If none resolve, the
+        tool raises a helpful error pointing at the Settings UI.
+
+        ``auto_hangup`` overrides the sink's default — when true (the
+        default), the call hangs up after playback ends; when false, the
+        call stays connected after playback so the caller can issue more
+        actions (future: DTMF, recording, etc.).
+        """
+        from ..database.models import MCPClientBinding
+        from ..services import sinks as sinks_service
+
+        db = next(get_db())
+        try:
+            s = sinks_service.get_settings(db)
+            missing = sinks_service.missing_settings(s)
+            if missing:
+                raise ValueError(sinks_service.setup_hint(missing))
+
+            if bool(text) == bool(generation_id):
+                raise ValueError(
+                    "Pass exactly one of `text` (generate inline) or "
+                    "`generation_id` (use an existing generation)."
+                )
+
+            client_id = current_client_id.get()
+
+            # One resolve_profile call covers explicit arg → per-client
+            # binding → global capture default, the same chain
+            # voicebox.speak uses. The sink default is the last resort.
+            vp = resolve_profile(profile, client_id, db)
+            if vp is None and profile:
+                raise ValueError(f"Voice profile '{profile}' not found.")
+            if vp is None and s.default_profile_id:
+                vp = resolve_profile(s.default_profile_id, client_id, db)
+            if vp is None:
+                raise ValueError(
+                    "No voice profile resolved. Pass `profile=`, set a "
+                    "default in Voicebox → Settings → Sinks → Telnyx, or "
+                    "bind a profile to this client in Settings → MCP."
+                )
+
+            binding = None
+            if client_id:
+                binding = (
+                    db.query(MCPClientBinding)
+                    .filter(MCPClientBinding.client_id == client_id)
+                    .first()
+                )
+
+            resolved_personality = personality
+            if resolved_personality is None and binding is not None:
+                resolved_personality = bool(binding.default_personality)
+            use_persona = bool(resolved_personality) and bool(vp.personality)
+
+            resolved_engine = engine
+            if resolved_engine is None and binding is not None:
+                resolved_engine = binding.default_engine
+
+            result = await sinks_service.place_call(
+                to=to,
+                text=text,
+                generation_id=generation_id,
+                profile_id=vp.id,
+                profile_name=vp.name,
+                engine=resolved_engine,
+                language=language,
+                personality=use_persona,
+                auto_hangup=auto_hangup,
+                db=db,
+            )
+
+            mcp_events.publish(
+                "call-start",
+                {
+                    "call_control_id": result["call_control_id"],
+                    "generation_id": result["generation_id"],
+                    "to": to,
+                    "profile_name": vp.name,
+                    "source": "mcp",
+                    "client_id": client_id,
+                },
+            )
+            return result
+        finally:
+            db.close()
+
 
 # ─── Speak helper ──────────────────────────────────────────────────────────
 

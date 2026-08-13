@@ -301,3 +301,60 @@ class Capture(Base):
     llm_model = Column(String, nullable=True)
     refinement_flags = Column(Text, nullable=True)  # JSON blob
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TelnyxSettings(Base):
+    """Singleton row holding Telnyx sink credentials and defaults.
+
+    Populated by the "Settings → Sinks → Telnyx" UI. The ``api_key`` is a
+    bearer credential for ``api.telnyx.com`` — stored in the local app
+    database alongside the user's other data, masked in API responses. The
+    ``id`` is always 1; a null ``api_key`` means "not configured".
+    """
+
+    __tablename__ = "telnyx_settings"
+
+    id = Column(Integer, primary_key=True, default=1)
+    enabled = Column(Boolean, nullable=False, default=False)
+    api_key = Column(String, nullable=True)
+    # Call Control Application ID — required on every outbound dial.
+    connection_id = Column(String, nullable=True)
+    from_number = Column(String, nullable=True)  # E.164, used as caller ID
+    public_base_url = Column(String, nullable=True)  # ngrok/funnel/etc.
+    default_profile_id = Column(String, ForeignKey("profiles.id"), nullable=True)
+    auto_hangup = Column(Boolean, nullable=False, default=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TelnyxCall(Base):
+    """A pending or in-progress Telnyx call mapped to a Voicebox generation.
+
+    One row per outbound dial. The ``webhook_secret`` is a per-call random
+    token embedded in the ``webhook_url`` we send Telnyx at call-creation
+    time; Telnyx includes it back as the ``token`` query param on webhook
+    POSTs, and the webhook handler rejects any request whose token doesn't
+    match. This stops a third party who knows the webhook URL from
+    triggering playback on a live call without needing full HMAC signature
+    verification (a follow-up hardening step).
+
+    Status progression:
+        initiating → preparing → playing → playback_ended → hangup
+                                                         ↘ failed
+
+    ``preparing`` is the claim state: the ``call.answered`` webhook sets it
+    before doing any slow work, so a retried delivery of the same event finds
+    the call already claimed and doesn't start a second playback.
+    """
+
+    __tablename__ = "telnyx_calls"
+
+    call_control_id = Column(String, primary_key=True)
+    generation_id = Column(String, ForeignKey("generations.id"), nullable=False)
+    to_number = Column(String, nullable=False)
+    from_number = Column(String, nullable=False)
+    webhook_secret = Column(String, nullable=True)
+    status = Column(String, nullable=False, default="initiating")
+    auto_hangup = Column(Boolean, nullable=False, default=True)
+    error = Column(Text, nullable=True)
+    started_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    completed_at = Column(DateTime, nullable=True)

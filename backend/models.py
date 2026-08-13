@@ -815,3 +815,121 @@ class CloudStatusResponse(BaseModel):
     key_prefix: Optional[str] = None
     connected_at: Optional[datetime] = None
     dashboard_url: str
+
+
+# ─── Telnyx sink ──────────────────────────────────────────────────────────
+
+
+class CallRequest(BaseModel):
+    """Body for ``POST /call`` — REST surface that mirrors ``voicebox.call``.
+
+    Exactly one of ``text`` or ``generation_id`` must be set: ``text``
+    generates fresh audio via the same path as ``POST /generate``;
+    ``generation_id`` reuses an existing completed generation. ``profile``
+    resolves the same way as ``voicebox.speak`` — explicit name/id, then
+    per-client MCP binding, then the sink's configured default profile.
+    """
+
+    to: str = Field(
+        ...,
+        pattern=r"^\+[1-9]\d{6,14}$",
+        description="E.164 phone number to dial, e.g. '+15551234567'.",
+    )
+    text: Optional[str] = Field(
+        None,
+        min_length=1,
+        max_length=10000,
+        description="Speak this text on the call. Mutually exclusive with `generation_id`.",
+    )
+    generation_id: Optional[str] = Field(
+        None,
+        description="Play an existing completed generation on the call. Mutually exclusive with `text`.",
+    )
+    profile: Optional[str] = Field(
+        None,
+        description="Voice profile name or id. Falls back to per-client binding, then the sink default.",
+    )
+    engine: Optional[str] = Field(
+        None,
+        pattern=r"^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+    )
+    personality: Optional[bool] = Field(
+        None,
+        description="When true and the profile has a personality prompt, the input text is rewritten in-character before TTS.",
+    )
+    language: Optional[str] = Field(
+        None,
+        pattern=r"^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+    )
+    auto_hangup: Optional[bool] = Field(
+        None,
+        description="Override the sink's default. When true, hang up after playback ends.",
+    )
+
+
+class CallResponse(BaseModel):
+    """Response shape for ``POST /call`` and the ``voicebox.call`` MCP tool.
+
+    ``status`` is ``"dialing"`` immediately after Telnyx accepts the call;
+    playback happens asynchronously once Telnyx fires the ``call.answered``
+    webhook. Poll ``generation_id`` at ``poll_url`` to know when the
+    generation itself finished.
+    """
+
+    call_control_id: str
+    status: str
+    generation_id: str
+    profile: str
+    to: str
+    poll_url: str
+
+
+class TelnyxSettingsResponse(BaseModel):
+    """Read-only view of Telnyx sink settings. The API key is masked."""
+
+    enabled: bool
+    api_key_masked: str
+    api_key_set: bool
+    connection_id: Optional[str] = None
+    from_number: Optional[str] = None
+    public_base_url: Optional[str] = None
+    default_profile_id: Optional[str] = None
+    auto_hangup: bool = True
+    missing: List[str] = Field(
+        default_factory=list,
+        description="Settings fields still required before the sink can dial.",
+    )
+
+
+class TelnyxSettingsUpdate(BaseModel):
+    """Partial update for Telnyx sink settings — every field is optional.
+
+    Passing ``api_key=None`` is a no-op (the route drops it) so the UI can
+    save other fields without clearing the key it never received. To clear
+    the key, set ``api_key=""`` — the route treats an empty string as a
+    clear.
+    """
+
+    enabled: Optional[bool] = None
+    api_key: Optional[str] = Field(
+        None,
+        description="Set to a non-empty string to update; pass null to leave unchanged.",
+    )
+    connection_id: Optional[str] = Field(
+        None,
+        description=(
+            "Telnyx Call Control Application ID. Required on every outbound "
+            "dial — find it in the Telnyx console under Call Control."
+        ),
+    )
+    from_number: Optional[str] = Field(
+        None,
+        pattern=r"^\+[1-9]\d{6,14}$",
+    )
+    public_base_url: Optional[str] = Field(
+        None,
+        max_length=200,
+        description="Public HTTPS URL of this Voicebox server (ngrok, Tailscale Funnel, etc.).",
+    )
+    default_profile_id: Optional[str] = None
+    auto_hangup: Optional[bool] = None

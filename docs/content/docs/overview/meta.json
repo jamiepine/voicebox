@@ -13,6 +13,7 @@
     "preset-voices",
     "voice-personalities",
     "mcp-server",
+    "sinks",
     "stories-editor",
     "recording-transcription",
     "generation-history",
