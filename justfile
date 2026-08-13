@@ -244,6 +244,14 @@ build-server: _ensure-venv
     Write-Host "Copied sidecar: voicebox-mcp-$triple.exe"
 
 # Build CUDA server binary and place in app data dir for local testing
+[linux]
+build-server-cuda: _ensure-venv
+    PATH="{{ venv_bin }}:$PATH" {{ python }} backend/build_binary.py --cuda
+    rm -rf "${XDG_DATA_HOME:-$HOME/.local/share}/sh.voicebox.app/backends/cuda"
+    mkdir -p "${XDG_DATA_HOME:-$HOME/.local/share}/sh.voicebox.app/backends/cuda"
+    cp -a backend/dist/voicebox-server-cuda/. "${XDG_DATA_HOME:-$HOME/.local/share}/sh.voicebox.app/backends/cuda/"
+    chmod +x "${XDG_DATA_HOME:-$HOME/.local/share}/sh.voicebox.app/backends/cuda/voicebox-server-cuda"
+
 [windows]
 build-server-cuda: _ensure-venv
     $ErrorActionPreference = "Stop"; \
