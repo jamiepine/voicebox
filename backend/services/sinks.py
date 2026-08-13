@@ -374,10 +374,11 @@ async def handle_telnyx_webhook(
 def _spawn(coro) -> None:
     """Run a coroutine detached from the webhook request.
 
-    Telnyx expects a prompt ack and retries webhooks it thinks failed. Waiting
-    for a generation can take tens of seconds, so the handler must not do that
-    work inline. The task holds a reference until done so it isn't garbage
-    collected mid-flight.
+    Telnyx wants a 2xx within 2000 ms and retries the delivery otherwise, so
+    the handler acknowledges first and does the slow part here. Waiting for a
+    generation can take tens of seconds; doing that inline guaranteed a
+    timeout, a retry, and a second playback on the same call. The task holds a
+    reference until done so it isn't garbage collected mid-flight.
     """
     task = asyncio.create_task(coro)
     _BACKGROUND_TASKS.add(task)

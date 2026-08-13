@@ -184,19 +184,22 @@ whatever proxy or tunnel sits in front of Voicebox. It is scoped to one call
 and useless once that call ends, but it is not a long-lived secret and
 shouldn't be treated as one.
 
-For full webhook signature verification against Telnyx's Ed25519 signature
-header, see the
-[Telnyx webhook docs](https://developers.telnyx.com/docs/api/v2/webhooks).
-That is the stronger gate and remains a follow-up.
+The stronger gate is Telnyx's own signature. Every event carries
+`telnyx-signature-ed25519` and `telnyx-timestamp`, signed over
+`{timestamp}|{raw body}` and verifiable against your account's public key
+(Mission Control Portal → Keys & Credentials → Public Key). Verifying that,
+and rejecting timestamps older than five minutes, authenticates the sender
+rather than just scoping the URL. It needs an Ed25519 dependency and a public
+key setting, so it remains a follow-up.
 
 ## Webhook delivery and retries
 
-Telnyx delivers webhooks at least once and retries anything it considers
-failed, so the receiver acknowledges immediately and finishes the work in the
-background. On `call.answered` it claims the call row before returning; a
-retried delivery sees the claim and exits instead of starting a second
-`playback_start`, which would otherwise play the audio twice on the same
-call.
+Telnyx expects a 2xx within 2000 ms and retries the delivery otherwise, so the
+receiver acknowledges immediately and finishes the work in the background. On
+`call.answered` it claims the call row before returning; a retried delivery
+sees the claim and exits instead of starting a second `playback_start`.
+Without the claim, consecutive play commands queue on the Telnyx side and the
+callee hears the same clip repeated.
 
 Waiting for a still-running generation (up to 30s) happens in that background
 task, never inside the webhook request.
