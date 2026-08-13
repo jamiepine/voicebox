@@ -78,12 +78,12 @@ export function useExportGenerationAudio() {
         .substring(0, 30)
         .replace(/[^a-z0-9]/gi, '-')
         .toLowerCase();
-      const filename = `${safeText}.wav`;
+      const filename = `${safeText}.mp3`;
 
       await platform.filesystem.saveFile(filename, blob, [
         {
           name: 'Audio File',
-          extensions: ['wav'],
+          extensions: ['mp3'],
         },
       ]);
 
