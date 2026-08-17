@@ -37,6 +37,9 @@ class VoiceProfile(Base):
     preset_engine = Column(String, nullable=True)   # e.g. "kokoro" — only for preset
     preset_voice_id = Column(String, nullable=True)  # e.g. "am_adam" — only for preset
     design_prompt = Column(Text, nullable=True)      # text description — only for designed
+    # Voice id issued by the design provider for design_prompt, referenced by
+    # later synthesis. Only for designed, and set once the voice is built.
+    designed_voice_id = Column(String, nullable=True)
     default_engine = Column(String, nullable=True)   # auto-selected engine, locked for preset
     # Free-form character prompt used by the compose button and the
     # personality-rewrite path on /generate. Describes *what* this voice

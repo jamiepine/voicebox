@@ -41,6 +41,7 @@ class VoiceProfileResponse(BaseModel):
     preset_engine: Optional[str] = None
     preset_voice_id: Optional[str] = None
     design_prompt: Optional[str] = None
+    designed_voice_id: Optional[str] = None
     default_engine: Optional[str] = None
     personality: Optional[str] = None
     generation_count: int = 0
@@ -50,6 +51,17 @@ class VoiceProfileResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class VoiceDesignRequest(BaseModel):
+    """Request model for building the voice of a designed profile.
+
+    The voice id is minted server-side, so callers only choose what the preview
+    says and which region serves the request.
+    """
+
+    preview_text: Optional[str] = Field(None, max_length=500)
+    region: Optional[str] = Field(None, max_length=50)
 
 
 class ProfileSampleCreate(BaseModel):

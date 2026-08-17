@@ -150,6 +150,31 @@ SAMPLE_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 SAMPLE_UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
 
 
+@router.post("/profiles/{profile_id}/design", response_model=models.VoiceProfileResponse)
+async def design_profile_voice(
+    profile_id: str,
+    data: models.VoiceDesignRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    """Build the voice of a designed profile from its written description."""
+    payload = data or models.VoiceDesignRequest()
+    try:
+        return await profiles.design_profile_voice(
+            profile_id,
+            db,
+            preview_text=payload.preview_text,
+            region=payload.region,
+        )
+    except ValueError as e:
+        detail = str(e)
+        if detail.startswith("Profile not found"):
+            raise HTTPException(status_code=404, detail=detail) from e
+        raise HTTPException(status_code=400, detail=detail) from e
+    except RuntimeError as e:
+        # Missing credentials or an upstream failure — neither is the caller's fault.
+        raise HTTPException(status_code=502, detail=str(e)) from e
+
+
 @router.post("/profiles/{profile_id}/samples", response_model=models.ProfileSampleResponse)
 async def add_profile_sample(
     profile_id: str,
