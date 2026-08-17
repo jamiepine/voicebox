@@ -75,7 +75,7 @@ async def speak(
         models.GenerationRequest(
             profile_id=profile.id,
             text=data.text,
-            language=data.language or "en",
+            language=data.language or profile.language or "en",
             engine=engine,
             personality=bool(personality_flag),
         ),
