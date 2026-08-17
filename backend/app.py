@@ -105,26 +105,16 @@ if not os.environ.get("MIOPEN_LOG_LEVEL"):
 import torch
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from urllib.parse import quote
 
 from . import __version__, config, database
 from .services import tts, transcribe, llm
 from .database import get_db
 from .utils.platform_detect import get_backend_type
 from .utils.progress import get_progress_manager
+# Re-exported for backwards compatibility with callers importing it from here.
+from .utils.http import safe_content_disposition as safe_content_disposition
 from .services.task_queue import create_background_task, init_queue
 from .routes import register_routers
-
-
-def safe_content_disposition(disposition_type: str, filename: str) -> str:
-    """Build a Content-Disposition header safe for non-ASCII filenames.
-
-    Uses RFC 5987 ``filename*`` parameter so browsers can decode UTF-8
-    filenames while the ``filename`` fallback stays ASCII-only.
-    """
-    ascii_name = "".join(c for c in filename if c.isascii() and (c.isalnum() or c in " -_.")).strip() or "download"
-    utf8_name = quote(filename, safe="")
-    return f"{disposition_type}; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}"
 
 
 def create_app() -> FastAPI:

@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..app import safe_content_disposition
+from ..utils.http import safe_content_disposition
 from ..database import VoiceProfile as DBVoiceProfile, get_db
 from ..services import channels, export_import, personality, profiles
 from ..services.profiles import _profile_to_response
