@@ -21,6 +21,7 @@ from ..models import (
 from ..utils.audio import save_audio, validate_and_load_reference_audio
 from ..utils.cache import _get_cache_dir, clear_profile_cache
 from ..utils.images import process_avatar, validate_image
+from . import voice_design
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,7 @@ def _profile_to_response(
         preset_engine=getattr(profile, "preset_engine", None),
         preset_voice_id=getattr(profile, "preset_voice_id", None),
         design_prompt=getattr(profile, "design_prompt", None),
+        designed_voice_id=getattr(profile, "designed_voice_id", None),
         default_engine=getattr(profile, "default_engine", None),
         personality=getattr(profile, "personality", None),
         generation_count=generation_count,
@@ -513,6 +515,56 @@ async def update_profile_sample(
     return ProfileSampleResponse.model_validate(sample)
 
 
+async def design_profile_voice(
+    profile_id: str,
+    db: Session,
+    preview_text: str | None = None,
+    region: str | None = None,
+) -> VoiceProfileResponse:
+    """Build the voice for a designed profile and persist the returned voice id.
+
+    Designed profiles carry a written description instead of audio samples. This
+    sends that description to the voice design endpoint, which answers with the
+    voice id later synthesis references, and stores it on the profile so the
+    voice survives restarts and is reused instead of re-designed.
+
+    Args:
+        profile_id: Profile ID of a profile whose voice_type is "designed".
+        db: Database session
+        preview_text: Text spoken in the provider's preview sample
+        region: API region override
+
+    Returns:
+        The updated profile.
+
+    Raises:
+        ValueError: if the profile is missing, is not designed, or has no prompt.
+    """
+    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not profile:
+        raise ValueError(f"Profile not found: {profile_id}")
+
+    voice_type = getattr(profile, "voice_type", None) or "cloned"
+    if voice_type != "designed":
+        raise ValueError(f"Profile {profile_id} is not a designed profile")
+    if not profile.design_prompt or not profile.design_prompt.strip():
+        raise ValueError(f"Designed profile {profile_id} is missing design_prompt")
+
+    designed_voice_id = await voice_design.design_voice(
+        profile.design_prompt,
+        preview_text=preview_text,
+        region=region,
+    )
+
+    profile.designed_voice_id = designed_voice_id
+    profile.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(profile)
+    logger.info("Stored designed voice %s on profile %s", designed_voice_id, profile_id)
+
+    return _profile_to_response(profile)
+
+
 async def create_voice_prompt_for_profile(
     profile_id: str,
     db: Session,
@@ -524,7 +576,7 @@ async def create_voice_prompt_for_profile(
 
     For cloned profiles: combines all audio samples into a voice prompt.
     For preset profiles: returns the engine-specific preset voice reference.
-    For designed profiles: returns the text design prompt (future).
+    For designed profiles: returns the design prompt and the designed voice id.
 
     Args:
         profile_id: Profile ID
@@ -558,14 +610,20 @@ async def create_voice_prompt_for_profile(
             "preset_voice_id": profile.preset_voice_id,
         }
 
-    # ── Designed profiles: return text description (future) ──
+    # ── Designed profiles: return the text description plus the built voice ──
     if voice_type == "designed":
         if not profile.design_prompt or not profile.design_prompt.strip():
             raise ValueError(f"Designed profile {profile_id} is missing design_prompt")
-        return {
+        voice_prompt = {
             "voice_type": "designed",
             "design_prompt": profile.design_prompt,
         }
+        # Present once the voice has been designed; engines that render designed
+        # voices remotely reference this id instead of the raw description.
+        designed_voice_id = getattr(profile, "designed_voice_id", None)
+        if designed_voice_id:
+            voice_prompt["voice_id"] = designed_voice_id
+        return voice_prompt
 
     if engine not in CLONING_ENGINES:
         raise ValueError(f"Engine '{engine}' does not support cloned voice profiles")

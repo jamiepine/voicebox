@@ -27,6 +27,8 @@ export interface VoiceProfileResponse {
   preset_engine?: string;
   preset_voice_id?: string;
   design_prompt?: string;
+  /** Voice id issued by the design provider, present once the voice is built. */
+  designed_voice_id?: string;
   default_engine?: string;
   personality?: string | null;
   generation_count: number;
