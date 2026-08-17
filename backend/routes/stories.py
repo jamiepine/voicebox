@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .. import database, models
 from ..services import stories
-from ..app import safe_content_disposition
+from ..utils.http import safe_content_disposition
 from ..database import get_db
 
 router = APIRouter()
