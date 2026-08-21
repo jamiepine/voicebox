@@ -16,36 +16,49 @@
  * paragraph — enough for a sentence or two of real message. */
 const TOAST_ERROR_BUDGET = 400;
 
-/** Below this there is nothing to gain by condensing. */
+/** Below this, condensing is not worth it and the whole message is shown.
+ *
+ * Deliberately above the budget rather than equal to it. An error of 450
+ * characters would otherwise be cut to 400 to save 50 — a worse result than
+ * showing all of it, since the description scrolls anyway. The gap also gives
+ * the threshold hysteresis instead of flipping between full and truncated
+ * around a single character. No Copy action is offered in this range because
+ * nothing is being withheld: `display` already holds the entire message.
+ */
 const MIN_TO_CONDENSE = TOAST_ERROR_BUDGET + 120;
 
 export interface CondensedError {
-  /** What to show in the toast. */
+  /** What to show in the toast. Trimmed, and shortened when oversized. */
   display: string;
-  /** The untouched original, for copying. */
+  /** The original string exactly as received, for copying. Never modified. */
   full: string;
-  /** Whether `display` is shorter than `full`. */
+  /** Whether `display` omits part of the message. */
   truncated: boolean;
   /** How many characters `display` leaves out. */
   omitted: number;
 }
 
 export function condenseError(raw: string | null | undefined): CondensedError {
-  const full = (raw ?? '').trim();
+  // `full` is what the Copy action hands over, so it stays byte-for-byte what
+  // the server sent. All the measuring and cutting below works on the trimmed
+  // copy instead — surrounding blank space should not count toward the budget
+  // or the omitted count.
+  const full = raw ?? '';
+  const text = full.trim();
 
-  if (full.length <= MIN_TO_CONDENSE) {
-    return { display: full, full, truncated: false, omitted: 0 };
+  if (text.length <= MIN_TO_CONDENSE) {
+    return { display: text, full, truncated: false, omitted: 0 };
   }
 
   // A traceback's first line is nearly always the message; prefer it whenever
   // it fits, since a newline is a stronger boundary than any punctuation.
-  const firstLine = full.split('\n', 1)[0].trim();
+  const firstLine = text.split('\n', 1)[0].trim();
   let head =
     firstLine.length > 0 && firstLine.length <= TOAST_ERROR_BUDGET
       ? firstLine
-      : full.slice(0, TOAST_ERROR_BUDGET);
+      : text.slice(0, TOAST_ERROR_BUDGET);
 
-  if (head.length < full.length && head === full.slice(0, head.length)) {
+  if (head.length < text.length && head === text.slice(0, head.length)) {
     // Back off to the last sentence end inside the budget so the text does not
     // stop mid-word. Only accept it if it keeps most of the budget — otherwise
     // a stray early period would throw away usable context.
@@ -56,11 +69,11 @@ export function condenseError(raw: string | null | undefined): CondensedError {
   }
 
   head = head.trimEnd();
-  const omitted = full.length - head.length;
+  const omitted = text.length - head.length;
 
   // Guard against the boundary search having produced nothing shorter.
   if (omitted <= 0) {
-    return { display: full, full, truncated: false, omitted: 0 };
+    return { display: text, full, truncated: false, omitted: 0 };
   }
 
   return { display: `${head} …`, full, truncated: true, omitted };
