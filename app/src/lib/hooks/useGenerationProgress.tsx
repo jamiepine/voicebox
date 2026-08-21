@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
+import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
+import { condenseError } from '@/lib/utils/errorText';
 import { useGenerationSettings } from '@/lib/hooks/useSettings';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
@@ -131,10 +133,43 @@ export function useGenerationProgress() {
 
             queryClient.refetchQueries({ queryKey: ['history'] });
 
+            const condensed = condenseError(
+              data.error || 'An error occurred during generation',
+            );
             toast({
               title: data.status === 'not_found' ? 'Generation not found' : 'Generation failed',
-              description: data.error || 'An error occurred during generation',
+              description: condensed.truncated
+                ? `${condensed.display}\n\n(${condensed.omitted} more characters — copy for the full error, or see Settings → Logs)`
+                : condensed.display,
               variant: 'destructive',
+              // Only offered when there is more to read than what is shown, so
+              // the common short error keeps a plain toast.
+              action: condensed.truncated ? (
+                <ToastAction
+                  altText="Copy the full error text"
+                  onClick={() => {
+                    // Two ways this fails: the Clipboard API is absent outside
+                    // a secure context (property access throws), or writeText
+                    // rejects because permission was denied. The try/catch
+                    // covers both, so the click never becomes an unhandled
+                    // rejection and the user is told nothing was copied.
+                    void (async () => {
+                      try {
+                        await navigator.clipboard.writeText(condensed.full);
+                      } catch {
+                        toast({
+                          title: 'Could not copy',
+                          description:
+                            'Clipboard unavailable. The full error is in Settings → Logs.',
+                          variant: 'destructive',
+                        });
+                      }
+                    })();
+                  }}
+                >
+                  Copy
+                </ToastAction>
+              ) : undefined,
             });
           }
         } catch {
