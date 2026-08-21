@@ -28,7 +28,12 @@ const TOAST_ERROR_BUDGET = 400;
 const MIN_TO_CONDENSE = TOAST_ERROR_BUDGET + 120;
 
 export interface CondensedError {
-  /** What to show in the toast. Trimmed, and shortened when oversized. */
+  /** What to show in the toast.
+   *
+   * Byte-identical to `full` whenever nothing is omitted, so a message that
+   * fits is never altered. Only an oversized one is rewritten, into a trimmed
+   * head followed by an ellipsis.
+   */
   display: string;
   /** The original string exactly as received, for copying. Never modified. */
   full: string;
@@ -40,14 +45,15 @@ export interface CondensedError {
 
 export function condenseError(raw: string | null | undefined): CondensedError {
   // `full` is what the Copy action hands over, so it stays byte-for-byte what
-  // the server sent. All the measuring and cutting below works on the trimmed
-  // copy instead — surrounding blank space should not count toward the budget
-  // or the omitted count.
+  // the server sent. The measuring and cutting below works on a trimmed copy
+  // instead — surrounding blank space should not count toward the budget or
+  // the omitted count — but `text` is never what gets returned as `display`
+  // unless the message is actually being shortened.
   const full = raw ?? '';
   const text = full.trim();
 
   if (text.length <= MIN_TO_CONDENSE) {
-    return { display: text, full, truncated: false, omitted: 0 };
+    return { display: full, full, truncated: false, omitted: 0 };
   }
 
   // A traceback's first line is nearly always the message; prefer it whenever
@@ -71,9 +77,10 @@ export function condenseError(raw: string | null | undefined): CondensedError {
   head = head.trimEnd();
   const omitted = text.length - head.length;
 
-  // Guard against the boundary search having produced nothing shorter.
+  // Guard against the boundary search having produced nothing shorter. Nothing
+  // is omitted here either, so the message goes back exactly as it arrived.
   if (omitted <= 0) {
-    return { display: text, full, truncated: false, omitted: 0 };
+    return { display: full, full, truncated: false, omitted: 0 };
   }
 
   return { display: `${head} …`, full, truncated: true, omitted };
