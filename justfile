@@ -87,18 +87,26 @@ setup-python:
 setup-python:
     if (-not (Test-Path "{{ venv }}")) { \
         Write-Host "Creating Python virtual environment..."; \
-        $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
-        if ([int]$pyMinor -gt 12) { \
-            Write-Host "Python 3.$pyMinor is not supported: requirements.txt pins numpy<2.0," -ForegroundColor Red; \
-            Write-Host "and numpy 1.x ships no wheels past cp312, so pip resolves nothing and" -ForegroundColor Red; \
-            Write-Host "leaves the venv silently incomplete." -ForegroundColor Red; \
-            Write-Host "Install Python 3.12 (winget install Python.Python.3.12), then re-run."; \
-            throw "Unsupported Python 3.$pyMinor for venv creation"; \
+        $pyVer = & "{{ system_python }}" -c "import sys; print(sys.version_info[0], sys.version_info[1], sep=chr(46))"; \
+        if ($LASTEXITCODE -ne 0 -or -not $pyVer) { \
+            Write-Host "Could not run a Python interpreter to check its version." -ForegroundColor Red; \
+            Write-Host "Tried: {{ system_python }}" -ForegroundColor Red; \
+            throw "No usable Python found for venv creation"; \
         }; \
-        & {{ system_python }} -m venv {{ venv }}; \
+        if ($pyVer.Trim() -ne "3.12") { \
+            Write-Host "Python $($pyVer.Trim()) is not supported. This project needs 3.12:" -ForegroundColor Red; \
+            Write-Host "  backend/pyproject.toml requires-python is >=3.12" -ForegroundColor Red; \
+            Write-Host "  requirements.txt pins numpy<2.0, whose last wheels are cp312" -ForegroundColor Red; \
+            Write-Host "On anything newer pip resolves nothing and leaves the venv silently incomplete."; \
+            Write-Host "Install Python 3.12 (winget install Python.Python.3.12), then re-run."; \
+            throw "Unsupported Python $($pyVer.Trim()) for venv creation"; \
+        }; \
+        & "{{ system_python }}" -m venv {{ venv }}; \
+        if ($LASTEXITCODE -ne 0) { throw "python -m venv failed with exit code $LASTEXITCODE" }; \
     }
     Write-Host "Installing Python dependencies..."
-    & "{{ python }}" -m pip install --upgrade pip -q
+    & "{{ python }}" -m pip install --upgrade pip -q; \
+    if ($LASTEXITCODE -ne 0) { throw "pip self-upgrade failed with exit code $LASTEXITCODE" }
     $gpus = Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name; \
     Write-Host "Detected GPUs: $($gpus -join ', ')"; \
     $hasNvidia = ($gpus | Where-Object { $_ -match 'NVIDIA' }).Count -gt 0; \
@@ -106,10 +114,13 @@ setup-python:
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
         & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
+        if ($LASTEXITCODE -ne 0) { throw "CUDA PyTorch install failed with exit code $LASTEXITCODE" }; \
     } elseif ($hasIntelArc) { \
         Write-Host "Intel Arc GPU detected — installing PyTorch with XPU support..."; \
         & "{{ pip }}" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
+        if ($LASTEXITCODE -ne 0) { throw "XPU PyTorch install failed with exit code $LASTEXITCODE" }; \
         & "{{ pip }}" install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
+        if ($LASTEXITCODE -ne 0) { throw "intel-extension-for-pytorch install failed with exit code $LASTEXITCODE" }; \
     } else { \
         Write-Host "No NVIDIA or Intel Arc GPU detected — using CPU-only PyTorch."; \
         Write-Host "If you have an Intel Arc GPU, install XPU support manually:"; \
