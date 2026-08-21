@@ -148,7 +148,23 @@ export function useGenerationProgress() {
                 <ToastAction
                   altText="Copy the full error text"
                   onClick={() => {
-                    void navigator.clipboard.writeText(condensed.full);
+                    // Two ways this fails: the Clipboard API is absent outside
+                    // a secure context (property access throws), or writeText
+                    // rejects because permission was denied. The try/catch
+                    // covers both, so the click never becomes an unhandled
+                    // rejection and the user is told nothing was copied.
+                    void (async () => {
+                      try {
+                        await navigator.clipboard.writeText(condensed.full);
+                      } catch {
+                        toast({
+                          title: 'Could not copy',
+                          description:
+                            'Clipboard unavailable. The full error is in Settings → Logs.',
+                          variant: 'destructive',
+                        });
+                      }
+                    })();
                   }}
                 >
                   Copy
