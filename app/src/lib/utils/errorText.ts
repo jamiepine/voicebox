@@ -12,9 +12,19 @@
  * budget, and report how much was dropped so nobody assumes they read it all.
  */
 
-/** Characters of an error worth putting in a toast. Roughly the first
- * paragraph — enough for a sentence or two of real message. */
-const TOAST_ERROR_BUDGET = 400;
+/** Longest head of an oversized error kept for the toast, before the ellipsis.
+ *
+ * Roughly the first paragraph — enough for a sentence or two of real message.
+ * This bounds the *message* rather than the rendered string: `display` is this
+ * plus `TRUNCATION_SUFFIX` when something was cut. Spending two of these
+ * characters on the ellipsis instead would shorten the message to no purpose,
+ * since nothing downstream has a hard character limit — the description box
+ * scrolls.
+ */
+const HEAD_BUDGET = 400;
+
+/** Marks a `display` value as incomplete. Appended after the head. */
+const TRUNCATION_SUFFIX = ' …';
 
 /** Below this, condensing is not worth it and the whole message is shown.
  *
@@ -25,7 +35,7 @@ const TOAST_ERROR_BUDGET = 400;
  * around a single character. No Copy action is offered in this range because
  * nothing is being withheld: `display` already holds the entire message.
  */
-const MIN_TO_CONDENSE = TOAST_ERROR_BUDGET + 120;
+const MIN_TO_CONDENSE = HEAD_BUDGET + 120;
 
 export interface CondensedError {
   /** What to show in the toast.
@@ -60,16 +70,16 @@ export function condenseError(raw: string | null | undefined): CondensedError {
   // it fits, since a newline is a stronger boundary than any punctuation.
   const firstLine = text.split('\n', 1)[0].trim();
   let head =
-    firstLine.length > 0 && firstLine.length <= TOAST_ERROR_BUDGET
+    firstLine.length > 0 && firstLine.length <= HEAD_BUDGET
       ? firstLine
-      : text.slice(0, TOAST_ERROR_BUDGET);
+      : text.slice(0, HEAD_BUDGET);
 
   if (head.length < text.length && head === text.slice(0, head.length)) {
     // Back off to the last sentence end inside the budget so the text does not
     // stop mid-word. Only accept it if it keeps most of the budget — otherwise
     // a stray early period would throw away usable context.
     const lastStop = Math.max(head.lastIndexOf('. '), head.lastIndexOf('? '));
-    if (lastStop > TOAST_ERROR_BUDGET * 0.4) {
+    if (lastStop > HEAD_BUDGET * 0.4) {
       head = head.slice(0, lastStop + 1);
     }
   }
@@ -83,5 +93,5 @@ export function condenseError(raw: string | null | undefined): CondensedError {
     return { display: full, full, truncated: false, omitted: 0 };
   }
 
-  return { display: `${head} …`, full, truncated: true, omitted };
+  return { display: `${head}${TRUNCATION_SUFFIX}`, full, truncated: true, omitted };
 }
