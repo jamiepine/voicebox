@@ -18,7 +18,7 @@ pip := if os() == "windows" { venv_bin / "pip.exe" } else { venv_bin / "pip" }
 set windows-shell := ["powershell", "-NoProfile", "-Command"]
 
 # Detect best python for venv creation (platform-aware)
-system_python := if os() == "windows" { "python" } else { `command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
+system_python := if os() == "windows" { `$best='python'; if (Get-Command py -ErrorAction SilentlyContinue) { foreach ($v in @('3.12','3.13')) { $p = (& py "-$v" -c "import sys; print(sys.executable)" 2>$null); if ($LASTEXITCODE -eq 0 -and $p) { $best = $p.Trim(); break } } }; $best` } else { `command -v python3.12 2>/dev/null || command -v python3.13 2>/dev/null || echo python3` }
 
 # ─── Setup ────────────────────────────────────────────────────────────
 
@@ -88,8 +88,12 @@ setup-python:
     if (-not (Test-Path "{{ venv }}")) { \
         Write-Host "Creating Python virtual environment..."; \
         $pyMinor = & {{ system_python }} -c "import sys; print(sys.version_info[1])"; \
-        if ([int]$pyMinor -gt 13) { \
-            Write-Host "Warning: Python 3.$pyMinor detected. ML packages may not be compatible."; \
+        if ([int]$pyMinor -gt 12) { \
+            Write-Host "Python 3.$pyMinor is not supported: requirements.txt pins numpy<2.0," -ForegroundColor Red; \
+            Write-Host "and numpy 1.x ships no wheels past cp312, so pip resolves nothing and" -ForegroundColor Red; \
+            Write-Host "leaves the venv silently incomplete." -ForegroundColor Red; \
+            Write-Host "Install Python 3.12 (winget install Python.Python.3.12), then re-run."; \
+            throw "Unsupported Python 3.$pyMinor for venv creation"; \
         }; \
         & {{ system_python }} -m venv {{ venv }}; \
     }
@@ -112,11 +116,16 @@ setup-python:
         Write-Host "  pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu"; \
         Write-Host "  pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
     }
-    & "{{ pip }}" install -r {{ backend_dir }}/requirements.txt
-    & "{{ pip }}" install --no-deps chatterbox-tts
-    & "{{ pip }}" install --no-deps hume-tada
-    & "{{ pip }}" install git+https://github.com/QwenLM/Qwen3-TTS.git
-    & "{{ pip }}" install pyinstaller ruff pytest pytest-asyncio -q
+    & "{{ pip }}" install -r {{ backend_dir }}/requirements.txt; \
+    if ($LASTEXITCODE -ne 0) { throw "pip install -r requirements.txt failed with exit code $LASTEXITCODE" }
+    & "{{ pip }}" install --no-deps chatterbox-tts; \
+    if ($LASTEXITCODE -ne 0) { throw "pip install chatterbox-tts failed with exit code $LASTEXITCODE" }
+    & "{{ pip }}" install --no-deps hume-tada; \
+    if ($LASTEXITCODE -ne 0) { throw "pip install hume-tada failed with exit code $LASTEXITCODE" }
+    & "{{ pip }}" install git+https://github.com/QwenLM/Qwen3-TTS.git; \
+    if ($LASTEXITCODE -ne 0) { throw "pip install Qwen3-TTS failed with exit code $LASTEXITCODE" }
+    & "{{ pip }}" install pyinstaller ruff pytest pytest-asyncio -q; \
+    if ($LASTEXITCODE -ne 0) { throw "pip install build/test tooling failed with exit code $LASTEXITCODE" }
     Write-Host "Python environment ready."
 
 # Install JavaScript dependencies
