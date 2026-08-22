@@ -82,6 +82,11 @@ class GenerationEventBus {
     const url = this.url ?? defaultGenerationEventsUrl();
     try {
       const source = new EventSource(url);
+      // Capture the source at the time the listener is attached so a
+      // late-firing onerror from a stale connection (already replaced
+      // by a new source after a reconnect) cannot tear down the live
+      // connection or schedule a redundant retry.
+      const sourceRef = source;
       // A successful "ready" event from the backend means we are talking
       // to it again; reset the backoff so the next outage starts at 1s
       // rather than continuing from whatever value the last outage left.
@@ -104,7 +109,17 @@ class GenerationEventBus {
         }
       });
       source.onerror = () => {
-        if (this.source && this.source.readyState === EventSource.CLOSED) {
+        // Ignore errors from a connection that has already been
+        // replaced (e.g. by scheduleReconnect or a manual
+        // setUrl/unsubscribe). Only the live source matters.
+        if (this.source !== sourceRef) return;
+        // For both CLOSED and CONNECTING errors, close the live
+        // source and route through our backoff path. Without this,
+        // the browser's built-in retry on a CONNECTING error
+        // bypasses scheduleReconnect and a briefly-flapping backend
+        // would be hammered once per second.
+        this.disconnect();
+        if (this.subscribers.size > 0) {
           this.scheduleReconnect();
         }
       };
