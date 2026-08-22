@@ -67,7 +67,13 @@ audioop-lts>=0.2.1; python_version >= "3.13"
 librosa>=0.10.0
 soundfile>=0.12.0
 numpy>=1.24.0,<2.0
-numba>=0.60.0,<0.61.0
+# numba 0.60.x ships no cp313 wheel, so on Python 3.13 pip falls back to a
+# source build that refuses to compile ("only versions >=3.9,<3.13 are
+# supported"). 0.61 is the first release with Python 3.13 support. The
+# <0.61 cap (38bf96f) was about release-CI wheel availability on 3.12, so
+# keep it there and relax it only where it makes installation impossible.
+numba>=0.60.0,<0.61.0; python_version < "3.13"
+numba>=0.61.0; python_version >= "3.13"
 pedalboard>=0.9.0
 
 # HTTP client (for CUDA backend download)
