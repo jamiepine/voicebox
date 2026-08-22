@@ -111,6 +111,21 @@ async def create_generation(
     db.commit()
     db.refresh(db_generation)
 
+    # Publish the initial "pending" state so subscribers on the
+    # single-stream /events/generations SSE know about the new
+    # generation from the moment it's enqueued.
+    from ..generation_events import bus
+    bus.publish(
+        "generation",
+        {
+            "id": db_generation.id,
+            "status": db_generation.status or "generating",
+            "duration": db_generation.duration,
+            "error": db_generation.error,
+            "source": db_generation.source,
+        },
+    )
+
     return GenerationResponse.model_validate(db_generation)
 
 
@@ -137,6 +152,24 @@ async def update_generation_status(
 
     db.commit()
     db.refresh(generation)
+
+    # Broadcast to the in-process event bus so the single-stream SSE
+    # endpoint /events/generations can push this update to every
+    # browser subscriber without each pending generation needing its
+    # own EventSource connection (which would otherwise hit the
+    # HTTP/1.1 per-origin 6-connection cap).
+    from ..generation_events import bus
+    bus.publish(
+        "generation",
+        {
+            "id": generation.id,
+            "status": generation.status or "completed",
+            "duration": generation.duration,
+            "error": generation.error,
+            "source": generation.source,
+        },
+    )
+
     return GenerationResponse.model_validate(generation)
 
 
