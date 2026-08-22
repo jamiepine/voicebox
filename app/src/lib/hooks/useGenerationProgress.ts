@@ -20,11 +20,25 @@ const AGENT_SOURCES = new Set(['mcp', 'rest']);
  * HTTP/1.1 browsers cap same-origin connections at 6, and the original
  * implementation (one EventSource per pending generation) made the
  * "Send" button unresponsive past the 6th concurrent generation.
+ *
+ * The pending-id membership check is done against the live zustand
+ * state (not a captured snapshot from the render that subscribed the
+ * handler). If we captured a snapshot, a terminal event that arrives
+ * between subscribe and the next render would be missed: the
+ * generation would stay "pending" forever, no toast, no autoplay, no
+ * story attachment.
+ *
+ * The effect re-subscribes only when the *count* of pending IDs
+ * changes, not on every individual add/remove, so a generation
+ * arriving mid-handler does not tear down our subscription and lose
+ * the in-flight event.
  */
 export function useGenerationProgress() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const pendingIds = useGenerationStore((s) => s.pendingGenerationIds);
+  // We only consume the count to know when to (re)attach; the actual
+  // membership is read from the live store inside the handler.
+  const pendingCount = useGenerationStore((s) => s.pendingGenerationIds.size);
   const removePendingGeneration = useGenerationStore((s) => s.removePendingGeneration);
   const removePendingStoryAdd = useGenerationStore((s) => s.removePendingStoryAdd);
   const isPlaying = usePlayerStore((s) => s.isPlaying);
@@ -51,10 +65,10 @@ export function useGenerationProgress() {
   setAudioRef.current = setAudioWithAutoPlay;
 
   useEffect(() => {
-    const pendingSet = new Set(useGenerationStore.getState().pendingGenerationIds);
-
     const handle = (data: GenerationStatusEvent) => {
-      if (!pendingSet.has(data.id)) {
+      // Read the live store, not a captured snapshot.
+      const isPending = useGenerationStore.getState().pendingGenerationIds.has(data.id);
+      if (!isPending) {
         // Event for an ID we don't currently track -- still useful to
         // refetch history so completed items appear in the list.
         if (data.status === 'completed' || data.status === 'failed') {
@@ -65,7 +79,6 @@ export function useGenerationProgress() {
 
       if (data.status === 'completed') {
         removePendingRef.current(data.id);
-        pendingSet.delete(data.id);
 
         queryClientRef.current.refetchQueries({ queryKey: ['history'] });
 
@@ -100,7 +113,6 @@ export function useGenerationProgress() {
       } else if (data.status === 'failed' || data.status === 'not_found') {
         removePendingRef.current(data.id);
         removeStoryRef.current(data.id);
-        pendingSet.delete(data.id);
 
         queryClientRef.current.refetchQueries({ queryKey: ['history'] });
 
@@ -114,5 +126,9 @@ export function useGenerationProgress() {
 
     const unsubscribe = generationEventBus.subscribe(handle);
     return unsubscribe;
-  }, [pendingIds]);
+    // Re-subscribe only when the *number* of pending IDs changes (e.g.
+    // the user enqueued a new generation or cleared the pending list).
+    // Re-running on individual add/remove would tear down the
+    // subscription and could drop an in-flight event.
+  }, [pendingCount]);
 }

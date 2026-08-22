@@ -15,6 +15,9 @@
 //     re-emits each message as a callback to subscribed handlers.
 //   - The EventSource is opened lazily on first subscriber and closed
 //     when the last subscriber unsubscribes.
+//   - Reconnects use exponential backoff (1s -> 30s) that resets only on
+//     a successful "ready" event or when the last subscriber leaves,
+//     not on every disconnect, so a downed backend doesn't get hammered.
 
 import { useServerStore } from '@/stores/serverStore';
 
@@ -34,6 +37,7 @@ class GenerationEventBus {
   private subscribers: Set<GenerationSubscriber> = new Set();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
+  private static readonly MAX_BACKOFF_MS = 30_000;
 
   /**
    * Subscribe to generation status updates. Returns an unsubscribe
@@ -46,6 +50,9 @@ class GenerationEventBus {
     return () => {
       this.subscribers.delete(fn);
       if (this.subscribers.size === 0) {
+        // Last subscriber left: close the socket and reset backoff so
+        // the next session starts fresh at 1s, not 30s.
+        this.reconnectDelay = 1000;
         this.disconnect();
       }
     };
@@ -58,8 +65,8 @@ class GenerationEventBus {
 
   /**
    * Override the SSE endpoint URL. Tests / dev overrides use this; in
-   * production the apiClient.getGenerationEventsUrl() helper picks
-   * the right base URL.
+   * production defaultGenerationEventsUrl() picks the right base URL
+   * from useServerStore (dev 127.0.0.1 vs production Tauri sidecar).
    */
   setUrl(url: string): void {
     if (url === this.url) return;
@@ -75,6 +82,12 @@ class GenerationEventBus {
     const url = this.url ?? defaultGenerationEventsUrl();
     try {
       const source = new EventSource(url);
+      // A successful "ready" event from the backend means we are talking
+      // to it again; reset the backoff so the next outage starts at 1s
+      // rather than continuing from whatever value the last outage left.
+      source.addEventListener('ready', () => {
+        this.reconnectDelay = 1000;
+      });
       source.addEventListener('generation', (ev) => {
         try {
           const data = JSON.parse((ev as MessageEvent).data) as GenerationStatusEvent;
@@ -89,9 +102,6 @@ class GenerationEventBus {
         } catch (err) {
           console.error('failed to parse generation event', err);
         }
-      });
-      source.addEventListener('ready', () => {
-        this.reconnectDelay = 1000;
       });
       source.onerror = () => {
         if (this.source && this.source.readyState === EventSource.CLOSED) {
@@ -109,7 +119,13 @@ class GenerationEventBus {
     if (this.reconnectTimer) return;
     if (this.subscribers.size === 0) return;
     const delay = this.reconnectDelay;
-    this.reconnectDelay = Math.min(this.reconnectDelay * 2, 30000);
+    // Schedule the next attempt with backoff. disconnect() in the
+    // timer callback is intentionally NOT resetting reconnectDelay --
+    // only the "ready" listener above (on a successful reconnect) and
+    // the last-unsubscriber case in subscribe() reset it. This way a
+    // downed backend sees retries at 1s, 2s, 4s, ... up to 30s instead
+    // of being hammered once per second.
+    this.reconnectDelay = Math.min(this.reconnectDelay * 2, GenerationEventBus.MAX_BACKOFF_MS);
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       if (this.subscribers.size === 0) return;
@@ -131,7 +147,8 @@ class GenerationEventBus {
       }
       this.source = null;
     }
-    this.reconnectDelay = 1000;
+    // Note: we intentionally do NOT reset reconnectDelay here. The
+    // "ready" event listener and the last-unsubscriber path reset it.
   }
 }
 

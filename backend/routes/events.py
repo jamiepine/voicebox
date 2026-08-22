@@ -63,9 +63,12 @@ async def generation_events_stream(request: Request):
     out to every subscriber here, regardless of how many generations
     are in flight.
     """
-    queue = generation_events.bus.subscribe()
-
     async def event_stream():
+        # Subscribe inside the generator so the queue is created only
+        # when we are actually about to stream. If the client aborts
+        # before the response body starts, the finally below still runs
+        # and unsubscribes -- no leaked subscriber on the bus.
+        queue = generation_events.bus.subscribe()
         try:
             # Immediate hello so EventSource knows the connection is live.
             yield {"event": "ready", "data": "{}"}
@@ -84,3 +87,4 @@ async def generation_events_stream(request: Request):
             generation_events.bus.unsubscribe(queue)
 
     return EventSourceResponse(event_stream())
+
