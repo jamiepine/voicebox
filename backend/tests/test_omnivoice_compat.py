@@ -15,6 +15,8 @@ globally; run serially, not under ``pytest-xdist`` with per-worker isolation.
 """
 
 import sys
+import time
+import threading
 
 import pytest
 import torch
@@ -303,3 +305,58 @@ def test_clear_codec_layer_cache_is_safe_when_codec_never_imported():
     finally:
         if saved is not None:
             sys.modules[name] = saved
+
+
+def test_ensure_asr_loads_once_under_concurrency():
+    """Overlapping clone requests must load Whisper exactly once.
+
+    Regression: ``_ensure_asr`` runs inside the worker thread that
+    ``asyncio.to_thread`` spawns, so two clone requests without reference text
+    could both clear the ``_asr_loaded`` check before either set it. Whisper
+    large-v3-turbo is ~1.6 GB, so a duplicate load is real waste.
+
+    The barrier and the sleep inside the fake load are what make the race
+    deterministic: without the lock every worker gets past the check.
+    """
+    from backend.backends.omnivoice_backend import OmniVoiceBackend
+
+    workers = 8
+    calls = []
+    calls_lock = threading.Lock()
+    at_the_gate = threading.Barrier(workers)
+
+    class FakeModel:
+        def load_asr_model(self):
+            with calls_lock:
+                calls.append(1)
+            time.sleep(0.05)
+
+    backend = OmniVoiceBackend()
+    backend.model = FakeModel()
+
+    def worker():
+        at_the_gate.wait()
+        backend._ensure_asr()
+
+    threads = [threading.Thread(target=worker) for _ in range(workers)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert len(calls) == 1
+    assert backend._asr_loaded is True
+
+
+def test_ensure_asr_is_a_noop_once_loaded():
+    from backend.backends.omnivoice_backend import OmniVoiceBackend
+
+    class ExplodingModel:
+        def load_asr_model(self):
+            raise AssertionError("must not reload once _asr_loaded is set")
+
+    backend = OmniVoiceBackend()
+    backend.model = ExplodingModel()
+    backend._asr_loaded = True
+
+    backend._ensure_asr()  # must not raise

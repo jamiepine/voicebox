@@ -24,6 +24,7 @@ import asyncio
 import gc
 import logging
 import sys
+import threading
 from typing import Any, Optional, Tuple
 
 import numpy as np
@@ -98,6 +99,9 @@ class OmniVoiceBackend:
         self._device = None
         self._asr_loaded = False
         self._model_load_lock = asyncio.Lock()
+        # A threading lock, not an asyncio one: _ensure_asr runs inside the
+        # worker thread that asyncio.to_thread spawns, not on the event loop.
+        self._asr_load_lock = threading.Lock()
 
     def _get_device(self) -> str:
         # MPS is allowed: from_pretrained keeps the audio tokenizer on CPU
@@ -194,9 +198,17 @@ class OmniVoiceBackend:
         """
         if self._asr_loaded:
             return
-        logger.info("Loading OmniVoice ASR for reference transcription...")
-        self.model.load_asr_model()
-        self._asr_loaded = True
+
+        # Two clone requests without reference text land in separate to_thread
+        # workers, so both can clear the check above before either sets the
+        # flag. Whisper large-v3-turbo is ~1.6 GB; loading it twice is the same
+        # class of waste the model load lock exists to prevent.
+        with self._asr_load_lock:
+            if self._asr_loaded:
+                return
+            logger.info("Loading OmniVoice ASR for reference transcription...")
+            self.model.load_asr_model()
+            self._asr_loaded = True
 
     async def create_voice_prompt(
         self,
