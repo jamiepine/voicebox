@@ -8,7 +8,11 @@ sqlalchemy>=2.0.0
 alembic>=1.13.0
 
 # ML models
-torch>=2.2.0
+# 2.5 is the first release with torch.nn.Buffer, which the vendored Higgs
+# Audio V2 codec uses (backend/vendor/higgs_audio_v2_tokenizer). The old >=2.2
+# floor was already well below what the CUDA/ROCm install paths and the
+# transformers 4.57 workarounds actually run against.
+torch>=2.5.0
 transformers>=4.36.0,<=4.57.6
 accelerate>=0.26.0
 huggingface_hub>=0.20.0

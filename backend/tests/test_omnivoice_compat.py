@@ -146,9 +146,28 @@ def test_strict_returns_target_unchanged():
 
 @pytest.fixture
 def restore_special_tokens_hook():
-    saved = PreTrainedTokenizerBase.__dict__.get("_set_model_specific_special_tokens")
+    """Undo the test double, including when the class never owned the attribute.
+
+    ``_set_model_specific_special_tokens`` is defined on ``SpecialTokensMixin``,
+    not on ``PreTrainedTokenizerBase``, so it is absent from the latter's own
+    ``__dict__``. Restoring only when a previous value existed would leave the
+    stub installed for the rest of the session and every later tokenizer test
+    would run against it.
+    """
+    sentinel = object()
+    saved = PreTrainedTokenizerBase.__dict__.get(
+        "_set_model_specific_special_tokens", sentinel
+    )
     yield
-    if saved is not None:
+    if saved is sentinel:
+        # Nothing was shadowed -- drop ours so the inherited one is found
+        # again. A class __dict__ is a read-only mappingproxy, so this has to
+        # go through del on the class itself.
+        try:
+            del PreTrainedTokenizerBase._set_model_specific_special_tokens
+        except AttributeError:
+            pass
+    else:
         PreTrainedTokenizerBase._set_model_specific_special_tokens = saved
 
 
@@ -189,6 +208,27 @@ def test_patch_is_idempotent(restore_special_tokens_hook):
     PreTrainedTokenizerBase._set_model_specific_special_tokens = lambda self, tokens: None
     assert compat.patch_extra_special_tokens() is True
     assert compat.patch_extra_special_tokens() is False
+
+
+def test_teardown_leaves_no_stub_behind(restore_special_tokens_hook):
+    """The fixture must not leak the double into the rest of the session.
+
+    Regression: the original teardown only restored when a previous value had
+    been shadowed. ``_set_model_specific_special_tokens`` lives on
+    ``SpecialTokensMixin``, so ``PreTrainedTokenizerBase`` never owns it and the
+    stub survived every test that used this fixture.
+    """
+    assert "_set_model_specific_special_tokens" not in PreTrainedTokenizerBase.__dict__
+
+    PreTrainedTokenizerBase._set_model_specific_special_tokens = lambda self, tokens: None
+    compat.patch_extra_special_tokens()
+    assert "_set_model_specific_special_tokens" in PreTrainedTokenizerBase.__dict__
+
+
+def test_inherited_method_is_reachable_after_teardown():
+    """Runs after the fixture above has torn down; the real method must be back."""
+    assert "_set_model_specific_special_tokens" not in PreTrainedTokenizerBase.__dict__
+    assert callable(PreTrainedTokenizerBase._set_model_specific_special_tokens)
 
 
 @pytest.mark.parametrize(

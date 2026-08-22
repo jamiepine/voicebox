@@ -97,6 +97,7 @@ class OmniVoiceBackend:
         self.model_size = "default"  # OmniVoice ships a single checkpoint
         self._device = None
         self._asr_loaded = False
+        self._model_load_lock = asyncio.Lock()
 
     def _get_device(self) -> str:
         # MPS is allowed: from_pretrained keeps the audio tokenizer on CPU
@@ -123,7 +124,13 @@ class OmniVoiceBackend:
         if self.model is not None:
             return
 
-        await asyncio.to_thread(self._load_model_sync)
+        # Both create_voice_prompt() and generate() call this, so two requests
+        # arriving together can clear the check above before either assigns
+        # self.model. At 3.3 GB a duplicate load is an OOM, not just waste.
+        async with self._model_load_lock:
+            if self.model is not None:
+                return
+            await asyncio.to_thread(self._load_model_sync)
 
     def _load_model_sync(self) -> None:
         model_name = "omnivoice"
@@ -212,7 +219,14 @@ class OmniVoiceBackend:
 
         if cache_key:
             cached = get_cached_voice_prompt(cache_key)
-            if isinstance(cached, dict) and "ref_audio_tokens" in cached:
+            # Check the version here rather than at generation time: a stale
+            # entry should be a cache miss and get re-encoded, not a hard
+            # failure every time the profile is used.
+            if (
+                isinstance(cached, dict)
+                and "ref_audio_tokens" in cached
+                and cached.get("format_version") == _VOICE_CLONE_PROMPT_FORMAT_VERSION
+            ):
                 return cached, True
 
         def _encode_sync() -> dict:

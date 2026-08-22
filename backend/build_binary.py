@@ -298,10 +298,12 @@ def build_server(cuda=False, rocm=False):
             "omnivoice",
             # The vendored codec builds its two sub-models through
             # AutoModel.from_config(), which transformers resolves at runtime —
-            # static analysis cannot see either of them.
-            "--hidden-import",
+            # static analysis cannot see either of them. The parent package is
+            # not enough: the weights live in modeling_dac / modeling_hubert,
+            # which transformers itself imports lazily.
+            "--collect-submodules",
             "transformers.models.dac",
-            "--hidden-import",
+            "--collect-submodules",
             "transformers.models.hubert",
             # Reference-audio preprocessing (silence trimming) in
             # omnivoice.utils.audio.

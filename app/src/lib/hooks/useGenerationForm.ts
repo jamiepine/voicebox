@@ -5,6 +5,7 @@ import * as z from 'zod';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { EffectConfig } from '@/lib/api/types';
+import { engineSupportsInstruct } from '@/lib/constants/engines';
 import { LANGUAGE_CODES, type LanguageCode } from '@/lib/constants/languages';
 import { useGeneration } from '@/lib/hooks/useGeneration';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
@@ -144,9 +145,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
 
       const hasModelSizes =
         engine === 'qwen' || engine === 'qwen_custom_voice' || engine === 'tada';
-      // Only Qwen CustomVoice actually honors the instruct kwarg at model level.
-      // Base Qwen3-TTS accepts the kwarg but ignores it.
-      const supportsInstruct = engine === 'qwen_custom_voice';
+      const supportsInstruct = engineSupportsInstruct(engine);
       const effectsChain = options.getEffectsChain?.();
       // This now returns immediately with status="generating"
       const result = await generation.mutateAsync({
