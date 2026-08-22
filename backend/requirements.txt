@@ -40,6 +40,16 @@ pyloudnorm
 # provides the only class TADA uses: Snake1d.)
 torchaudio
 
+# OmniVoice sub-dependencies (omnivoice itself is installed --no-deps
+# in the setup script because it requires transformers>=5.3, while several
+# engine workarounds here depend on transformers 4.57.x internals. The one
+# class it needs from 5.x — HiggsAudioV2TokenizerModel — is vendored under
+# backend/vendor/. Same treatment mlx-lm / mlx-audio already get.
+# Its remaining runtime deps (torch, torchaudio, transformers, accelerate,
+# numpy, soundfile, librosa) are all listed elsewhere in this file; gradio,
+# tensorboardX and webdataset are demo/training-only and deliberately skipped.
+pydub
+
 # Kokoro TTS (lightweight 82M-param engine)
 kokoro>=0.9.4
 misaki[en,ja,zh]>=0.9.4

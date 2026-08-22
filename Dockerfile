@@ -63,6 +63,7 @@ RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
 RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
+RUN pip install --no-cache-dir --prefix=/install --no-deps omnivoice
 RUN pip install --no-cache-dir --prefix=/install \
     git+https://github.com/QwenLM/Qwen3-TTS.git
 
