@@ -577,6 +577,9 @@ async def create_voice_prompt_for_profile(
         raise ValueError(f"No samples found for profile {profile_id}")
 
     tts_model = get_tts_backend_for_engine(engine)
+    prompt_kwargs = {"use_cache": use_cache}
+    if engine == "tada":
+        prompt_kwargs["language"] = profile.language
 
     if len(samples) == 1:
         sample = samples[0]
@@ -586,7 +589,7 @@ async def create_voice_prompt_for_profile(
         voice_prompt, _ = await tts_model.create_voice_prompt(
             str(sample_audio_path),
             sample.reference_text,
-            use_cache=use_cache,
+            **prompt_kwargs,
         )
         return voice_prompt
 
@@ -619,7 +622,7 @@ async def create_voice_prompt_for_profile(
     voice_prompt, _ = await tts_model.create_voice_prompt(
         str(combined_path),
         combined_text,
-        use_cache=use_cache,
+        **prompt_kwargs,
     )
     return voice_prompt
 
