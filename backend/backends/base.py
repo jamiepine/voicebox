@@ -6,6 +6,7 @@ voice prompt combination, and model loading progress tracking.
 """
 
 import logging
+import os
 import platform
 from contextlib import contextmanager
 from pathlib import Path
@@ -77,6 +78,13 @@ def is_model_cached(
         return False
 
 
+# Documented escape hatch (docs/content/docs/overview/gpu-acceleration.mdx):
+# users whose GPU has no compiled kernels in the bundled PyTorch set this to run
+# on CPU instead of crashing at generation time.
+FORCE_CPU_ENV_VAR = "VOICEBOX_FORCE_CPU"
+FORCE_CPU_ENABLED_VALUE = "1"
+
+
 def get_torch_device(
     *,
     allow_xpu: bool = False,
@@ -92,7 +100,16 @@ def get_torch_device(
         allow_directml: Check for DirectML (Windows) support.
         allow_mps: Allow MPS (Apple Silicon). If False, MPS falls back to CPU.
         force_cpu_on_mac: Force CPU on macOS regardless of GPU availability.
+
+    The VOICEBOX_FORCE_CPU override wins over every other candidate, and is
+    resolved before torch is imported so it still works when the installed
+    build is the reason CPU is wanted.
     """
+    # Stripped: on Windows, where this override matters most, it is usually set
+    # through the GUI environment editor.
+    if os.environ.get(FORCE_CPU_ENV_VAR, "").strip() == FORCE_CPU_ENABLED_VALUE:
+        return "cpu"
+
     if force_cpu_on_mac and platform.system() == "Darwin":
         return "cpu"
 
