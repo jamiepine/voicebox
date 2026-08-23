@@ -16,6 +16,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
+import { engineSupportsInstruct } from '@/lib/constants/engines';
 import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
 import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
@@ -438,7 +439,7 @@ export function FloatingGenerateBox({
 
                 {/* Instruct toggle — only for Qwen CustomVoice, which actually honors the kwarg */}
                 <AnimatePresence>
-                  {isExpanded && form.watch('engine') === 'qwen_custom_voice' && (
+                  {isExpanded && engineSupportsInstruct(form.watch('engine')) && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -507,7 +508,7 @@ export function FloatingGenerateBox({
 
             {/* Additive instruct textarea — shown below main text when toggle is on and engine supports it */}
             <AnimatePresence>
-              {isInstructExpanded && form.watch('engine') === 'qwen_custom_voice' && (
+              {isInstructExpanded && engineSupportsInstruct(form.watch('engine')) && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}

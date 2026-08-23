@@ -216,6 +216,7 @@ TTS_ENGINES = {
     "chatterbox_turbo": "Chatterbox Turbo",
     "tada": "TADA",
     "kokoro": "Kokoro",
+    "omnivoice": "OmniVoice",
 }
 
 LLM_ENGINES = {
@@ -370,6 +371,42 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             hf_repo_id="hexgrad/Kokoro-82M",
             size_mb=350,
             languages=["en", "es", "fr", "hi", "it", "pt", "ja", "zh"],
+        ),
+        ModelConfig(
+            model_name="omnivoice",
+            display_name="OmniVoice (Multilingual)",
+            engine="omnivoice",
+            hf_repo_id="k2-fsa/OmniVoice",
+            size_mb=3300,
+            supports_instruct=True,
+            # OmniVoice covers 600+ languages; these are the ones already in
+            # Voicebox's language enum. Widening that enum is a separate change
+            # that touches the API contract and the frontend.
+            languages=[
+                "zh",
+                "en",
+                "ja",
+                "ko",
+                "de",
+                "fr",
+                "ru",
+                "pt",
+                "es",
+                "it",
+                "he",
+                "ar",
+                "da",
+                "el",
+                "fi",
+                "hi",
+                "ms",
+                "nl",
+                "no",
+                "pl",
+                "sv",
+                "sw",
+                "tr",
+            ],
         ),
     ]
 
@@ -719,6 +756,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .kokoro_backend import KokoroTTSBackend
 
             backend = KokoroTTSBackend()
+        elif engine == "omnivoice":
+            from .omnivoice_backend import OmniVoiceBackend
+
+            backend = OmniVoiceBackend()
         elif engine == "qwen_custom_voice":
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 
