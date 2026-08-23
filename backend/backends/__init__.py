@@ -374,7 +374,7 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
         ),
         ModelConfig(
             model_name="omnivoice",
-            display_name="OmniVoice (600+ Languages)",
+            display_name="OmniVoice (Multilingual)",
             engine="omnivoice",
             hf_repo_id="k2-fsa/OmniVoice",
             size_mb=3300,

@@ -38,7 +38,7 @@ const ENGINE_DESCRIPTIONS: Record<string, string> = {
   chatterbox_turbo: 'English, [laugh] [cough] tags',
   tada: 'HumeAI, 700s+ coherent audio',
   kokoro: '82M params, CPU realtime, 8 langs',
-  omnivoice: '600+ languages, voice design',
+  omnivoice: '23 languages, voice design',
 };
 
 /** Engines that only support English and should force language to 'en' on select. */

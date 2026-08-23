@@ -70,7 +70,7 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
   kokoro:
     'Kokoro 82M by hexgrad. Tiny 82M-parameter TTS that runs at CPU realtime. Supports 8 languages with pre-built voice styles. Apache 2.0 licensed.',
   omnivoice:
-    'OmniVoice by k2-fsa. Zero-shot voice cloning across 600+ languages via a diffusion language model, plus attribute-based voice design (gender, age, pitch, accent). 24kHz output, RTF as low as 0.025. Apache 2.0 licensed.',
+    'OmniVoice by k2-fsa. Zero-shot voice cloning via a diffusion language model, plus attribute-based voice design (gender, age, pitch, accent). The model covers 600+ languages; Voicebox exposes the 23 in its own language list. 24kHz output, RTF as low as 0.025. Apache 2.0 licensed.',
   'qwen-custom-voice-1.7B':
     'Qwen3-TTS CustomVoice 1.7B by Alibaba. 9 premium preset voices with instruct-based style control for tone, emotion, and prosody. Supports 10 languages.',
   'qwen-custom-voice-0.6B':
