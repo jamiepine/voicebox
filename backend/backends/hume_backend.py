@@ -52,6 +52,21 @@ _TADA_CODEC_WEIGHT_FILES = [
     "encoder/model.safetensors",
 ]
 
+_TADA_ALIGNER_LANGUAGES = frozenset({"ar", "ch", "de", "es", "fr", "it", "ja", "pl", "pt"})
+_TADA_LANGUAGE_ALIASES = {"zh": "ch"}
+
+
+def _get_tada_aligner_language(language: str | None, model_size: str) -> str | None:
+    """Return the documented TADA aligner code for a 3B language."""
+    if model_size != "3B":
+        return None
+
+    normalized = (language or "").strip().lower()
+    normalized = _TADA_LANGUAGE_ALIASES.get(normalized, normalized)
+    if not normalized or normalized == "en":
+        return None
+    return normalized if normalized in _TADA_ALIGNER_LANGUAGES else None
+
 
 class HumeTadaBackend:
     """HumeAI TADA TTS backend for high-quality voice cloning."""
@@ -64,6 +79,8 @@ class HumeTadaBackend:
         self.model_size = "1B"  # default to 1B
         self._device = None
         self._model_load_lock = asyncio.Lock()
+        self._encoder_lock = asyncio.Lock()
+        self._encoder_language: str | None = None
 
     def _get_device(self) -> str:
         # Force CPU on macOS — MPS has issues with flow matching
@@ -176,6 +193,7 @@ class HumeTadaBackend:
             logger.info("Loading TADA encoder...")
             self.encoder = Encoder.from_pretrained(TADA_CODEC_REPO, subfolder="encoder").to(device)
             self.encoder.eval()
+            self._encoder_language = None
 
             # Load the causal LM (includes decoder for wav generation).
             # TadaForCausalLM.from_pretrained() calls
@@ -200,6 +218,7 @@ class HumeTadaBackend:
         if self.encoder is not None:
             del self.encoder
             self.encoder = None
+        self._encoder_language = None
 
         device = self._device
         self._device = None
@@ -214,6 +233,7 @@ class HumeTadaBackend:
         audio_path: str,
         reference_text: str,
         use_cache: bool = True,
+        language: str | None = None,
     ) -> Tuple[dict, bool]:
         """
         Create voice prompt from reference audio using TADA's encoder.
@@ -221,61 +241,101 @@ class HumeTadaBackend:
         TADA's encoder performs forced alignment between audio and text tokens,
         producing an EncoderOutput with 1:1 token-audio alignment. If no
         reference_text is provided, the encoder uses built-in ASR (English only).
+        The 3B model selects a documented language aligner here; 1B always uses
+        the default English aligner.
 
         We serialize the EncoderOutput to a dict for caching.
         """
         await self.load_model(self.model_size)
 
-        cache_key = ("tada_" + get_cache_key(audio_path, reference_text)) if use_cache else None
+        aligner_language = _get_tada_aligner_language(language, self.model_size)
+        requested_language = (language or "").strip().lower()
+        if self.model_size == "3B" and requested_language not in {"", "en"} and aligner_language is None:
+            logger.warning("[TADA] Unsupported aligner language=%s; using the default English aligner", language)
+
+        if self.model_size == "3B":
+            cache_prefix = f"tada_v2_{aligner_language or 'en'}_"
+        else:
+            cache_prefix = "tada_"
+        cache_key = cache_prefix + get_cache_key(audio_path, reference_text) if use_cache else None
 
         if cache_key:
             cached = get_cached_voice_prompt(cache_key)
             if cached is not None and isinstance(cached, dict):
                 return cached, True
 
-        def _encode_sync():
-            import torch
-            import soundfile as sf
+        async with self._encoder_lock:
+            # A concurrent request may have populated the cache while this one waited.
+            if cache_key:
+                cached = get_cached_voice_prompt(cache_key)
+                if cached is not None and isinstance(cached, dict):
+                    return cached, True
 
-            device = self._device
+            if self.encoder is None or self._encoder_language != aligner_language:
 
-            # Load audio with soundfile (torchaudio 2.10+ requires torchcodec)
-            audio_np, sr = sf.read(str(audio_path), dtype="float32")
-            audio = torch.from_numpy(audio_np).float()
-            if audio.ndim == 1:
-                audio = audio.unsqueeze(0)  # (samples,) -> (1, samples)
-            else:
-                audio = audio.T  # (samples, channels) -> (channels, samples)
-            audio = audio.to(device)
+                def _load_encoder_sync():
+                    from tada.modules.encoder import Encoder
 
-            # Encode with forced alignment.
-            # Must run under inference_mode: encoder params still require
-            # grad by default, and an autograd graph across the DAC/Snake
-            # stack can balloon VRAM far past the model footprint (#890).
-            text_arg = [reference_text] if reference_text else None
-            with torch.inference_mode():
-                prompt = self.encoder(audio, text=text_arg, sample_rate=sr)
+                    self.encoder = None
+                    self._encoder_language = None
+                    empty_device_cache(self._device)
 
-            # Serialize EncoderOutput to a dict of CPU tensors for caching
-            prompt_dict = {}
-            for field_name in prompt.__dataclass_fields__:
-                val = getattr(prompt, field_name)
-                if isinstance(val, torch.Tensor):
-                    prompt_dict[field_name] = val.detach().cpu()
-                elif isinstance(val, list):
-                    prompt_dict[field_name] = val
-                elif isinstance(val, (int, float)):
-                    prompt_dict[field_name] = val
+                    encoder_kwargs = {"subfolder": "encoder"}
+                    if aligner_language is not None:
+                        encoder_kwargs["language"] = aligner_language
+
+                    encoder = Encoder.from_pretrained(TADA_CODEC_REPO, **encoder_kwargs).to(self._device)
+                    encoder.eval()
+                    return encoder
+
+                self.encoder = await asyncio.to_thread(_load_encoder_sync)
+                self._encoder_language = aligner_language
+
+            logger.info("[TADA] Encoding voice prompt with aligner language=%s", aligner_language or "en")
+
+            def _encode_sync():
+                import soundfile as sf
+                import torch
+
+                device = self._device
+
+                # Load audio with soundfile (torchaudio 2.10+ requires torchcodec)
+                audio_np, sr = sf.read(str(audio_path), dtype="float32")
+                audio = torch.from_numpy(audio_np).float()
+                if audio.ndim == 1:
+                    audio = audio.unsqueeze(0)  # (samples,) -> (1, samples)
                 else:
-                    prompt_dict[field_name] = val
-            return prompt_dict
+                    audio = audio.T  # (samples, channels) -> (channels, samples)
+                audio = audio.to(device)
 
-        encoded = await asyncio.to_thread(_encode_sync)
+                # Encode with forced alignment.
+                # Must run under inference_mode: encoder params still require
+                # grad by default, and an autograd graph across the DAC/Snake
+                # stack can balloon VRAM far past the model footprint (#890).
+                text_arg = [reference_text] if reference_text else None
+                with torch.inference_mode():
+                    prompt = self.encoder(audio, text=text_arg, sample_rate=sr)
 
-        if cache_key:
-            cache_voice_prompt(cache_key, encoded)
+                # Serialize EncoderOutput to a dict of CPU tensors for caching
+                prompt_dict = {}
+                for field_name in prompt.__dataclass_fields__:
+                    val = getattr(prompt, field_name)
+                    if isinstance(val, torch.Tensor):
+                        prompt_dict[field_name] = val.detach().cpu()
+                    elif isinstance(val, list):
+                        prompt_dict[field_name] = val
+                    elif isinstance(val, (int, float)):
+                        prompt_dict[field_name] = val
+                    else:
+                        prompt_dict[field_name] = val
+                return prompt_dict
 
-        return encoded, False
+            encoded = await asyncio.to_thread(_encode_sync)
+
+            if cache_key:
+                cache_voice_prompt(cache_key, encoded)
+
+            return encoded, False
 
     async def combine_voice_prompts(
         self,
@@ -331,12 +391,8 @@ class HumeTadaBackend:
 
             prompt = EncoderOutput(**restored)
 
-            # For non-English with the 3B-ML model, we could reload the
-            # encoder with the language-specific aligner. However, the
-            # generation itself is language-agnostic — only the encoder's
-            # aligner changes. Since we encode at create_voice_prompt time,
-            # the language is already baked in. For simplicity, we don't
-            # reload the encoder here.
+            # Generation is language-agnostic. The language-specific aligner
+            # was selected when create_voice_prompt encoded this prompt.
 
             logger.info(f"[TADA] Generating ({language}), text length: {len(text)}")
 
