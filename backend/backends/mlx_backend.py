@@ -12,19 +12,19 @@ logger = logging.getLogger(__name__)
 
 # PATCH: Import and apply offline patch BEFORE any huggingface_hub usage
 # This prevents mlx_audio from making network requests when models are cached
-from ..utils.hf_offline_patch import patch_huggingface_hub_offline, ensure_original_qwen_config_cached
+from ..utils.hf_offline_patch import patch_huggingface_hub_offline, ensure_original_qwen_config_cached  # noqa: E402
 
 patch_huggingface_hub_offline()
 ensure_original_qwen_config_cached()
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
-from .base import (
+from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS  # noqa: E402
+from .base import (  # noqa: E402
     is_model_cached,
     combine_voice_prompts as _combine_voice_prompts,
     model_load_progress,
     empty_mlx_cache,
 )
-from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
+from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt  # noqa: E402
 
 
 class MLXTTSBackend:
