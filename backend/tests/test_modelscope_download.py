@@ -75,7 +75,7 @@ def test_load_model_sync_downloads_via_ensure_model_downloaded(tmp_path):
 
     local_dir = tmp_path / "models" / "modelscope" / "AI-ModelScope--Kokoro-82M"
 
-    def fake_ensure_downloaded(hf_repo_id, ms_repo_id, model_name):
+    def fake_ensure_downloaded(hf_repo_id, ms_repo_id, model_name, *, required_files=None):
         local_dir.mkdir(parents=True, exist_ok=True)
         (local_dir / "config.json").write_text("{}")
         (local_dir / "kokoro-v1_0.pth").write_bytes(b"fake")
@@ -92,7 +92,12 @@ def test_load_model_sync_downloads_via_ensure_model_downloaded(tmp_path):
     ):
         backend._load_model_sync()
 
-    mock_ensure.assert_called_once_with("hexgrad/Kokoro-82M", KOKORO_MS_REPO, "kokoro")
+    mock_ensure.assert_called_once_with(
+        "hexgrad/Kokoro-82M",
+        KOKORO_MS_REPO,
+        "kokoro",
+        required_files=["config.json", "kokoro-v1_0.pth"],
+    )
     fake_kmodel_cls.assert_called_once()
     _, kwargs = fake_kmodel_cls.call_args
     assert kwargs["config"] == str(local_dir / "config.json")
@@ -111,3 +116,41 @@ def test_is_model_cached_true_once_modelscope_download_completed(tmp_path):
     with patch("modelscope.snapshot_download") as mock_download:
         assert backend._is_model_cached() is True
     mock_download.assert_not_called()
+
+
+def test_load_model_sync_redownloads_when_directory_has_only_the_weight_file(tmp_path):
+    """A ModelScope download interrupted mid-way can leave the weight file
+    on disk without config.json. _is_model_cached() correctly reports this
+    as not cached (it requires both files), so load_model_async() proceeds
+    to _load_model_sync() -> ensure_model_downloaded(). That call must apply
+    the same required_files check — not just "any weight file present" — or
+    it treats the incomplete directory as done and returns it unchanged,
+    silently skipping the re-download."""
+    model_source.set_model_source("modelscope")
+    backend = KokoroTTSBackend()
+
+    local_dir = tmp_path / "models" / "modelscope" / "AI-ModelScope--Kokoro-82M"
+    local_dir.mkdir(parents=True)
+    (local_dir / "kokoro-v1_0.pth").write_bytes(b"partial-download")
+    assert backend._is_model_cached() is False
+
+    def fake_snapshot_download(model_id, local_dir=None, progress_callbacks=None, **kwargs):
+        assert model_id == KOKORO_MS_REPO
+        Path(local_dir).mkdir(parents=True, exist_ok=True)
+        (Path(local_dir) / "config.json").write_text("{}")
+        (Path(local_dir) / "kokoro-v1_0.pth").write_bytes(b"fake")
+        return local_dir
+
+    fake_kmodel_instance = MagicMock()
+    fake_kmodel_instance.to.return_value = fake_kmodel_instance
+    fake_kmodel_instance.eval.return_value = fake_kmodel_instance
+    fake_kmodel_cls = MagicMock(return_value=fake_kmodel_instance)
+
+    with (
+        patch("modelscope.snapshot_download", side_effect=fake_snapshot_download) as mock_download,
+        patch("kokoro.KModel", fake_kmodel_cls),
+    ):
+        backend._load_model_sync()
+
+    mock_download.assert_called_once()
+    assert (local_dir / "config.json").exists()

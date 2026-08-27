@@ -184,7 +184,12 @@ class KokoroTTSBackend:
             # model_load_progress — not in _get_model_path()/_is_model_cached(),
             # which must stay pure so a cache check can never silently kick
             # off a download outside task-manager/error-handling coverage.
-            model_path = ensure_model_downloaded(KOKORO_HF_REPO, KOKORO_MS_REPO, model_name)
+            model_path = ensure_model_downloaded(
+                KOKORO_HF_REPO,
+                KOKORO_MS_REPO,
+                model_name,
+                required_files=["config.json", "kokoro-v1_0.pth"],
+            )
 
             device = self.device
             logger.info(f"Loading Kokoro-82M on {device}...")

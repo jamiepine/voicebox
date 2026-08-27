@@ -134,7 +134,13 @@ def resolve_model_source(hf_repo_id: str, ms_repo_id: Optional[str], model_name:
     return str(get_models_dir() / "modelscope" / ms_repo_id.replace("/", "--"))
 
 
-def ensure_model_downloaded(hf_repo_id: str, ms_repo_id: Optional[str], model_name: str) -> str:
+def ensure_model_downloaded(
+    hf_repo_id: str,
+    ms_repo_id: Optional[str],
+    model_name: str,
+    *,
+    required_files: list[str] | None = None,
+) -> str:
     """
     Resolve the repo id or local path, downloading via ModelScope first if
     that's the active source, the model has a mirror, and it isn't already
@@ -144,6 +150,13 @@ def ensure_model_downloaded(hf_repo_id: str, ms_repo_id: Optional[str], model_na
     what registers the download with the task manager and catches/reports
     errors through the existing progress pipeline. Anywhere else (cache
     checks, status queries), use ``resolve_model_source()`` instead.
+
+    Args:
+        required_files: Same meaning as on ``is_model_cached_at()``. Pass the
+            same filenames the caller's own ``_is_model_cached()`` requires,
+            so an interrupted ModelScope download (some files landed, others
+            didn't) is recognized as incomplete here too instead of being
+            returned as if it were fully cached.
     """
     resolved = resolve_model_source(hf_repo_id, ms_repo_id, model_name)
 
@@ -154,7 +167,11 @@ def ensure_model_downloaded(hf_repo_id: str, ms_repo_id: Optional[str], model_na
     # backend's own ``_is_model_cached()``), so it must recognize whichever
     # weight format the specific engine uses. Matches the fallback glob
     # already used by GET /models/status (routes/models.py).
-    if is_model_cached_at(resolved, weight_extensions=(".safetensors", ".bin", ".pt", ".pth", ".npz")):
+    if is_model_cached_at(
+        resolved,
+        weight_extensions=(".safetensors", ".bin", ".pt", ".pth", ".npz"),
+        required_files=required_files,
+    ):
         return resolved
 
     from modelscope import snapshot_download
