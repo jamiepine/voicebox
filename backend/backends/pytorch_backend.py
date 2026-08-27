@@ -14,6 +14,7 @@ from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS, W
 from .base import (
     is_model_cached_at,
     resolve_model_source,
+    ensure_model_downloaded,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -41,10 +42,22 @@ class PyTorchTTSBackend:
         """Check if model is loaded."""
         return self.model is not None
 
+    @staticmethod
+    def _hf_model_id(model_size: str) -> str:
+        hf_model_map = {
+            "1.7B": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+            "0.6B": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
+        }
+        if model_size not in hf_model_map:
+            raise ValueError(f"Unknown model size: {model_size}")
+        return hf_model_map[model_size]
+
     def _get_model_path(self, model_size: str) -> str:
         """
         Get the HuggingFace Hub model ID (or a local ModelScope download
-        directory, if that's the active download source).
+        directory, if that's the active download source) — a pure lookup,
+        never downloads. Used for cache checks; loading goes through
+        ``ensure_model_downloaded()`` instead (see ``_load_model_sync``).
 
         Args:
             model_size: Model size (1.7B or 0.6B)
@@ -52,16 +65,8 @@ class PyTorchTTSBackend:
         Returns:
             Model path to pass into ``from_pretrained``
         """
-        hf_model_map = {
-            "1.7B": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
-            "0.6B": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
-        }
-
-        if model_size not in hf_model_map:
-            raise ValueError(f"Unknown model size: {model_size}")
-
         # ModelScope mirrors this Qwen repo under the identical repo id.
-        hf_repo_id = hf_model_map[model_size]
+        hf_repo_id = self._hf_model_id(model_size)
         return resolve_model_source(hf_repo_id, hf_repo_id, f"qwen-tts-{model_size}")
 
     def _is_model_cached(self, model_size: str) -> bool:
@@ -99,7 +104,11 @@ class PyTorchTTSBackend:
         with model_load_progress(model_name, is_cached):
             from qwen_tts import Qwen3TTSModel
 
-            model_path = self._get_model_path(model_size)
+            # The actual download (if any) happens here, inside
+            # model_load_progress — not in _get_model_path()/_is_model_cached(),
+            # which must stay pure.
+            hf_model_id = self._hf_model_id(model_size)
+            model_path = ensure_model_downloaded(hf_model_id, hf_model_id, model_name)
             logger.info("Loading TTS model %s on %s...", model_size, self.device)
 
             # Route both HF Hub and Transformers through a single cache root.
@@ -266,9 +275,15 @@ class PyTorchSTTBackend:
         """Check if model is loaded."""
         return self.model is not None
 
-    def _get_model_path(self, model_size: str) -> str:
+    @staticmethod
+    def _repo_ids(model_size: str) -> tuple[str, Optional[str]]:
         hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
         ms_repo = WHISPER_MS_REPOS.get(model_size)
+        return hf_repo, ms_repo
+
+    def _get_model_path(self, model_size: str) -> str:
+        """Pure lookup, never downloads — see PyTorchTTSBackend._get_model_path."""
+        hf_repo, ms_repo = self._repo_ids(model_size)
         return resolve_model_source(hf_repo, ms_repo, f"whisper-{model_size}")
 
     def _is_model_cached(self, model_size: str) -> bool:
@@ -300,7 +315,11 @@ class PyTorchSTTBackend:
         with model_load_progress(progress_model_name, is_cached):
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            model_name = self._get_model_path(model_size)
+            # The actual download (if any) happens here, inside
+            # model_load_progress — not in _get_model_path()/_is_model_cached(),
+            # which must stay pure.
+            hf_repo, ms_repo = self._repo_ids(model_size)
+            model_name = ensure_model_downloaded(hf_repo, ms_repo, progress_model_name)
             logger.info("Loading Whisper model %s on %s...", model_size, self.device)
 
             self.processor = WhisperProcessor.from_pretrained(model_name)

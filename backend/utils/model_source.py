@@ -9,6 +9,7 @@ See specs/001-modelscope-download-source/research.md §4.
 
 import json
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +48,17 @@ def get_model_source() -> str:
 
 
 def set_model_source(source: str) -> None:
-    """Persist a new download source. Raises ValueError for an unknown value."""
+    """Persist a new download source. Raises ValueError for an unknown value.
+
+    Writes to a temp file and renames it into place (atomic on POSIX and
+    Windows) instead of truncating the target in place — a concurrent
+    reader, or a write that fails partway, must never see invalid JSON and
+    silently fall back to the default, masking the user's actual setting.
+    """
     if source not in VALID_SOURCES:
         raise ValueError(f"Unknown model source: {source!r}. Must be one of {VALID_SOURCES}.")
 
     path = _settings_path()
-    path.write_text(json.dumps({"source": source}))
+    tmp_path = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp_path.write_text(json.dumps({"source": source}))
+    os.replace(tmp_path, path)

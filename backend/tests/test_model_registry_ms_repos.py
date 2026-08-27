@@ -46,6 +46,9 @@ def _ms_repo_ids_by_name():
 def test_pytorch_backend_ms_repo_ids():
     with patch("backend.backends.get_backend_type", return_value="pytorch"):
         actual = _ms_repo_ids_by_name()
+    # Exact key-set equality first: an extra/renamed registry entry with a
+    # wrong ms_repo_id would otherwise be silently skipped by the loop below.
+    assert set(actual) == set(EXPECTED_PYTORCH)
     for model_name, expected in EXPECTED_PYTORCH.items():
         assert actual[model_name] == expected, f"{model_name}: {actual[model_name]!r} != {expected!r}"
 
@@ -54,6 +57,7 @@ def test_mlx_backend_ms_repo_id_overrides():
     with patch("backend.backends.get_backend_type", return_value="mlx"):
         actual = _ms_repo_ids_by_name()
     expected = dict(EXPECTED_PYTORCH, **EXPECTED_MLX_OVERRIDES)
+    assert set(actual) == set(expected)
     for model_name, expected_id in expected.items():
         assert actual[model_name] == expected_id, f"{model_name}: {actual[model_name]!r} != {expected_id!r}"
 

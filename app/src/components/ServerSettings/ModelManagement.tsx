@@ -188,6 +188,10 @@ export function ModelManagement() {
     mutationFn: (source: ModelSource) => apiClient.updateModelSource(source),
     onSuccess: (data) => {
       queryClient.setQueryData(['modelSource'], data);
+      // Downloaded/downloading status is source-dependent (a model cached
+      // under the old source may not be under the new one, or vice versa)
+      // — without this, the list can show stale state for up to 5s.
+      queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
       toast({ title: t('models.downloadSource.toast.updated') });
     },
     onError: (error: Error) => {
@@ -883,6 +887,12 @@ export function ModelManagement() {
                         onClick={() => handleDownload(freshSelectedModel.model_name)}
                         variant="outline"
                         className="flex-1"
+                        disabled={updateModelSourceMutation.isPending}
+                        title={
+                          updateModelSourceMutation.isPending
+                            ? t('models.downloadSource.applying')
+                            : undefined
+                        }
                       >
                         <Download className="h-4 w-4 mr-2" />
                         {t('models.actions.retry')}
@@ -980,6 +990,12 @@ export function ModelManagement() {
                       size="sm"
                       onClick={() => handleDownload(freshSelectedModel.model_name)}
                       className="flex-1"
+                      disabled={updateModelSourceMutation.isPending}
+                      title={
+                        updateModelSourceMutation.isPending
+                          ? t('models.downloadSource.applying')
+                          : undefined
+                      }
                     >
                       <Download className="h-4 w-4 mr-2" />
                       {t('models.actions.download')}

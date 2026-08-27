@@ -15,7 +15,7 @@ def _isolated_data_dir(tmp_path, monkeypatch):
     import backend.config as config
 
     monkeypatch.setattr(config, "_data_dir", tmp_path)
-    yield
+    return
 
 
 @pytest.fixture

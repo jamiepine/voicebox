@@ -1,5 +1,16 @@
 <!--
 Sync Impact Report
+- Version change: 1.0.0 → 1.0.1
+- Modified principles: IV. Local-first privacy is non-negotiable (removed
+  "an HF mirror" from the listed download sources — that mechanism was
+  removed from the project after real-world verification showed it didn't
+  work; see specs/001-modelscope-download-source/research.md)
+- Added sections: none
+- Removed sections: none
+- Templates requiring updates: none
+- Deferred TODOs: none
+
+Prior report (1.0.0, superseded):
 - Version change: (none) → 1.0.0
 - Modified principles: n/a (initial ratification)
 - Added sections: Core Principles (5), Technical Constraints, Governance
@@ -45,7 +56,7 @@ non-invasive alternative isn't possible.
 ### IV. Local-first privacy is non-negotiable
 Models, voice profiles, and captures never leave the user's machine except
 for an explicit, user-initiated model download from a configured source
-(HuggingFace, an HF mirror, or ModelScope) or the opt-in Voicebox Cloud
+(HuggingFace or ModelScope) or the opt-in Voicebox Cloud
 sync. No telemetry, analytics, or generation content is sent anywhere by
 default. Any feature that introduces a new outbound network call must be
 justified against this principle before being added.
@@ -65,9 +76,12 @@ special-case a subset of platforms in the review's blocking issues.
   any new download source must either conform to that layout or be clearly
   isolated from it so existing cache-scanning code isn't silently broken.
 - New third-party SDKs (e.g. a model-hub client) are added to
-  `requirements.txt` only when the functionality can't be achieved through
-  the existing `huggingface_hub`-based path (e.g. pointing `HF_ENDPOINT` at
-  a compatible mirror).
+  `requirements.txt` only when the functionality genuinely can't be
+  achieved through the existing `huggingface_hub`-based path. Don't
+  introduce a dependency on a third-party HTTP proxy/mirror whose
+  availability or behavior isn't independently verified against a real,
+  running backend — a docs claim that it works is not verification (see
+  specs/001-modelscope-download-source/research.md for why this matters).
 
 ## Governance
 
@@ -81,4 +95,4 @@ this file in the same change, and bump the version per semantic versioning
 (MAJOR: incompatible principle removal/redefinition; MINOR: new principle
 or materially expanded guidance; PATCH: wording/clarification only).
 
-**Version**: 1.0.0 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-26
+**Version**: 1.0.1 | **Ratified**: 2026-08-26 | **Last Amended**: 2026-08-27

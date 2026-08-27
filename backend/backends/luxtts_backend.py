@@ -67,12 +67,18 @@ class LuxTTSBackend:
         await asyncio.to_thread(self._load_model_sync)
 
     def _load_model_sync(self):
+        from .base import ensure_model_downloaded
+
         model_name = "luxtts"
         is_cached = self._is_model_cached()
-        model_path = self._get_model_path("default")
 
         with model_load_progress(model_name, is_cached):
             from zipvoice.luxvoice import LuxTTS
+
+            # The actual download (if any) happens here, inside
+            # model_load_progress — not in _get_model_path()/_is_model_cached(),
+            # which must stay pure.
+            model_path = ensure_model_downloaded(LUXTTS_HF_REPO, LUXTTS_MS_REPO, model_name)
 
             device = self.device
             logger.info(f"Loading LuxTTS on {device}...")

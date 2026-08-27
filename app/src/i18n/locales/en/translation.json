@@ -1286,7 +1286,8 @@
       "toast": {
         "updated": "Download source updated",
         "updateFailed": "Failed to update download source"
-      }
+      },
+      "applying": "Applying new download source…"
     }
   }
 }

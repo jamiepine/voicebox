@@ -1258,7 +1258,8 @@
       "toast": {
         "updated": "下载源已更新",
         "updateFailed": "更新下载源失败"
-      }
+      },
+      "applying": "正在应用新的下载源…"
     }
   }
 }

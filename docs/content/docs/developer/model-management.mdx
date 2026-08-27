@@ -57,7 +57,7 @@ Each backend's `_get_model_path()` calls `resolve_model_source(hf_repo_id, ms_re
 
 ## Model Storage
 
-Models live in the platform HuggingFace cache:
+Models downloaded via HuggingFace (the default source) live in the platform HuggingFace cache:
 
 | Platform | Path |
 |----------|------|
@@ -67,6 +67,8 @@ Models live in the platform HuggingFace cache:
 | Docker | `/home/voicebox/.cache/huggingface/hub` (volume-mounted) |
 
 Set `VOICEBOX_MODELS_DIR` to override.
+
+Models downloaded via **ModelScope** (see [Download Source](#download-source)) live under the data directory instead, at `data/models/modelscope/<org>--<name>/` — independent of the HuggingFace cache above. If you're troubleshooting a model and it isn't where you expect, check `GET /settings/model-source` to see which source it was actually downloaded through.
 
 ## Progress Tracking
 

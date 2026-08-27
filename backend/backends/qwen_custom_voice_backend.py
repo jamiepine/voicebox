@@ -25,6 +25,7 @@ from . import TTSBackend, LANGUAGE_CODE_TO_NAME
 from .base import (
     is_model_cached_at,
     resolve_model_source,
+    ensure_model_downloaded,
     get_torch_device,
     combine_voice_prompts as _combine_voice_prompts,
     model_load_progress,
@@ -71,11 +72,16 @@ class QwenCustomVoiceBackend:
     def is_loaded(self) -> bool:
         return self.model is not None
 
-    def _get_model_path(self, model_size: str) -> str:
+    @staticmethod
+    def _hf_model_id(model_size: str) -> str:
         if model_size not in QWEN_CV_HF_REPOS:
             raise ValueError(f"Unknown model size: {model_size}")
+        return QWEN_CV_HF_REPOS[model_size]
+
+    def _get_model_path(self, model_size: str) -> str:
+        """Pure lookup, never downloads — loading uses ensure_model_downloaded()."""
         # ModelScope mirrors this Qwen repo under the identical repo id.
-        hf_repo_id = QWEN_CV_HF_REPOS[model_size]
+        hf_repo_id = self._hf_model_id(model_size)
         return resolve_model_source(hf_repo_id, hf_repo_id, f"qwen-custom-voice-{model_size}")
 
     def _is_model_cached(self, model_size: Optional[str] = None) -> bool:
@@ -104,7 +110,11 @@ class QwenCustomVoiceBackend:
         with model_load_progress(model_name, is_cached):
             from qwen_tts import Qwen3TTSModel
 
-            model_path = self._get_model_path(model_size)
+            # The actual download (if any) happens here, inside
+            # model_load_progress — not in _get_model_path()/_is_model_cached(),
+            # which must stay pure.
+            hf_model_id = self._hf_model_id(model_size)
+            model_path = ensure_model_downloaded(hf_model_id, hf_model_id, model_name)
             logger.info("Loading Qwen CustomVoice %s on %s...", model_size, self.device)
 
             if self.device == "cpu":

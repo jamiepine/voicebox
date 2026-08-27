@@ -151,7 +151,7 @@ Existing FastAPI backend at `backend/`, frontend at `app/src/`. No new top-level
 
 **Goal**: `/models/status` and `DELETE /models/{name}` correctly report and remove models downloaded via ModelScope.
 
-**Independent Test**: Per [quickstart.md](quickstart.md) Scenario 5 — after downloading via ModelScope, status shows `downloaded: true` with a size; delete removes it and status flips back.
+**Independent Test**: Per [quickstart.md](quickstart.md) Scenario 4 (renumbered after Scenario 4/HF-Mirror was removed — see the amendment note at the top of this file) — after downloading via ModelScope, status shows `downloaded: true` with a size; delete removes it and status flips back.
 
 ### Tests for User Story 4 (write first, confirm they fail)
 
@@ -163,7 +163,7 @@ Existing FastAPI backend at `backend/`, frontend at `app/src/`. No new top-level
 - [X] T039 [US4] Extend `get_model_status()` in `backend/routes/models.py` to also check the ModelScope-managed directory (via `is_model_cached_at()` / a size-on-disk helper) alongside the existing HF-cache check (makes T037 pass)
 - [X] T040 [US4] Extend `delete_model()` in `backend/routes/models.py` to delete from the ModelScope-managed directory when that's where the model actually lives, alongside the existing HF-cache deletion (makes T038 pass)
 
-**Checkpoint**: All 4 user stories independently functional (SC-005).
+**Checkpoint**: All active user stories (US1, US2, US4 — US3/HF-Mirror was removed) independently functional (SC-005).
 
 ---
 
@@ -185,7 +185,7 @@ Existing FastAPI backend at `backend/`, frontend at `app/src/`. No new top-level
 - **User Story 2 (Phase 4)**: Depends on Foundational; reuses US1's settings endpoints conceptually but touches disjoint backend files (`chatterbox_backend.py`, `chatterbox_turbo_backend.py`, `hume_backend.py`) — can run in parallel with US1 once Foundational is done.
 - **User Story 3 (Phase 5)**: Depends on Foundational only; trivially small since the mechanism is already built there.
 - **User Story 4 (Phase 6)**: Depends on Foundational; benefits from US1 existing (something to have actually downloaded via ModelScope to test against) but the route changes themselves don't depend on US1's code.
-- **Polish (Phase 7)**: Depends on all four user stories being complete.
+- **Polish (Phase 7)**: Depends on all active user stories being complete (US3/HF-Mirror is removed, not "complete" — see the amendment note at the top of this file).
 
 ### Parallel Opportunities
 
@@ -207,6 +207,6 @@ Existing FastAPI backend at `backend/`, frontend at `app/src/`. No new top-level
 
 1. Foundational → US1 (MVP: ModelScope works for mirrored models).
 2. Add US2 (nothing breaks when ModelScope is selected — the other 4 models still work).
-3. Add US3 (HF Mirror as a standalone, simpler option).
-4. Add US4 (status/delete correctness) — needed before calling the feature done, but doesn't block US1–US3 from being demoed first.
+3. ~~Add US3 (HF Mirror)~~ — removed; see the amendment note at the top of this file.
+4. Add US4 (status/delete correctness) — needed before calling the feature done, but doesn't block US1/US2 from being demoed first.
 5. Polish.

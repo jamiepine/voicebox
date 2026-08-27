@@ -15,6 +15,7 @@ from . import LLMBackend, DEFAULT_LLM_MAX_TOKENS, DEFAULT_LLM_TEMPERATURE
 from .base import (
     is_model_cached_at,
     resolve_model_source,
+    ensure_model_downloaded,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -73,11 +74,16 @@ class PyTorchQwenLLMBackend:
     def is_loaded(self) -> bool:
         return self.model is not None
 
-    def _get_model_path(self, model_size: str) -> str:
+    @staticmethod
+    def _hf_model_id(model_size: str) -> str:
         if model_size not in PYTORCH_HF_REPOS:
             raise ValueError(f"Unknown Qwen3 size: {model_size}")
+        return PYTORCH_HF_REPOS[model_size]
+
+    def _get_model_path(self, model_size: str) -> str:
+        """Pure lookup, never downloads — loading uses ensure_model_downloaded()."""
         # ModelScope mirrors this Qwen repo under the identical repo id.
-        hf_repo_id = PYTORCH_HF_REPOS[model_size]
+        hf_repo_id = self._hf_model_id(model_size)
         return resolve_model_source(hf_repo_id, hf_repo_id, _progress_name(model_size))
 
     def _is_model_cached(self, model_size: str) -> bool:
@@ -101,9 +107,14 @@ class PyTorchQwenLLMBackend:
 
         progress_model_name = _progress_name(model_size)
         is_cached = self._is_model_cached(model_size)
-        repo = self._get_model_path(model_size)
 
         with model_load_progress(progress_model_name, is_cached):
+            # The actual download (if any) happens here, inside
+            # model_load_progress — not in _get_model_path()/_is_model_cached(),
+            # which must stay pure.
+            hf_model_id = self._hf_model_id(model_size)
+            repo = ensure_model_downloaded(hf_model_id, hf_model_id, progress_model_name)
+
             logger.info("Loading Qwen3 %s on %s...", model_size, self.device)
             # Loads run with the process's default HF_HUB_OFFLINE state.
             # Forcing offline for cached models flips process-global state
@@ -197,11 +208,16 @@ class MLXQwenLLMBackend:
     def is_loaded(self) -> bool:
         return self.model is not None
 
-    def _get_model_path(self, model_size: str) -> str:
+    @staticmethod
+    def _hf_model_id(model_size: str) -> str:
         if model_size not in MLX_HF_REPOS:
             raise ValueError(f"Unknown Qwen3 size: {model_size}")
+        return MLX_HF_REPOS[model_size]
+
+    def _get_model_path(self, model_size: str) -> str:
+        """Pure lookup, never downloads — loading uses ensure_model_downloaded()."""
         # ModelScope mirrors this mlx-community repo under the identical id.
-        hf_repo_id = MLX_HF_REPOS[model_size]
+        hf_repo_id = self._hf_model_id(model_size)
         return resolve_model_source(hf_repo_id, hf_repo_id, _progress_name(model_size))
 
     def _is_model_cached(self, model_size: str) -> bool:
@@ -227,9 +243,14 @@ class MLXQwenLLMBackend:
 
         progress_model_name = _progress_name(model_size)
         is_cached = self._is_model_cached(model_size)
-        repo = self._get_model_path(model_size)
 
         with model_load_progress(progress_model_name, is_cached):
+            # The actual download (if any) happens here, inside
+            # model_load_progress — not in _get_model_path()/_is_model_cached(),
+            # which must stay pure.
+            hf_model_id = self._hf_model_id(model_size)
+            repo = ensure_model_downloaded(hf_model_id, hf_model_id, progress_model_name)
+
             logger.info("Loading Qwen3 %s via MLX...", model_size)
             # See the PyTorch loader comment — no offline forcing (issue #841).
             loaded = mlx_load(repo)

@@ -498,22 +498,26 @@ async def delete_model(model_name: str):
         cache_dir = hf_constants.HF_HUB_CACHE
         repo_cache_dir = Path(cache_dir) / ("models--" + hf_repo_id.replace("/", "--"))
 
-        # A model may live in the HuggingFace cache or in its own ModelScope
-        # local directory (see resolve_model_source in backend/backends/base.py),
-        # depending on which source it was downloaded through.
-        target_dir = repo_cache_dir
-        if not target_dir.exists() and config.ms_repo_id:
+        # A model may live in the HuggingFace cache, in its own ModelScope
+        # local directory (see resolve_model_source in
+        # backend/backends/base.py), or — if the user switched sources
+        # between downloads — both. Remove every location that exists, not
+        # just the first one found, so a stale copy can't linger and get
+        # reported as still downloaded afterward.
+        target_dirs = [d for d in [repo_cache_dir] if d.exists()]
+        if config.ms_repo_id:
             ms_dir = _modelscope_local_dir(config.ms_repo_id)
             if ms_dir.exists():
-                target_dir = ms_dir
+                target_dirs.append(ms_dir)
 
-        if not target_dir.exists():
+        if not target_dirs:
             raise HTTPException(status_code=404, detail=f"Model {model_name} not found in cache")
 
-        try:
-            shutil.rmtree(target_dir)
-        except OSError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}")
+        for target_dir in target_dirs:
+            try:
+                shutil.rmtree(target_dir)
+            except OSError as e:
+                raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}")
 
         return {"message": f"Model {model_name} deleted successfully"}
 

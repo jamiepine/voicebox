@@ -1,8 +1,8 @@
 """``ModelConfig.ms_repo_id`` — the optional ModelScope repository id.
 
 Absence (``None``) is the signal that a model has no ModelScope mirror and
-must fall back to the HF Mirror path when ModelScope is the active source
-(see specs/001-modelscope-download-source/data-model.md).
+downloads from huggingface.co directly, even when ModelScope is the active
+source (see specs/001-modelscope-download-source/data-model.md).
 """
 
 from backend.backends import ModelConfig
