@@ -16,6 +16,8 @@ from ..utils.tasks import get_task_manager
 
 router = APIRouter()
 
+_MODELSCOPE_WEIGHT_EXTENSIONS = (".safetensors", ".bin", ".pt", ".pth", ".npz")
+
 
 def _get_dir_size(path: Path) -> int:
     """Get total size of a directory in bytes."""
@@ -24,6 +26,34 @@ def _get_dir_size(path: Path) -> int:
         if f.is_file():
             total += f.stat().st_size
     return total
+
+
+def _modelscope_local_dir(ms_repo_id: str) -> Path:
+    """Local directory a ModelScope-sourced model would be downloaded into.
+
+    Mirrors ``resolve_model_source``'s naming in backend/backends/base.py.
+    """
+    from ..config import get_models_dir
+
+    return get_models_dir() / "modelscope" / ms_repo_id.replace("/", "--")
+
+
+def _check_modelscope_download(ms_repo_id: str) -> tuple[bool, float | None]:
+    """Return (downloaded, size_mb) for a model's ModelScope local directory."""
+    local_dir = _modelscope_local_dir(ms_repo_id)
+    if not local_dir.exists():
+        return False, None
+
+    has_weights = any(any(local_dir.rglob(f"*{ext}")) for ext in _MODELSCOPE_WEIGHT_EXTENSIONS)
+    if not has_weights:
+        return False, None
+
+    try:
+        size_mb = _get_dir_size(local_dir) / (1024 * 1024)
+    except Exception:
+        size_mb = None
+
+    return True, size_mb
 
 
 def _copy_with_progress(src: Path, dst: Path, progress_manager, copied_so_far: int, total_bytes: int) -> int:
@@ -251,6 +281,7 @@ async def get_model_status():
             "model_name": cfg.model_name,
             "display_name": cfg.display_name,
             "hf_repo_id": cfg.hf_repo_id,
+            "ms_repo_id": cfg.ms_repo_id,
             "model_size": cfg.model_size,
             "check_loaded": lambda c=cfg: check_model_loaded(c),
         }
@@ -341,6 +372,11 @@ async def get_model_status():
                                     pass
                 except Exception:
                     pass
+
+            # Neither HuggingFace cache location had it — check whether it
+            # was downloaded via ModelScope into its own local directory.
+            if not downloaded and config["ms_repo_id"]:
+                downloaded, size_mb = _check_modelscope_download(config["ms_repo_id"])
 
             try:
                 loaded = config["check_loaded"]()
@@ -462,13 +498,26 @@ async def delete_model(model_name: str):
         cache_dir = hf_constants.HF_HUB_CACHE
         repo_cache_dir = Path(cache_dir) / ("models--" + hf_repo_id.replace("/", "--"))
 
-        if not repo_cache_dir.exists():
+        # A model may live in the HuggingFace cache, in its own ModelScope
+        # local directory (see resolve_model_source in
+        # backend/backends/base.py), or — if the user switched sources
+        # between downloads — both. Remove every location that exists, not
+        # just the first one found, so a stale copy can't linger and get
+        # reported as still downloaded afterward.
+        target_dirs = [d for d in [repo_cache_dir] if d.exists()]
+        if config.ms_repo_id:
+            ms_dir = _modelscope_local_dir(config.ms_repo_id)
+            if ms_dir.exists():
+                target_dirs.append(ms_dir)
+
+        if not target_dirs:
             raise HTTPException(status_code=404, detail=f"Model {model_name} not found in cache")
 
-        try:
-            shutil.rmtree(repo_cache_dir)
-        except OSError as e:
-            raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}")
+        for target_dir in target_dirs:
+            try:
+                shutil.rmtree(target_dir)
+            except OSError as e:
+                raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}")
 
         return {"message": f"Model {model_name} deleted successfully"}
 

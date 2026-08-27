@@ -11,40 +11,53 @@ Voicebox manages two categories of models:
 
 **ASR Models** — Whisper for transcription. Five sizes, plus MLX-Whisper on Apple Silicon for ~8× faster transcription.
 
-Every model is described by a `ModelConfig` entry in `backend/backends/__init__.py`. Models are downloaded from HuggingFace Hub on first use and cached in the platform-standard HF cache.
+Every model is described by a `ModelConfig` entry in `backend/backends/__init__.py`. Models are downloaded on first use and cached, from whichever [download source](#download-source) is configured.
 
 ## Available TTS Models
 
-| Model | Engine | HuggingFace Repo | Size | VRAM | Languages |
-|-------|--------|------------------|------|------|-----------|
-| **Qwen TTS 1.7B** | `qwen` | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` | 3.5 GB | ~6 GB | 10 |
-| **Qwen TTS 0.6B** | `qwen` | `Qwen/Qwen3-TTS-12Hz-0.6B-Base` | 1.2 GB | ~2 GB | 10 |
-| **Qwen CustomVoice 1.7B** | `qwen_custom_voice` | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` | 3.5 GB | ~6 GB | 10 |
-| **Qwen CustomVoice 0.6B** | `qwen_custom_voice` | `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` | 1.2 GB | ~2 GB | 10 |
-| **LuxTTS** | `luxtts` | `YatharthS/LuxTTS` | 300 MB | ~1 GB | English |
-| **Chatterbox Multilingual** | `chatterbox` | `ResembleAI/chatterbox` | 3.2 GB | ~3 GB | 23 |
-| **Chatterbox Turbo** | `chatterbox_turbo` | `ResembleAI/chatterbox-turbo` | 1.5 GB | ~1.5 GB | English |
-| **TADA 1B** | `tada` | `HumeAI/tada-1b` | 4 GB | ~4 GB | English |
-| **TADA 3B Multilingual** | `tada` | `HumeAI/tada-3b-ml` | 8 GB | ~8 GB | 10 |
-| **Kokoro 82M** | `kokoro` | `hexgrad/Kokoro-82M` | 350 MB | ~150 MB | 8 |
+| Model | Engine | HuggingFace Repo | ModelScope Repo | Size | VRAM | Languages |
+|-------|--------|------------------|------------------|------|------|-----------|
+| **Qwen TTS 1.7B** | `qwen` | `Qwen/Qwen3-TTS-12Hz-1.7B-Base` | same id | 3.5 GB | ~6 GB | 10 |
+| **Qwen TTS 0.6B** | `qwen` | `Qwen/Qwen3-TTS-12Hz-0.6B-Base` | same id | 1.2 GB | ~2 GB | 10 |
+| **Qwen CustomVoice 1.7B** | `qwen_custom_voice` | `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` | same id | 3.5 GB | ~6 GB | 10 |
+| **Qwen CustomVoice 0.6B** | `qwen_custom_voice` | `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` | same id | 1.2 GB | ~2 GB | 10 |
+| **LuxTTS** | `luxtts` | `YatharthS/LuxTTS` | `hf/YatharthS-LuxTTS` | 300 MB | ~1 GB | English |
+| **Chatterbox Multilingual** | `chatterbox` | `ResembleAI/chatterbox` | *(none)* | 3.2 GB | ~3 GB | 23 |
+| **Chatterbox Turbo** | `chatterbox_turbo` | `ResembleAI/chatterbox-turbo` | *(none)* | 1.5 GB | ~1.5 GB | English |
+| **TADA 1B** | `tada` | `HumeAI/tada-1b` | *(none)* | 4 GB | ~4 GB | English |
+| **TADA 3B Multilingual** | `tada` | `HumeAI/tada-3b-ml` | *(none)* | 8 GB | ~8 GB | 10 |
+| **Kokoro 82M** | `kokoro` | `hexgrad/Kokoro-82M` | `AI-ModelScope/Kokoro-82M` | 350 MB | ~150 MB | 8 |
 
-On Apple Silicon, Qwen TTS uses MLX-optimized repos from `mlx-community` instead of the PyTorch repos. The backend picks automatically via `get_backend_type()`.
+On Apple Silicon, Qwen TTS uses MLX-optimized repos from `mlx-community` instead of the PyTorch repos (also mirrored on ModelScope under the identical id). The backend picks automatically via `get_backend_type()`.
 
 ## Available Whisper Models
 
-| Model | HuggingFace Repo | Size |
-|-------|------------------|------|
-| **Whisper Base** | `openai/whisper-base` | ~300 MB |
-| **Whisper Small** | `openai/whisper-small` | ~500 MB |
-| **Whisper Medium** | `openai/whisper-medium` | ~1.5 GB |
-| **Whisper Large** | `openai/whisper-large-v3` | ~3 GB |
-| **Whisper Turbo** | `openai/whisper-large-v3-turbo` | ~1.5 GB |
+| Model | HuggingFace Repo | ModelScope Repo | Size |
+|-------|------------------|------------------|------|
+| **Whisper Base** | `openai/whisper-base` | `openai-mirror/whisper-base` | ~300 MB |
+| **Whisper Small** | `openai/whisper-small` | `openai-mirror/whisper-small` | ~500 MB |
+| **Whisper Medium** | `openai/whisper-medium` | `openai-mirror/whisper-medium` | ~1.5 GB |
+| **Whisper Large** | `openai/whisper-large-v3` | `openai-mirror/whisper-large-v3` | ~3 GB |
+| **Whisper Turbo** | `openai/whisper-large-v3-turbo` | `openai-mirror/whisper-large-v3-turbo` | ~1.5 GB |
 
 On Apple Silicon, MLX-Whisper is preferred automatically — see [Transcription](/developer/transcription).
 
+## Download Source
+
+Users can choose where model weights are downloaded from, via `GET`/`PUT /settings/model-source`:
+
+- **`huggingface`** (default) — download directly from huggingface.co, unchanged from before this setting existed.
+- **`modelscope`** — download from a model's ModelScope repo (the "ModelScope Repo" columns above) via the official `modelscope` SDK, into `data/models/modelscope/<org>--<name>/`. Models with no ModelScope repo (Chatterbox ×2, TADA ×2) download directly from huggingface.co instead, same as the `huggingface` source.
+
+The setting is stored in `data/model_source.json` (not the database — there's no reason to add a schema/migration for one string). It's read fresh on every download, so a change applies immediately — no restart needed.
+
+> An earlier iteration of this feature also had an `hf_mirror` source (pointing `HF_ENDPOINT` at `https://hf-mirror.com`), used both standalone and as the fallback for unmirrored models. It was removed after running the actual implementation against real infrastructure showed the mirror now just redirects to the real huggingface.co instead of proxying — which `huggingface_hub` refuses to trust, and which would fail for a genuinely blocked user anyway. Don't reintroduce a third-party HTTP mirror here without verifying it against a live backend first, not just docs claiming it works.
+
+Each backend's `_get_model_path()` calls `resolve_model_source(hf_repo_id, ms_repo_id, model_name)` (`backend/backends/base.py`) to get either the HF repo id (HuggingFace path, or ModelScope-without-a-mirror) or an already-downloaded local directory path (ModelScope-with-a-mirror path) — both are valid inputs to `from_pretrained()`. `is_model_cached_at()` is the source-aware counterpart to `is_model_cached()`, and `GET /models/status` / `DELETE /models/{name}` check both the HuggingFace cache and the ModelScope-managed directory so status and deletion work regardless of which source a given model was downloaded through.
+
 ## Model Storage
 
-Models live in the platform HuggingFace cache:
+Models downloaded via HuggingFace (the default source) live in the platform HuggingFace cache:
 
 | Platform | Path |
 |----------|------|
@@ -54,6 +67,8 @@ Models live in the platform HuggingFace cache:
 | Docker | `/home/voicebox/.cache/huggingface/hub` (volume-mounted) |
 
 Set `VOICEBOX_MODELS_DIR` to override.
+
+Models downloaded via **ModelScope** (see [Download Source](#download-source)) live under the data directory instead, at `data/models/modelscope/<org>--<name>/` — independent of the HuggingFace cache above. If you're troubleshooting a model and it isn't where you expect, check `GET /settings/model-source` to see which source it was actually downloaded through.
 
 ## Progress Tracking
 
@@ -107,6 +122,8 @@ The handler iterates `get_all_model_configs()` and calls `check_model_loaded(con
 | POST | `/models/download` | Trigger a background download |
 | GET | `/models/progress/{name}` | Stream download progress (SSE) |
 | DELETE | `/models/{name}` | Delete a downloaded model from cache |
+| GET | `/settings/model-source` | Current [download source](#download-source) |
+| PUT | `/settings/model-source` | Change the download source (applies immediately) |
 
 ### Load
 

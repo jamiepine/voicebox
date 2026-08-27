@@ -760,8 +760,13 @@
       }
     },
     "general": {
-      "docs": { "title": "阅读文档" },
-      "discord": { "title": "加入 Discord", "subtitle": "获取帮助 & 分享声音" },
+      "docs": {
+        "title": "阅读文档"
+      },
+      "discord": {
+        "title": "加入 Discord",
+        "subtitle": "获取帮助 & 分享声音"
+      },
       "serverUrl": {
         "title": "服务器 URL",
         "description": "Voicebox 后端服务器的地址。",
@@ -1236,6 +1241,25 @@
       "migrationFailed": "迁移失败",
       "migrationFailedGeneric": "迁移模型失败",
       "migrationConnectionLost": "迁移期间丢失连接"
+    },
+    "downloadSource": {
+      "title": "下载源",
+      "description": "模型权重的下载来源,立即对下一次下载生效。",
+      "options": {
+        "huggingface": {
+          "label": "HuggingFace",
+          "description": "直接从 huggingface.co 下载。"
+        },
+        "modelscope": {
+          "label": "ModelScope",
+          "description": "优先从魔搭社区下载(没有魔搭仓库的模型直接从 HuggingFace 下载)。"
+        }
+      },
+      "toast": {
+        "updated": "下载源已更新",
+        "updateFailed": "更新下载源失败"
+      },
+      "applying": "正在应用新的下载源…"
     }
   }
 }

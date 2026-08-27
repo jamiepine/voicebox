@@ -13,7 +13,8 @@ import numpy as np
 
 from . import TTSBackend
 from .base import (
-    is_model_cached,
+    is_model_cached_at,
+    resolve_model_source,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -26,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 # HuggingFace repo for model weight detection
 LUXTTS_HF_REPO = "YatharthS/LuxTTS"
+LUXTTS_MS_REPO = "hf/YatharthS-LuxTTS"
 
 
 class LuxTTSBackend:
@@ -49,11 +51,11 @@ class LuxTTSBackend:
         return self._device
 
     def _get_model_path(self, model_size: str) -> str:
-        return LUXTTS_HF_REPO
+        return resolve_model_source(LUXTTS_HF_REPO, LUXTTS_MS_REPO, "luxtts")
 
     def _is_model_cached(self, model_size: str = "default") -> bool:
-        return is_model_cached(
-            LUXTTS_HF_REPO,
+        return is_model_cached_at(
+            self._get_model_path(model_size),
             weight_extensions=(".pt", ".safetensors", ".onnx", ".bin"),
         )
 
@@ -65,11 +67,18 @@ class LuxTTSBackend:
         await asyncio.to_thread(self._load_model_sync)
 
     def _load_model_sync(self):
+        from .base import ensure_model_downloaded
+
         model_name = "luxtts"
         is_cached = self._is_model_cached()
 
         with model_load_progress(model_name, is_cached):
             from zipvoice.luxvoice import LuxTTS
+
+            # The actual download (if any) happens here, inside
+            # model_load_progress — not in _get_model_path()/_is_model_cached(),
+            # which must stay pure.
+            model_path = ensure_model_downloaded(LUXTTS_HF_REPO, LUXTTS_MS_REPO, model_name)
 
             device = self.device
             logger.info(f"Loading LuxTTS on {device}...")
@@ -79,12 +88,12 @@ class LuxTTSBackend:
 
                 threads = os.cpu_count() or 4
                 self.model = LuxTTS(
-                    model_path=LUXTTS_HF_REPO,
+                    model_path=model_path,
                     device="cpu",
                     threads=min(threads, 8),
                 )
             else:
-                self.model = LuxTTS(model_path=LUXTTS_HF_REPO, device=device)
+                self.model = LuxTTS(model_path=model_path, device=device)
 
         logger.info("LuxTTS loaded successfully")
 

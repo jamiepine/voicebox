@@ -22,7 +22,8 @@ import numpy as np
 
 from . import TTSBackend
 from .base import (
-    is_model_cached,
+    is_model_cached_at,
+    resolve_model_source,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -74,12 +75,18 @@ class HumeTadaBackend:
         return self.model is not None
 
     def _get_model_path(self, model_size: str = "1B") -> str:
-        return TADA_MODEL_REPOS.get(model_size, TADA_1B_REPO)
+        # No ModelScope mirror exists for TADA — always resolves to the HF
+        # repo id unchanged. Both the model and codec repos are fetched via
+        # huggingface_hub.snapshot_download()/from_pretrained() in
+        # _load_model_sync, so the fallback to the HF mirror endpoint when
+        # ModelScope is selected happens transparently via HF_ENDPOINT (see
+        # backend/utils/model_source.py), not through this method.
+        hf_repo = TADA_MODEL_REPOS.get(model_size, TADA_1B_REPO)
+        return resolve_model_source(hf_repo, None, f"tada-{model_size.lower()}")
 
     def _is_model_cached(self, model_size: str = "1B") -> bool:
-        repo = TADA_MODEL_REPOS.get(model_size, TADA_1B_REPO)
-        model_cached = is_model_cached(repo, required_files=_TADA_MODEL_WEIGHT_FILES)
-        codec_cached = is_model_cached(TADA_CODEC_REPO, required_files=_TADA_CODEC_WEIGHT_FILES)
+        model_cached = is_model_cached_at(self._get_model_path(model_size), required_files=_TADA_MODEL_WEIGHT_FILES)
+        codec_cached = is_model_cached_at(TADA_CODEC_REPO, required_files=_TADA_CODEC_WEIGHT_FILES)
         return model_cached and codec_cached
 
     async def load_model(self, model_size: str = "1B") -> None:

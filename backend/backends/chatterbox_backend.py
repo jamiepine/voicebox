@@ -16,7 +16,8 @@ import numpy as np
 
 from . import TTSBackend
 from .base import (
-    is_model_cached,
+    is_model_cached_at,
+    resolve_model_source,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -56,10 +57,17 @@ class ChatterboxTTSBackend:
         return self.model is not None
 
     def _get_model_path(self, model_size: str = "default") -> str:
-        return CHATTERBOX_HF_REPO
+        # No ModelScope mirror exists for Chatterbox — always resolves to
+        # the HF repo id unchanged. ChatterboxMultilingualTTS.from_pretrained()
+        # takes no repo/path argument (it hardcodes its own HF download
+        # internally), so this value is only used by _is_model_cached();
+        # the fallback to the HF mirror endpoint when ModelScope is
+        # selected happens transparently via HF_ENDPOINT (see
+        # backend/utils/model_source.py), not through this method.
+        return resolve_model_source(CHATTERBOX_HF_REPO, None, "chatterbox-tts")
 
     def _is_model_cached(self, model_size: str = "default") -> bool:
-        return is_model_cached(CHATTERBOX_HF_REPO, required_files=_MTL_WEIGHT_FILES)
+        return is_model_cached_at(self._get_model_path(model_size), required_files=_MTL_WEIGHT_FILES)
 
     async def load_model(self, model_size: str = "default") -> None:
         """Load the Chatterbox multilingual model."""
