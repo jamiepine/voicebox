@@ -18,7 +18,12 @@ patch_huggingface_hub_offline()
 ensure_original_qwen_config_cached()
 
 from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
-from .base import is_model_cached, combine_voice_prompts as _combine_voice_prompts, model_load_progress
+from .base import (
+    is_model_cached,
+    combine_voice_prompts as _combine_voice_prompts,
+    model_load_progress,
+    empty_mlx_cache,
+)
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 
 
@@ -110,6 +115,7 @@ class MLXTTSBackend:
             del self.model
             self.model = None
             self._current_model_size = None
+            empty_mlx_cache()
             logger.info("MLX TTS model unloaded")
 
     async def create_voice_prompt(
@@ -319,6 +325,7 @@ class MLXSTTBackend:
         if self.model is not None:
             del self.model
             self.model = None
+            empty_mlx_cache()
             logger.info("MLX Whisper model unloaded")
 
     async def transcribe(
