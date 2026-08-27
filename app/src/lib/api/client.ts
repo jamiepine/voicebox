@@ -16,6 +16,8 @@ import type {
   HistoryQuery,
   HistoryResponse,
   ModelDownloadRequest,
+  ModelSource,
+  ModelSourceResponse,
   ModelStatusListResponse,
   PresetVoice,
   PersonalityTextResponse,
@@ -548,6 +550,17 @@ class ApiClient {
 
   async getModelsCacheDir(): Promise<{ path: string }> {
     return this.request<{ path: string }>('/models/cache-dir');
+  }
+
+  async getModelSource(): Promise<ModelSourceResponse> {
+    return this.request<ModelSourceResponse>('/settings/model-source');
+  }
+
+  async updateModelSource(source: ModelSource): Promise<ModelSourceResponse> {
+    return this.request<ModelSourceResponse>('/settings/model-source', {
+      method: 'PUT',
+      body: JSON.stringify({ source }),
+    });
   }
 
   async migrateModels(

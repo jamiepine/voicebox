@@ -10,9 +10,10 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
+from . import TTSBackend, STTBackend, LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS, WHISPER_MS_REPOS
 from .base import (
-    is_model_cached,
+    is_model_cached_at,
+    resolve_model_source,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -42,13 +43,14 @@ class PyTorchTTSBackend:
 
     def _get_model_path(self, model_size: str) -> str:
         """
-        Get the HuggingFace Hub model ID.
+        Get the HuggingFace Hub model ID (or a local ModelScope download
+        directory, if that's the active download source).
 
         Args:
             model_size: Model size (1.7B or 0.6B)
 
         Returns:
-            HuggingFace Hub model ID
+            Model path to pass into ``from_pretrained``
         """
         hf_model_map = {
             "1.7B": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
@@ -58,10 +60,12 @@ class PyTorchTTSBackend:
         if model_size not in hf_model_map:
             raise ValueError(f"Unknown model size: {model_size}")
 
-        return hf_model_map[model_size]
+        # ModelScope mirrors this Qwen repo under the identical repo id.
+        hf_repo_id = hf_model_map[model_size]
+        return resolve_model_source(hf_repo_id, hf_repo_id, f"qwen-tts-{model_size}")
 
     def _is_model_cached(self, model_size: str) -> bool:
-        return is_model_cached(self._get_model_path(model_size))
+        return is_model_cached_at(self._get_model_path(model_size))
 
     async def load_model_async(self, model_size: Optional[str] = None):
         """
@@ -262,9 +266,13 @@ class PyTorchSTTBackend:
         """Check if model is loaded."""
         return self.model is not None
 
-    def _is_model_cached(self, model_size: str) -> bool:
+    def _get_model_path(self, model_size: str) -> str:
         hf_repo = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
-        return is_model_cached(hf_repo)
+        ms_repo = WHISPER_MS_REPOS.get(model_size)
+        return resolve_model_source(hf_repo, ms_repo, f"whisper-{model_size}")
+
+    def _is_model_cached(self, model_size: str) -> bool:
+        return is_model_cached_at(self._get_model_path(model_size))
 
     async def load_model_async(self, model_size: Optional[str] = None):
         """
@@ -292,7 +300,7 @@ class PyTorchSTTBackend:
         with model_load_progress(progress_model_name, is_cached):
             from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-            model_name = WHISPER_HF_REPOS.get(model_size, f"openai/whisper-{model_size}")
+            model_name = self._get_model_path(model_size)
             logger.info("Loading Whisper model %s on %s...", model_size, self.device)
 
             self.processor = WhisperProcessor.from_pretrained(model_name)

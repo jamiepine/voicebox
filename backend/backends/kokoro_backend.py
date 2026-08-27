@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 # HuggingFace repo for model + voice detection
 KOKORO_HF_REPO = "hexgrad/Kokoro-82M"
+KOKORO_MS_REPO = "AI-ModelScope/Kokoro-82M"
 KOKORO_SAMPLE_RATE = 24000
 
 # Default voice if none specified
@@ -147,14 +148,16 @@ class KokoroTTSBackend:
         return self._model is not None
 
     def _get_model_path(self, model_size: str) -> str:
-        return KOKORO_HF_REPO
+        from .base import resolve_model_source
+
+        return resolve_model_source(KOKORO_HF_REPO, KOKORO_MS_REPO, "kokoro")
 
     def _is_model_cached(self, model_size: str = "default") -> bool:
         """Check if Kokoro model files are cached locally."""
-        from .base import is_model_cached
+        from .base import is_model_cached_at
 
-        return is_model_cached(
-            KOKORO_HF_REPO,
+        return is_model_cached_at(
+            self._get_model_path(model_size),
             required_files=["config.json", "kokoro-v1_0.pth"],
         )
 
@@ -168,6 +171,7 @@ class KokoroTTSBackend:
         """Synchronous model loading."""
         model_name = "kokoro"
         is_cached = self._is_model_cached()
+        model_path = self._get_model_path(self.model_size)
 
         with model_load_progress(model_name, is_cached):
             from kokoro import KModel
@@ -175,7 +179,22 @@ class KokoroTTSBackend:
             device = self.device
             logger.info(f"Loading Kokoro-82M on {device}...")
 
-            self._model = KModel(repo_id=KOKORO_HF_REPO).to(device).eval()
+            if os.path.isabs(model_path):
+                # A ModelScope-downloaded local directory. KModel's own
+                # repo_id-based download path (hf_hub_download + a
+                # MODEL_NAMES[repo_id] lookup) only understands HF repo ids,
+                # so point it at the local files directly instead.
+                self._model = (
+                    KModel(
+                        repo_id=KOKORO_HF_REPO,
+                        config=os.path.join(model_path, "config.json"),
+                        model=os.path.join(model_path, "kokoro-v1_0.pth"),
+                    )
+                    .to(device)
+                    .eval()
+                )
+            else:
+                self._model = KModel(repo_id=model_path).to(device).eval()
 
         logger.info("Kokoro-82M loaded successfully")
 
@@ -186,7 +205,11 @@ class KokoroTTSBackend:
         if kokoro_lang not in self._pipelines:
             from kokoro import KPipeline
 
-            # Create pipeline with our existing model (no redundant model loading)
+            # Create pipeline with our existing model (no redundant model
+            # loading) — repo_id is only used by KPipeline for voice-file
+            # lookups, which the model instance handles internally, so the
+            # canonical HF repo id is safe here even when the weights were
+            # downloaded via ModelScope.
             self._pipelines[kokoro_lang] = KPipeline(
                 lang_code=kokoro_lang,
                 repo_id=KOKORO_HF_REPO,

@@ -1,0 +1,19 @@
+{
+  "version": "1.0.1",
+  "integration_state_schema": 1,
+  "installed_integrations": [
+    "generic"
+  ],
+  "integration_settings": {
+    "generic": {
+      "script": "sh",
+      "raw_options": "--commands-dir .specify/_unused",
+      "parsed_options": {
+        "commands_dir": ".specify/_unused"
+      },
+      "invoke_separator": "."
+    }
+  },
+  "integration": "generic",
+  "default_integration": "generic"
+}

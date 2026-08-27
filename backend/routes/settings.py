@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from .. import models
 from ..database import get_db
 from ..services import settings as settings_service
+from ..utils import model_source
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -34,3 +35,14 @@ async def update_generation_settings_endpoint(
     db: Session = Depends(get_db),
 ):
     return settings_service.update_generation_settings(db, patch.model_dump(exclude_unset=True))
+
+
+@router.get("/model-source", response_model=models.ModelSourceResponse)
+async def get_model_source_endpoint():
+    return models.ModelSourceResponse(source=model_source.get_model_source())
+
+
+@router.put("/model-source", response_model=models.ModelSourceResponse)
+async def update_model_source_endpoint(update: models.ModelSourceUpdate):
+    model_source.set_model_source(update.source)
+    return models.ModelSourceResponse(source=model_source.get_model_source())

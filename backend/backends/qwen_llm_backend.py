@@ -13,7 +13,8 @@ from typing import Optional
 
 from . import LLMBackend, DEFAULT_LLM_MAX_TOKENS, DEFAULT_LLM_TEMPERATURE
 from .base import (
-    is_model_cached,
+    is_model_cached_at,
+    resolve_model_source,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -75,10 +76,12 @@ class PyTorchQwenLLMBackend:
     def _get_model_path(self, model_size: str) -> str:
         if model_size not in PYTORCH_HF_REPOS:
             raise ValueError(f"Unknown Qwen3 size: {model_size}")
-        return PYTORCH_HF_REPOS[model_size]
+        # ModelScope mirrors this Qwen repo under the identical repo id.
+        hf_repo_id = PYTORCH_HF_REPOS[model_size]
+        return resolve_model_source(hf_repo_id, hf_repo_id, _progress_name(model_size))
 
     def _is_model_cached(self, model_size: str) -> bool:
-        return is_model_cached(self._get_model_path(model_size))
+        return is_model_cached_at(self._get_model_path(model_size))
 
     async def load_model(self, model_size: Optional[str] = None) -> None:
         if model_size is None:
@@ -197,10 +200,12 @@ class MLXQwenLLMBackend:
     def _get_model_path(self, model_size: str) -> str:
         if model_size not in MLX_HF_REPOS:
             raise ValueError(f"Unknown Qwen3 size: {model_size}")
-        return MLX_HF_REPOS[model_size]
+        # ModelScope mirrors this mlx-community repo under the identical id.
+        hf_repo_id = MLX_HF_REPOS[model_size]
+        return resolve_model_source(hf_repo_id, hf_repo_id, _progress_name(model_size))
 
     def _is_model_cached(self, model_size: str) -> bool:
-        return is_model_cached(
+        return is_model_cached_at(
             self._get_model_path(model_size),
             weight_extensions=(".safetensors", ".bin", ".npz"),
         )

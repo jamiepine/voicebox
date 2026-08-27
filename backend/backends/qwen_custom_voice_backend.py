@@ -23,7 +23,8 @@ import torch
 
 from . import TTSBackend, LANGUAGE_CODE_TO_NAME
 from .base import (
-    is_model_cached,
+    is_model_cached_at,
+    resolve_model_source,
     get_torch_device,
     combine_voice_prompts as _combine_voice_prompts,
     model_load_progress,
@@ -73,11 +74,13 @@ class QwenCustomVoiceBackend:
     def _get_model_path(self, model_size: str) -> str:
         if model_size not in QWEN_CV_HF_REPOS:
             raise ValueError(f"Unknown model size: {model_size}")
-        return QWEN_CV_HF_REPOS[model_size]
+        # ModelScope mirrors this Qwen repo under the identical repo id.
+        hf_repo_id = QWEN_CV_HF_REPOS[model_size]
+        return resolve_model_source(hf_repo_id, hf_repo_id, f"qwen-custom-voice-{model_size}")
 
     def _is_model_cached(self, model_size: Optional[str] = None) -> bool:
         size = model_size or self.model_size
-        return is_model_cached(self._get_model_path(size))
+        return is_model_cached_at(self._get_model_path(size))
 
     async def load_model_async(self, model_size: Optional[str] = None) -> None:
         if model_size is None:

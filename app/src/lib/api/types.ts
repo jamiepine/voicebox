@@ -360,6 +360,13 @@ export interface ModelDownloadRequest {
   model_name: string;
 }
 
+export type ModelSource = 'huggingface' | 'modelscope';
+
+export interface ModelSourceResponse {
+  // Applies live — the very next download uses it, no restart required.
+  source: ModelSource;
+}
+
 export interface ActiveDownloadTask {
   model_name: string;
   status: string;

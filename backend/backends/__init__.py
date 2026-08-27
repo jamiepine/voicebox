@@ -44,6 +44,14 @@ WHISPER_HF_REPOS = {
     "turbo": "openai/whisper-large-v3-turbo",
 }
 
+WHISPER_MS_REPOS = {
+    "base": "openai-mirror/whisper-base",
+    "small": "openai-mirror/whisper-small",
+    "medium": "openai-mirror/whisper-medium",
+    "large": "openai-mirror/whisper-large-v3",
+    "turbo": "openai-mirror/whisper-large-v3-turbo",
+}
+
 
 @dataclass
 class ModelConfig:
@@ -53,6 +61,7 @@ class ModelConfig:
     display_name: str  # e.g. "LuxTTS (Fast, CPU-friendly)"
     engine: str  # e.g. "luxtts", "chatterbox"
     hf_repo_id: str  # e.g. "YatharthS/LuxTTS"
+    ms_repo_id: Optional[str] = None  # ModelScope repo id, if a mirror exists
     model_size: str = "default"
     size_mb: int = 0
     needs_trim: bool = False
@@ -233,6 +242,11 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
         repo_1_7b = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         repo_0_6b = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 
+    # ModelScope mirrors these under the identical repo id (Qwen and
+    # mlx-community both publish to ModelScope, not just HuggingFace).
+    ms_repo_1_7b = repo_1_7b
+    ms_repo_0_6b = repo_0_6b
+
     # mlx-audio can continue after an EOS miss with silence followed by
     # codec noise. Retry only the affected text as smaller chunks.
     retries_runaway = backend_type == "mlx"
@@ -243,6 +257,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             display_name="Qwen TTS 1.7B",
             engine="qwen",
             hf_repo_id=repo_1_7b,
+            ms_repo_id=ms_repo_1_7b,
             model_size="1.7B",
             size_mb=3500,
             retries_runaway=retries_runaway,
@@ -254,6 +269,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             display_name="Qwen TTS 0.6B",
             engine="qwen",
             hf_repo_id=repo_0_6b,
+            ms_repo_id=ms_repo_0_6b,
             model_size="0.6B",
             size_mb=1200,
             retries_runaway=retries_runaway,
@@ -271,6 +287,7 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             display_name="Qwen CustomVoice 1.7B",
             engine="qwen_custom_voice",
             hf_repo_id="Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
+            ms_repo_id="Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
             model_size="1.7B",
             size_mb=3500,
             supports_instruct=True,
@@ -281,6 +298,7 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             display_name="Qwen CustomVoice 0.6B",
             engine="qwen_custom_voice",
             hf_repo_id="Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+            ms_repo_id="Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
             model_size="0.6B",
             size_mb=1200,
             supports_instruct=True,
@@ -300,6 +318,7 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             display_name="LuxTTS (Fast, CPU-friendly)",
             engine="luxtts",
             hf_repo_id="YatharthS/LuxTTS",
+            ms_repo_id="hf/YatharthS-LuxTTS",
             size_mb=300,
             languages=["en"],
         ),
@@ -368,6 +387,7 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             display_name="Kokoro 82M",
             engine="kokoro",
             hf_repo_id="hexgrad/Kokoro-82M",
+            ms_repo_id="AI-ModelScope/Kokoro-82M",
             size_mb=350,
             languages=["en", "es", "fr", "hi", "it", "pt", "ja", "zh"],
         ),
@@ -382,6 +402,7 @@ def _get_whisper_configs() -> list[ModelConfig]:
             display_name="Whisper Base",
             engine="whisper",
             hf_repo_id="openai/whisper-base",
+            ms_repo_id="openai-mirror/whisper-base",
             model_size="base",
         ),
         ModelConfig(
@@ -389,6 +410,7 @@ def _get_whisper_configs() -> list[ModelConfig]:
             display_name="Whisper Small",
             engine="whisper",
             hf_repo_id="openai/whisper-small",
+            ms_repo_id="openai-mirror/whisper-small",
             model_size="small",
         ),
         ModelConfig(
@@ -396,6 +418,7 @@ def _get_whisper_configs() -> list[ModelConfig]:
             display_name="Whisper Medium",
             engine="whisper",
             hf_repo_id="openai/whisper-medium",
+            ms_repo_id="openai-mirror/whisper-medium",
             model_size="medium",
         ),
         ModelConfig(
@@ -403,6 +426,7 @@ def _get_whisper_configs() -> list[ModelConfig]:
             display_name="Whisper Large",
             engine="whisper",
             hf_repo_id="openai/whisper-large-v3",
+            ms_repo_id="openai-mirror/whisper-large-v3",
             model_size="large",
         ),
         ModelConfig(
@@ -410,6 +434,7 @@ def _get_whisper_configs() -> list[ModelConfig]:
             display_name="Whisper Turbo",
             engine="whisper",
             hf_repo_id="openai/whisper-large-v3-turbo",
+            ms_repo_id="openai-mirror/whisper-large-v3-turbo",
             model_size="turbo",
         ),
     ]
@@ -431,6 +456,11 @@ def _get_qwen_llm_configs() -> list[ModelConfig]:
         repo_1_7 = "Qwen/Qwen3-1.7B"
         repo_4 = "Qwen/Qwen3-4B"
 
+    # ModelScope mirrors these under the identical repo id.
+    ms_repo_0_6 = repo_0_6
+    ms_repo_1_7 = repo_1_7
+    ms_repo_4 = repo_4
+
     common_languages = [
         "en", "zh", "ja", "ko", "de", "fr", "ru", "pt", "es", "it",
     ]
@@ -441,6 +471,7 @@ def _get_qwen_llm_configs() -> list[ModelConfig]:
             display_name="Qwen3 0.6B",
             engine="qwen_llm",
             hf_repo_id=repo_0_6,
+            ms_repo_id=ms_repo_0_6,
             model_size="0.6B",
             size_mb=400 if backend_type == "mlx" else 1400,
             languages=common_languages,
@@ -450,6 +481,7 @@ def _get_qwen_llm_configs() -> list[ModelConfig]:
             display_name="Qwen3 1.7B",
             engine="qwen_llm",
             hf_repo_id=repo_1_7,
+            ms_repo_id=ms_repo_1_7,
             model_size="1.7B",
             size_mb=1100 if backend_type == "mlx" else 3500,
             languages=common_languages,
@@ -459,6 +491,7 @@ def _get_qwen_llm_configs() -> list[ModelConfig]:
             display_name="Qwen3 4B",
             engine="qwen_llm",
             hf_repo_id=repo_4,
+            ms_repo_id=ms_repo_4,
             model_size="4B",
             size_mb=2500 if backend_type == "mlx" else 8000,
             languages=common_languages,

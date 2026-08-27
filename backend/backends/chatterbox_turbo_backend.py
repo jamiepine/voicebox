@@ -16,7 +16,8 @@ import numpy as np
 
 from . import TTSBackend
 from .base import (
-    is_model_cached,
+    is_model_cached_at,
+    resolve_model_source,
     get_torch_device,
     empty_device_cache,
     manual_seed,
@@ -56,10 +57,15 @@ class ChatterboxTurboTTSBackend:
         return self.model is not None
 
     def _get_model_path(self, model_size: str = "default") -> str:
-        return CHATTERBOX_TURBO_HF_REPO
+        # No ModelScope mirror exists for Chatterbox Turbo — always
+        # resolves to the HF repo id unchanged; the fallback to the HF
+        # mirror endpoint when ModelScope is selected happens transparently
+        # via HF_ENDPOINT (see backend/utils/model_source.py), since the
+        # actual download below goes through huggingface_hub.snapshot_download.
+        return resolve_model_source(CHATTERBOX_TURBO_HF_REPO, None, "chatterbox-turbo")
 
     def _is_model_cached(self, model_size: str = "default") -> bool:
-        return is_model_cached(CHATTERBOX_TURBO_HF_REPO, required_files=_TURBO_WEIGHT_FILES)
+        return is_model_cached_at(self._get_model_path(model_size), required_files=_TURBO_WEIGHT_FILES)
 
     async def load_model(self, model_size: str = "default") -> None:
         """Load the Chatterbox Turbo model."""

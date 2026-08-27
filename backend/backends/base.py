@@ -6,6 +6,7 @@ voice prompt combination, and model loading progress tracking.
 """
 
 import logging
+import os
 import platform
 from contextlib import contextmanager
 from pathlib import Path
@@ -75,6 +76,76 @@ def is_model_cached(
     except Exception as e:
         logger.warning(f"Error checking cache for {hf_repo}: {e}")
         return False
+
+
+def is_model_cached_at(
+    path_or_repo: str,
+    *,
+    weight_extensions: tuple[str, ...] = (".safetensors", ".bin"),
+    required_files: Optional[list[str]] = None,
+) -> bool:
+    """
+    Source-aware cache check: local directory path or HuggingFace repo id.
+
+    ``resolve_model_source`` returns an absolute local directory path for a
+    ModelScope-downloaded model, or the ``hf_repo_id`` string unchanged for
+    everything else. This tells the two apart (repo ids are never absolute
+    paths) and checks accordingly, so backends can call this instead of
+    ``is_model_cached`` without caring which source produced the path.
+    """
+    if os.path.isabs(path_or_repo):
+        local_dir = Path(path_or_repo)
+        if not local_dir.exists():
+            return False
+
+        if required_files:
+            return all(any(local_dir.rglob(fname)) for fname in required_files)
+
+        return any(any(local_dir.rglob(f"*{ext}")) for ext in weight_extensions)
+
+    return is_model_cached(path_or_repo, weight_extensions=weight_extensions, required_files=required_files)
+
+
+def resolve_model_source(hf_repo_id: str, ms_repo_id: Optional[str], model_name: str) -> str:
+    """
+    Resolve the repo id or local path a backend should load from.
+
+    Honors the configured download source (HuggingFace / HF Mirror /
+    ModelScope — see ``backend.utils.model_source``). Returns ``hf_repo_id``
+    unchanged for HuggingFace, HF Mirror, or ModelScope-without-a-mirror (the
+    caller passes that straight into ``from_pretrained()`` as always). When
+    ModelScope is active and ``ms_repo_id`` is set, downloads the model via
+    the ModelScope SDK (if not already cached) and returns the local
+    directory it was downloaded into.
+    """
+    from ..utils.model_source import get_model_source
+
+    if get_model_source() != "modelscope" or not ms_repo_id:
+        return hf_repo_id
+
+    from ..config import get_models_dir
+
+    local_dir = get_models_dir() / "modelscope" / ms_repo_id.replace("/", "--")
+
+    # Broad extension set: this call has no per-model hint (unlike a
+    # backend's own ``_is_model_cached()``), so it must recognize whichever
+    # weight format the specific engine uses. Matches the fallback glob
+    # already used by GET /models/status (routes/models.py).
+    if is_model_cached_at(str(local_dir), weight_extensions=(".safetensors", ".bin", ".pt", ".pth", ".npz")):
+        return str(local_dir)
+
+    from modelscope import snapshot_download
+
+    from ..utils.modelscope_progress import create_modelscope_progress_callback_cls
+    from ..utils.progress import get_progress_manager
+
+    progress_manager = get_progress_manager()
+    callback_cls = create_modelscope_progress_callback_cls(model_name, progress_manager)
+
+    local_dir.parent.mkdir(parents=True, exist_ok=True)
+    snapshot_download(ms_repo_id, local_dir=str(local_dir), progress_callbacks=[callback_cls])
+
+    return str(local_dir)
 
 
 def get_torch_device(

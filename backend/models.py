@@ -307,6 +307,19 @@ class GenerationSettingsUpdate(BaseModel):
     autoplay_on_generate: Optional[bool] = None
 
 
+class ModelSourceResponse(BaseModel):
+    """Current model-download-source setting. Applies live — the very next
+    download uses it, no restart required."""
+
+    source: str = Field(pattern="^(huggingface|modelscope)$")
+
+
+class ModelSourceUpdate(BaseModel):
+    """Request body for PUT /settings/model-source."""
+
+    source: str = Field(pattern="^(huggingface|modelscope)$")
+
+
 class MCPClientBindingResponse(BaseModel):
     """Per-MCP-client voice binding — what voice / engine the server should
     use when a given client_id calls voicebox.speak without args, plus an

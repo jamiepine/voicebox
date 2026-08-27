@@ -39,9 +39,21 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
-import type { ActiveDownloadTask, HuggingFaceModelInfo, ModelStatus } from '@/lib/api/types';
+import type {
+  ActiveDownloadTask,
+  HuggingFaceModelInfo,
+  ModelSource,
+  ModelStatus,
+} from '@/lib/api/types';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
@@ -164,6 +176,27 @@ export function ModelManagement() {
     queryKey: ['modelsCacheDir'],
     queryFn: () => apiClient.getModelsCacheDir(),
     staleTime: 1000 * 60 * 5,
+  });
+
+  const { data: modelSource } = useQuery({
+    queryKey: ['modelSource'],
+    queryFn: () => apiClient.getModelSource(),
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const updateModelSourceMutation = useMutation({
+    mutationFn: (source: ModelSource) => apiClient.updateModelSource(source),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['modelSource'], data);
+      toast({ title: t('models.downloadSource.toast.updated') });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('models.downloadSource.toast.updateFailed'),
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
   const { data: activeTasks } = useQuery({
@@ -448,6 +481,40 @@ export function ModelManagement() {
         <h1 className="text-lg font-semibold">{t('models.title')}</h1>
         <p className="text-sm text-muted-foreground">{t('models.subtitle')}</p>
       </div>
+
+      {/* Model download source */}
+      {modelSource && (
+        <div className="shrink-0 pb-4 border-b mb-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <span className="text-sm font-medium">{t('models.downloadSource.title')}</span>
+              <p className="text-xs text-muted-foreground">
+                {t('models.downloadSource.description')}
+              </p>
+            </div>
+            <Select
+              value={modelSource.source}
+              onValueChange={(value) => updateModelSourceMutation.mutate(value as ModelSource)}
+              disabled={updateModelSourceMutation.isPending}
+            >
+              <SelectTrigger className="h-9 w-[200px] shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="huggingface">
+                  {t('models.downloadSource.options.huggingface.label')}
+                </SelectItem>
+                <SelectItem value="modelscope">
+                  {t('models.downloadSource.options.modelscope.label')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground/70 mt-1">
+            {t(`models.downloadSource.options.${modelSource.source}.description`)}
+          </p>
+        </div>
+      )}
 
       {/* Model storage location */}
       {platform.metadata.isTauri && cacheDir && (
