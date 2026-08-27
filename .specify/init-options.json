@@ -1,8 +1,0 @@
-{
-  "ai": "generic",
-  "feature_numbering": "sequential",
-  "here": true,
-  "integration": "generic",
-  "script": "sh",
-  "speckit_version": "1.0.1"
-}
