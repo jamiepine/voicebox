@@ -16,6 +16,7 @@ from .base import (
     is_model_cached,
     get_torch_device,
     empty_device_cache,
+    empty_mlx_cache,
     manual_seed,
     model_load_progress,
 )
@@ -246,6 +247,7 @@ class MLXQwenLLMBackend:
         self.model = None
         self.tokenizer = None
         self._current_model_size = None
+        empty_mlx_cache()
         logger.info("Qwen3 (MLX) unloaded")
 
     async def generate(

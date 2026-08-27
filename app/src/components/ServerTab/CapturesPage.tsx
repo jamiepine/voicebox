@@ -31,7 +31,7 @@ import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
 import { cn } from '@/lib/utils/cn';
 import { defaultChordKeys, displayLabelForKey, modifierSideHint } from '@/lib/utils/keyCodes';
-import type { Qwen3ModelSize, VoiceProfileResponse, WhisperModelSize } from '@/lib/api/types';
+import type { LlmModelName, VoiceProfileResponse, WhisperModelSize } from '@/lib/api/types';
 import { SettingRow, SettingSection } from './SettingRow';
 
 function ChordPreview({ keys }: { keys: string[] }) {
@@ -131,7 +131,7 @@ export function CapturesPage() {
   const sttModel = settings?.stt_model ?? 'turbo';
   const language = settings?.language ?? 'auto';
   const autoRefine = settings?.auto_refine ?? true;
-  const llmModel = settings?.llm_model ?? '0.6B';
+  const llmModel = settings?.llm_model ?? 'qwen3-0.6b';
   const smartCleanup = settings?.smart_cleanup ?? true;
   const selfCorrection = settings?.self_correction ?? true;
   const preserveTechnical = settings?.preserve_technical ?? true;
@@ -391,21 +391,24 @@ export function CapturesPage() {
           action={
             <Select
               value={llmModel}
-              onValueChange={(v) => update({ llm_model: v as Qwen3ModelSize })}
+              onValueChange={(v) => update({ llm_model: v as LlmModelName })}
               disabled={!autoRefine}
             >
               <SelectTrigger className="w-[260px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="0.6B">
+                <SelectItem value="qwen3-0.6b">
                   {t('settings.captures.refinement.model.size06', { tail: t('settings.captures.refinement.model.tail.veryFast') })}
                 </SelectItem>
-                <SelectItem value="1.7B">
+                <SelectItem value="qwen3-1.7b">
                   {t('settings.captures.refinement.model.size17', { tail: t('settings.captures.refinement.model.tail.fast') })}
                 </SelectItem>
-                <SelectItem value="4B">
+                <SelectItem value="qwen3-4b">
                   {t('settings.captures.refinement.model.size40', { tail: t('settings.captures.refinement.model.tail.fullQuality') })}
+                </SelectItem>
+                <SelectItem value="minicpm5-1b">
+                  {t('settings.captures.refinement.model.sizeMiniCPM5')}
                 </SelectItem>
               </SelectContent>
             </Select>

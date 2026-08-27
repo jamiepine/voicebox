@@ -2,14 +2,30 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
+from .backends import get_llm_model_configs
 from .utils.capture_chords import (
     default_push_to_talk_chord,
     default_toggle_to_talk_chord,
 )
+
+
+def _validate_llm_model_name(value: Optional[str]) -> Optional[str]:
+    """Check `value` against the live LLM registry rather than a fixed regex.
+
+    The valid set depends on the platform (mlx vs pytorch repos) and now
+    spans more than one engine, so it can't be expressed as a compile-time
+    pattern the way a single-engine, single-platform value could.
+    """
+    if value is None:
+        return value
+    valid_names = {cfg.model_name for cfg in get_llm_model_configs()}
+    if value not in valid_names:
+        raise ValueError(f"Unknown LLM model '{value}'. Must be one of: {sorted(valid_names)}")
+    return value
 
 
 class VoiceProfileCreate(BaseModel):
@@ -235,7 +251,11 @@ class CaptureRefineRequest(BaseModel):
     """Request to refine a capture's transcript via the LLM."""
 
     flags: Optional[RefinementFlagsModel] = None
-    model_size: Optional[str] = Field(default=None, pattern="^(0\\.6B|1\\.7B|4B)$")
+    # Despite the field name, this holds a model_name (e.g. "minicpm5-1b"),
+    # not a bare size — kept for wire compatibility (see contracts/llm-model-selection.md).
+    model_size: Optional[str] = None
+
+    _validate_model_size = field_validator("model_size")(_validate_llm_model_name)
 
 
 class CaptureRetranscribeRequest(BaseModel):
@@ -251,7 +271,11 @@ class CaptureSettingsResponse(BaseModel):
     stt_model: str = Field(default="turbo", pattern="^(base|small|medium|large|turbo)$")
     language: str = Field(default="auto")
     auto_refine: bool = True
-    llm_model: str = Field(default="0.6B", pattern="^(0\\.6B|1\\.7B|4B)$")
+    # Despite the field name, this holds a model_name (e.g. "minicpm5-1b"),
+    # not a bare size — kept for wire compatibility (see contracts/llm-model-selection.md).
+    llm_model: str = "qwen3-0.6b"
+
+    _validate_llm_model = field_validator("llm_model")(_validate_llm_model_name)
     smart_cleanup: bool = True
     self_correction: bool = True
     preserve_technical: bool = True
@@ -275,7 +299,11 @@ class CaptureSettingsUpdate(BaseModel):
     stt_model: Optional[str] = Field(default=None, pattern="^(base|small|medium|large|turbo)$")
     language: Optional[str] = None
     auto_refine: Optional[bool] = None
-    llm_model: Optional[str] = Field(default=None, pattern="^(0\\.6B|1\\.7B|4B)$")
+    # Despite the field name, this holds a model_name (e.g. "minicpm5-1b"),
+    # not a bare size — kept for wire compatibility (see contracts/llm-model-selection.md).
+    llm_model: Optional[str] = None
+
+    _validate_llm_model = field_validator("llm_model")(_validate_llm_model_name)
     smart_cleanup: Optional[bool] = None
     self_correction: Optional[bool] = None
     preserve_technical: Optional[bool] = None
@@ -372,7 +400,11 @@ class LLMGenerateRequest(BaseModel):
 
     prompt: str = Field(..., min_length=1, max_length=50000)
     system: Optional[str] = Field(None, max_length=4000)
-    model_size: Optional[str] = Field(default="0.6B", pattern="^(0\\.6B|1\\.7B|4B)$")
+    # Despite the field name, this holds a model_name (e.g. "minicpm5-1b"),
+    # not a bare size — kept for wire compatibility (see contracts/llm-model-selection.md).
+    model_size: Optional[str] = "qwen3-0.6b"
+
+    _validate_model_size = field_validator("model_size")(_validate_llm_model_name)
     max_tokens: int = Field(default=512, ge=1, le=4096)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     # Few-shot (user, assistant) pairs prepended as real chat turns.

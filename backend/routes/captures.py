@@ -170,13 +170,13 @@ async def capture_readiness_endpoint(db: Session = Depends(get_db)):
         None,
     )
     llm_cfg = next(
-        (c for c in get_llm_model_configs() if c.model_size == saved.llm_model),
+        (c for c in get_llm_model_configs() if c.model_name == saved.llm_model),
         None,
     )
 
     if stt_cfg is None or llm_cfg is None:
-        # Should be impossible — both fields are pattern-validated against
-        # known sizes — but bail loudly rather than return half a response.
+        # Should be impossible — both fields are validated against known
+        # models — but bail loudly rather than return half a response.
         raise HTTPException(
             status_code=500,
             detail=f"No model config for stt={saved.stt_model} or llm={saved.llm_model}",

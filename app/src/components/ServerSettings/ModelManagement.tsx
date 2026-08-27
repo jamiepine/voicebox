@@ -89,6 +89,8 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
     'Qwen3 1.7B — balanced size and quality. Handles subtle self-corrections and technical vocabulary better than the 0.6B. Runs at ~1.1 GB quantized on Apple Silicon.',
   'qwen3-4b':
     'Qwen3 4B — highest quality local refinement and longer-form reasoning. ~2.5 GB quantized on Apple Silicon, ~8 GB at full precision on PyTorch.',
+  'minicpm5-1b':
+    'MiniCPM5 1B by OpenBMB. 1B-class model tuned for on-device use with a hybrid think/no-think mode. Runs at ~900 MB quantized on Apple Silicon, ~2.1 GB at full precision on PyTorch.',
 };
 
 function formatDownloads(n: number): string {
@@ -417,7 +419,10 @@ export function ModelManagement() {
         m.model_name.startsWith('kokoro'),
     ) ?? [];
   const whisperModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper')) ?? [];
-  const llmModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen3-')) ?? [];
+  const llmModels =
+    modelStatus?.models.filter(
+      (m) => m.model_name.startsWith('qwen3-') || m.model_name.startsWith('minicpm5-'),
+    ) ?? [];
 
   // Build sections
   const sections: { label: string; models: ModelStatus[] }[] = [

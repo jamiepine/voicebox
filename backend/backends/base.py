@@ -184,6 +184,20 @@ def empty_device_cache(device: str) -> None:
         torch.xpu.empty_cache()
 
 
+def empty_mlx_cache() -> None:
+    """
+    Free cached memory in the MLX allocator.
+
+    MLX keeps freed array buffers in an internal pool for reuse instead of
+    returning them to the OS. Backends must call this after unloading an
+    MLX model, or the process's memory footprint never shrinks even though
+    the model object itself was dropped.
+    """
+    import mlx.core as mx
+
+    mx.clear_cache()
+
+
 def manual_seed(seed: int, device: str) -> None:
     """
     Set the random seed on both CPU and the active accelerator.

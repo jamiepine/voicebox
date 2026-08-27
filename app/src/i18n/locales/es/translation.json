@@ -965,6 +965,7 @@
           "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
           "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
           "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "sizeMiniCPM5": "MiniCPM5 · 1B · 900 MB",
           "tail": {
             "veryFast": "Muy rápido",
             "fast": "Rápido",

@@ -93,6 +93,19 @@ def cache_voice_prompt(
     torch.save(voice_prompt, cache_file)
 
 
+def clear_voice_prompt_memory_cache() -> None:
+    """
+    Drop the in-memory voice prompt cache without touching the disk cache.
+
+    Backends call this when a TTS model unloads: the cached prompts (tensors
+    or device-backed dicts produced by that model) would otherwise keep
+    referencing memory forever, since nothing else ever clears this
+    process-lifetime dict. The disk cache is left alone, so the next
+    generation just reloads the prompt from disk instead of recomputing it.
+    """
+    _memory_cache.clear()
+
+
 def clear_voice_prompt_cache() -> int:
     """
     Clear all voice prompt caches (memory and disk).

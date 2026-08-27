@@ -198,7 +198,9 @@ class CaptureSettings(Base):
     stt_model = Column(String, nullable=False, default="turbo")
     language = Column(String, nullable=False, default="auto")
     auto_refine = Column(Boolean, nullable=False, default=True)
-    llm_model = Column(String, nullable=False, default="0.6B")
+    # Despite the column name, this holds a model_name (e.g. "minicpm5-1b"),
+    # not a bare size — see contracts/llm-model-selection.md.
+    llm_model = Column(String, nullable=False, default="qwen3-0.6b")
     smart_cleanup = Column(Boolean, nullable=False, default=True)
     self_correction = Column(Boolean, nullable=False, default=True)
     preserve_technical = Column(Boolean, nullable=False, default=True)
