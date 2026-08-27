@@ -10,6 +10,8 @@ See specs/001-modelscope-download-source/research.md §4.
 import json
 import logging
 import os
+import tempfile
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +56,19 @@ def set_model_source(source: str) -> None:
     Windows) instead of truncating the target in place — a concurrent
     reader, or a write that fails partway, must never see invalid JSON and
     silently fall back to the default, masking the user's actual setting.
+    The temp file gets a unique name via ``mkstemp`` (not just the PID) so
+    two concurrent calls within this process never collide on the same path.
     """
     if source not in VALID_SOURCES:
         raise ValueError(f"Unknown model source: {source!r}. Must be one of {VALID_SOURCES}.")
 
     path = _settings_path()
-    tmp_path = path.with_name(f"{path.name}.{os.getpid()}.tmp")
-    tmp_path.write_text(json.dumps({"source": source}))
-    os.replace(tmp_path, path)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f"{path.name}.")
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(json.dumps({"source": source}))
+        os.replace(tmp_path, path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise

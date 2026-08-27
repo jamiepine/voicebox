@@ -5,6 +5,9 @@ specs/001-modelscope-download-source/research.md §4. Applies live: read
 fresh by ``resolve_model_source()`` on every call, no apply-at-startup step.
 """
 
+import json
+from concurrent.futures import ThreadPoolExecutor
+
 import pytest
 
 import backend.config as config
@@ -72,3 +75,24 @@ def test_a_failed_write_does_not_corrupt_the_existing_file(tmp_path, monkeypatch
 
     # The original value must still be intact and readable.
     assert model_source.get_model_source() == "modelscope"
+
+
+def test_concurrent_writes_do_not_collide_or_leave_tmp_files(tmp_path):
+    """Same process, many concurrent set_model_source() calls. Before the
+    fix, the temp filename was derived only from os.getpid() — identical for
+    every call in this process — so concurrent writers raced on the same
+    temp path. Every call must succeed, leave the settings file as valid
+    JSON with one of the written values, and leave no leftover .tmp files."""
+    sources = ["modelscope", "huggingface"] * 10
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        results = list(pool.map(model_source.set_model_source, sources))
+
+    assert results == [None] * len(sources)
+
+    settings_path = tmp_path / "model_source.json"
+    data = json.loads(settings_path.read_text())
+    assert data["source"] in model_source.VALID_SOURCES
+
+    leftover_tmp_files = list(tmp_path.glob("model_source.json.*"))
+    assert leftover_tmp_files == []
