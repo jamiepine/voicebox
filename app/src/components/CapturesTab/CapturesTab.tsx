@@ -161,7 +161,7 @@ export function CapturesTab() {
 
   const { settings: captureSettings, update: updateCaptureSettings } = useCaptureSettings();
   const sttModel = captureSettings?.stt_model ?? 'turbo';
-  const llmModel = captureSettings?.llm_model ?? '0.6B';
+  const llmModel = captureSettings?.llm_model ?? 'qwen3-0.6b';
   const hotkeyEnabled = captureSettings?.hotkey_enabled ?? false;
   const pushToTalkKeys = captureSettings?.chord_push_to_talk_keys ?? [];
   const toggleToTalkKeys = captureSettings?.chord_toggle_to_talk_keys ?? [];

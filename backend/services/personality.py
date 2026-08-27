@@ -81,8 +81,7 @@ async def compose_as_profile(
     be clicked repeatedly for variety.
     """
     text = _require_personality(personality)
-    backend = llm_service.get_llm_model()
-    resolved_size = model_size or backend.model_size
+    backend, resolved_size, model_name = llm_service.resolve_backend_and_size(model_size)
 
     system_prompt = _build_system_prompt(text, _COMPOSE_TASK)
     output = await backend.generate(
@@ -92,7 +91,7 @@ async def compose_as_profile(
         temperature=0.9,
         model_size=resolved_size,
     )
-    return PersonalityResult(text=output.strip(), model_size=resolved_size)
+    return PersonalityResult(text=output.strip(), model_size=model_name)
 
 
 async def rewrite_as_profile(
@@ -106,8 +105,7 @@ async def rewrite_as_profile(
     if not cleaned.strip():
         raise ValueError("Rewrite needs non-empty text to restate.")
 
-    backend = llm_service.get_llm_model()
-    resolved_size = model_size or backend.model_size
+    backend, resolved_size, model_name = llm_service.resolve_backend_and_size(model_size)
 
     system_prompt = _build_system_prompt(character, _REWRITE_TASK)
     output = await backend.generate(
@@ -117,4 +115,4 @@ async def rewrite_as_profile(
         temperature=0.3,
         model_size=resolved_size,
     )
-    return PersonalityResult(text=output.strip(), model_size=resolved_size)
+    return PersonalityResult(text=output.strip(), model_size=model_name)

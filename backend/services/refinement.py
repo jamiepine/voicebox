@@ -273,11 +273,12 @@ async def refine_transcript(
     """Run the transcript through the LLM with the built system prompt.
 
     Returns:
-        (refined_text, llm_model_size) — so callers can persist which model
-        produced the refinement.
+        (refined_text, model_name) — so callers can persist which model
+        produced the refinement. model_name (not the bare size) is returned
+        because it's the only value that still identifies the model
+        uniquely once more than one engine exists.
     """
-    backend = llm_service.get_llm_model()
-    resolved_size = model_size or backend.model_size
+    backend, resolved_size, model_name = llm_service.resolve_backend_and_size(model_size)
 
     # Pre-process before the LLM sees the text — the model shouldn't have
     # to reason about obvious STT garbage (see ``collapse_repetitive_artifacts``).
@@ -292,4 +293,4 @@ async def refine_transcript(
         model_size=resolved_size,
         examples=REFINEMENT_EXAMPLES,
     )
-    return text.strip(), resolved_size
+    return text.strip(), model_name

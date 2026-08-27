@@ -3,6 +3,10 @@
 
 mlx>=0.30.0
 
+# MiniCPM5-1B has a dual eos_token_id list; mlx-lm below 0.31 only honors
+# a single eos id and fails to stop generation cleanly on that model.
+mlx-lm>=0.31
+
 # miniaudio is a runtime dep of mlx-audio's STT path (mlx_audio.stt).
 # mlx-audio itself is installed --no-deps (see comment below), so we
 # must list miniaudio explicitly here or transcription fails on fresh
@@ -18,6 +22,6 @@ miniaudio>=1.59
 # Install it via `pip install --no-deps mlx-audio==0.4.1` after this file
 # (see .github/workflows/release.yml and the setup-python recipe in the
 # justfile). Most other mlx-audio runtime deps
-# (huggingface_hub, librosa, mlx-lm, numba, numpy, protobuf, pyloudnorm,
+# (huggingface_hub, librosa, numba, numpy, protobuf, pyloudnorm,
 # sounddevice, tqdm) are already in requirements.txt or pulled in by
-# other engines.
+# other engines. mlx-lm is pinned explicitly above (see comment there).

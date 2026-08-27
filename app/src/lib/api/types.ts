@@ -138,7 +138,12 @@ export interface HistoryListResponse {
 
 export type WhisperModelSize = 'base' | 'small' | 'medium' | 'large' | 'turbo';
 
-export type Qwen3ModelSize = '0.6B' | '1.7B' | '4B';
+/**
+ * Identifies a selectable local LLM model across every engine (Qwen3 sizes,
+ * MiniCPM5). Despite call sites still naming the field `model_size` for wire
+ * compatibility, the value is the model's unique name, not a bare size.
+ */
+export type LlmModelName = 'qwen3-0.6b' | 'qwen3-1.7b' | 'qwen3-4b' | 'minicpm5-1b';
 
 export type CaptureSource = 'dictation' | 'recording' | 'file';
 
@@ -192,7 +197,7 @@ export interface CaptureCreateResponse extends CaptureResponse {
 
 export interface CaptureRefineRequest {
   flags?: RefinementFlags;
-  model_size?: Qwen3ModelSize;
+  model_size?: LlmModelName;
 }
 
 export interface CaptureRetranscribeRequest {
@@ -204,7 +209,7 @@ export interface CaptureSettings {
   stt_model: WhisperModelSize;
   language: string;
   auto_refine: boolean;
-  llm_model: Qwen3ModelSize;
+  llm_model: LlmModelName;
   smart_cleanup: boolean;
   self_correction: boolean;
   preserve_technical: boolean;

@@ -220,6 +220,7 @@ TTS_ENGINES = {
 
 LLM_ENGINES = {
     "qwen_llm": "Qwen3 LLM",
+    "minicpm_llm": "MiniCPM5 LLM",
 }
 
 
@@ -466,6 +467,32 @@ def _get_qwen_llm_configs() -> list[ModelConfig]:
     ]
 
 
+def _get_minicpm_llm_configs() -> list[ModelConfig]:
+    """Return MiniCPM5-1B LLM configs with backend-aware HF repo IDs.
+
+    MLX path uses the official pre-quantized 4-bit weights (no community
+    quant, per product decision); PyTorch path uses the upstream weights.
+    """
+    backend_type = get_backend_type()
+    repo = "openbmb/MiniCPM5-1B-MLX" if backend_type == "mlx" else "openbmb/MiniCPM5-1B"
+
+    common_languages = [
+        "en", "zh", "ja", "ko", "de", "fr", "ru", "pt", "es", "it",
+    ]
+
+    return [
+        ModelConfig(
+            model_name="minicpm5-1b",
+            display_name="MiniCPM5 1B",
+            engine="minicpm_llm",
+            hf_repo_id=repo,
+            model_size="1B",
+            size_mb=900 if backend_type == "mlx" else 2100,
+            languages=common_languages,
+        ),
+    ]
+
+
 def get_all_model_configs() -> list[ModelConfig]:
     """Return the full list of model configs (TTS + STT + LLM)."""
     return (
@@ -474,6 +501,7 @@ def get_all_model_configs() -> list[ModelConfig]:
         + _get_non_qwen_tts_configs()
         + _get_whisper_configs()
         + _get_qwen_llm_configs()
+        + _get_minicpm_llm_configs()
     )
 
 
@@ -484,7 +512,7 @@ def get_tts_model_configs() -> list[ModelConfig]:
 
 def get_llm_model_configs() -> list[ModelConfig]:
     """Return only LLM model configs."""
-    return _get_qwen_llm_configs()
+    return _get_qwen_llm_configs() + _get_minicpm_llm_configs()
 
 
 def get_stt_model_configs() -> list[ModelConfig]:
@@ -575,8 +603,8 @@ def unload_model_by_config(config: ModelConfig) -> bool:
             return True
         return False
 
-    if config.engine == "qwen_llm":
-        backend = llm_service.get_llm_model()
+    if config.engine in LLM_ENGINES:
+        backend = llm_service.get_llm_model(config.engine)
         loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
         if backend.is_loaded() and loaded_size == config.model_size:
             backend.unload_model()
@@ -619,8 +647,8 @@ def check_model_loaded(config: ModelConfig) -> bool:
             whisper_model = transcribe.get_whisper_model()
             return whisper_model.is_loaded() and getattr(whisper_model, "model_size", None) == config.model_size
 
-        if config.engine == "qwen_llm":
-            backend = llm_service.get_llm_model()
+        if config.engine in LLM_ENGINES:
+            backend = llm_service.get_llm_model(config.engine)
             loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
             return backend.is_loaded() and loaded_size == config.model_size
 
@@ -654,8 +682,8 @@ def get_model_load_func(config: ModelConfig):
     if config.engine == "qwen_custom_voice":
         return lambda: get_tts_backend_for_engine(config.engine).load_model(config.model_size)
 
-    if config.engine == "qwen_llm":
-        return lambda: llm_service.get_llm_model().load_model(config.model_size)
+    if config.engine in LLM_ENGINES:
+        return lambda: llm_service.get_llm_model(config.engine).load_model(config.model_size)
 
     return lambda: get_tts_backend_for_engine(config.engine).load_model()
 
@@ -757,11 +785,6 @@ def get_stt_backend() -> STTBackend:
     return _stt_backend
 
 
-def get_llm_backend() -> LLMBackend:
-    """Get or create the default Qwen3 LLM backend based on platform."""
-    return get_llm_backend_for_engine("qwen_llm")
-
-
 def get_llm_backend_for_engine(engine: str) -> LLMBackend:
     """Get or create an LLM backend for the given engine."""
     global _llm_backends
@@ -783,6 +806,16 @@ def get_llm_backend_for_engine(engine: str) -> LLMBackend:
                 from .qwen_llm_backend import PyTorchQwenLLMBackend
 
                 backend = PyTorchQwenLLMBackend()
+        elif engine == "minicpm_llm":
+            backend_type = get_backend_type()
+            if backend_type == "mlx":
+                from .minicpm_llm_backend import MLXMiniCPMLLMBackend
+
+                backend = MLXMiniCPMLLMBackend()
+            else:
+                from .minicpm_llm_backend import PyTorchMiniCPMLLMBackend
+
+                backend = PyTorchMiniCPMLLMBackend()
         else:
             raise ValueError(f"Unknown LLM engine: {engine}. Supported: {list(LLM_ENGINES.keys())}")
 

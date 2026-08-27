@@ -43,6 +43,7 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_llm_model_names(engine, tables)
     _normalize_storage_paths(engine, tables)
 
 
@@ -290,6 +291,35 @@ def _supports_drop_column(engine) -> bool:
     if engine.dialect.name != "sqlite":
         return True
     return tuple(int(p) for p in sqlite3.sqlite_version.split(".")[:3]) >= (3, 35, 0)
+
+
+def _migrate_llm_model_names(engine, tables: set[str]) -> None:
+    """Rewrite historical bare-size llm_model values to model_name form.
+
+    Before MiniCPM5 support, llm_model held a bare Qwen3 size ("0.6B") since
+    only one LLM engine existed. It's now a model_name ("qwen3-0.6b" /
+    "minicpm5-1b") — the only value shape that still identifies a unique
+    model once more than one engine exists. Idempotent: after the first run
+    no row matches the legacy values any more, so a second run is a no-op.
+    """
+    legacy_to_model_name = {"0.6B": "qwen3-0.6b", "1.7B": "qwen3-1.7b", "4B": "qwen3-4b"}
+    affected_tables = [t for t in ("capture_settings", "captures") if t in tables]
+    if not affected_tables:
+        return
+
+    with engine.connect() as conn:
+        for table in affected_tables:
+            for legacy, model_name in legacy_to_model_name.items():
+                result = conn.execute(
+                    text(f"UPDATE {table} SET llm_model = :new WHERE llm_model = :old"),
+                    {"new": model_name, "old": legacy},
+                )
+                if result.rowcount:
+                    logger.info(
+                        "Migrated %d %s.llm_model row(s) from %r to %r",
+                        result.rowcount, table, legacy, model_name,
+                    )
+        conn.commit()
 
 
 def _normalize_storage_paths(engine, tables: set[str]) -> None:
