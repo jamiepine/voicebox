@@ -2,6 +2,8 @@
 LLM inference module - delegates to backend abstraction layer.
 """
 
+import threading
+
 from ..backends import (
     LLM_ENGINES,
     LLMBackend,
@@ -9,6 +11,12 @@ from ..backends import (
     get_llm_model_configs,
     get_model_config,
 )
+
+# Guards the "unload every other engine, then hand back the target one"
+# sequence in get_llm_model so two concurrent callers switching engines can't
+# interleave into a state where the engine being evicted and the engine being
+# activated are both mid-transition at once.
+_engine_switch_lock = threading.Lock()
 
 
 def get_llm_model(engine: str = "qwen_llm") -> LLMBackend:
@@ -20,14 +28,20 @@ def get_llm_model(engine: str = "qwen_llm") -> LLMBackend:
     doesn't extend across two different engines' separate singletons, so this
     unloads every other registered engine explicitly before returning the one
     the caller asked for.
-    """
-    for other_engine in LLM_ENGINES:
-        if other_engine != engine:
-            other = get_llm_backend_for_engine(other_engine)
-            if other.is_loaded():
-                other.unload_model()
 
-    return get_llm_backend_for_engine(engine)
+    This has a real side effect (it can evict another engine's loaded
+    weights) and must only be called by code that is actually about to
+    activate `engine`. Read-only status checks belong on
+    `get_llm_backend_for_engine` instead, which never evicts anything.
+    """
+    with _engine_switch_lock:
+        for other_engine in LLM_ENGINES:
+            if other_engine != engine:
+                other = get_llm_backend_for_engine(other_engine)
+                if other.is_loaded():
+                    other.unload_model()
+
+        return get_llm_backend_for_engine(engine)
 
 
 def unload_llm_model(engine: str = "qwen_llm") -> None:

@@ -593,7 +593,7 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
 def unload_model_by_config(config: ModelConfig) -> bool:
     """Unload a model given its config. Returns True if it was loaded, False otherwise."""
     from . import get_tts_backend_for_engine
-    from ..services import tts, transcribe, llm as llm_service
+    from ..services import tts, transcribe
     from ..utils.cache import clear_voice_prompt_memory_cache
 
     if config.engine == "whisper":
@@ -604,7 +604,11 @@ def unload_model_by_config(config: ModelConfig) -> bool:
         return False
 
     if config.engine in LLM_ENGINES:
-        backend = llm_service.get_llm_model(config.engine)
+        # get_llm_backend_for_engine is a pure lookup — unlike
+        # llm_service.get_llm_model it never evicts the other LLM engine, so
+        # unloading the one this config names can't take down an unrelated
+        # engine that's currently in use.
+        backend = get_llm_backend_for_engine(config.engine)
         loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
         if backend.is_loaded() and loaded_size == config.model_size:
             backend.unload_model()
@@ -640,7 +644,7 @@ def unload_model_by_config(config: ModelConfig) -> bool:
 def check_model_loaded(config: ModelConfig) -> bool:
     """Check if a model is currently loaded."""
     from . import get_tts_backend_for_engine
-    from ..services import tts, transcribe, llm as llm_service
+    from ..services import tts, transcribe
 
     try:
         if config.engine == "whisper":
@@ -648,7 +652,12 @@ def check_model_loaded(config: ModelConfig) -> bool:
             return whisper_model.is_loaded() and getattr(whisper_model, "model_size", None) == config.model_size
 
         if config.engine in LLM_ENGINES:
-            backend = llm_service.get_llm_model(config.engine)
+            # A status check must stay read-only: llm_service.get_llm_model
+            # would evict whichever *other* LLM engine is currently loaded
+            # before answering, which can kill an in-flight request on that
+            # engine. get_llm_backend_for_engine only looks up/creates the
+            # backend object, no eviction.
+            backend = get_llm_backend_for_engine(config.engine)
             loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
             return backend.is_loaded() and loaded_size == config.model_size
 

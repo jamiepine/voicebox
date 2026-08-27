@@ -24,28 +24,40 @@ def _reset():
     backends_module.reset_backends()
 
 
+def _fake_backend_per_engine() -> dict:
+    """One distinguishable mock per engine, so resolving to the wrong
+    engine's backend fails the identity assertion instead of silently
+    passing against a shared look-alike mock."""
+    qwen_backend = MagicMock(name="qwen_backend")
+    qwen_backend.is_loaded.return_value = False
+    qwen_backend.model_size = "0.6B"
+    minicpm_backend = MagicMock(name="minicpm_backend")
+    minicpm_backend.is_loaded.return_value = False
+    minicpm_backend.model_size = "1B"
+    return {"qwen_llm": qwen_backend, "minicpm_llm": minicpm_backend}
+
+
 def test_resolve_with_explicit_model_name_returns_engine_bare_size_and_name(monkeypatch):
-    fake_backend = MagicMock()
+    engines = _fake_backend_per_engine()
     monkeypatch.setattr(
-        llm_service, "get_llm_backend_for_engine", lambda engine: fake_backend
+        llm_service, "get_llm_backend_for_engine", lambda engine: engines[engine]
     )
 
     backend, bare_size, model_name = llm_service.resolve_backend_and_size("minicpm5-1b")
 
-    assert backend is fake_backend
+    assert backend is engines["minicpm_llm"]
     assert bare_size == "1B"
     assert model_name == "minicpm5-1b"
 
 
 def test_resolve_with_none_reverse_resolves_default_backend_to_its_model_name(monkeypatch):
-    fake_backend = MagicMock()
-    fake_backend.model_size = "0.6B"
+    engines = _fake_backend_per_engine()
     monkeypatch.setattr(
-        llm_service, "get_llm_backend_for_engine", lambda engine: fake_backend
+        llm_service, "get_llm_backend_for_engine", lambda engine: engines[engine]
     )
 
     backend, bare_size, model_name = llm_service.resolve_backend_and_size(None)
 
-    assert backend is fake_backend
+    assert backend is engines["qwen_llm"]
     assert bare_size == "0.6B"
     assert model_name == "qwen3-0.6b"

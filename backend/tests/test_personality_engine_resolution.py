@@ -24,22 +24,36 @@ def _reset():
     backends_module.reset_backends()
 
 
-def _fake_backend(model_size="0.6B"):
+def _fake_backend(model_size="0.6B", reply=" a witty remark "):
     backend = MagicMock()
     backend.model_size = model_size
-    backend.generate = AsyncMock(return_value=" a witty remark ")
+    backend.generate = AsyncMock(return_value=reply)
     return backend
+
+
+def _fake_backend_per_engine() -> dict:
+    """One distinguishable mock per engine, so a call routed to the wrong
+    engine drives (and can be asserted against) the *other* engine's mock
+    instead of silently reusing a single look-alike backend."""
+    return {
+        "qwen_llm": _fake_backend(model_size="0.6B", reply=" a witty remark "),
+        "minicpm_llm": _fake_backend(model_size="1B", reply=" a minicpm remark "),
+    }
+
+
+def _patch_engines(monkeypatch, engines: dict):
+    monkeypatch.setattr(personality.llm_service, "get_llm_model", lambda engine="qwen_llm": engines[engine])
 
 
 @pytest.mark.asyncio
 async def test_compose_uses_default_qwen_engine_when_no_model_given(monkeypatch):
-    fake_backend = _fake_backend(model_size="0.6B")
-    monkeypatch.setattr(
-        personality.llm_service, "get_llm_model", lambda engine="qwen_llm": fake_backend
-    )
+    engines = _fake_backend_per_engine()
+    _patch_engines(monkeypatch, engines)
 
     result = await personality.compose_as_profile("A grumpy pirate.")
 
+    engines["qwen_llm"].generate.assert_called_once()
+    engines["minicpm_llm"].generate.assert_not_called()
     assert result.text == "a witty remark"
     # Reports the model_name, not the bare size — "0.6B" alone wouldn't
     # identify a unique model once more than one engine exists.
@@ -48,33 +62,27 @@ async def test_compose_uses_default_qwen_engine_when_no_model_given(monkeypatch)
 
 @pytest.mark.asyncio
 async def test_compose_resolves_minicpm_engine_when_model_name_given(monkeypatch):
-    calls = []
-
-    def fake_get_llm_model(engine="qwen_llm"):
-        calls.append(engine)
-        return _fake_backend(model_size="1B")
-
-    monkeypatch.setattr(personality.llm_service, "get_llm_model", fake_get_llm_model)
+    engines = _fake_backend_per_engine()
+    _patch_engines(monkeypatch, engines)
 
     result = await personality.compose_as_profile("A grumpy pirate.", model_size="minicpm5-1b")
 
-    assert calls == ["minicpm_llm"]
+    engines["minicpm_llm"].generate.assert_called_once()
+    engines["qwen_llm"].generate.assert_not_called()
+    assert result.text == "a minicpm remark"
     assert result.model_size == "minicpm5-1b"
 
 
 @pytest.mark.asyncio
 async def test_rewrite_resolves_minicpm_engine_when_model_name_given(monkeypatch):
-    calls = []
-
-    def fake_get_llm_model(engine="qwen_llm"):
-        calls.append(engine)
-        return _fake_backend(model_size="1B")
-
-    monkeypatch.setattr(personality.llm_service, "get_llm_model", fake_get_llm_model)
+    engines = _fake_backend_per_engine()
+    _patch_engines(monkeypatch, engines)
 
     result = await personality.rewrite_as_profile(
         "A grumpy pirate.", "hello there", model_size="minicpm5-1b"
     )
 
-    assert calls == ["minicpm_llm"]
+    engines["minicpm_llm"].generate.assert_called_once()
+    engines["qwen_llm"].generate.assert_not_called()
+    assert result.text == "a minicpm remark"
     assert result.model_size == "minicpm5-1b"

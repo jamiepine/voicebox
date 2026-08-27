@@ -12,6 +12,7 @@ Note: GenerationRequest.model_size (TTS model selection, pattern includes "3B"
 for TADA) is a different field entirely and is untouched by this feature.
 """
 
+import pydantic
 import pytest
 
 pytest.importorskip("torch")
@@ -64,7 +65,7 @@ def test_rejects_unknown_model_name(model_cls, field):
     kwargs = {field: "not-a-real-model"}
     if model_cls is models.LLMGenerateRequest:
         kwargs["prompt"] = "hi"
-    with pytest.raises(Exception):
+    with pytest.raises(pydantic.ValidationError):
         model_cls(**kwargs)
 
 
@@ -76,5 +77,5 @@ def test_validation_is_dynamic_not_a_leftover_static_list(monkeypatch):
         "get_llm_model_configs",
         lambda: [c for c in _fake_llm_configs() if c.engine != "minicpm_llm"],
     )
-    with pytest.raises(Exception):
+    with pytest.raises(pydantic.ValidationError):
         models.LLMGenerateRequest(prompt="hi", model_size="minicpm5-1b")

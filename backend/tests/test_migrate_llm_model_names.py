@@ -52,12 +52,16 @@ def _seed(engine, *, capture_settings_llm_model: str, capture_llm_models: list[s
 
 
 def _read_llm_models(engine) -> tuple[list[str], list[str | None]]:
+    # ORDER BY rowid: captures.id is a random UUID, so without an explicit
+    # order SQLite is free to return rows in any order, and comparing to a
+    # fixed-order list would be flaky.
     with engine.connect() as conn:
         settings_values = [
-            row[0] for row in conn.execute(text("SELECT llm_model FROM capture_settings"))
+            row[0]
+            for row in conn.execute(text("SELECT llm_model FROM capture_settings ORDER BY rowid"))
         ]
         capture_values = [
-            row[0] for row in conn.execute(text("SELECT llm_model FROM captures"))
+            row[0] for row in conn.execute(text("SELECT llm_model FROM captures ORDER BY rowid"))
         ]
     return settings_values, capture_values
 
