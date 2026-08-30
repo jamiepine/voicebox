@@ -26,6 +26,7 @@ from .base import (
     is_model_cached,
     get_torch_device,
     combine_voice_prompts as _combine_voice_prompts,
+    estimate_max_new_tokens,
     model_load_progress,
 )
 
@@ -207,7 +208,13 @@ class QwenCustomVoiceBackend:
             # state. Forcing offline here (issue #462) regressed online
             # users whose libraries issue legitimate metadata lookups
             # during generation.
-            wavs, sample_rate = self.model.generate_custom_voice(**kwargs)
+            #
+            # Bound the decode window — same EOS-miss runaway risk as the
+            # Base engine (see estimate_max_new_tokens).
+            wavs, sample_rate = self.model.generate_custom_voice(
+                **kwargs,
+                max_new_tokens=estimate_max_new_tokens(text),
+            )
             return wavs[0], sample_rate
 
         audio, sample_rate = await asyncio.to_thread(_generate_sync)

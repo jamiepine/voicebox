@@ -200,6 +200,36 @@ def manual_seed(seed: int, device: str) -> None:
         torch.xpu.manual_seed(seed)
 
 
+# ── Qwen3-TTS decode budget ──────────────────────────────────────────
+#
+# Qwen3-TTS-12Hz occasionally misses its codec EOS and keeps decoding
+# until ``max_new_tokens``. The checkpoint ships with a budget of 8192
+# tokens ≈ 11.4 minutes of audio at 12 Hz, so a single EOS miss near the
+# end of a long chunk can append many minutes of near-silent gibberish
+# (measured: 175 chars of text produced 613s of runaway audio).
+#
+# Capping the budget per call bounds that damage. Normal speech never
+# comes close: the slowest sane delivery observed is ~2 chars/sec with
+# pauses ≈ 6 tokens/char at 12 Hz, so 12 tokens/char leaves ~2× headroom
+# even for the most deliberate narration.
+
+QWEN_TOKENS_PER_CHAR = 12
+QWEN_MIN_NEW_TOKENS = 1500  # ~2 min floor — short text must never truncate
+QWEN_MAX_NEW_TOKENS_CAP = 8192  # model's own hard limit
+
+
+def estimate_max_new_tokens(text: str) -> int:
+    """Bound a Qwen3-TTS decode so a missed EOS can't run for minutes.
+
+    Scales with the input length (punctuation/whitespace included — they
+    map to pauses, which cost tokens too), with a generous floor for
+    short text and the model's own limit as the cap.
+    """
+    chars = max(len(text.strip()), 1)
+    budget = chars * QWEN_TOKENS_PER_CHAR + QWEN_MIN_NEW_TOKENS // 2
+    return min(QWEN_MAX_NEW_TOKENS_CAP, max(QWEN_MIN_NEW_TOKENS, budget))
+
+
 async def combine_voice_prompts(
     audio_paths: List[str],
     reference_texts: List[str],

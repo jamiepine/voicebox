@@ -15,6 +15,7 @@ from .base import (
     is_model_cached,
     get_torch_device,
     empty_device_cache,
+    estimate_max_new_tokens,
     manual_seed,
     combine_voice_prompts as _combine_voice_prompts,
     model_load_progress,
@@ -231,11 +232,17 @@ class PyTorchTTSBackend:
 
             # See _create_prompt_sync comment — inference runs with the
             # process's default HF_HUB_OFFLINE state (issue #462).
+            #
+            # Bound the decode window: Qwen3-TTS occasionally misses its
+            # codec EOS and would otherwise keep decoding (as silence or
+            # gibberish) until the checkpoint's 8192-token default —
+            # potentially minutes of junk appended to the clip.
             wavs, sample_rate = self.model.generate_voice_clone(
                 text=text,
                 voice_clone_prompt=voice_prompt,
                 language=LANGUAGE_CODE_TO_NAME.get(language, "auto"),
                 instruct=instruct,
+                max_new_tokens=estimate_max_new_tokens(text),
             )
             return wavs[0], sample_rate
 
