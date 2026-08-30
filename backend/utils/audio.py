@@ -147,10 +147,12 @@ def has_tts_runaway(
     return False
 
 
-# Minimum delivery rate considered sane, in source characters per second
-# of audio. The slowest normal narration observed in the wild (very short
-# lines with heavy pausing) runs ~1.6 chars/sec; anything meaningfully
+# Minimum delivery rate considered sane, in non-whitespace characters per
+# second of audio. The slowest normal narration observed in the wild (very
+# short lines with heavy pausing) runs ~1.6 chars/sec; anything meaningfully
 # below this means the model is emitting silence/gibberish, not speech.
+# Whitespace is excluded so padding (blank lines, indent runs) can't
+# inflate the threshold and mask a runaway.
 MIN_PLAUSIBLE_CHARS_PER_SEC = 1.2
 # Grace period added on top of the expected duration to absorb leading/
 # trailing silence and natural end-of-clip decay.
@@ -170,14 +172,20 @@ def exceeds_plausible_speech_duration(
     (or degenerates immediately) and then emits near-silent "room tone"
     or gibberish for minutes. Such output is not always bounded by
     internal silence, so :func:`has_tts_runaway` alone misses it; the
-    duration ratio is the reliable signal. Trailing junk under the
-    buffer is tolerated, so healthy clips never trip this.
+    duration ratio is the reliable signal. Only non-whitespace characters
+    count (blank lines and padding must not raise the threshold), and
+    trailing junk under the buffer is tolerated, so healthy clips never
+    trip this.
     """
     if audio is None or len(audio) == 0 or not text:
         return False
 
+    spoken_chars = len("".join(text.split()))
+    if spoken_chars == 0:
+        return False
+
     duration_s = len(audio) / sample_rate
-    max_plausible_s = len(text) / min_chars_per_sec + buffer_seconds
+    max_plausible_s = spoken_chars / min_chars_per_sec + buffer_seconds
     return duration_s > max_plausible_s
 
 

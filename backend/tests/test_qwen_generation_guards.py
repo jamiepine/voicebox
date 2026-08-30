@@ -14,22 +14,19 @@ the three layers that bound the damage:
    and default to smaller chunks unless the request overrides.
 """
 
-import math
-
 import numpy as np
-import pytest
 
 from backend.backends import (
     get_engine_default_chunk_chars,
     get_tts_model_configs,
 )
-from backend.utils.audio import (
-    exceeds_plausible_speech_duration,
-    detect_tts_runaway,
-)
 from backend.backends.base import (
     QWEN_MAX_NEW_TOKENS_CAP,
     estimate_max_new_tokens,
+)
+from backend.utils.audio import (
+    detect_tts_runaway,
+    exceeds_plausible_speech_duration,
 )
 
 SAMPLE_RATE = 24000
@@ -89,6 +86,15 @@ def test_duration_detector_tolerates_trailing_silence():
     silence = np.zeros(2 * SAMPLE_RATE, dtype=np.float32)
     audio = np.concatenate([speech, silence])
     assert not detect_tts_runaway(audio, SAMPLE_RATE, "a" * 100)
+
+
+def test_duration_detector_ignores_whitespace_padding():
+    # Blank lines / indent runs must not raise the threshold: 100 spoken
+    # chars + 1500 padding chars still caps the plausible duration at
+    # 100/1.2 + 15 ≈ 98s, so a 110s runaway is flagged.
+    padded_text = ("a" * 100) + ("\n\n  \t" * 250)
+    audio = np.full(110 * SAMPLE_RATE, 0.01, dtype=np.float32)
+    assert exceeds_plausible_speech_duration(audio, SAMPLE_RATE, padded_text)
 
 
 def test_duration_detector_handles_empty_input():

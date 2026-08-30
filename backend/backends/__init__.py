@@ -57,10 +57,9 @@ class ModelConfig:
     size_mb: int = 0
     needs_trim: bool = False
     retries_runaway: bool = False
-    # Engine-specific chunking default. Used when a generation request does
-    # not set max_chunk_chars explicitly. None means "use the global
-    # DEFAULT_MAX_CHUNK_CHARS".
-    default_chunk_chars: Optional[int] = None
+    # Engine-specific chunking default, used when a generation request
+    # does not set one explicitly; None falls back to the global default.
+    default_chunk_chars: int | None = None
     supports_instruct: bool = False
     languages: list[str] = field(default_factory=lambda: ["en"])
 
