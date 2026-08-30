@@ -325,6 +325,7 @@ async def stream_speech(
         engine_needs_trim,
         engine_retries_runaway,
         ensure_model_cached_or_raise,
+        get_engine_default_chunk_chars,
         get_tts_backend_for_engine,
         load_engine_model,
     )
@@ -359,9 +360,9 @@ async def stream_speech(
 
         trim_fn = trim_tts_output
     if engine_retries_runaway(engine):
-        from ..utils.audio import has_tts_runaway
+        from ..utils.audio import detect_tts_runaway
 
-        runaway_detector = has_tts_runaway
+        runaway_detector = detect_tts_runaway
 
     audio, sample_rate = await generate_chunked(
         tts_model,
@@ -370,7 +371,11 @@ async def stream_speech(
         language=data.language,
         seed=data.seed,
         instruct=data.instruct,
-        max_chunk_chars=data.max_chunk_chars,
+        max_chunk_chars=(
+            data.max_chunk_chars
+            if data.max_chunk_chars is not None
+            else get_engine_default_chunk_chars(engine)
+        ),
         crossfade_ms=data.crossfade_ms,
         trim_fn=trim_fn,
         runaway_detector=runaway_detector,

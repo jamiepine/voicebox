@@ -243,8 +243,10 @@ async def generate_chunked(
         function applied to each chunk before concatenation (e.g.
         ``trim_tts_output`` for Chatterbox engines).
     runaway_detector : callable | None
-        Optional ``(audio, sample_rate) -> bool`` detector. When it flags
-        unstable output, the affected text is split in half and retried.
+        Optional ``(audio, sample_rate, chunk_text) -> bool`` detector.
+        When it flags unstable output, the affected text is split in
+        half and retried. Receives the chunk text so duration-based
+        checks can compare output length against input length.
 
     Returns
     -------
@@ -263,7 +265,9 @@ async def generate_chunked(
             instruct,
         )
 
-        if runaway_detector is not None and runaway_detector(chunk_audio, chunk_sr):
+        if runaway_detector is not None and runaway_detector(
+            chunk_audio, chunk_sr, chunk_text
+        ):
             if retry_depth >= MAX_RUNAWAY_RETRIES or len(chunk_text) <= MIN_RUNAWAY_RETRY_CHARS:
                 raise RuntimeError(
                     "TTS output remained unstable after retrying smaller text chunks"

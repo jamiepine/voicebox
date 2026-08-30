@@ -57,6 +57,10 @@ class ModelConfig:
     size_mb: int = 0
     needs_trim: bool = False
     retries_runaway: bool = False
+    # Engine-specific chunking default. Used when a generation request does
+    # not set max_chunk_chars explicitly. None means "use the global
+    # DEFAULT_MAX_CHUNK_CHARS".
+    default_chunk_chars: Optional[int] = None
     supports_instruct: bool = False
     languages: list[str] = field(default_factory=lambda: ["en"])
 
@@ -233,9 +237,18 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
         repo_1_7b = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
         repo_0_6b = "Qwen/Qwen3-TTS-12Hz-0.6B-Base"
 
-    # mlx-audio can continue after an EOS miss with silence followed by
-    # codec noise. Retry only the affected text as smaller chunks.
-    retries_runaway = backend_type == "mlx"
+    # Qwen3-TTS can miss its codec EOS on ANY inference path — the EOS
+    # probability collapses to ~1e-14 (rank ~1500+, far outside top_k=50)
+    # and the model keeps decoding until max_new_tokens. This is
+    # model-intrinsic (measured on PyTorch CPU, MLX and sglang; see
+    # QwenLM/Qwen3-TTS#118 and sgl-project/sglang-omni#1179), so the
+    # retry guard must not be limited to the MLX backend.
+    retries_runaway = True
+
+    # Smaller chunks keep each autoregressive roll short, which both
+    # lowers the odds of an EOS miss and caps the damage when one
+    # happens. 300 chars ≈ 60-100s of audio per roll.
+    default_chunk_chars = 300
 
     return [
         ModelConfig(
@@ -246,6 +259,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             model_size="1.7B",
             size_mb=3500,
             retries_runaway=retries_runaway,
+            default_chunk_chars=default_chunk_chars,
             supports_instruct=False,  # Base model drops instruct silently
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
@@ -257,6 +271,7 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
             model_size="0.6B",
             size_mb=1200,
             retries_runaway=retries_runaway,
+            default_chunk_chars=default_chunk_chars,
             supports_instruct=False,
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
@@ -265,6 +280,8 @@ def _get_qwen_model_configs() -> list[ModelConfig]:
 
 def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
     """Return Qwen CustomVoice model configs."""
+    # Same Qwen3-TTS autoregressive core as the Base engine, so the same
+    # EOS-miss runaway guard and chunking default apply.
     return [
         ModelConfig(
             model_name="qwen-custom-voice-1.7B",
@@ -273,6 +290,8 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             hf_repo_id="Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice",
             model_size="1.7B",
             size_mb=3500,
+            retries_runaway=True,
+            default_chunk_chars=300,
             supports_instruct=True,
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
@@ -283,6 +302,8 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             hf_repo_id="Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
             model_size="0.6B",
             size_mb=1200,
+            retries_runaway=True,
+            default_chunk_chars=300,
             supports_instruct=True,
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
@@ -517,6 +538,18 @@ def engine_retries_runaway(engine: str) -> bool:
         if cfg.engine == engine:
             return cfg.retries_runaway
     return False
+
+
+def get_engine_default_chunk_chars(engine: str) -> Optional[int]:
+    """Engine-specific chunk size to use when a request doesn't set one.
+
+    Returns None when the engine has no opinion, in which case callers
+    fall back to the global ``DEFAULT_MAX_CHUNK_CHARS``.
+    """
+    for cfg in get_tts_model_configs():
+        if cfg.engine == engine:
+            return cfg.default_chunk_chars
+    return None
 
 
 def engine_has_model_sizes(engine: str) -> bool:
