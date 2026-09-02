@@ -54,8 +54,8 @@ async def run_generation(
         get_tts_backend_for_engine,
         load_engine_model,
     )
-    from ..utils.chunked_tts import generate_chunked
     from ..utils.audio import has_tts_runaway, normalize_audio, save_audio, trim_tts_output
+    from ..utils.chunked_tts import generate_chunked_for_engine
 
     task_manager = get_task_manager()
     bg_db = next(get_db())
@@ -91,7 +91,13 @@ async def run_generation(
         if crossfade_ms is not None:
             gen_kwargs["crossfade_ms"] = crossfade_ms
 
-        audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
+        audio, sample_rate = await generate_chunked_for_engine(
+            tts_model,
+            text,
+            voice_prompt,
+            engine=engine,
+            **gen_kwargs,
+        )
 
         # --- Normalize (generate and regenerate always; retry skips) -----
         if normalize or mode == "regenerate":
@@ -280,8 +286,8 @@ async def generate_audio_sync(
         get_tts_backend_for_engine,
         load_engine_model,
     )
-    from ..utils.chunked_tts import generate_chunked
     from ..utils.audio import has_tts_runaway, normalize_audio, trim_tts_output
+    from ..utils.chunked_tts import generate_chunked_for_engine
     from . import tts
 
     bg_db = next(get_db())
@@ -313,8 +319,12 @@ async def generate_audio_sync(
     if crossfade_ms is not None:
         gen_kwargs["crossfade_ms"] = crossfade_ms
 
-    audio, sample_rate = await generate_chunked(
-        tts_model, text, voice_prompt, **gen_kwargs
+    audio, sample_rate = await generate_chunked_for_engine(
+        tts_model,
+        text,
+        voice_prompt,
+        engine=engine,
+        **gen_kwargs,
     )
 
     if normalize:

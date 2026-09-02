@@ -11,6 +11,7 @@ overhead.
 
 import logging
 import re
+from collections.abc import Callable
 from typing import List, Tuple
 
 import numpy as np
@@ -22,6 +23,12 @@ logger = logging.getLogger("voicebox.chunked-tts")
 DEFAULT_MAX_CHUNK_CHARS = 800
 MAX_RUNAWAY_RETRIES = 2
 MIN_RUNAWAY_RETRY_CHARS = 100
+UTF8_ENCODING = "utf-8"
+CHATTERBOX_ENGINE = "chatterbox"
+BYTE_MEASURED_CHUNK_ENGINES = frozenset({CHATTERBOX_ENGINE})
+MIN_PREFIX_LENGTH = 1
+
+ChunkMeasure = Callable[[str], int]
 
 # Common abbreviations that should NOT be treated as sentence endings.
 # Lowercase for case-insensitive matching.
@@ -58,21 +65,42 @@ _ABBREVIATIONS = frozenset(
 # Paralinguistic tags used by Chatterbox Turbo.  The splitter must never
 # cut inside one of these.
 _PARA_TAG_RE = re.compile(r"\[[^\]]*\]")
+_ASCII_SENTENCE_END_RE = re.compile(r"[.!?](?:\s|$)")
+_UNICODE_SENTENCE_END_RE = re.compile(r"[\u061f\u0964\u0965\u3002\uff01\uff1f\u06d4]")
 
 
-def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) -> List[str]:
+def utf8_byte_length(text: str) -> int:
+    """Return the number of UTF-8 bytes needed to encode *text*."""
+    return len(text.encode(UTF8_ENCODING))
+
+
+def chunk_measure_for_engine(engine: str) -> ChunkMeasure:
+    """Return the chunk budget measure used by *engine*."""
+    if engine in BYTE_MEASURED_CHUNK_ENGINES:
+        return utf8_byte_length
+    return len
+
+
+def split_text_into_chunks(
+    text: str,
+    max_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    measure: ChunkMeasure = len,
+) -> List[str]:
     """Split *text* at natural boundaries into chunks of at most *max_chars*.
 
-    Priority: sentence-end (``.!?`` not preceded by an abbreviation and not
-    inside brackets) → clause boundary (``;:,—``) → whitespace → hard cut.
+    Priority: sentence-end (``.!?``, Indic, Arabic, and CJK endings not preceded
+    by an abbreviation and not inside brackets) → clause boundary (``;:,—``)
+    → whitespace → hard cut.
 
     Paralinguistic tags like ``[laugh]`` are treated as atomic and will not
-    be split across chunks.
+    be split across chunks.  ``measure`` controls the budget unit; by default
+    it is character length, but engines with byte/token-like ceilings can use
+    :func:`utf8_byte_length`.
     """
     text = text.strip()
     if not text:
         return []
-    if len(text) <= max_chars:
+    if measure(text) <= max_chars:
         return [text]
 
     chunks: List[str] = []
@@ -82,11 +110,11 @@ def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) 
         remaining = remaining.lstrip()
         if not remaining:
             break
-        if len(remaining) <= max_chars:
+        if measure(remaining) <= max_chars:
             chunks.append(remaining)
             break
 
-        segment = remaining[:max_chars]
+        segment = _slice_to_budget(remaining, max_chars, measure)
 
         # Try to split at the last real sentence ending
         split_pos = _find_last_sentence_end(segment)
@@ -96,7 +124,7 @@ def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) 
             split_pos = segment.rfind(" ")
         if split_pos == -1:
             # Absolute fallback: hard cut but avoid splitting inside a tag
-            split_pos = _safe_hard_cut(segment, max_chars)
+            split_pos = _safe_hard_cut(remaining, len(segment))
 
         chunk = remaining[: split_pos + 1].strip()
         if chunk:
@@ -106,16 +134,35 @@ def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) 
     return chunks
 
 
+def _slice_to_budget(text: str, max_chars: int, measure: ChunkMeasure) -> str:
+    """Return the longest prefix of *text* within the configured budget."""
+    if measure is len:
+        return text[:max_chars]
+
+    low = 0
+    high = len(text)
+    while low < high:
+        mid = (low + high + 1) // 2
+        if measure(text[:mid]) <= max_chars:
+            low = mid
+        else:
+            high = mid - 1
+
+    if low < MIN_PREFIX_LENGTH:
+        return text[:MIN_PREFIX_LENGTH]
+    return text[:low]
+
+
 def _find_last_sentence_end(text: str) -> int:
     """Return the index of the last sentence-ending punctuation in *text*.
 
     Skips periods that follow common abbreviations (``Dr.``, ``Mr.``, etc.)
-    and periods inside bracket tags (``[laugh]``).  Also handles CJK
-    sentence-ending punctuation (``。！？``).
+    and periods inside bracket tags (``[laugh]``).  Also handles Indic,
+    Arabic, and CJK sentence-ending punctuation.
     """
     best = -1
     # ASCII sentence ends
-    for m in re.finditer(r"[.!?](?:\s|$)", text):
+    for m in _ASCII_SENTENCE_END_RE.finditer(text):
         pos = m.start()
         char = text[pos]
         # Skip periods after abbreviations
@@ -134,8 +181,9 @@ def _find_last_sentence_end(text: str) -> int:
         if _inside_bracket_tag(text, pos):
             continue
         best = pos
-    # CJK sentence-ending punctuation
-    for m in re.finditer(r"[\u3002\uff01\uff1f]", text):
+    for m in _UNICODE_SENTENCE_END_RE.finditer(text):
+        if _inside_bracket_tag(text, m.start()):
+            continue
         if m.start() > best:
             best = m.start()
     return best
@@ -166,8 +214,11 @@ def _safe_hard_cut(segment: str, max_chars: int) -> int:
     cut = max_chars - 1
     # Check if the cut falls inside a bracket tag; if so, move before it
     for m in _PARA_TAG_RE.finditer(segment):
-        if m.start() < cut < m.end():
-            return m.start() - 1 if m.start() > 0 else cut
+        if m.start() <= cut < m.end():
+            return m.start() - 1 if m.start() > 0 else m.end() - 1
+    unmatched_tag_start = segment.rfind("[", 0, cut + 1)
+    if unmatched_tag_start != -1 and segment.find("]", unmatched_tag_start) == -1:
+        return unmatched_tag_start - 1 if unmatched_tag_start > 0 else cut
     return cut
 
 
@@ -214,7 +265,8 @@ async def generate_chunked(
     crossfade_ms: int = 50,
     trim_fn=None,
     runaway_detector=None,
-) -> Tuple[np.ndarray, int]:
+    chunk_measure: ChunkMeasure = len,
+) -> tuple[np.ndarray, int]:
     """Generate audio with automatic chunking for long text.
 
     For text shorter than *max_chunk_chars* this is a thin wrapper around
@@ -245,6 +297,8 @@ async def generate_chunked(
     runaway_detector : callable | None
         Optional ``(audio, sample_rate) -> bool`` detector. When it flags
         unstable output, the affected text is split in half and retried.
+    chunk_measure : callable
+        Function used to measure text against ``max_chunk_chars``.
 
     Returns
     -------
@@ -264,13 +318,18 @@ async def generate_chunked(
         )
 
         if runaway_detector is not None and runaway_detector(chunk_audio, chunk_sr):
-            if retry_depth >= MAX_RUNAWAY_RETRIES or len(chunk_text) <= MIN_RUNAWAY_RETRY_CHARS:
+            chunk_size = chunk_measure(chunk_text)
+            if retry_depth >= MAX_RUNAWAY_RETRIES or chunk_size <= MIN_RUNAWAY_RETRY_CHARS:
                 raise RuntimeError(
                     "TTS output remained unstable after retrying smaller text chunks"
                 )
 
-            retry_max_chars = max(MIN_RUNAWAY_RETRY_CHARS, len(chunk_text) // 2)
-            retry_chunks = split_text_into_chunks(chunk_text, retry_max_chars)
+            retry_max_chars = max(MIN_RUNAWAY_RETRY_CHARS, chunk_size // 2)
+            retry_chunks = split_text_into_chunks(
+                chunk_text,
+                retry_max_chars,
+                measure=chunk_measure,
+            )
             if len(retry_chunks) <= 1:
                 raise RuntimeError("Unable to split unstable TTS output for retry")
 
@@ -306,11 +365,14 @@ async def generate_chunked(
             chunk_audio = trim_fn(chunk_audio, chunk_sr)
         return np.asarray(chunk_audio, dtype=np.float32), chunk_sr
 
-    chunks = split_text_into_chunks(text, max_chunk_chars)
+    chunks = split_text_into_chunks(text, max_chunk_chars, measure=chunk_measure)
+
+    if not chunks:
+        raise RuntimeError("Cannot generate TTS audio from empty text")
 
     if len(chunks) <= 1:
         # Short text — single-shot fast path
-        return await generate_one(text, seed)
+        return await generate_one(chunks[0], seed)
 
     # Long text — chunked generation
     logger.info(
@@ -345,3 +407,33 @@ async def generate_chunked(
 
     audio = concatenate_audio_chunks(audio_chunks, sample_rate, crossfade_ms=crossfade_ms)
     return audio, sample_rate
+
+
+async def generate_chunked_for_engine(
+    backend,
+    text: str,
+    voice_prompt: dict,
+    *,
+    engine: str,
+    language: str = "en",
+    seed: int | None = None,
+    instruct: str | None = None,
+    max_chunk_chars: int = DEFAULT_MAX_CHUNK_CHARS,
+    crossfade_ms: int = 50,
+    trim_fn=None,
+    runaway_detector=None,
+) -> Tuple[np.ndarray, int]:
+    """Generate audio using the chunk measurement policy for *engine*."""
+    return await generate_chunked(
+        backend,
+        text,
+        voice_prompt,
+        language=language,
+        seed=seed,
+        instruct=instruct,
+        max_chunk_chars=max_chunk_chars,
+        crossfade_ms=crossfade_ms,
+        trim_fn=trim_fn,
+        runaway_detector=runaway_detector,
+        chunk_measure=chunk_measure_for_engine(engine),
+    )

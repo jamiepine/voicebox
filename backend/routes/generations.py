@@ -350,7 +350,7 @@ async def stream_speech(
         engine=engine,
     )
 
-    from ..utils.chunked_tts import generate_chunked
+    from ..utils.chunked_tts import generate_chunked_for_engine
 
     trim_fn = None
     runaway_detector = None
@@ -363,10 +363,11 @@ async def stream_speech(
 
         runaway_detector = has_tts_runaway
 
-    audio, sample_rate = await generate_chunked(
+    audio, sample_rate = await generate_chunked_for_engine(
         tts_model,
         data.text,
         voice_prompt,
+        engine=engine,
         language=data.language,
         seed=data.seed,
         instruct=data.instruct,
