@@ -81,7 +81,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     curl \
     gosu \
+    sox \
     && rm -rf /var/lib/apt/lists/*
+
+# Keep the HuggingFace model cache on the writable data volume, so the
+# non-root user can download models (default ~/.cache is not writable here).
+ENV HF_HOME=/app/data/cache
 
 # Copy installed Python packages from builder stage
 COPY --from=backend-builder /install /usr/local

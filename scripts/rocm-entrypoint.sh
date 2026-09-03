@@ -12,4 +12,11 @@ for dev in /dev/kfd /dev/dri/render*; do
     }
     usermod -aG "$grp" voicebox
 done
+
+# Ensure the mounted data volume is writable by the non-root user.
+# The Dockerfile chowns /app/data at build time, but a runtime volume mount
+# re-creates it owned by root, so fix ownership here (still root) before
+# dropping privileges.
+chown -R voicebox:voicebox /app/data || true
+
 exec gosu voicebox "$@"
