@@ -22,9 +22,6 @@ services:
       # Named volume for profiles, DB, cache (persists across container restarts)
       - voicebox-data:/app/data
 
-      # HuggingFace model cache (so models aren't re-downloaded on rebuild)
-      - huggingface-cache:/home/voicebox/.cache/huggingface
-
     environment:
       - LOG_LEVEL=info
       - NUMBA_CACHE_DIR=/tmp/numba_cache
@@ -44,4 +41,3 @@ networks:
 
 volumes:
   voicebox-data:
-  huggingface-cache:
