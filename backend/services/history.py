@@ -15,21 +15,30 @@ from ..database import Generation as DBGeneration, GenerationVersion as DBGenera
 from .. import config
 
 
-def _get_versions_for_generation(generation_id: str, db: Session) -> tuple:
-    """Get versions list and active version ID for a generation."""
+def _get_versions_for_generations(generation_ids: list[str], db: Session) -> dict:
+    """Fetch versions for many generations in a single query.
+
+    Returns a mapping of ``generation_id -> (versions, active_version_id)``
+    using the same shape as ``_get_versions_for_generation()``, so callers
+    can batch a whole page of generations without an N+1 query.
+    """
     import json
+
+    ids = list(dict.fromkeys(generation_ids))
+    if not ids:
+        return {}
+
     versions_rows = (
         db.query(DBGenerationVersion)
-        .filter_by(generation_id=generation_id)
+        .filter(DBGenerationVersion.generation_id.in_(ids))
         .order_by(DBGenerationVersion.created_at)
         .all()
     )
-    if not versions_rows:
-        return None, None
 
-    versions = []
-    active_version_id = None
+    versions_by_generation: dict[str, list] = {}
+    active_by_generation: dict[str, Optional[str]] = {}
     for v in versions_rows:
+        versions = versions_by_generation.setdefault(v.generation_id, [])
         effects_chain = None
         if v.effects_chain:
             try:
@@ -47,9 +56,20 @@ def _get_versions_for_generation(generation_id: str, db: Session) -> tuple:
             created_at=v.created_at,
         ))
         if v.is_default:
-            active_version_id = v.id
+            active_by_generation[v.generation_id] = v.id
 
-    return versions, active_version_id
+    return {
+        generation_id: (
+            versions_by_generation.get(generation_id),
+            active_by_generation.get(generation_id),
+        )
+        for generation_id in ids
+    }
+
+
+def _get_versions_for_generation(generation_id: str, db: Session) -> tuple:
+    """Get versions list and active version ID for a single generation."""
+    return _get_versions_for_generations([generation_id], db)[generation_id]
 
 
 async def create_generation(
@@ -205,10 +225,16 @@ async def list_generations(
     # Execute query
     results = q.all()
     
+    # Fetch versions for every generation on this page with a single
+    # query instead of one SELECT per generation (N+1).
+    versions_by_generation = _get_versions_for_generations(
+        [generation.id for generation, _ in results], db
+    )
+
     # Convert to HistoryResponse with profile_name
     items = []
     for generation, profile_name in results:
-        versions, active_version_id = _get_versions_for_generation(generation.id, db)
+        versions, active_version_id = versions_by_generation[generation.id]
         items.append(HistoryResponse(
             id=generation.id,
             profile_id=generation.profile_id,
