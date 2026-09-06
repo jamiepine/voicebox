@@ -9,13 +9,22 @@ logger = logging.getLogger(__name__)
 
 
 def get_client_ip(request: Request) -> str | None:
-    """Extract the client IP address, checking X-Forwarded-For headers if behind a proxy."""
+    """Extract the client IP address.
+
+    X-Forwarded-For is only honoured when the direct TCP peer is itself
+    loopback (i.e. a trusted local reverse proxy). Otherwise a remote
+    attacker could forge the header (e.g. "X-Forwarded-For: 127.0.0.1")
+    to impersonate a loopback caller and bypass all security checks.
+    """
+    direct_host = request.client.host if request.client else None
+
     forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
+    if forwarded and is_loopback(direct_host):
         client_ip = forwarded.split(",")[0].strip()
         if client_ip:
             return client_ip
-    return request.client.host if request.client else None
+
+    return direct_host
 
 
 def is_loopback(host: str | None) -> bool:
@@ -33,13 +42,26 @@ def is_loopback(host: str | None) -> bool:
         return False
 
 
+# Endpoints considered safe to expose to remote callers when no API key is
+# configured: read-only, non-destructive, and carrying no sensitive data.
+# Everything else (including every mutating request) requires either a
+# loopback caller or a valid VOICEBOX_API_KEY bearer token. This is an
+# allowlist, not a denylist, so newly added routes are protected by default.
+SAFE_REMOTE_GET_PATHS = frozenset({
+    "/",
+    "/health",
+    "/health/filesystem",
+})
+
+
 class SecurityMiddleware(BaseHTTPMiddleware):
     """Middleware to secure the REST API for non-loopback callers.
-    
+
     1. Loopback callers (localhost/127.0.0.1/::1) are always allowed.
     2. Non-loopback callers:
        - If VOICEBOX_API_KEY is configured in the environment, require matching Bearer token.
-       - If VOICEBOX_API_KEY is NOT configured, block all administrative or destructive requests (DELETE, shutdown, etc.) with 403 Forbidden.
+       - If VOICEBOX_API_KEY is NOT configured, only GET requests to SAFE_REMOTE_GET_PATHS
+         are allowed; every other request gets 403 Forbidden.
     """
     async def dispatch(self, request: Request, call_next) -> Response:
         try:
@@ -55,10 +77,10 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             # Check for configured API key
             api_key = os.environ.get("VOICEBOX_API_KEY")
 
-            # Extract authorization token
+            # Extract authorization token (scheme name is case-insensitive per RFC 7235)
             auth_header = request.headers.get("Authorization")
             token = None
-            if auth_header and auth_header.startswith("Bearer "):
+            if auth_header and auth_header[:7].lower() == "bearer ":
                 token = auth_header[7:].strip()
 
             if api_key:
@@ -66,38 +88,20 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                 if not token or token != api_key:
                     return JSONResponse(
                         status_code=401,
-                        content={"detail": "Unauthorized: Invalid or missing API token"}
+                        content={"detail": "Unauthorized: Invalid or missing API token"},
+                        headers={"WWW-Authenticate": "Bearer"},
                     )
             else:
-                # Destructive/Administrative endpoints are blocked for remote callers by default
+                # No API key configured: only allow a small explicit allowlist
+                # of safe read-only endpoints for remote callers.
                 method = request.method.upper()
-                path = request.url.path.lower()
-                
-                is_destructive = False
+                path = request.url.path
 
-                # Any DELETE request is considered destructive
-                if method == "DELETE":
-                    is_destructive = True
-
-                # Check for specific administrative/destructive paths
-                admin_paths = (
-                    "/shutdown",
-                    "/watchdog/disable",
-                    "/cache/clear",
-                    "/tasks/clear",
-                    "/models/unload",
-                    "/models/download",
-                    "/models/migrate",
-                )
-
-                if any(path.startswith(p) for p in admin_paths) or any(f"{p}/" in path for p in admin_paths):
-                    is_destructive = True
-
-                if is_destructive:
+                if method != "GET" or path not in SAFE_REMOTE_GET_PATHS:
                     return JSONResponse(
                         status_code=403,
                         content={
-                            "detail": "Access denied: Administrative/destructive endpoints are restricted to loopback callers. Set VOICEBOX_API_KEY to enable remote access."
+                            "detail": "Access denied: this endpoint is restricted to loopback callers. Set VOICEBOX_API_KEY to enable remote access."
                         }
                     )
 

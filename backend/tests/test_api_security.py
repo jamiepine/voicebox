@@ -31,6 +31,10 @@ def _build_app() -> FastAPI:
     async def delete_profile(profile_id: str):
         return {"message": f"deleted {profile_id}"}
 
+    @app.get("/profiles")
+    async def list_profiles():
+        return {"profiles": []}
+
     return app
 
 
@@ -113,6 +117,38 @@ def test_remote_caller_with_api_key_requires_auth(client):
             assert client.get("/health", headers=headers_valid).status_code == 200
             assert client.post("/shutdown", headers=headers_valid).status_code == 200
             assert client.delete("/profiles/123", headers=headers_valid).status_code == 200
+
+
+def test_forged_forwarded_header_from_real_remote_peer_is_ignored():
+    # A genuinely remote peer cannot spoof loopback trust by forging
+    # X-Forwarded-For: 127.0.0.1 -- the header is only honoured when the
+    # direct TCP peer is itself loopback (a trusted local proxy).
+    fake_client = type("Client", (), {"host": "203.0.113.5"})()
+    fake_request = type(
+        "Req",
+        (),
+        {"client": fake_client, "headers": {"X-Forwarded-For": "127.0.0.1"}},
+    )()
+    assert get_client_ip(fake_request) == "203.0.113.5"
+    assert is_loopback(get_client_ip(fake_request)) is False
+
+
+def test_no_api_key_only_allows_explicit_safe_get_paths(client):
+    # Endpoints not on the explicit allowlist are blocked for remote callers
+    # even though they are plain GET requests, since the middleware is an
+    # allowlist (not a denylist of destructive methods/paths).
+    with patch("backend.utils.security.is_loopback", return_value=False):
+        with patch.dict(os.environ, {}, clear=True):
+            res = client.get("/profiles")
+            assert res.status_code == 403
+            assert "restricted to loopback callers" in res.json()["detail"]
+
+
+def test_bearer_scheme_is_case_insensitive(client):
+    with patch("backend.utils.security.is_loopback", return_value=False):
+        with patch.dict(os.environ, {"VOICEBOX_API_KEY": "secret_token"}):
+            headers = {"Authorization": "bearer secret_token"}
+            assert client.get("/health", headers=headers).status_code == 200
 
 
 def test_options_preflight_is_always_allowed(client):
