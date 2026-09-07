@@ -53,17 +53,17 @@ def _patch_torch_from_numpy():
             # silently corrupt data (e.g. fp16 tensors from some TTS engines),
             # so we raise instead.
             dtype_map = {
-                "float16": _t.float16,
-                "float32": _t.float32,
-                "float64": _t.float64,
-                "int8": _t.int8,
-                "int16": _t.int16,
-                "int32": _t.int32,
-                "int64": _t.int64,
-                "uint8": _t.uint8,
-                "bool": _t.bool,
-                "complex64": _t.complex64,
-                "complex128": _t.complex128,
+                "float16": torch.float16,
+                "float32": torch.float32,
+                "float64": torch.float64,
+                "int8": torch.int8,
+                "int16": torch.int16,
+                "int32": torch.int32,
+                "int64": torch.int64,
+                "uint8": torch.uint8,
+                "bool": torch.bool,
+                "complex64": torch.complex64,
+                "complex128": torch.complex128,
             }
 
             def _safe_from_numpy(
@@ -87,8 +87,15 @@ def _patch_torch_from_numpy():
 
             torch.from_numpy = _safe_from_numpy
             torch._vb_from_numpy_patched = True
-        except Exception:
-            pass
+        except Exception as exc:
+            # Never take the app down from a runtime hook, but say something:
+            # swallowing this silently is how a NameError in the dtype map
+            # went unnoticed and left from_numpy unpatched in frozen builds.
+            print(
+                f"pyi_rth_numpy_compat: could not patch torch.from_numpy "
+                f"({type(exc).__name__}: {exc}); numpy 2.x tensors may fail.",
+                file=sys.stderr,
+            )
         return
 
 

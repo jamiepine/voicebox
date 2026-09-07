@@ -297,9 +297,7 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
     """Normalize stored file paths to be relative to the configured data dir."""
     from pathlib import Path
 
-    from ..config import get_data_dir, to_storage_path, resolve_storage_path
-
-    data_dir = get_data_dir()
+    from ..config import to_storage_path, resolve_storage_path
 
     path_columns = [
         ("generations", "audio_path"),

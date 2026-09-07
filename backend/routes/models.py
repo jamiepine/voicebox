@@ -228,7 +228,6 @@ async def get_model_status():
     """Get status of all available models."""
     from huggingface_hub import constants as hf_constants
 
-    backend_type = get_backend_type()
     task_manager = get_task_manager()
 
     # Pending only — an errored task stays in the active list for the

@@ -94,7 +94,6 @@ def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
 
         # Create samples.json mapping
         samples_data = {}
-        profile_dir = config.get_profiles_dir() / profile_id
 
         for sample in samples:
             # Get filename from audio_path (should be {sample_id}.wav)
@@ -197,7 +196,7 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
                         await upload_avatar(profile.id, tmp_path, db)
                     finally:
                         Path(tmp_path).unlink(missing_ok=True)
-                except Exception as e:
+                except Exception:
                     # Avatar import is optional - continue even if it fails
                     pass
 

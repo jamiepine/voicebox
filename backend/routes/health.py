@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import config, models
 from ..services import tts
+from ..services.task_queue import create_background_task
 from ..database import get_db
 from ..utils.platform_detect import get_backend_type, is_amd_gpu_windows
 
@@ -40,7 +41,9 @@ async def shutdown():
         await asyncio.sleep(0.1)
         os.kill(os.getpid(), signal.SIGTERM)
 
-    asyncio.create_task(shutdown_async())
+    # Held in task_queue's strong-ref set: a bare create_task can be garbage
+    # collected before it fires, which would leave the server running.
+    create_background_task(shutdown_async())
     return {"message": "Shutting down..."}
 
 

@@ -115,7 +115,8 @@ async def test_update_profile_to_duplicate_name_raises_error(test_db, mock_profi
         description="First profile",
         language="en"
     )
-    profile_1 = await create_profile(profile_data_1, test_db)
+    # Only the name needs to exist for profile_2 to collide with it.
+    await create_profile(profile_data_1, test_db)
 
     profile_data_2 = VoiceProfileCreate(
         name="Profile B",

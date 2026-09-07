@@ -44,7 +44,10 @@ class ProgressManager:
             try:
                 # Check if we're in the main event loop thread
                 try:
-                    running_loop = asyncio.get_running_loop()
+                    # Called for its side effect: raises RuntimeError when
+                    # there is no running loop, which the except branch below
+                    # treats as "we're on a background thread".
+                    asyncio.get_running_loop()
                     # We're in an async context, can use put_nowait directly
                     queue.put_nowait(progress_data.copy())
                 except RuntimeError:
