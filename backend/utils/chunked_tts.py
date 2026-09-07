@@ -154,10 +154,7 @@ def _find_last_clause_boundary(text: str) -> int:
 
 def _inside_bracket_tag(text: str, pos: int) -> bool:
     """Return True if *pos* falls inside a ``[...]`` tag."""
-    for m in _PARA_TAG_RE.finditer(text):
-        if m.start() < pos < m.end():
-            return True
-    return False
+    return any(m.start() < pos < m.end() for m in _PARA_TAG_RE.finditer(text))
 
 
 def _safe_hard_cut(segment: str, max_chars: int) -> int:

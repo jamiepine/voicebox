@@ -73,9 +73,11 @@ def create_preset(data: EffectPresetCreate, db: Session) -> EffectPresetResponse
     db.add(preset)
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as e:
         db.rollback()
-        raise ValueError(f"A preset named '{data.name}' already exists")
+        # Chained: the handler assumes a duplicate name, so keep the original
+        # error visible in case a different constraint actually tripped.
+        raise ValueError(f"A preset named '{data.name}' already exists") from e
     db.refresh(preset)
     return _preset_response(preset)
 

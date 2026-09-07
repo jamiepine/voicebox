@@ -20,39 +20,41 @@ async def monitor_sse_stream(model_name: str, timeout: int = 120):
     print(f"[{_timestamp()}] Connecting to SSE endpoint: {url}")
 
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream("GET", url) as response:
-                print(f"[{_timestamp()}] SSE connected, status: {response.status_code}")
+        async with (
+            httpx.AsyncClient(timeout=timeout) as client,
+            client.stream("GET", url) as response,
+        ):
+            print(f"[{_timestamp()}] SSE connected, status: {response.status_code}")
 
-                if response.status_code != 200:
-                    print(f"[{_timestamp()}] Error: SSE endpoint returned {response.status_code}")
-                    return events
+            if response.status_code != 200:
+                print(f"[{_timestamp()}] Error: SSE endpoint returned {response.status_code}")
+                return events
 
-                async for line in response.aiter_lines():
-                    if not line:
-                        continue
+            async for line in response.aiter_lines():
+                if not line:
+                    continue
 
-                    timestamp = _timestamp()
+                timestamp = _timestamp()
 
-                    if line.startswith("data: "):
-                        try:
-                            data = json.loads(line[6:])
-                            print(
-                                f"[{timestamp}] → SSE Event: {data['status']:12} {data.get('progress', 0):6.1f}% {data.get('filename', '')}"
-                            )
-                            events.append({**data, "_timestamp": timestamp})
+                if line.startswith("data: "):
+                    try:
+                        data = json.loads(line[6:])
+                        print(
+                            f"[{timestamp}] → SSE Event: {data['status']:12} {data.get('progress', 0):6.1f}% {data.get('filename', '')}"
+                        )
+                        events.append({**data, "_timestamp": timestamp})
 
-                            # Stop if complete or error
-                            if data.get("status") in ("complete", "error"):
-                                print(f"[{timestamp}] → Model {data['status']}!")
-                                break
+                        # Stop if complete or error
+                        if data.get("status") in ("complete", "error"):
+                            print(f"[{timestamp}] → Model {data['status']}!")
+                            break
 
-                        except json.JSONDecodeError as e:
-                            print(f"[{timestamp}] Error parsing JSON: {e}")
-                            print(f"  Line was: {line}")
+                    except json.JSONDecodeError as e:
+                        print(f"[{timestamp}] Error parsing JSON: {e}")
+                        print(f"  Line was: {line}")
 
-                    elif line.startswith(": heartbeat"):
-                        print(f"[{timestamp}] ♥ heartbeat")
+                elif line.startswith(": heartbeat"):
+                    print(f"[{timestamp}] ♥ heartbeat")
 
     except TimeoutError:
         print(f"[{_timestamp()}] SSE monitoring timed out")

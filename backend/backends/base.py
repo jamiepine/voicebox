@@ -58,10 +58,7 @@ def is_model_cached(
 
         if required_files:
             # Check that every required filename exists somewhere in snapshots
-            for fname in required_files:
-                if not any(snapshots_dir.rglob(fname)):
-                    return False
-            return True
+            return all(any(snapshots_dir.rglob(fname)) for fname in required_files)
 
         # Check that at least one weight file exists
         for ext in weight_extensions:
@@ -118,9 +115,8 @@ def get_torch_device(
         except ImportError:
             pass
 
-    if allow_mps:
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return "mps"
+    if allow_mps and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        return "mps"
 
     return "cpu"
 

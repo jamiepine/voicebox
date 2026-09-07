@@ -101,7 +101,7 @@ async def create_effect_preset(
     try:
         return effects_mod.create_preset(data, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/effects/presets/{preset_id}", response_model=models.EffectPresetResponse)
@@ -119,7 +119,7 @@ async def update_effect_preset(
             raise HTTPException(status_code=404, detail="Preset not found")
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/effects/presets/{preset_id}")
@@ -132,7 +132,7 @@ async def delete_effect_preset(preset_id: str, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Preset not found")
         return {"status": "deleted"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(

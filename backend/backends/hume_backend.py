@@ -178,7 +178,7 @@ class HumeTadaBackend:
 
             # Load the causal LM (includes decoder for wav generation).
             # TadaForCausalLM.from_pretrained() calls
-            #   getattr(config, "tokenizer_name", "meta-llama/Llama-3.2-1B")
+            #   getattr(config, "tokenizer_name", "meta-llama/Llama-3.2-1B")  # noqa: ERA001 (quotes upstream)
             # which hits the gated repo. Pre-load the config from HF,
             # inject the local tokenizer path, then pass it in.
             from tada.modules.tada import TadaConfig, TadaForCausalLM
@@ -261,7 +261,7 @@ class HumeTadaBackend:
                 val = getattr(prompt, field_name)
                 if isinstance(val, torch.Tensor):
                     prompt_dict[field_name] = val.detach().cpu()
-                elif isinstance(val, list) or isinstance(val, (int, float)):
+                elif isinstance(val, (list, int, float)):
                     prompt_dict[field_name] = val
                 else:
                     prompt_dict[field_name] = val

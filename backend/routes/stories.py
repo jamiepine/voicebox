@@ -29,7 +29,7 @@ async def create_story(
     try:
         return await stories.create_story(data, db)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/stories/{story_id}", response_model=models.StoryDetailResponse)
@@ -234,4 +234,4 @@ async def export_story_audio(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

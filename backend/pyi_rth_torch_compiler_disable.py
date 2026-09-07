@@ -421,7 +421,7 @@ class _ScipyDistnPrebindLoader:
         #
         # The real module ends with:
         #     for obj in [s for s in dir() if s.startswith('_doc_')]:
-        #         exec('del ' + obj)
+        #         exec('del ' + obj)  # noqa: ERA001 (quotes the scipy source being patched)
         #     del obj
         #
         # Under PyInstaller's frozen importer, `del obj` raises NameError
@@ -484,7 +484,7 @@ def _install_dynamo_stub() -> None:
     #    paths reach sklearn -> scipy.stats which trips a separate crash)
     #  - scipy.stats._distn_infrastructure -> real load with `obj` pre-bound,
     #    so librosa -> scipy.signal -> scipy.stats loads cleanly
-    for _FinderCls in (
+    for _FinderCls in (  # noqa: N806 (loop binds classes, not values)
         _DynamoMetaPathFinder,
         _TransformersStubFinder,
         _ScipyDistnPatchingFinder,

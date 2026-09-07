@@ -13,6 +13,7 @@ See E2E_MODEL_TEST_DESIGN.md for the full design.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import platform
@@ -148,7 +149,8 @@ class ServerProcess:
             str(os.getpid()),
         ]
         print(f"[spawn] {' '.join(args)}", flush=True)
-        self._log_fh = open(self.log_path, "w", encoding="utf-8", errors="replace")
+        # Closed in stop(); the subprocess writes to it for its whole lifetime.
+        self._log_fh = open(self.log_path, "w", encoding="utf-8", errors="replace")  # noqa: SIM115
         # Combine stderr into stdout so we get a single ordered stream.
         self.proc = subprocess.Popen(
             args,
@@ -162,7 +164,8 @@ class ServerProcess:
         self._reader_thread.start()
 
     def _pump_logs(self) -> None:
-        assert self.proc is not None and self.proc.stdout is not None
+        assert self.proc is not None
+        assert self.proc.stdout is not None
         for line in self.proc.stdout:
             self._log_buffer.append(line.rstrip("\n"))
             self._log_fh.write(line)
@@ -195,16 +198,12 @@ class ServerProcess:
         except subprocess.TimeoutExpired:
             print("[shutdown] server didn't exit cleanly, killing", flush=True)
             self.proc.kill()
-            try:
+            with contextlib.suppress(subprocess.TimeoutExpired):
                 self.proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
         if self._reader_thread is not None:
             self._reader_thread.join(timeout=2)
-        try:
+        with contextlib.suppress(Exception):
             self._log_fh.close()
-        except Exception:
-            pass
 
 
 def pick_free_port() -> int:
@@ -555,7 +554,8 @@ def main() -> int:
             qwen_cv_profile_id: str | None = None
             needed_kinds = {r.profile_kind for r in rows}
             if "cloned" in needed_kinds:
-                assert ref_wav is not None and ref_text is not None
+                assert ref_wav is not None
+                assert ref_text is not None
                 print("[profile] creating cloned profile...", flush=True)
                 cloned_profile_id = create_cloned_profile(client, base_url, ref_wav, ref_text)
             if "preset_kokoro" in needed_kinds:

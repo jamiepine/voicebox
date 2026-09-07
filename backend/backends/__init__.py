@@ -17,15 +17,15 @@ from ..utils import hf_offline_patch  # isort: skip
 
 import threading
 from dataclasses import dataclass, field
-from typing import List, Optional, Protocol, Tuple
+from typing import Protocol
 
 import numpy as np
 from typing_extensions import runtime_checkable
 
+from ..utils.platform_detect import get_backend_type
+
 DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
-
-from ..utils.platform_detect import get_backend_type
 
 LANGUAGE_CODE_TO_NAME = {
     "zh": "chinese",
@@ -70,7 +70,7 @@ class TTSBackend(Protocol):
     """Protocol for TTS backend implementations."""
 
     # Each backend class should define MODEL_CONFIGS as a class variable:
-    # MODEL_CONFIGS: list[ModelConfig]
+    # MODEL_CONFIGS: list[ModelConfig]  # noqa: ERA001 (documents the contract)
 
     async def load_model(self, model_size: str) -> None:
         """Load TTS model."""

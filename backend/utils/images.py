@@ -60,7 +60,7 @@ def process_avatar(input_path: str, output_path: str, max_size: int = MAX_SIZE) 
         try:
             from PIL import ExifTags
 
-            for orientation in ExifTags.TAGS.keys():
+            for orientation in ExifTags.TAGS:
                 if ExifTags.TAGS[orientation] == "Orientation":
                     break
             exif = img._getexif()

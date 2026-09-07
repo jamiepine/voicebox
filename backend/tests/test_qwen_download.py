@@ -14,6 +14,7 @@ Prerequisites:
 """
 
 import asyncio
+import contextlib
 import json
 import time
 
@@ -38,53 +39,55 @@ async def monitor_sse_stream(model_name: str, timeout: int = 600) -> list[dict]:
     print(f"\n📡 Connecting to SSE endpoint: {url}")
 
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            async with client.stream("GET", url) as response:
-                print(f"   SSE connected, status: {response.status_code}")
+        async with (
+            httpx.AsyncClient(timeout=timeout) as client,
+            client.stream("GET", url) as response,
+        ):
+            print(f"   SSE connected, status: {response.status_code}")
 
-                if response.status_code != 200:
-                    print(f"   ❌ Error: SSE endpoint returned {response.status_code}")
-                    return events
+            if response.status_code != 200:
+                print(f"   ❌ Error: SSE endpoint returned {response.status_code}")
+                return events
 
-                async for line in response.aiter_lines():
-                    if not line:
-                        continue
+            async for line in response.aiter_lines():
+                if not line:
+                    continue
 
-                    if line.startswith("data: "):
-                        try:
-                            data = json.loads(line[6:])
-                            events.append(data)
+                if line.startswith("data: "):
+                    try:
+                        data = json.loads(line[6:])
+                        events.append(data)
 
-                            # Print progress (only when it changes significantly)
-                            progress = data.get("progress", 0)
-                            status = data.get("status", "unknown")
-                            filename = data.get("filename", "")
-                            current = data.get("current", 0)
-                            total = data.get("total", 0)
+                        # Print progress (only when it changes significantly)
+                        progress = data.get("progress", 0)
+                        status = data.get("status", "unknown")
+                        filename = data.get("filename", "")
+                        current = data.get("current", 0)
+                        total = data.get("total", 0)
 
-                            # Print every 5% change or status change
-                            if abs(progress - last_progress) >= 5 or status in ("complete", "error"):
-                                current_mb = current / (1024 * 1024)
-                                total_mb = total / (1024 * 1024)
-                                print(
-                                    f"   📊 {status:12} {progress:6.1f}% ({current_mb:.1f}MB / {total_mb:.1f}MB) {filename[:50]}"
-                                )
-                                last_progress = progress
+                        # Print every 5% change or status change
+                        if abs(progress - last_progress) >= 5 or status in ("complete", "error"):
+                            current_mb = current / (1024 * 1024)
+                            total_mb = total / (1024 * 1024)
+                            print(
+                                f"   📊 {status:12} {progress:6.1f}% ({current_mb:.1f}MB / {total_mb:.1f}MB) {filename[:50]}"
+                            )
+                            last_progress = progress
 
-                            # Stop if complete or error
-                            if status in ("complete", "error"):
-                                if status == "complete":
-                                    print("   ✅ Download complete!")
-                                else:
-                                    print(f"   ❌ Download error: {data.get('error', 'unknown')}")
-                                break
+                        # Stop if complete or error
+                        if status in ("complete", "error"):
+                            if status == "complete":
+                                print("   ✅ Download complete!")
+                            else:
+                                print(f"   ❌ Download error: {data.get('error', 'unknown')}")
+                            break
 
-                        except json.JSONDecodeError as e:
-                            print(f"   ⚠️  Error parsing JSON: {e}")
+                    except json.JSONDecodeError as e:
+                        print(f"   ⚠️  Error parsing JSON: {e}")
 
-                    elif line.startswith(": heartbeat"):
-                        # Heartbeat every 1 second, don't spam
-                        pass
+                elif line.startswith(": heartbeat"):
+                    # Heartbeat every 1 second, don't spam
+                    pass
 
     except asyncio.CancelledError:
         print("   ⏹️  SSE monitor cancelled")
@@ -204,11 +207,10 @@ async def main():
             print("Exiting...")
             return True
 
-        if choice == "y":
-            if not await delete_model(model_name):
-                print("Failed to delete model. Continue anyway? [y/n]")
-                if input().strip().lower() != "y":
-                    return False
+        if choice == "y" and not await delete_model(model_name):
+            print("Failed to delete model. Continue anyway? [y/n]")
+            if input().strip().lower() != "y":
+                return False
     else:
         print("Model not downloaded. Will perform fresh download test.")
         input("Press Enter to continue...")
@@ -231,10 +233,8 @@ async def main():
         if not success:
             print("   ❌ Failed to trigger download")
             monitor_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await monitor_task
-            except asyncio.CancelledError:
-                pass
             return []
 
         # Wait for SSE monitor to complete

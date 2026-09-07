@@ -54,10 +54,10 @@ async def create_capture_endpoint(
             db=db,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("Failed to create capture")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     return models.CaptureCreateResponse(
         **capture.model_dump(),
@@ -146,7 +146,7 @@ async def refine_capture_endpoint(
         )
     except Exception as e:
         logger.exception("Refinement failed for capture %s", capture_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     if not capture:
         raise HTTPException(status_code=404, detail="Capture not found")
@@ -220,10 +220,10 @@ async def retranscribe_capture_endpoint(
             db=db,
         )
     except FileNotFoundError as e:
-        raise HTTPException(status_code=410, detail=str(e))
+        raise HTTPException(status_code=410, detail=str(e)) from e
     except Exception as e:
         logger.exception("Retranscribe failed for capture %s", capture_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     if not capture:
         raise HTTPException(status_code=404, detail="Capture not found")

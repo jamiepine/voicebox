@@ -8,8 +8,6 @@ import logging
 import numpy as np
 import torch
 
-logger = logging.getLogger(__name__)
-
 from ..utils.audio import load_audio
 from ..utils.cache import cache_voice_prompt, get_cache_key, get_cached_voice_prompt
 from . import LANGUAGE_CODE_TO_NAME, WHISPER_HF_REPOS
@@ -21,6 +19,8 @@ from .base import (
     manual_seed,
     model_load_progress,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class PyTorchTTSBackend:

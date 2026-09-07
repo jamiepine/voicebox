@@ -38,12 +38,14 @@ from .models import (
 )
 from .session import SessionLocal, _db_path, engine, get_db, init_db
 
-__all__ = [
+# RUF022: grouped by origin (models vs. session plumbing) rather than one
+# flat alphabetical list; each group is sorted.
+__all__ = [  # noqa: RUF022
     # Models
-    "Base",
     "AgentTool",
     "Appointment",
     "AudioChannel",
+    "Base",
     "Call",
     "CallTurn",
     "Capture",
@@ -70,9 +72,9 @@ __all__ = [
     "VoiceProfile",
     "WebhookDelivery",
     # Session
-    "engine",
     "SessionLocal",
     "_db_path",
-    "init_db",
+    "engine",
     "get_db",
+    "init_db",
 ]

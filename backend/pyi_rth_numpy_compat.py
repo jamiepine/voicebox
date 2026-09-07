@@ -74,12 +74,14 @@ def _patch_torch_from_numpy():
                     a = _np.ascontiguousarray(arr)
                     key = str(a.dtype)
                     if key not in _map:
+                        # `from None`: the RuntimeError is the expected signal
+                        # that we need this fallback, not a cause worth showing.
                         raise TypeError(
                             f"pyi_rth_numpy_compat: unsupported numpy dtype "
                             f"{key!r} in torch.from_numpy fallback; add an "
                             f"explicit mapping rather than silently copying "
                             f"bytes into the wrong dtype."
-                        )
+                        ) from None
                     out = _t.empty(list(a.shape), dtype=_map[key])
                     _c.memmove(out.data_ptr(), a.ctypes.data, a.nbytes)
                     return out

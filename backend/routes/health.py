@@ -1,6 +1,7 @@
 """Health and infrastructure endpoints."""
 
 import asyncio
+import contextlib
 import os
 import signal
 from pathlib import Path
@@ -122,10 +123,9 @@ async def health():
     if has_cuda:
         vram_used = torch.cuda.memory_allocated() / 1024 / 1024
     elif has_xpu:
-        try:
+        # memory_allocated() may not be available on all IPEX versions
+        with contextlib.suppress(Exception):
             vram_used = torch.xpu.memory_allocated() / 1024 / 1024
-        except Exception:
-            pass  # memory_allocated() may not be available on all IPEX versions
 
     model_loaded = False
     model_size = None
@@ -223,10 +223,8 @@ async def filesystem_health():
             except OSError as e:
                 error = str(e)
             finally:
-                try:
+                with contextlib.suppress(Exception):
                     probe.unlink(missing_ok=True)
-                except Exception:
-                    pass
         else:
             error = "Directory does not exist"
 

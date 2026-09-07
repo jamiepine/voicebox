@@ -7,11 +7,11 @@ import json
 import logging
 import time
 
-# Set up logging to see what's happening
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-
 from utils.hf_progress import HFProgressTracker, create_hf_progress_callback
 from utils.progress import ProgressManager, get_progress_manager
+
+# Set up logging to see what's happening
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 def test_progress_manager_basic():
@@ -84,7 +84,7 @@ async def test_progress_manager_sse():
                 current=i,
                 total=100,
                 filename=f"file_{i}.bin",
-                status="downloading" if i < 100 else "downloading",
+                status="downloading",
             )
             await asyncio.sleep(0.1)
 
@@ -128,7 +128,7 @@ def test_hf_progress_tracker():
             print("  Simulating download with tqdm...")
             total_size = 1000
             with tqdm(total=total_size, desc="model.bin", unit="B", unit_scale=True) as pbar:
-                for chunk in range(0, total_size, 100):
+                for _chunk in range(0, total_size, 100):
                     pbar.update(100)
                     time.sleep(0.01)
 
@@ -137,7 +137,7 @@ def test_hf_progress_tracker():
 
             # Verify progress increases
             last_downloaded = 0
-            for downloaded, total, filename in captured_progress:
+            for downloaded, total, _filename in captured_progress:
                 assert downloaded >= last_downloaded, "Downloaded bytes should increase"
                 assert total == total_size, "Total should be consistent"
                 last_downloaded = downloaded

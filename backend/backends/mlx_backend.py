@@ -138,15 +138,14 @@ class MLXTTSBackend:
         if use_cache:
             cache_key = get_cache_key(audio_path, reference_text)
             cached_prompt = get_cached_voice_prompt(cache_key)
-            if cached_prompt is not None:
-                # Return cached prompt (should be dict format)
-                if isinstance(cached_prompt, dict):
-                    # Validate that the cached audio file still exists
-                    cached_audio_path = cached_prompt.get("ref_audio") or cached_prompt.get("ref_audio_path")
-                    if cached_audio_path and Path(cached_audio_path).exists():
-                        return cached_prompt, True
-                    # Cached file no longer exists, invalidate cache
-                    logger.warning("Cached audio file not found: %s, regenerating prompt", cached_audio_path)
+            # Return cached prompt (should be dict format)
+            if isinstance(cached_prompt, dict):
+                # Validate that the cached audio file still exists
+                cached_audio_path = cached_prompt.get("ref_audio") or cached_prompt.get("ref_audio_path")
+                if cached_audio_path and Path(cached_audio_path).exists():
+                    return cached_prompt, True
+                # Cached file no longer exists, invalidate cache
+                logger.warning("Cached audio file not found: %s, regenerating prompt", cached_audio_path)
 
         # MLX voice prompt format - store audio path and text
         # The model will process this during generation

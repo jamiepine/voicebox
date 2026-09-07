@@ -246,10 +246,7 @@ async def _download_and_extract_archive(
             status="downloading",
         )
         with tarfile.open(temp_path, "r:gz") as tar:
-            if sys.version_info >= (3, 12):
-                tar.extractall(path=dest_dir, filter="data")
-            else:
-                tar.extractall(path=dest_dir)
+            tar.extractall(path=dest_dir, filter="data")
 
         logger.info(f"{label}: extracted to {dest_dir}")
     finally:

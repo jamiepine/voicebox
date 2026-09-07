@@ -3,6 +3,7 @@ Progress tracking for model downloads using Server-Sent Events.
 """
 
 import asyncio
+import contextlib
 import json
 import threading
 from datetime import datetime
@@ -156,7 +157,7 @@ class ProgressManager:
         """Get all active downloads (status is 'downloading' or 'extracting'). Thread-safe."""
         active = []
         with self._lock:
-            for model_name, progress in self._progress.items():
+            for progress in self._progress.values():
                 status = progress.get("status", "")
                 if status in ("downloading", "extracting"):
                     active.append(progress.copy())
@@ -202,10 +203,8 @@ class ProgressManager:
         logger = logging.getLogger(__name__)
 
         # Store the main event loop for thread-safe operations
-        try:
+        with contextlib.suppress(RuntimeError):
             self._main_loop = asyncio.get_running_loop()
-        except RuntimeError:
-            pass
 
         queue = asyncio.Queue(maxsize=10)
 

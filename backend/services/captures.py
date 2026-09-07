@@ -133,10 +133,8 @@ async def create_capture(
         # disk has no row pointing at it — clean up so data/captures doesn't
         # accumulate orphan blobs across failed transcribes.
         for path in written_files:
-            try:
+            with contextlib.suppress(OSError):
                 path.unlink()
-            except OSError:
-                pass
         raise
 
     return _to_response(row)

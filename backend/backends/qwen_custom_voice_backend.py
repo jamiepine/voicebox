@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # ── Preset speakers ──────────────────────────────────────────────────
 
-# (speaker_id, display_name, gender, native_language_code, description)
+# (speaker_id, display_name, gender, native_language_code, description)  # noqa: ERA001 (column legend)
 QWEN_CUSTOM_VOICES = [
     ("Vivian", "Vivian", "female", "zh", "Bright, slightly edgy young female voice"),
     ("Serena", "Serena", "female", "zh", "Warm, gentle young female voice"),

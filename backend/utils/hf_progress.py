@@ -10,6 +10,10 @@ from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
+# Ignore progress until the running total is meaningful; small config files
+# counted before the real weights otherwise show as "100% at 0MB".
+MIN_TOTAL_BYTES = 1_000_000  # 1MB
+
 
 class HFProgressTracker:
     """Tracks HuggingFace Hub download progress by intercepting tqdm."""
@@ -130,9 +134,8 @@ class HFProgressTracker:
                                 return result
 
                             # When model is cached, also filter out generation-related progress
-                            if tracker.filter_non_downloads:
-                                if not self._is_download_progress(filename):
-                                    return result
+                            if tracker.filter_non_downloads and not self._is_download_progress(filename):
+                                return result
 
                             # Update per-file tracking
                             tracker._file_sizes[filename] = total
@@ -145,7 +148,6 @@ class HFProgressTracker:
                             # Only report progress once we have a meaningful total (at least 1MB)
                             # This avoids the "100% at 0MB" issue when small config
                             # files are counted before the real model files
-                            MIN_TOTAL_BYTES = 1_000_000  # 1MB
                             if tracker._total_size < MIN_TOTAL_BYTES:
                                 return result
 
@@ -304,7 +306,6 @@ class HFProgressTracker:
                             # Skip until we have a meaningful total (at least 1MB)
                             # This avoids the "100% at 0MB" issue when small config
                             # files are counted before the real model files
-                            MIN_TOTAL_BYTES = 1_000_000  # 1MB
                             if total >= MIN_TOTAL_BYTES:
                                 tracker._total_downloaded = current
                                 tracker._total_size = total
@@ -339,7 +340,7 @@ class HFProgressTracker:
                         tqdm_module.auto.tqdm = self._original_tqdm_auto
 
                     # Restore patched modules
-                    for key, (module, attr_name, original) in self._patched_modules.items():
+                    for module, attr_name, original in self._patched_modules.values():
                         try:
                             if module and original:
                                 setattr(module, attr_name, original)

@@ -238,14 +238,14 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
 
             return profile
 
-    except zipfile.BadZipFile:
-        raise ValueError("Invalid ZIP file")
+    except zipfile.BadZipFile as e:
+        raise ValueError("Invalid ZIP file") from e
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in archive: {e}")
+        raise ValueError(f"Invalid JSON in archive: {e}") from e
     except Exception as e:
         if isinstance(e, ValueError):
             raise
-        raise ValueError(f"Error importing profile: {e!s}")
+        raise ValueError(f"Error importing profile: {e!s}") from e
 
 
 def export_generation_to_zip(generation_id: str, db: Session) -> bytes:
@@ -460,11 +460,11 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                 # Clean up temp file
                 Path(tmp_path).unlink(missing_ok=True)
 
-    except zipfile.BadZipFile:
-        raise ValueError("Invalid ZIP file")
+    except zipfile.BadZipFile as e:
+        raise ValueError("Invalid ZIP file") from e
     except json.JSONDecodeError as e:
-        raise ValueError(f"Invalid JSON in archive: {e}")
+        raise ValueError(f"Invalid JSON in archive: {e}") from e
     except Exception as e:
         if isinstance(e, ValueError):
             raise
-        raise ValueError(f"Error importing generation: {e!s}")
+        raise ValueError(f"Error importing generation: {e!s}") from e

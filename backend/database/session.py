@@ -47,7 +47,7 @@ def init_db() -> None:
     # Create default audio channel if it doesn't exist
     db = SessionLocal()
     try:
-        default_channel = db.query(AudioChannel).filter(AudioChannel.is_default == True).first()
+        default_channel = db.query(AudioChannel).filter(AudioChannel.is_default.is_(True)).first()
         if not default_channel:
             default_channel = AudioChannel(
                 id=str(uuid.uuid4()),

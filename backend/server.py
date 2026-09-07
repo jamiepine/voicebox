@@ -25,9 +25,9 @@ def _is_writable(stream):
 
 
 if not _is_writable(sys.stdout):
-    sys.stdout = open(os.devnull, "w")
+    sys.stdout = open(os.devnull, "w")  # noqa: SIM115 (must stay open for the process)
 if not _is_writable(sys.stderr):
-    sys.stderr = open(os.devnull, "w")
+    sys.stderr = open(os.devnull, "w")  # noqa: SIM115 (must stay open for the process)
 
 # PyInstaller + multiprocessing: child processes re-execute the frozen binary
 # with internal arguments. freeze_support() handles this and exits early.
@@ -63,6 +63,7 @@ else:
     os.environ.setdefault("VOICEBOX_BACKEND_VARIANT", "cpu")
 
 
+import contextlib
 import logging
 
 # Set up logging FIRST, before any imports that might fail
@@ -121,6 +122,12 @@ def disable_watchdog():
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
 
+# Win32 constants, spelled as the Windows SDK spells them.
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+STILL_ACTIVE = 259
+ERROR_ACCESS_DENIED = 5
+
+
 def _start_parent_watchdog(parent_pid, data_dir=None):
     """Monitor parent process and exit if it dies.
 
@@ -158,11 +165,9 @@ def _start_parent_watchdog(parent_pid, data_dir=None):
                 import ctypes
 
                 kernel32 = ctypes.windll.kernel32
-                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
                 handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
                 if handle:
                     # Check if process has actually exited
-                    STILL_ACTIVE = 259
                     exit_code = ctypes.c_ulong()
                     result = kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
                     kernel32.CloseHandle(handle)
@@ -173,8 +178,7 @@ def _start_parent_watchdog(parent_pid, data_dir=None):
                 # OpenProcess failed — check if it's an access error (process exists
                 # but we can't open it) vs process not found
                 error = ctypes.GetLastError()
-                ACCESS_DENIED = 5
-                if error == ACCESS_DENIED:
+                if error == ERROR_ACCESS_DENIED:
                     return True  # process exists, we just can't open it
                 watchdog_logger.info(f"PID {pid}: OpenProcess failed, error={error}")
                 return False
@@ -225,10 +229,8 @@ def _start_parent_watchdog(parent_pid, data_dir=None):
                 sentinel = os.path.join(data_dir, ".keep-running") if data_dir else None
                 if sentinel and os.path.exists(sentinel):
                     watchdog_logger.info("Found .keep-running sentinel file, keeping server alive")
-                    try:
+                    with contextlib.suppress(OSError):
                         os.remove(sentinel)
-                    except OSError:
-                        pass
                     return
                 watchdog_logger.info("Watchdog still enabled after grace period, shutting down server...")
                 if sys.platform == "win32":

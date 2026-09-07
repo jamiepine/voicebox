@@ -98,7 +98,7 @@ async def transcribe_audio(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     finally:
         Path(tmp_path).unlink(missing_ok=True)
         if stt_path != tmp_path:

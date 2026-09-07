@@ -34,7 +34,7 @@ def test_db():
     # Create engine and session
     engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(bind=engine)
-    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)  # noqa: N806
 
     db = SessionLocal()
 
@@ -66,7 +66,7 @@ async def test_create_profile_duplicate_name_raises_error(test_db, mock_profiles
     # Try to create second profile with same name
     profile_data_2 = VoiceProfileCreate(name="Test Profile", description="Second profile", language="en")
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError, match="already exists") as exc_info:
         await create_profile(profile_data_2, test_db)
 
     # Verify error message is user-friendly
@@ -112,7 +112,7 @@ async def test_update_profile_to_duplicate_name_raises_error(test_db, mock_profi
         language="en",
     )
 
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError, match="already exists") as exc_info:
         await update_profile(profile_2.id, update_data, test_db)
 
     # Verify error message is user-friendly

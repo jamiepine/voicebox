@@ -13,6 +13,7 @@ run serially, not under ``pytest-xdist`` with per-worker process isolation.
 
 import sys
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -79,7 +80,7 @@ def test_passthrough_on_success(monkeypatch):
     import huggingface_hub
 
     class FakeInfo:
-        tags = ["model-type:qwen", "language:en"]
+        tags: ClassVar[list[str]] = ["model-type:qwen", "language:en"]
 
     monkeypatch.setattr(huggingface_hub, "model_info", lambda *_a, **_kw: FakeInfo())
 

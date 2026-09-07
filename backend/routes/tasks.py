@@ -38,7 +38,7 @@ async def clear_cache():
             "files_deleted": deleted_count,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {e!s}") from e
 
 
 @router.get("/tasks/active", response_model=models.ActiveTasksResponse)
