@@ -13,7 +13,6 @@ from dataclasses import dataclass
 
 from . import llm as llm_service
 
-
 # A run that repeats this many times gets collapsed before the LLM sees
 # the transcript. Whisper occasionally loops content hundreds of times
 # when audio trails off — "URL URL URL…" (single word), "thanks for

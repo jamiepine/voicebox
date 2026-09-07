@@ -9,15 +9,14 @@ binary bundled with the desktop app.
 from __future__ import annotations
 
 import logging
-from contextlib import AsyncExitStack, asynccontextmanager
 from collections.abc import Callable
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from fastmcp import FastMCP
 
 from .context import ClientIdMiddleware
 from .tools import register_tools
-
 
 logger = logging.getLogger(__name__)
 

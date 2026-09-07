@@ -9,18 +9,26 @@ from .. import config
 logger = logging.getLogger(__name__)
 
 
-def backfill_generation_versions(SessionLocal, Generation, GenerationVersion) -> None:
+def backfill_generation_versions(
+    # N803: these parameters are the sessionmaker and ORM classes, injected so
+    # this module stays importable on its own. PascalCase names the types.
+    SessionLocal,  # noqa: N803
+    Generation,  # noqa: N803
+    GenerationVersion,  # noqa: N803
+) -> None:
     """Create 'clean' version entries for generations that predate the versions feature."""
     db = SessionLocal()
     try:
-        existing_version_gen_ids = {
-            row[0] for row in db.query(GenerationVersion.generation_id).all()
-        }
-        generations = db.query(Generation).filter(
-            Generation.status == "completed",
-            Generation.audio_path.isnot(None),
-            Generation.audio_path != "",
-        ).all()
+        existing_version_gen_ids = {row[0] for row in db.query(GenerationVersion.generation_id).all()}
+        generations = (
+            db.query(Generation)
+            .filter(
+                Generation.status == "completed",
+                Generation.audio_path.isnot(None),
+                Generation.audio_path != "",
+            )
+            .all()
+        )
 
         count = 0
         for gen in generations:
@@ -47,7 +55,10 @@ def backfill_generation_versions(SessionLocal, Generation, GenerationVersion) ->
         db.close()
 
 
-def seed_builtin_presets(SessionLocal, EffectPreset) -> None:
+def seed_builtin_presets(
+    SessionLocal,  # noqa: N803 (sessionmaker, see above)
+    EffectPreset,  # noqa: N803 (ORM class, see above)
+) -> None:
     """Ensure built-in effect presets exist in the database."""
     from ..utils.effects import BUILTIN_PRESETS
 

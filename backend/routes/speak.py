@@ -18,7 +18,6 @@ from ..database import MCPClientBinding, get_db
 from ..mcp_server import events as mcp_events
 from ..mcp_server.resolve import resolve_profile
 
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -54,11 +53,7 @@ async def speak(
 
     binding = None
     if client_id:
-        binding = (
-            db.query(MCPClientBinding)
-            .filter(MCPClientBinding.client_id == client_id)
-            .first()
-        )
+        binding = db.query(MCPClientBinding).filter(MCPClientBinding.client_id == client_id).first()
 
     # Resolve per-client personality default when the caller didn't pin it.
     personality_flag = data.personality

@@ -56,7 +56,6 @@ import sys
 import tempfile
 import types
 
-
 # Diagnostics — log hook activity to a file alongside the bundle so we can
 # see what's happening when the server is run as a sidecar (no stdout for
 # runtime hook prints). Safe no-op if the file can't be written.
@@ -317,17 +316,13 @@ class _SourcePatchLoader:
 
         if not source:
             _diag(
-                f"[source-patch] no source for {module.__name__}; "
-                "falling back to inner exec_module (patch NOT applied)"
+                f"[source-patch] no source for {module.__name__}; falling back to inner exec_module (patch NOT applied)"
             )
             self._inner.exec_module(module)
             return
 
         patched = self._patch_fn(source)
-        _diag(
-            f"[source-patch] {module.__name__}: "
-            f"patched={patched is not source}, len={len(patched)}"
-        )
+        _diag(f"[source-patch] {module.__name__}: patched={patched is not source}, len={len(patched)}")
         spec = module.__spec__
         if spec is not None and spec.submodule_search_locations is not None:
             module.__path__ = spec.submodule_search_locations
@@ -390,10 +385,7 @@ class _ScipyDistnPatchingFinder:
             if real_spec.loader is None:
                 _diag(f"[scipy-finder] {type(finder).__name__} returned spec with loader=None")
                 continue
-            _diag(
-                f"[scipy-finder] wrapped loader from "
-                f"{type(finder).__name__} -> {type(real_spec.loader).__name__}"
-            )
+            _diag(f"[scipy-finder] wrapped loader from {type(finder).__name__} -> {type(real_spec.loader).__name__}")
             real_spec.loader = _ScipyDistnPrebindLoader(real_spec.loader)
             return real_spec
         _diag("[scipy-finder] NO inner finder returned a spec")
@@ -429,7 +421,7 @@ class _ScipyDistnPrebindLoader:
         #
         # The real module ends with:
         #     for obj in [s for s in dir() if s.startswith('_doc_')]:
-        #         exec('del ' + obj)
+        #         exec('del ' + obj)  # noqa: ERA001 (quotes the scipy source being patched)
         #     del obj
         #
         # Under PyInstaller's frozen importer, `del obj` raises NameError
@@ -448,10 +440,7 @@ class _ScipyDistnPrebindLoader:
 
         if source:
             patched = _patch_scipy_distn_source(source)
-            _diag(
-                f"[scipy-loader] source-patch path: patched={patched is not source}, "
-                f"len={len(patched)}"
-            )
+            _diag(f"[scipy-loader] source-patch path: patched={patched is not source}, len={len(patched)}")
             spec = module.__spec__
             if spec is not None and spec.submodule_search_locations is not None:
                 module.__path__ = spec.submodule_search_locations
@@ -495,7 +484,7 @@ def _install_dynamo_stub() -> None:
     #    paths reach sklearn -> scipy.stats which trips a separate crash)
     #  - scipy.stats._distn_infrastructure -> real load with `obj` pre-bound,
     #    so librosa -> scipy.signal -> scipy.stats loads cleanly
-    for _FinderCls in (
+    for _FinderCls in (  # noqa: N806 (loop binds classes, not values)
         _DynamoMetaPathFinder,
         _TransformersStubFinder,
         _ScipyDistnPatchingFinder,
@@ -506,10 +495,7 @@ def _install_dynamo_stub() -> None:
             _diag(f"installed finder: {_FinderCls.__name__}")
         except Exception as e:
             _diag(f"FAILED to install {_FinderCls.__name__}: {e!r}")
-    _diag(
-        "final sys.meta_path head: "
-        + ", ".join(type(f).__name__ for f in sys.meta_path[:6])
-    )
+    _diag("final sys.meta_path head: " + ", ".join(type(f).__name__ for f in sys.meta_path[:6]))
 
     # If torch is already imported, also set the attribute on the package so
     # `torch._dynamo` resolves to our stub without triggering torch.__getattr__

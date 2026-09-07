@@ -10,8 +10,7 @@ from .. import config, models
 from ..backends import get_llm_model_configs, get_stt_model_configs
 from ..backends.base import is_model_cached
 from ..database import Capture as DBCapture, get_db
-from ..services import captures as captures_service
-from ..services import settings as settings_service
+from ..services import captures as captures_service, settings as settings_service
 from ..services.refinement import RefinementFlags
 
 logger = logging.getLogger(__name__)
@@ -55,10 +54,10 @@ async def create_capture_endpoint(
             db=db,
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.exception("Failed to create capture")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     return models.CaptureCreateResponse(
         **capture.model_dump(),
@@ -147,7 +146,7 @@ async def refine_capture_endpoint(
         )
     except Exception as e:
         logger.exception("Refinement failed for capture %s", capture_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     if not capture:
         raise HTTPException(status_code=404, detail="Capture not found")
@@ -221,10 +220,10 @@ async def retranscribe_capture_endpoint(
             db=db,
         )
     except FileNotFoundError as e:
-        raise HTTPException(status_code=410, detail=str(e))
+        raise HTTPException(status_code=410, detail=str(e)) from e
     except Exception as e:
         logger.exception("Retranscribe failed for capture %s", capture_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     if not capture:
         raise HTTPException(status_code=404, detail="Capture not found")

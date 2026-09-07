@@ -8,12 +8,13 @@ import subprocess
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import ClassVar
 
 
 class ColoredFormatter(logging.Formatter):
     """Custom formatter to add colors matching uvicorn's style."""
 
-    COLORS = {
+    COLORS: ClassVar[dict[str, str]] = {
         "DEBUG": "\033[36m",  # Cyan
         "INFO": "\033[32m",  # Green
         "WARNING": "\033[33m",  # Yellow
@@ -102,18 +103,19 @@ if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
 if not os.environ.get("MIOPEN_LOG_LEVEL"):
     os.environ["MIOPEN_LOG_LEVEL"] = "4"
 
+from urllib.parse import quote
+
 import torch
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from urllib.parse import quote
 
 from . import __version__, config, database
-from .services import tts, transcribe, llm
 from .database import get_db
+from .routes import register_routers
+from .services import llm, transcribe, tts
+from .services.task_queue import create_background_task, init_queue
 from .utils.platform_detect import get_backend_type
 from .utils.progress import get_progress_manager
-from .services.task_queue import create_background_task, init_queue
-from .routes import register_routers
 
 
 def safe_content_disposition(disposition_type: str, filename: str) -> str:
@@ -129,8 +131,8 @@ def safe_content_disposition(disposition_type: str, filename: str) -> str:
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
-    from .mcp_server.server import build_mcp_server, compose_lifespan
     from .mcp_server.context import ClientIdMiddleware
+    from .mcp_server.server import build_mcp_server, compose_lifespan
 
     # Build the MCP app up-front so we can wire its lifespan into FastAPI's —
     # FastMCP's Streamable HTTP transport only works if its session manager
@@ -209,8 +211,8 @@ def _mount_frontend(application: FastAPI) -> None:
     if not frontend_dir.is_dir():
         return
 
-    from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
 
     # Mount hashed assets (JS, CSS, images) that Vite places under /assets
     assets_dir = frontend_dir / "assets"
@@ -250,9 +252,9 @@ def _get_gpu_status() -> str:
         if not compatible:
             label += " [UNSUPPORTED - see logs]"
         return label
-    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "MPS (Apple Silicon)"
-    elif backend_type == "mlx":
+    if backend_type == "mlx":
         return "Metal (Apple Silicon via MLX)"
 
     # Intel XPU (Arc / Data Center) via IPEX
@@ -309,7 +311,7 @@ async def _run_startup(application: FastAPI) -> None:
         if result.rowcount > 0:
             logger.info("Marked %d stale generation(s) as failed", result.rowcount)
 
-        from .database import VoiceProfile as DBVoiceProfile, Generation as DBGeneration
+        from .database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile
 
         profile_count = db.query(DBVoiceProfile).count()
         generation_count = db.query(DBGeneration).count()

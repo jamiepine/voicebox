@@ -48,21 +48,13 @@ jobs:
       - name: Install test dependencies
         run: pip install -r backend/requirements-test.txt
 
-      # The rest of the backend is still being migrated to ruff (see
-      # backend/STYLE_GUIDE.md), so linting is scoped to the modules that are
-      # clean today rather than gating CI on pre-existing findings.
-      - name: Lint voice-agent modules
+      # The whole backend is ruff-clean (see backend/STYLE_GUIDE.md); rules
+      # that fight a deliberate pattern are ignored explicitly, with the
+      # reason, in backend/pyproject.toml rather than tolerated here.
+      - name: Lint backend
         run: |
-          paths=(
-            backend/services/voice_agent*.py
-            backend/services/telephony.py
-            backend/routes/voice_agent.py
-            backend/mcp_server/agent_tools.py
-            backend/tests/conftest.py
-            backend/tests/test_voice_agent*.py
-          )
-          ruff check "${paths[@]}"
-          ruff format --check "${paths[@]}"
+          ruff check backend/
+          ruff format --check backend/
 
       - name: Backend tests
         run: |

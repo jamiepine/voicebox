@@ -22,4 +22,7 @@ python-multipart>=0.0.6
 # Test + lint tooling
 pytest>=8.0
 pytest-asyncio>=0.23
-ruff>=0.6
+# Pinned, not floored: ruff's formatter and its rule set change between
+# minor releases (0.16 began formatting code blocks inside Markdown), so an
+# unpinned `ruff>=` silently drifts CI away from what contributors run.
+ruff==0.16.6
