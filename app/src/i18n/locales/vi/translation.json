@@ -1,0 +1,1274 @@
+{
+  "common": {
+    "cancel": "Hủy",
+    "save": "Lưu",
+    "delete": "Xóa",
+    "edit": "Sửa",
+    "close": "Đóng",
+    "confirm": "Xác nhận",
+    "loading": "Đang tải…",
+    "error": "Lỗi",
+    "unknown": "Không rõ",
+    "unknownError": "Lỗi không xác định"
+  },
+  "nav": {
+    "generate": "Tạo giọng",
+    "stories": "Câu chuyện",
+    "captures": "Bản ghi",
+    "voices": "Giọng nói",
+    "effects": "Hiệu ứng",
+    "audio": "Âm thanh",
+    "models": "Mô hình",
+    "settings": "Cài đặt",
+    "updateBadge": "Cập nhật"
+  },
+  "captures": {
+    "title": "Bản ghi",
+    "beta": "Beta",
+    "searchPlaceholder": "Tìm trong bản chép lời…",
+    "snippetEmpty": "(chưa có bản chép lời)",
+    "noTranscriptError": "Bản ghi này chưa có bản chép lời",
+    "captureCardLabel": "Bản ghi · {{when}}",
+    "header": {
+      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+    },
+    "source": {
+      "dictation": "Đọc chính tả",
+      "recording": "Ghi âm",
+      "file": "Tệp"
+    },
+    "transcript": {
+      "refined": "Đã tinh chỉnh",
+      "raw": "Bản thô",
+      "refinedHint": "Tinh chỉnh bằng Qwen3 · {{model}}",
+      "rawHint": "Chép lời bằng Whisper {{model}}"
+    },
+    "actions": {
+      "configure": "Cấu hình",
+      "import": "Nhập",
+      "importing": "Đang tải lên…",
+      "dictate": "Đọc chính tả",
+      "stop": "Dừng",
+      "copy": "Sao chép",
+      "refine": "Tinh chỉnh",
+      "reRefine": "Tinh chỉnh lại",
+      "export": "Xuất",
+      "exportDropdownLabel": "Xuất bản ghi dạng",
+      "exportAudio": "Âm thanh (WAV)",
+      "exportTranscript": "Văn bản (TXT)",
+      "exportMarkdown": "Markdown (MD)",
+      "delete": "Xóa",
+      "playAs": "Đọc bằng giọng {{name}}",
+      "playAsFallback": "Đọc bằng giọng…",
+      "playAsGenerating": "Đang tạo…",
+      "playAsStop": "Dừng · {{name}}",
+      "playAsStopFallback": "Dừng · Giọng nói",
+      "playAsDropdownLabel": "Đọc bản chép lời bằng giọng"
+    },
+    "empty": {
+      "noMatches": "Không có bản ghi nào khớp với \"{{query}}\"",
+      "none": "Chưa có bản ghi nào.",
+      "loading": "Đang tải bản ghi…",
+      "pickOne": "Chọn một bản ghi để xem bản chép lời.",
+      "holdToRecord": "Giữ để ghi âm",
+      "toggleHandsFree": "Bật chế độ rảnh tay",
+      "pressShortcut": "Nhấn phím tắt ở bất kỳ đâu trên máy để tạo bản ghi đầu tiên.",
+      "turnOnShortcut": "Bật phím tắt toàn cục để đọc chính tả từ mọi nơi — hoặc bấm Đọc chính tả ở trên để ghi ngay trong ứng dụng.",
+      "openSettings": "Mở cài đặt Bản ghi"
+    },
+    "deleteDialog": {
+      "title": "Xóa bản ghi",
+      "description": "Thao tác này sẽ xóa vĩnh viễn bản ghi, tệp âm thanh và bản chép lời. Không thể hoàn tác.",
+      "deleting": "Đang xóa…"
+    },
+    "toast": {
+      "deleteFailed": "Xóa thất bại",
+      "playAsFailed": "Không đọc được bằng giọng đã chọn",
+      "noVoice": "Chưa có hồ sơ giọng",
+      "noVoiceDescription": "Hãy tạo một hồ sơ giọng trước khi dùng Đọc bằng giọng.",
+      "transcriptCopied": "Đã sao chép bản chép lời",
+      "copyFailed": "Sao chép thất bại",
+      "exportSuccess": "Đã xuất ra {{path}}",
+      "exportFailed": "Xuất thất bại",
+      "exportEmpty": "Không có gì để xuất",
+      "shortcutNotArmed": "Phím tắt đã bật nhưng chưa sẵn sàng",
+      "shortcutNotArmedDescription_one": "{{names}} vẫn cần được tải về. Mở tab Bản ghi để bắt đầu.",
+      "shortcutNotArmedDescription_other": "{{names}} vẫn cần được tải về. Mở tab Bản ghi để bắt đầu."
+    },
+    "pill": {
+      "recording": "Đang ghi âm",
+      "transcribing": "Đang chép lời",
+      "refining": "Đang tinh chỉnh",
+      "speaking": "Đang đọc",
+      "completed": "Xong",
+      "stopAria": "Dừng ghi âm",
+      "errorFallback": "Đã có lỗi xảy ra",
+      "errorCopyTooltip": "Bấm để sao chép lỗi"
+    },
+    "chord": {
+      "capturing": "Đang nhận phím…",
+      "pressShortcut": "Nhấn tổ hợp phím của bạn",
+      "noKeys": "Chưa có phím nào",
+      "unsupported": "\"{{key}}\" không dùng được trong tổ hợp phím. Hãy thử phím bổ trợ hoặc phím chữ.",
+      "notSet": "Chưa đặt"
+    },
+    "readiness": {
+      "title": "Vài thứ cần xong trước khi đọc chính tả",
+      "subheading": "Phím tắt sẽ chưa hoạt động cho tới khi mọi mục bên dưới sẵn sàng.",
+      "downloadButton": "Tải về",
+      "downloading": "Đang tải…",
+      "downloadingPercent": "Đang tải… {{pct}}%",
+      "downloadStarted": "Đã bắt đầu tải",
+      "downloadStartedDescription": "{{name}} đang được tải về. Phím tắt sẽ tự bật khi tải xong.",
+      "downloadFailed": "Tải thất bại",
+      "stt": {
+        "label": "{{name}} (chuyển giọng nói thành văn bản)",
+        "ready": "Đã tải mô hình.",
+        "missing": "Cần để chép lời từ âm thanh của bạn",
+        "missingWithSize": "Cần để chép lời từ âm thanh của bạn · {{size}}"
+      },
+      "llm": {
+        "label": "{{name}} (tinh chỉnh)",
+        "ready": "Đã tải mô hình.",
+        "missing": "Dọn sạch bản chép lời thô trước khi dán",
+        "missingWithSize": "Dọn sạch bản chép lời thô trước khi dán · {{size}}"
+      },
+      "inputMonitoring": {
+        "label": "Quyền Input Monitoring",
+        "ready": "macOS cho phép Voicebox nhận phím tắt toàn cục.",
+        "missing": "macOS cần cho phép Voicebox nhận phím tắt toàn cục.",
+        "openSettings": "Mở Cài đặt"
+      },
+      "accessibility": {
+        "label": "Quyền Accessibility",
+        "ready": "Voicebox có thể dán bản chép lời vào ứng dụng khác.",
+        "missing": "Cần có để dán bản chép lời vào ứng dụng đang mở.",
+        "openSettings": "Mở Cài đặt"
+      }
+    },
+    "permissions": {
+      "accessibility": {
+        "title": "Cấp quyền Accessibility để bật tự động dán",
+        "body": "Voicebox cần <path>System Settings → Privacy & Security → Accessibility</path> để dán bản chép lời vào ứng dụng khác. Không có quyền này thì nội dung đọc chính tả vẫn nằm ở tab Bản ghi.",
+        "openSettings": "Mở Cài đặt",
+        "recheck": "Tôi đã bật rồi",
+        "rechecking": "Đang kiểm tra…",
+        "stillMissing": "Vẫn chưa nhận. macOS thường yêu cầu thoát hẳn rồi mở lại Voicebox sau khi đổi quyền."
+      },
+      "inputMonitoring": {
+        "title": "Cấp quyền Input Monitoring để bật phím tắt toàn cục",
+        "body": "Voicebox cần <path>System Settings → Privacy & Security → Input Monitoring</path> để nhận tổ hợp phím đọc chính tả. Công tắc đã bật, nhưng macOS đang chặn sự kiện bàn phím cho tới khi bạn cho phép.",
+        "openSettings": "Mở Cài đặt",
+        "recheck": "Tôi đã bật rồi",
+        "rechecking": "Đang kiểm tra…",
+        "stillMissing": "Vẫn chưa nhận. macOS thường yêu cầu thoát hẳn rồi mở lại Voicebox sau khi đổi quyền."
+      }
+    }
+  },
+  "voicesTab": {
+    "title": "Giọng nói",
+    "loading": "Đang tải giọng nói…",
+    "searchPlaceholder": "Tìm giọng nói…",
+    "newVoice": "Giọng mới",
+    "avatarAlt": "Ảnh đại diện của {{name}}",
+    "selectChannels": "Chọn kênh…",
+    "channelDefaultLabel": "{{name}} (Mặc định)",
+    "columns": {
+      "name": "Tên",
+      "language": "Ngôn ngữ",
+      "generations": "Lượt tạo",
+      "samples": "Mẫu",
+      "effects": "Hiệu ứng",
+      "channels": "Kênh"
+    }
+  },
+  "voiceInspector": {
+    "loading": "Đang tải…",
+    "defaultEffectsHint": "Tự động áp dụng cho các lượt tạo mới bằng giọng này.",
+    "fields": {
+      "description": "Mô tả"
+    },
+    "toast": {
+      "invalidImageFormat": "Hãy chọn ảnh PNG, JPG hoặc WebP",
+      "avatarUpdated": "Đã cập nhật ảnh đại diện",
+      "savedDescription": "Đã lưu \"{{name}}\"."
+    }
+  },
+  "audioChannels": {
+    "title": "Kênh âm thanh",
+    "newChannel": "Kênh mới",
+    "loading": "Đang tải…",
+    "confirmDelete": "Xóa kênh này?",
+    "noVoicesAssigned": "Chưa gán giọng nào",
+    "selectDevice": "Chọn thiết bị",
+    "addDevice": "Thêm thiết bị",
+    "addVoice": "Thêm giọng",
+    "defaultSuffix": "mặc định",
+    "empty": {
+      "message": "Chưa có kênh âm thanh nào. Tạo kênh đầu tiên để định tuyến giọng nói tới thiết bị cụ thể.",
+      "action": "Tạo kênh"
+    },
+    "labels": {
+      "outputDevices": "Thiết bị đầu ra",
+      "assignedVoices": "Giọng đã gán"
+    },
+    "devices": {
+      "title": "Thiết bị khả dụng",
+      "defaultNote": "Kênh mặc định dùng thiết bị mặc định của hệ thống",
+      "toggleHint": "Bấm vào thiết bị để thêm hoặc bỏ khỏi kênh đang chọn",
+      "selectHint": "Chọn một kênh để gán thiết bị",
+      "empty": "Không tìm thấy thiết bị âm thanh nào",
+      "requiresTauri": "Chọn thiết bị âm thanh cần chạy trong Tauri"
+    },
+    "fields": {
+      "name": "Tên kênh",
+      "namePlaceholder": "vd: Virtual Cable, Broadcast"
+    },
+    "createDialog": {
+      "title": "Tạo kênh âm thanh",
+      "description": "Tạo một kênh âm thanh (bus) mới để định tuyến giọng nói tới các thiết bị đầu ra cụ thể.",
+      "action": "Tạo"
+    },
+    "editDialog": {
+      "title": "Sửa kênh",
+      "description": "Cập nhật thiết lập kênh và các giọng được gán."
+    }
+  },
+  "profileForm": {
+    "createTitle": "Tạo giọng",
+    "editTitle": "Sửa giọng",
+    "createDescription": "Tạo hồ sơ giọng mới từ một mẫu âm thanh hoặc một giọng có sẵn.",
+    "editDescription": "Cập nhật thông tin hồ sơ giọng và quản lý các mẫu.",
+    "draftRestored": "Đã khôi phục bản nháp",
+    "discard": "Bỏ",
+    "source": {
+      "clone": "Nhân bản từ âm thanh",
+      "builtin": "Giọng có sẵn"
+    },
+    "builtin": {
+      "hint": "Chọn một giọng dựng sẵn. Loại này không cần mẫu âm thanh.",
+      "badge": "Giọng có sẵn",
+      "note": "Hồ sơ này dùng giọng có sẵn. Không thể đổi giọng sau khi tạo."
+    },
+    "sampleTabs": {
+      "upload": "Tải lên",
+      "record": "Ghi âm",
+      "system": "Âm thanh hệ thống"
+    },
+    "fields": {
+      "engine": "Engine",
+      "voice": "Giọng",
+      "name": "Tên",
+      "namePlaceholder": "Giọng của tôi",
+      "descriptionLabel": "Mô tả (tùy chọn)",
+      "descriptionPlaceholder": "Mô tả giọng này…",
+      "language": "Ngôn ngữ",
+      "referenceText": "Văn bản tham chiếu",
+      "referenceTextPlaceholder": "Nhập chính xác nội dung được nói trong đoạn âm thanh…",
+      "defaultEngine": "Engine mặc định",
+      "noPreference": "Không ưu tiên",
+      "defaultEngineHint": "Tự chọn engine này khi hồ sơ được sử dụng.",
+      "defaultEffects": "Hiệu ứng mặc định",
+      "defaultEffectsHint": "Hiệu ứng tự động áp dụng cho mọi lượt tạo mới bằng giọng này.",
+      "personalityLabel": "Tính cách",
+      "personalityPlaceholder": "vd: \"một tên cướp biển cáu kỉnh chỉ nói bằng ẩn dụ hàng hải\"",
+      "personalityHint": "Giọng này là ai và nói năng ra sao. Quyết định nút Soạn lời và công tắc viết lại đúng tính cách ở trang tạo giọng. Để trống thì cả hai đều ẩn."
+    },
+    "avatar": {
+      "alt": "Xem trước ảnh đại diện"
+    },
+    "actions": {
+      "saving": "Đang lưu…",
+      "saveChanges": "Lưu thay đổi",
+      "createProfile": "Tạo hồ sơ"
+    },
+    "validation": {
+      "nameRequired": "Cần nhập tên",
+      "referenceRequired": "Cần có văn bản tham chiếu khi thêm mẫu âm thanh",
+      "sampleRequired": "Cần có mẫu âm thanh",
+      "referenceTextRequired": "Cần có văn bản tham chiếu",
+      "audioTooLong": "Âm thanh quá dài ({{duration}}). Thời lượng tối đa là {{max}}.",
+      "audioFailed": "Không kiểm tra được tệp âm thanh. Hãy thử một tệp khác."
+    },
+    "toast": {
+      "recordingComplete": "Ghi âm xong",
+      "recordingCompleteDescription": "Đã ghi âm thành công.",
+      "recordingError": "Lỗi ghi âm",
+      "systemAudioCaptured": "Đã thu âm thanh hệ thống",
+      "systemAudioCapturedDescription": "Đã thu âm thanh thành công.",
+      "systemAudioError": "Lỗi thu âm thanh hệ thống",
+      "transcribeFailed": "Chép lời thất bại",
+      "transcribeFailedFallback": "Không chép lời được đoạn âm thanh",
+      "noFile": "Chưa chọn tệp",
+      "noFileDescription": "Hãy chọn một tệp âm thanh trước.",
+      "invalidFile": "Định dạng tệp không hợp lệ",
+      "invalidImageFormat": "Hãy chọn tệp ảnh (PNG, JPG hoặc WebP)",
+      "fileTooLarge": "Tệp quá lớn",
+      "imageTooLargeDescription": "Ảnh phải nhỏ hơn 5MB",
+      "avatarRemoved": "Đã gỡ ảnh đại diện",
+      "avatarRemovedDescription": "Đã gỡ ảnh đại diện thành công.",
+      "avatarRemoveFailed": "Gỡ ảnh đại diện thất bại",
+      "avatarUploadFailed": "Tải ảnh đại diện thất bại",
+      "avatarUploadFailedFallback": "Không tải lên được ảnh đại diện",
+      "effectsUpdateFailed": "Cập nhật hiệu ứng thất bại",
+      "effectsUpdateFailedFallback": "Không lưu được chuỗi hiệu ứng",
+      "voiceUpdated": "Đã cập nhật giọng",
+      "voiceUpdatedDescription": "Đã cập nhật \"{{name}}\" thành công.",
+      "noVoiceSelected": "Chưa chọn giọng",
+      "noVoiceSelectedDescription": "Hãy chọn một giọng có sẵn.",
+      "profileCreated": "Đã tạo hồ sơ",
+      "profileCreatedBuiltin": "Đã tạo \"{{name}}\" với một giọng có sẵn.",
+      "profileCreatedSample": "Đã tạo \"{{name}}\" với một mẫu âm thanh.",
+      "sampleRequired": "Cần có mẫu âm thanh",
+      "sampleRequiredDescription": "Hãy cung cấp mẫu âm thanh để tạo hồ sơ giọng.",
+      "referenceTextRequired": "Cần có văn bản tham chiếu",
+      "referenceTextRequiredDescription": "Hãy nhập văn bản tham chiếu cho mẫu âm thanh.",
+      "invalidAudio": "Tệp âm thanh không hợp lệ",
+      "invalidAudioDescription": "Âm thanh dài {{duration}}, trong khi tối đa là {{max}}.",
+      "validationError": "Lỗi kiểm tra dữ liệu",
+      "rollbackFailed": "Hoàn tác thất bại",
+      "rollbackFailedDescription": "Không xóa được hồ sơ vừa tạo sau khi tải mẫu âm thanh lỗi.",
+      "profileRolledBack": "Hồ sơ đã được hoàn tác.",
+      "sampleFailed": "Thêm mẫu thất bại",
+      "sampleFailedDescription": "Không thêm được mẫu âm thanh.",
+      "sampleFailedRolledBack": "Không thêm được mẫu âm thanh. Hồ sơ đã được hoàn tác.",
+      "saveFailed": "Không lưu được hồ sơ"
+    }
+  },
+  "audioSample": {
+    "chooseFile": "Chọn tệp",
+    "uploadHint": "Bấm để chọn tệp hoặc kéo thả vào đây. Thời lượng tối đa: 30 giây.",
+    "fileUploaded": "Đã tải tệp lên",
+    "fileLabel": "Tệp: {{name}}",
+    "play": "Phát",
+    "pause": "Tạm dừng",
+    "transcribe": "Chép lời",
+    "transcribing": "Đang chép lời…",
+    "remove": "Gỡ",
+    "startRecording": "Bắt đầu ghi âm",
+    "recordHint": "Bấm để bắt đầu ghi âm. Thời lượng tối đa: 30 giây.",
+    "stopRecording": "Dừng ghi âm",
+    "remaining": "còn {{time}}",
+    "recordingComplete": "Ghi âm xong",
+    "recordAgain": "Ghi lại",
+    "startCapture": "Bắt đầu thu",
+    "systemHint": "Thu âm thanh phát ra từ hệ thống. Thời lượng tối đa: 30 giây.",
+    "stopCapture": "Dừng thu",
+    "captureComplete": "Thu xong",
+    "captureAgain": "Thu lại"
+  },
+  "sampleList": {
+    "loading": "Đang tải mẫu…",
+    "empty": {
+      "title": "Chưa có mẫu nào",
+      "hint": "Thêm mẫu âm thanh đầu tiên để bắt đầu"
+    },
+    "editing": "Đang sửa bản chép lời",
+    "placeholder": "Nhập văn bản tham chiếu…",
+    "saving": "Đang lưu…",
+    "editTranscription": "Sửa bản chép lời",
+    "deleteSample": "Xóa mẫu",
+    "addSample": "Thêm mẫu",
+    "note": "Lưu ý: một mẫu duy nhất dài 30 giây là mức tốt nhất. Chất lượng có thể giảm khi dùng nhiều mẫu. Ở bản cập nhật sau, các mẫu có thể hoán đổi được và gắn nhãn theo từng phong cách của cùng một giọng.",
+    "deleteDialog": {
+      "title": "Xóa mẫu",
+      "description": "Bạn có chắc muốn xóa mẫu âm thanh này? Không thể hoàn tác.",
+      "deleting": "Đang xóa…"
+    },
+    "player": {
+      "play": "Phát mẫu",
+      "pause": "Tạm dừng mẫu",
+      "stop": "Dừng",
+      "stopAria": "Dừng phát",
+      "position": "Vị trí phát của mẫu",
+      "positionValue": "{{current}} / {{total}}"
+    },
+    "toast": {
+      "invalidText": "Văn bản không hợp lệ",
+      "invalidTextDescription": "Văn bản tham chiếu không được để trống.",
+      "updated": "Đã cập nhật mẫu",
+      "updatedDescription": "Đã cập nhật văn bản tham chiếu thành công.",
+      "updateFailed": "Cập nhật thất bại",
+      "updateFailedFallback": "Không cập nhật được mẫu"
+    }
+  },
+  "profiles": {
+    "card": {
+      "noDescription": "Không có mô tả",
+      "designed": "đã tinh chỉnh",
+      "export": "Xuất hồ sơ",
+      "edit": "Sửa hồ sơ",
+      "delete": "Xóa hồ sơ",
+      "selectLabel": "{{name}}, {{language}}. Chọn làm giọng để tạo.",
+      "selectLabelSelected": "{{name}}, {{language}}. Đang được chọn làm giọng để tạo."
+    },
+    "list": {
+      "errorLoading": "Lỗi khi tải hồ sơ: {{message}}",
+      "empty": "Chưa có hồ sơ giọng nào. Tạo hồ sơ đầu tiên để bắt đầu.",
+      "createVoice": "Tạo giọng",
+      "unsupportedNote": "Chỉ những hồ sơ giọng được hỗ trợ mới chọn được cho mô hình hiện tại."
+    },
+    "deleteDialog": {
+      "title": "Xóa hồ sơ",
+      "body": "Bạn có chắc muốn xóa \"{{name}}\"? Không thể hoàn tác.",
+      "deleting": "Đang xóa…"
+    }
+  },
+  "effects": {
+    "title": "Hiệu ứng",
+    "newPreset": "Preset mới",
+    "noDescription": "Không có mô tả",
+    "placeholder": "Chọn một preset hoặc tạo preset mới",
+    "effectCount_one": "{{count}} hiệu ứng",
+    "effectCount_other": "{{count}} hiệu ứng",
+    "sections": {
+      "builtin": "Có sẵn",
+      "custom": "Tùy chỉnh",
+      "new": "Mới"
+    },
+    "badge": {
+      "builtin": "có sẵn"
+    },
+    "unsaved": {
+      "title": "Preset chưa lưu",
+      "hint": "Cấu hình hiệu ứng ở bảng bên phải."
+    },
+    "detail": {
+      "newTitle": "Preset mới",
+      "editTitle": "Sửa preset",
+      "savePreset": "Lưu preset",
+      "saveAsCustom": "Lưu thành preset tùy chỉnh",
+      "saving": "Đang lưu…",
+      "deleting": "Đang xóa…"
+    },
+    "fields": {
+      "name": "Tên",
+      "namePlaceholder": "Preset của tôi…",
+      "description": "Mô tả",
+      "descriptionPlaceholder": "Mô tả preset này làm gì…"
+    },
+    "preview": {
+      "label": "Nghe thử",
+      "button": "Nghe thử",
+      "processing": "Đang xử lý…",
+      "hint": "Nghe thử áp hiệu ứng lên bản gốc sạch mà không lưu lại."
+    },
+    "saveAs": {
+      "title": "Lưu thành preset tùy chỉnh",
+      "description": "Tạo preset tùy chỉnh mới dựa trên chuỗi hiệu ứng hiện tại.",
+      "suggestedName": "{{name}} (Bản sao)"
+    },
+    "toast": {
+      "saved": "Đã lưu preset",
+      "createdDescription": "Đã tạo \"{{name}}\".",
+      "updated": "Đã cập nhật preset",
+      "deleted": "Đã xóa preset",
+      "saveFailed": "Lưu thất bại",
+      "deleteFailed": "Xóa thất bại",
+      "previewFailed": "Nghe thử thất bại",
+      "nameRequired": "Cần nhập tên"
+    },
+    "chain": {
+      "loadPreset": "Nạp preset…",
+      "addEffect": "Thêm hiệu ứng…",
+      "clear": "Xóa hết",
+      "enable": "Bật",
+      "disable": "Tắt",
+      "remove": "Gỡ"
+    },
+    "types": {
+      "chorus": {
+        "label": "Chorus / Flanger",
+        "params": {
+          "rate_hz": "Tốc độ LFO (Hz)",
+          "depth": "Độ sâu điều biến",
+          "feedback": "Mức feedback",
+          "centre_delay_ms": "Độ trễ trung tâm (ms)",
+          "mix": "Tỉ lệ wet/dry"
+        }
+      },
+      "reverb": {
+        "label": "Reverb",
+        "params": {
+          "room_size": "Kích thước phòng",
+          "damping": "Suy giảm tần số cao",
+          "wet_level": "Mức wet",
+          "dry_level": "Mức dry",
+          "width": "Độ rộng stereo"
+        }
+      },
+      "delay": {
+        "label": "Delay",
+        "params": {
+          "delay_seconds": "Thời gian trễ (giây)",
+          "feedback": "Mức feedback",
+          "mix": "Tỉ lệ wet/dry"
+        }
+      },
+      "compressor": {
+        "label": "Compressor",
+        "params": {
+          "threshold_db": "Ngưỡng (dB)",
+          "ratio": "Tỉ lệ nén",
+          "attack_ms": "Thời gian attack (ms)",
+          "release_ms": "Thời gian release (ms)"
+        }
+      },
+      "gain": {
+        "label": "Gain",
+        "params": {
+          "gain_db": "Độ khuếch đại (dB)"
+        }
+      },
+      "highpass": {
+        "label": "Bộ lọc High-Pass",
+        "params": {
+          "cutoff_frequency_hz": "Tần số cắt (Hz)"
+        }
+      },
+      "lowpass": {
+        "label": "Bộ lọc Low-Pass",
+        "params": {
+          "cutoff_frequency_hz": "Tần số cắt (Hz)"
+        }
+      },
+      "pitch_shift": {
+        "label": "Pitch Shift",
+        "params": {
+          "semitones": "Số nửa cung dịch chuyển"
+        }
+      }
+    },
+    "builtinPresets": {
+      "Robotic": {
+        "name": "Giọng robot",
+        "description": "Giọng robot kim loại (flanger với LFO chậm và feedback cao)"
+      },
+      "Radio": {
+        "name": "Radio",
+        "description": "Giọng radio AM mỏng, lọc band-pass và nén nhẹ"
+      },
+      "Echo Chamber": {
+        "name": "Phòng vang",
+        "description": "Reverb rộng với tiếng vọng kéo dài"
+      },
+      "Deep Voice": {
+        "name": "Giọng trầm",
+        "description": "Hạ cao độ và thêm độ ấm"
+      }
+    }
+  },
+  "stories": {
+    "title": "Câu chuyện",
+    "newStory": "Câu chuyện mới",
+    "loading": "Đang tải câu chuyện…",
+    "searchPlaceholder": "Tìm câu chuyện…",
+    "empty": {
+      "title": "Chưa có câu chuyện nào",
+      "hint": "Tạo câu chuyện đầu tiên để bắt đầu",
+      "noMatches": "Không có câu chuyện nào khớp với \"{{query}}\""
+    },
+    "row": {
+      "itemCount_one": "{{count}} mục",
+      "itemCount_other": "{{count}} mục",
+      "ariaLabel": "Câu chuyện {{name}}, {{count}} mục, {{updated}}",
+      "actionsLabel": "Thao tác cho {{name}}"
+    },
+    "createDialog": {
+      "title": "Tạo câu chuyện mới",
+      "description": "Tạo câu chuyện mới để sắp xếp các lượt tạo giọng thành hội thoại.",
+      "action": "Tạo",
+      "creating": "Đang tạo…"
+    },
+    "editDialog": {
+      "title": "Sửa câu chuyện",
+      "description": "Cập nhật tên và mô tả câu chuyện.",
+      "saving": "Đang lưu…"
+    },
+    "deleteDialog": {
+      "title": "Bạn chắc chứ?",
+      "description": "Thao tác này sẽ xóa vĩnh viễn câu chuyện và toàn bộ mục bên trong. Không thể hoàn tác.",
+      "deleting": "Đang xóa…"
+    },
+    "fields": {
+      "name": "Tên",
+      "namePlaceholder": "Câu chuyện của tôi",
+      "descriptionLabel": "Mô tả (tùy chọn)",
+      "descriptionPlaceholder": "Cuộc trò chuyện giữa…"
+    },
+    "toast": {
+      "nameRequired": "Cần nhập tên",
+      "nameRequiredDescription": "Hãy nhập tên câu chuyện",
+      "created": "Đã tạo câu chuyện",
+      "createdDescription": "Đã tạo \"{{name}}\"",
+      "createFailed": "Tạo câu chuyện thất bại",
+      "updateFailed": "Cập nhật câu chuyện thất bại",
+      "deleteFailed": "Xóa câu chuyện thất bại"
+    }
+  },
+  "storyContent": {
+    "selectStory": {
+      "title": "Chọn một câu chuyện",
+      "hint": "Chọn câu chuyện từ danh sách để xem nội dung"
+    },
+    "loading": "Đang tải câu chuyện…",
+    "notFound": {
+      "title": "Không tìm thấy câu chuyện",
+      "hint": "Không tải được câu chuyện đã chọn"
+    },
+    "generatingCount_one": "Đang tạo {{count}} đoạn âm thanh",
+    "generatingCount_other": "Đang tạo {{count}} đoạn âm thanh",
+    "add": "Thêm",
+    "searchPlaceholder": "Tìm theo tên hoặc bản chép lời…",
+    "searchNoMatches": "Không tìm thấy lượt tạo nào khớp",
+    "searchNoAvailable": "Không có lượt tạo nào khả dụng",
+    "exportAudio": "Xuất âm thanh",
+    "empty": {
+      "title": "Câu chuyện này chưa có mục nào",
+      "hint": "Tạo giọng nói bằng ô bên dưới để thêm mục"
+    },
+    "itemActions": {
+      "playFromHere": "Phát từ đây",
+      "regenerate": "Tạo lại",
+      "removeFromStory": "Gỡ khỏi câu chuyện"
+    },
+    "importAudio": "Nhập âm thanh…",
+    "importing": "Đang nhập…",
+    "dropToImport": "Thả tệp âm thanh vào đây để nhập",
+    "toast": {
+      "removeFailed": "Gỡ mục thất bại",
+      "reorderFailed": "Sắp xếp lại thất bại",
+      "exportFailed": "Xuất âm thanh thất bại",
+      "addFailed": "Thêm lượt tạo thất bại",
+      "regenerateFailed": "Tạo lại thất bại",
+      "importFailed": "Nhập âm thanh thất bại"
+    }
+  },
+  "history": {
+    "empty": "Chưa có lượt tạo giọng nào…",
+    "actions": {
+      "menu": "Thao tác",
+      "play": "Phát",
+      "exportAudio": "Xuất âm thanh",
+      "exportPackage": "Xuất gói",
+      "applyEffects": "Áp hiệu ứng",
+      "regenerate": "Tạo lại"
+    },
+    "deleteDialog": {
+      "title": "Xóa lượt tạo",
+      "body": "Bạn có chắc muốn xóa lượt tạo này khỏi \"{{name}}\"? Không thể hoàn tác.",
+      "deleting": "Đang xóa…"
+    },
+    "clearFailedDialog": {
+      "title": "Dọn các lượt tạo lỗi",
+      "body_one": "Thao tác này sẽ xóa vĩnh viễn {{count}} lượt tạo lỗi khỏi lịch sử. Không thể hoàn tác.",
+      "body_other": "Thao tác này sẽ xóa vĩnh viễn {{count}} lượt tạo lỗi khỏi lịch sử. Không thể hoàn tác.",
+      "clearing": "Đang dọn…",
+      "clearAll": "Dọn tất cả"
+    },
+    "importDialog": {
+      "title": "Nhập lượt tạo",
+      "body": "Nhập lượt tạo từ \"{{name}}\". Nó sẽ được thêm vào lịch sử của bạn.",
+      "importing": "Đang nhập…",
+      "action": "Nhập"
+    },
+    "effectsDialog": {
+      "title": "Áp hiệu ứng",
+      "body": "Cấu hình hiệu ứng hậu kỳ để áp lên lượt tạo này. Một phiên bản mới sẽ được tạo ra.",
+      "sourceLabel": "Nguồn",
+      "sourcePlaceholder": "Chọn phiên bản nguồn",
+      "apply": "Áp dụng",
+      "applying": "Đang áp dụng…"
+    }
+  },
+  "generation": {
+    "placeholder": {
+      "storyWithEffects": "Tạo giọng nói cho \"{{name}}\"… (gõ / để chèn hiệu ứng)",
+      "story": "Tạo giọng nói cho \"{{name}}\"…",
+      "profile": "Tạo giọng nói bằng {{name}}…",
+      "effectsHint": "Gõ / để chèn hiệu ứng như [laugh], [sigh]…",
+      "selectVoice": "Chọn một hồ sơ giọng ở trên…"
+    },
+    "button": {
+      "generate": "Tạo giọng nói",
+      "generating": "Đang tạo…",
+      "selectFirst": "Hãy chọn một hồ sơ giọng trước"
+    },
+    "instruct": {
+      "show": "Hiện hướng dẫn thể hiện",
+      "hide": "Ẩn hướng dẫn thể hiện",
+      "tooltip": "Hướng dẫn thể hiện (giọng điệu, cảm xúc, nhịp đọc)",
+      "placeholder": "Hướng dẫn thể hiện — vd: Đọc chậm và ấm áp, Dứt khoát và rõ ràng…"
+    },
+    "voiceSelector": {
+      "placeholder": "Chọn một giọng…"
+    },
+    "effects": {
+      "none": "Không hiệu ứng",
+      "profileDefault": "Mặc định của hồ sơ"
+    },
+    "compose": {
+      "tooltip": "Soạn lời",
+      "ariaLabel": "Soạn một câu đúng tính cách nhân vật",
+      "failedTitle": "Soạn lời thất bại",
+      "failedDescription": "Không tạo được văn bản từ tính cách này."
+    },
+    "persona": {
+      "tooltipActive": "Đang nói đúng tính cách",
+      "tooltipInactive": "Nói đúng tính cách",
+      "ariaLabelActive": "Đang nói đúng tính cách",
+      "ariaLabelInactive": "Nói đúng tính cách"
+    }
+  },
+  "main": {
+    "importVoice": "Nhập giọng",
+    "createVoice": "Tạo giọng",
+    "import": {
+      "invalidTitle": "Định dạng tệp không hợp lệ",
+      "invalidDescription": "Hãy chọn một tệp .voicebox.zip hợp lệ",
+      "successTitle": "Đã nhập hồ sơ",
+      "successDescription": "Đã nhập hồ sơ giọng thành công",
+      "failedTitle": "Nhập hồ sơ thất bại",
+      "dialogTitle": "Nhập hồ sơ",
+      "dialogDescription": "Nhập hồ sơ từ \"{{name}}\". Thao tác này sẽ tạo một hồ sơ mới kèm toàn bộ mẫu âm thanh.",
+      "importing": "Đang nhập…",
+      "action": "Nhập"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "general": "Chung",
+      "generation": "Tạo giọng",
+      "captures": "Bản ghi",
+      "mcp": "MCP",
+      "gpu": "GPU",
+      "logs": "Nhật ký",
+      "changelog": "Lịch sử thay đổi",
+      "about": "Giới thiệu"
+    },
+    "language": {
+      "label": "Ngôn ngữ",
+      "description": "Chọn ngôn ngữ hiển thị cho Voicebox."
+    },
+    "theme": {
+      "label": "Giao diện",
+      "description": "Theo hệ thống, hoặc chọn cố định sáng hay tối.",
+      "options": {
+        "system": "Theo hệ thống",
+        "light": "Sáng",
+        "dark": "Tối"
+      }
+    },
+    "general": {
+      "docs": {
+        "title": "Đọc tài liệu"
+      },
+      "discord": {
+        "title": "Tham gia Discord",
+        "subtitle": "Nhận hỗ trợ & chia sẻ giọng nói"
+      },
+      "serverUrl": {
+        "title": "Địa chỉ máy chủ",
+        "description": "Địa chỉ của máy chủ backend Voicebox.",
+        "invalidUrl": "Hãy nhập một URL hợp lệ",
+        "updatedTitle": "Đã cập nhật địa chỉ máy chủ",
+        "updatedDescription": "Đã kết nối tới {{url}}"
+      },
+      "keepServerRunning": {
+        "title": "Giữ máy chủ chạy khi đóng ứng dụng",
+        "description": "Máy chủ sẽ tiếp tục chạy nền sau khi bạn đóng ứng dụng.",
+        "failedTitle": "Cập nhật thiết lập thất bại",
+        "failedDescription": "Không đồng bộ được thiết lập xuống backend.",
+        "updatedTitle": "Đã cập nhật thiết lập",
+        "runningDescription": "Máy chủ sẽ tiếp tục chạy khi đóng ứng dụng",
+        "stoppedDescription": "Máy chủ sẽ dừng khi đóng ứng dụng"
+      },
+      "networkAccess": {
+        "title": "Cho phép truy cập qua mạng",
+        "description": "Cho phép các thiết bị khác trong mạng của bạn truy cập máy chủ. Hãy khởi động lại ứng dụng sau khi thay đổi.",
+        "updatedTitle": "Đã cập nhật thiết lập",
+        "enabled": "Đã bật truy cập qua mạng. Khởi động lại ứng dụng để áp dụng.",
+        "disabled": "Đã tắt truy cập qua mạng. Khởi động lại ứng dụng để áp dụng."
+      },
+      "connection": {
+        "connecting": "Đang kết nối",
+        "offline": "Ngoại tuyến",
+        "online": "Trực tuyến"
+      },
+      "updates": {
+        "title": "Cập nhật ứng dụng",
+        "devSuffix": " (dev)",
+        "devMode": {
+          "title": "Chế độ phát triển",
+          "description": "Tự động cập nhật bị tắt trong chế độ phát triển."
+        },
+        "check": {
+          "title": "Kiểm tra cập nhật",
+          "available": "Đã có phiên bản {{version}}",
+          "checking": "Đang kiểm tra…",
+          "upToDate": "Bạn đang dùng bản mới nhất",
+          "button": "Kiểm tra"
+        },
+        "error": "Lỗi cập nhật",
+        "download": {
+          "title": "Cập nhật lên {{version}}",
+          "description": "Tải về và cài đặt phiên bản mới nhất.",
+          "button": "Tải về"
+        },
+        "downloading": "Đang tải bản cập nhật…",
+        "ready": {
+          "title": "Bản cập nhật đã sẵn sàng cài đặt",
+          "description": "Đã tải xong phiên bản {{version}}. Khởi động lại để hoàn tất.",
+          "button": "Khởi động lại ngay"
+        }
+      },
+      "api": {
+        "title": "Truy cập API",
+        "description": "Tích hợp Voicebox vào quy trình của bạn qua REST API tại <code>{{url}}</code>",
+        "viewReference": "Xem tài liệu API đầy đủ",
+        "endpoints": {
+          "generate": "Tạo giọng nói",
+          "health": "Trạng thái máy chủ",
+          "profiles": "Danh sách giọng",
+          "history": "Các lượt tạo trước"
+        }
+      }
+    },
+    "generation": {
+      "title": "Tạo giọng",
+      "description": "Các thiết lập cho việc tạo văn bản dài. Áp dụng cho mọi engine.",
+      "chunkLimit": {
+        "title": "Giới hạn tự cắt đoạn",
+        "description": "Văn bản dài được cắt thành từng đoạn tại ranh giới câu. Giá trị thấp hơn có thể cho chất lượng tốt hơn với đầu ra dài.",
+        "value": "{{chars}} ký tự"
+      },
+      "crossfade": {
+        "title": "Chuyển tiếp giữa các đoạn",
+        "description": "Hòa trộn âm thanh giữa các đoạn để chuyển tiếp mượt hơn. Đặt 0 để cắt thẳng.",
+        "cut": "Cắt thẳng",
+        "ms": "{{ms}}ms"
+      },
+      "normalize": {
+        "title": "Chuẩn hóa âm lượng",
+        "description": "Đưa âm lượng đầu ra về mức đồng đều giữa các lượt tạo."
+      },
+      "autoplay": {
+        "title": "Tự phát sau khi tạo",
+        "description": "Tự động phát âm thanh khi một lượt tạo hoàn tất."
+      },
+      "folder": {
+        "title": "Thư mục lưu kết quả",
+        "description": "Nơi lưu các tệp âm thanh đã tạo trên ổ đĩa.",
+        "open": "Mở"
+      },
+      "sidebar": {
+        "aboutTitle": "Về việc tạo giọng nói",
+        "aboutBody": "Nhân bản một giọng từ mẫu ngắn, rồi tạo lời nói bằng bất kỳ giọng nào, ở bất kỳ ngôn ngữ nào. Đưa TTS vào AI agent, game, podcast hay lời dẫn dài.",
+        "differencesTitle": "Điểm khác biệt",
+        "clone": {
+          "title": "Nhân bản giọng trong vài giây.",
+          "body": "Chỉ cần vài giây âm thanh tham chiếu. Hỗ trợ nhiều mẫu khi bạn cần chất lượng cao hơn."
+        },
+        "engines": {
+          "title": "Bảy engine, 23 ngôn ngữ.",
+          "body": "Chọn đánh đổi phù hợp — chất lượng, tốc độ, hay độ phủ đa ngữ."
+        },
+        "agentReady": {
+          "title": "Sẵn sàng cho agent.",
+          "body": "REST API điều khiển theo từng hồ sơ — cho bất kỳ AI nào một giọng bạn đã nhân bản."
+        }
+      }
+    },
+    "captures": {
+      "dictation": {
+        "title": "Đọc chính tả",
+        "description": "Ghi âm từ bất kỳ đâu trên máy bằng một phím tắt toàn cục.",
+        "globalShortcut": {
+          "title": "Phím tắt toàn cục",
+          "description": "Giữ phím tắt để ghi âm từ bất kỳ đâu trên máy. Thả ra để chép lời."
+        },
+        "pushToTalk": {
+          "title": "Phím tắt push-to-talk",
+          "description": "Giữ tổ hợp phím này ở bất kỳ đâu trong hệ thống để ghi âm. Thả ra để dừng và chép lời.",
+          "change": "Đổi"
+        },
+        "toggle": {
+          "title": "Phím tắt bật/tắt",
+          "description": "Nhấn một lần để bắt đầu ghi âm rảnh tay. Nhấn lần nữa để dừng. Thường là tổ hợp push-to-talk cộng thêm Space.",
+          "change": "Đổi"
+        },
+        "chordPicker": {
+          "pttTitle": "Đặt phím tắt push-to-talk",
+          "pttDescription": "Giữ tổ hợp phím bạn muốn dùng, thả ra rồi bấm Lưu. Nhãn phím bổ trợ bên phải cho biết đó là phím trái hay phải.",
+          "toggleTitle": "Đặt phím tắt bật/tắt",
+          "toggleDescription": "Giữ tổ hợp phím bạn muốn dùng, thả ra rồi bấm Lưu. Hãy chọn tổ hợp khác với push-to-talk."
+        },
+        "preview": {
+          "title": "Xem trước",
+          "description": "Những gì hiện trên màn hình trong lúc bạn giữ phím tắt."
+        },
+        "copyToClipboard": {
+          "title": "Sao chép bản chép lời vào clipboard",
+          "description": "Bản chép lời đã dọn sạch sẽ nằm sẵn trong clipboard khi ghi âm kết thúc."
+        },
+        "autoPaste": {
+          "title": "Tự dán vào ô nhập đang chọn",
+          "description": "Nếu có ô nhập văn bản đang được chọn ở ứng dụng khác, dán thẳng vào đó. Voicebox lưu lại rồi khôi phục nội dung clipboard cũ của bạn."
+        }
+      },
+      "transcription": {
+        "title": "Chép lời",
+        "description": "Chọn mô hình chuyển giọng nói thành văn bản chạy trên các bản ghi của bạn.",
+        "model": {
+          "title": "Mô hình chép lời",
+          "description": "Whisper đi kèm Voicebox và chạy hoàn toàn trên máy bạn.",
+          "base": "Whisper Base · 74M · {{tail}}",
+          "small": "Whisper Small · 244M · {{tail}}",
+          "medium": "Whisper Medium · 769M · {{tail}}",
+          "large": "Whisper Large · 1.5B · {{tail}}",
+          "turbo": "Whisper Turbo · Large v3 rút gọn · {{tail}}",
+          "tail": {
+            "fast": "Nhanh",
+            "balanced": "Cân bằng",
+            "higher": "Chính xác hơn",
+            "best": "Chính xác nhất",
+            "nearBest": "Gần tốt nhất, nhanh"
+          }
+        },
+        "language": {
+          "title": "Ngôn ngữ",
+          "description": "Tự nhận diện hoạt động tốt với hầu hết bản ghi. Hãy cố định nếu bạn luôn nói một thứ tiếng.",
+          "auto": "Tự nhận diện",
+          "en": "Tiếng Anh",
+          "es": "Tiếng Tây Ban Nha",
+          "fr": "Tiếng Pháp",
+          "de": "Tiếng Đức",
+          "ja": "Tiếng Nhật",
+          "zh": "Tiếng Trung",
+          "hi": "Tiếng Hindi"
+        },
+        "archive": {
+          "title": "Lưu trữ âm thanh",
+          "description": "Giữ lại bản ghi gốc kèm theo mỗi bản chép lời."
+        }
+      },
+      "refinement": {
+        "title": "Tinh chỉnh",
+        "description": "Tùy chọn chạy một LLM cục bộ trên bản chép lời để dọn từ đệm, dấu câu và các chỗ nói lại.",
+        "auto": {
+          "title": "Tự động tinh chỉnh bản chép lời",
+          "description": "Chạy sau mỗi lần ghi. Bạn vẫn có thể chuyển qua lại giữa bản thô và bản đã tinh chỉnh ở tab Bản ghi."
+        },
+        "model": {
+          "title": "Mô hình tinh chỉnh",
+          "description": "Mô hình lớn hơn chạy chậm hơn nhưng xử lý tốt hơn các chỗ nói lại tinh vi và từ vựng kỹ thuật.",
+          "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
+          "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "tail": {
+            "veryFast": "Rất nhanh",
+            "fast": "Nhanh",
+            "fullQuality": "Chất lượng đầy đủ"
+          }
+        },
+        "smartCleanup": {
+          "title": "Dọn dẹp thông minh",
+          "description": "Bỏ từ đệm (ừ, à, kiểu như), khôi phục dấu câu và sửa viết hoa mà không diễn đạt lại."
+        },
+        "selfCorrection": {
+          "title": "Bỏ các chỗ nói lại",
+          "description": "Khi bạn đổi ý giữa câu (\"à không\", \"khoan, ý tôi là…\"), bỏ phần đã rút lại và giữ ý cuối cùng."
+        },
+        "preserveTechnical": {
+          "title": "Giữ nguyên thuật ngữ kỹ thuật",
+          "description": "Giữ nguyên tên biến, tên lệnh và từ viết tắt đúng như bạn đọc. Hãy bật khi bạn đọc chính tả vào prompt lập trình."
+        }
+      },
+      "playback": {
+        "title": "Phát lại",
+        "description": "Giọng mặc định cho thao tác \"Đọc bằng giọng\" ở tab Bản ghi.",
+        "defaultVoice": {
+          "title": "Giọng mặc định",
+          "description": "Dùng khi bạn bấm Đọc bằng giọng mà chưa chọn giọng nào. Bạn có thể đổi riêng cho từng bản ghi.",
+          "noClonedVoices": "Chưa có giọng nhân bản nào",
+          "noneSelected": "Chưa chọn",
+          "clonedVoices": "Giọng đã nhân bản"
+        }
+      },
+      "storage": {
+        "title": "Lưu trữ",
+        "description": "Bản ghi được lưu thành cặp tệp âm thanh và bản chép lời trong thư mục dữ liệu Voicebox của bạn.",
+        "retention": {
+          "title": "Thời gian lưu",
+          "description": "Giữ bản ghi trong bao lâu. Áp dụng cho cả âm thanh lẫn bản chép lời.",
+          "forever": "Giữ vĩnh viễn",
+          "d90": "90 ngày",
+          "d30": "30 ngày",
+          "d7": "7 ngày"
+        },
+        "folder": {
+          "title": "Thư mục Bản ghi",
+          "description": "Nơi lưu âm thanh và bản chép lời trên ổ đĩa.",
+          "open": "Mở"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "Về Bản ghi",
+        "aboutBody": "Giữ một phím tắt ở bất kỳ đâu trên máy, nói, và Voicebox biến giọng bạn thành văn bản. Phát lại bằng bất kỳ giọng nào bạn đã nhân bản, dán vào bất kỳ ứng dụng nào, hoặc đẩy thẳng vào coding agent của bạn.",
+        "differencesTitle": "Điểm khác biệt",
+        "local": {
+          "title": "Chạy hoàn toàn cục bộ.",
+          "body": "Whisper và LLM tinh chỉnh chạy trên phần cứng của bạn. Không đám mây, không tài khoản, giọng bạn không bao giờ rời khỏi máy."
+        },
+        "playAs": {
+          "title": "Đọc bằng bất kỳ giọng nào.",
+          "body": "Bản chép lời có thể được đọc lại bằng bất kỳ hồ sơ giọng nào bạn đã nhân bản."
+        },
+        "crossPlatform": {
+          "title": "Đa nền tảng.",
+          "body": "Cùng một phím tắt, cùng một luồng trên macOS, Windows và Linux."
+        },
+        "windowsCaveat": {
+          "title": "Lưu ý trên Windows",
+          "body": "Phím tắt sẽ không hoạt động khi chính Voicebox hoặc bất kỳ ứng dụng nào chạy quyền quản trị đang được chọn. Đang khắc phục."
+        }
+      }
+    },
+    "mcp": {
+      "install": {
+        "title": "Cài vào agent của bạn",
+        "description": "Voicebox mở một máy chủ MCP cục bộ mỗi khi ứng dụng đang chạy. Dán một trong các đoạn cấu hình sau vào phần MCP của agent.",
+        "http": {
+          "title": "HTTP (khuyến nghị)",
+          "description": "Dành cho client nói được HTTP MCP — Claude Code, Cursor, Windsurf, VS Code."
+        },
+        "claudeCode": {
+          "title": "Lệnh một dòng cho Claude Code",
+          "description": "Đăng ký qua CLI của Claude Code."
+        },
+        "stdio": {
+          "title": "Stdio (phương án dự phòng)",
+          "description": "Dành cho client chỉ chạy được tiến trình stdio. Tệp shim đi kèm ứng dụng."
+        },
+        "copy": "Sao chép",
+        "copied": "Đã sao chép"
+      },
+      "defaultVoice": {
+        "title": "Giọng mặc định",
+        "description": "Dùng khi một agent gọi voicebox.speak mà không chỉ định hồ sơ và cũng chưa có liên kết riêng.",
+        "label": "Giọng phát mặc định",
+        "labelHint": "Dùng chung với ô \"Đọc bằng giọng\" ở tab Bản ghi — một giọng mặc định duy nhất cho việc phát lại.",
+        "none": "(không có)"
+      },
+      "bindings": {
+        "title": "Giọng riêng cho từng agent",
+        "description": "Gán từng agent với từng giọng để bạn biết ai đang nói mà không cần nhìn. Agent tự nhận diện qua header X-Voicebox-Client-Id (hoặc biến môi trường VOICEBOX_CLIENT_ID với stdio).",
+        "empty": "Chưa có liên kết nào. Thêm một liên kết bên dưới, rồi cấu hình MCP client gửi kèm <code>X-Voicebox-Client-Id</code> tương ứng.",
+        "lastSeen": "lần cuối {{when}}",
+        "lastSeenTitle": "Lần cuối {{when}}",
+        "neverConnected": "chưa từng kết nối",
+        "defaultOption": "(mặc định)",
+        "removeAria": "Gỡ liên kết cho {{client}}",
+        "add": {
+          "title": "Thêm liên kết",
+          "clientIdPlaceholder": "client id (vd: claude-code)",
+          "labelPlaceholder": "nhãn (tùy chọn)",
+          "action": "Thêm liên kết"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "Về MCP",
+        "aboutBody": "Model Context Protocol cho phép coding agent của bạn — Claude Code, Cursor, Windsurf — gọi các công cụ của Voicebox: đọc bằng giọng đã nhân bản, chép lời âm thanh, duyệt bản ghi.",
+        "toolsTitle": "Công cụ có sẵn",
+        "tools": {
+          "speak": "Đọc văn bản bằng một hồ sơ giọng.",
+          "transcribe": "Chép lời một đoạn âm thanh bằng Whisper.",
+          "listCaptures": "Các bản đọc chính tả / ghi âm gần đây.",
+          "listProfiles": "Các hồ sơ giọng khả dụng."
+        },
+        "postSpeak": "Cũng được mở qua <code>POST /speak</code> cho shell script, ACP, A2A."
+      }
+    },
+    "gpu": {
+      "cpuOnly": "Chỉ CPU",
+      "vramUsed": "{{mb}} MB VRAM",
+      "noAcceleration": "Không phát hiện tăng tốc GPU",
+      "active": "Đang hoạt động",
+      "cuda": {
+        "title": "Backend CUDA",
+        "activeTitle": "Backend CUDA đang hoạt động",
+        "description": "Tăng tốc bằng GPU NVIDIA qua một backend CUDA tải rời.",
+        "downloading": "Đang tải backend CUDA…",
+        "downloadingShort": "Đang tải…",
+        "updating": "Đang cập nhật…"
+      },
+      "activeBackend": {
+        "description": "Tăng tốc GPU hiện đang được bật."
+      },
+      "restart": {
+        "ready": "Đã khởi động lại máy chủ thành công",
+        "waiting": "Đang khởi động lại máy chủ…",
+        "stopping": "Đang dừng máy chủ…"
+      },
+      "download": {
+        "title": "Tải backend CUDA",
+        "description": "Tải khoảng 2.4 GB. Cần GPU NVIDIA hỗ trợ CUDA.",
+        "button": "Tải về"
+      },
+      "switchToCuda": {
+        "title": "Chuyển sang backend CUDA",
+        "description": "Backend CUDA đã tải xong và sẵn sàng. Khởi động lại để bật.",
+        "button": "Khởi động lại"
+      },
+      "switchToCpu": {
+        "title": "Chuyển sang backend CPU",
+        "description": "Tắt tăng tốc GPU. Bạn có thể tải lại backend GPU sau.",
+        "button": "Chuyển"
+      },
+      "remove": {
+        "title": "Gỡ backend CUDA",
+        "description": "Xóa tệp CUDA đã tải để giải phóng dung lượng.",
+        "button": "Gỡ"
+      },
+      "errors": {
+        "downloadFailed": "Tải thất bại",
+        "downloadStart": "Không bắt đầu được việc tải",
+        "restartFailed": "Khởi động lại thất bại",
+        "switchCpu": "Chuyển sang CPU thất bại",
+        "deleteCuda": "Xóa backend CUDA thất bại",
+        "deleteRocm": "Xóa backend ROCm thất bại"
+      },
+      "footer": "Voicebox tự động phát hiện và dùng GPU tốt nhất có trên máy bạn. Trên máy Mac chip Apple Silicon, backend MLX chạy trực tiếp trên Neural Engine và GPU thông qua Metal Performance Shaders (MPS), không cần thiết lập thêm. Trên Windows, bạn có thể tải backend tùy chọn CUDA (NVIDIA) hoặc ROCm (AMD) để tăng tốc bằng phần cứng. Intel XPU và DirectML cũng được hỗ trợ ở những nơi PyTorch cho phép. Khi không phát hiện GPU nào, Voicebox chuyển về CPU — mọi engine vẫn chạy, chỉ chậm hơn.",
+      "rocm": {
+        "title": "Backend AMD ROCm",
+        "activeTitle": "Backend ROCm đang hoạt động",
+        "description": "Tăng tốc bằng GPU AMD qua một backend ROCm tải rời.",
+        "downloading": "Đang tải backend ROCm…",
+        "downloadingShort": "Đang tải…",
+        "updating": "Đang cập nhật…"
+      },
+      "downloadRocm": {
+        "title": "Tải backend AMD ROCm",
+        "description": "Tải khoảng 2-3 GB. Cần GPU AMD Radeon hỗ trợ ROCm.",
+        "button": "Tải về"
+      },
+      "switchToRocm": {
+        "title": "Chuyển sang backend ROCm",
+        "description": "Backend ROCm đã tải xong và sẵn sàng. Khởi động lại để bật.",
+        "button": "Khởi động lại"
+      },
+      "removeRocm": {
+        "title": "Gỡ backend ROCm",
+        "description": "Xóa tệp ROCm đã tải để giải phóng dung lượng.",
+        "button": "Gỡ"
+      }
+    },
+    "logs": {
+      "title": "Nhật ký máy chủ",
+      "lineCount_one": "{{count}} dòng",
+      "lineCount_other": "{{count}} dòng",
+      "scrollToBottom": "Cuộn xuống cuối",
+      "clear": "Xóa",
+      "empty": "Chưa có nhật ký nào.",
+      "devHint": "Nhật ký máy chủ chỉ được ghi lại khi ứng dụng tự quản lý tiến trình máy chủ (bản build production)."
+    },
+    "changelog": {
+      "devBadge": "dev",
+      "showLess": "Thu gọn",
+      "showMore": "Xem thêm"
+    },
+    "about": {
+      "tagline": "Xưởng tổng hợp giọng nói mã nguồn mở. Nhân bản giọng, tạo lời nói, áp hiệu ứng và xây ứng dụng chạy bằng giọng nói — tất cả chạy cục bộ trên máy bạn.",
+      "createdBy": "Được tạo bởi",
+      "buyCoffee": "Mời tôi ly cà phê",
+      "license": "Phát hành theo giấy phép <link>MIT</link>"
+    }
+  },
+  "models": {
+    "title": "Mô hình",
+    "subtitle": "Tải về và quản lý các mô hình AI dùng để tạo giọng nói và chép lời",
+    "defaultName": "Mô hình",
+    "unknownSize": "Không rõ dung lượng",
+    "sections": {
+      "voiceGeneration": "Tạo giọng nói",
+      "transcription": "Chép lời",
+      "languageModels": "Mô hình ngôn ngữ"
+    },
+    "status": {
+      "loaded": "Đã nạp"
+    },
+    "storage": {
+      "location": "Nơi lưu trữ",
+      "open": "Mở",
+      "change": "Đổi",
+      "migrating": "Đang di chuyển…",
+      "reset": "Đặt lại",
+      "pickerTitle": "Chọn thư mục lưu mô hình"
+    },
+    "progress": {
+      "connecting": "Đang kết nối…",
+      "connectingHf": "Đang kết nối tới HuggingFace…"
+    },
+    "problems": {
+      "title": "Sự cố",
+      "clearAll": "Xóa tất cả",
+      "noDetails": "Không có chi tiết lỗi. Hãy thử tải lại.",
+      "startedAt": "bắt đầu lúc {{time}}"
+    },
+    "detail": {
+      "loadingInfo": "Đang tải thông tin mô hình…",
+      "byAuthor": "bởi {{author}}",
+      "downloads": "Lượt tải",
+      "likes": "Lượt thích",
+      "license": "Giấy phép",
+      "languagesCount": "Hỗ trợ {{count}} ngôn ngữ",
+      "languagesList": "Ngôn ngữ: {{list}}",
+      "onDisk": "{{size}} trên ổ đĩa"
+    },
+    "actions": {
+      "download": "Tải về",
+      "retry": "Tải lại",
+      "unload": "Giải phóng",
+      "unloading": "Đang giải phóng…",
+      "unloadFirst": "Hãy giải phóng mô hình trước khi xóa",
+      "deleteModel": "Xóa mô hình"
+    },
+    "deleteDialog": {
+      "title": "Xóa mô hình",
+      "body": "Bạn có chắc muốn xóa <strong>{{name}}</strong>?",
+      "sizeNote": "Thao tác này sẽ giải phóng {{size}} dung lượng ổ đĩa. Bạn sẽ phải tải lại mô hình nếu muốn dùng tiếp.",
+      "deleting": "Đang xóa…"
+    },
+    "migrateDialog": {
+      "title": "Chuyển mô hình sang vị trí mới?",
+      "description": "Máy chủ sẽ tắt trong lúc mô hình được chuyển sang thư mục mới, và tự khởi động lại khi chuyển xong.",
+      "action": "Chuyển mô hình",
+      "preparing": "Đang chuẩn bị…",
+      "restartingServer": "Đang khởi động lại máy chủ…"
+    },
+    "migrate": {
+      "title": "Đang chuyển mô hình",
+      "offline": "Máy chủ đang ngoại tuyến trong lúc chuyển mô hình."
+    },
+    "toast": {
+      "downloadFailed": "Tải thất bại",
+      "cancelFailed": "Hủy thất bại",
+      "cancelFailedDescription": "Không hủy được tác vụ tải về.",
+      "deleted": "Đã xóa mô hình",
+      "deletedDescription": "Đã xóa {{name}} thành công.",
+      "deleteFailed": "Xóa thất bại",
+      "unloaded": "Đã giải phóng mô hình",
+      "unloadedDescription": "Đã giải phóng {{name}} khỏi bộ nhớ.",
+      "unloadFailed": "Giải phóng thất bại",
+      "openFolderFailed": "Không mở được thư mục mô hình",
+      "pickerFailed": "Không mở được hộp thoại chọn thư mục",
+      "resetToDefault": "Đã đặt lại về vị trí mặc định. Đang khởi động lại máy chủ…",
+      "noModelsToMigrate": "Không có mô hình nào để chuyển",
+      "noModelsToMigrateDescription": "Hãy tải ít nhất một mô hình trước khi đổi nơi lưu trữ.",
+      "migrated": "Đã chuyển mô hình thành công",
+      "migrationFailed": "Chuyển mô hình thất bại",
+      "migrationFailedGeneric": "Không chuyển được mô hình",
+      "migrationConnectionLost": "Mất kết nối trong lúc chuyển"
+    }
+  }
+}
