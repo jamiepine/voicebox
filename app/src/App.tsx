@@ -1,6 +1,6 @@
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import voiceboxLogo from '@/assets/voicebox-logo.png';
+import voiceboxLogo from '@/assets/kalvoice-logo.png';
 import { DictateWindow } from '@/components/DictateWindow/DictateWindow';
 import ShinyText from '@/components/ShinyText';
 import { TitleBarDragRegion } from '@/components/TitleBarDragRegion';
@@ -265,7 +265,7 @@ function MainApp() {
             </div>
             <img
               src={voiceboxLogo}
-              alt="Voicebox"
+              alt="KALVOICE"
               className="w-48 h-48 object-contain animate-fade-in-scale relative z-10"
             />
           </div>
