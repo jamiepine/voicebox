@@ -9,6 +9,7 @@ from datetime import datetime
 @dataclass
 class DownloadTask:
     """Represents an active download task."""
+
     model_name: str
     status: str = "downloading"  # downloading, extracting, complete, error
     started_at: datetime = field(default_factory=datetime.utcnow)
@@ -18,6 +19,7 @@ class DownloadTask:
 @dataclass
 class GenerationTask:
     """Represents an active generation task."""
+
     task_id: str
     profile_id: str
     text_preview: str  # First 50 chars of text
@@ -74,11 +76,7 @@ class TaskManager:
         error/retry UI can show them but must not be reported as
         "downloading" by /models/status.
         """
-        return [
-            task
-            for task in self._active_downloads.values()
-            if task.status in ("downloading", "extracting")
-        ]
+        return [task for task in self._active_downloads.values() if task.status in ("downloading", "extracting")]
 
     def get_active_generations(self) -> list[GenerationTask]:
         """Get all active generations."""

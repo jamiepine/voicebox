@@ -89,9 +89,7 @@ async def create_capture(
             audio, sr = load_audio(str(raw_path))
             duration_ms = int((len(audio) / sr) * 1000) if sr else None
         except Exception as decode_err:
-            logger.warning(
-                "Could not decode capture %s (%s): %r", capture_id, suffix, decode_err
-            )
+            logger.warning("Could not decode capture %s (%s): %r", capture_id, suffix, decode_err)
             audio, sr = None, None
             duration_ms = None
 
@@ -100,9 +98,7 @@ async def create_capture(
             # source is a format its miniaudio loader can still read — webm,
             # m4a, etc. would just 500 later. Surface a clean error instead.
             if suffix not in WHISPER_NATIVE_FORMATS:
-                raise ValueError(
-                    f"Could not decode {suffix} audio — the recording may be empty or corrupt"
-                )
+                raise ValueError(f"Could not decode {suffix} audio — the recording may be empty or corrupt")
             audio_path = raw_path
         elif suffix == ".wav":
             audio_path = raw_path
@@ -148,13 +144,7 @@ async def create_capture(
 
 def list_captures(db: Session, limit: int = 50, offset: int = 0) -> tuple[list[CaptureResponse], int]:
     total = db.query(DBCapture).count()
-    rows = (
-        db.query(DBCapture)
-        .order_by(DBCapture.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-        .all()
-    )
+    rows = db.query(DBCapture).order_by(DBCapture.created_at.desc()).limit(limit).offset(offset).all()
     return [_to_response(r) for r in rows], total
 
 

@@ -21,6 +21,7 @@ from backend.utils.progress import get_progress_manager
 def reset_progress_manager():
     """Reset the global progress manager before each test."""
     import backend.utils.progress
+
     backend.utils.progress._progress_manager = None
     yield
     backend.utils.progress._progress_manager = None

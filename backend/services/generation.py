@@ -212,10 +212,9 @@ def _save_generate(
         error_msg = validate_effects_chain(effects_chain)
         if error_msg:
             import logging
+
             logging.getLogger(__name__).warning("invalid effects chain, skipping: %s", error_msg)
-            versions_mod.set_default_version(
-                versions_mod.list_versions(generation_id, db)[0].id, db
-            )
+            versions_mod.set_default_version(versions_mod.list_versions(generation_id, db)[0].id, db)
         else:
             processed_audio = apply_effects(audio, sample_rate, effects_chain)
             processed_path = config.get_generations_dir() / f"{generation_id}_processed.wav"
@@ -313,9 +312,7 @@ async def generate_audio_sync(
     if crossfade_ms is not None:
         gen_kwargs["crossfade_ms"] = crossfade_ms
 
-    audio, sample_rate = await generate_chunked(
-        tts_model, text, voice_prompt, **gen_kwargs
-    )
+    audio, sample_rate = await generate_chunked(tts_model, text, voice_prompt, **gen_kwargs)
 
     if normalize:
         audio = normalize_audio(audio)

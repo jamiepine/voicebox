@@ -93,7 +93,6 @@ def update_preset(preset_id: str, data: EffectPresetUpdate, db: Session) -> Effe
     if data.description is not None:
         preset.description = data.description
     if data.effects_chain is not None:
-
         chain_dicts = [e.model_dump() for e in data.effects_chain]
         error = validate_effects_chain(chain_dicts)
         if error:

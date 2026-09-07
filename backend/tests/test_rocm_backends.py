@@ -38,7 +38,8 @@ class TestCheckCudaCompatibility:
             with patch("torch.cuda.get_device_capability", return_value=(8, 6)):
                 with patch("torch.cuda.get_device_name", return_value="NVIDIA GeForce RTX 3060"):
                     with patch.object(
-                        __import__("torch").cuda, "_get_arch_list",
+                        __import__("torch").cuda,
+                        "_get_arch_list",
                         return_value=["sm_80", "sm_86", "sm_89"],
                         create=True,
                     ):
@@ -53,7 +54,8 @@ class TestCheckCudaCompatibility:
             with patch("torch.cuda.get_device_capability", return_value=(9, 0)):
                 with patch("torch.cuda.get_device_name", return_value="NVIDIA GeForce RTX 4090"):
                     with patch.object(
-                        __import__("torch").cuda, "_get_arch_list",
+                        __import__("torch").cuda,
+                        "_get_arch_list",
                         return_value=["sm_80", "sm_86"],
                         create=True,
                     ):

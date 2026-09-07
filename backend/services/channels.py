@@ -29,18 +29,18 @@ async def list_channels(db: Session) -> list[AudioChannelResponse]:
 
     for channel in channels:
         # Get device IDs for this channel
-        device_mappings = db.query(DBChannelDeviceMapping).filter_by(
-            channel_id=channel.id
-        ).all()
+        device_mappings = db.query(DBChannelDeviceMapping).filter_by(channel_id=channel.id).all()
         device_ids = [m.device_id for m in device_mappings]
 
-        result.append(AudioChannelResponse(
-            id=channel.id,
-            name=channel.name,
-            is_default=channel.is_default,
-            device_ids=device_ids,
-            created_at=channel.created_at,
-        ))
+        result.append(
+            AudioChannelResponse(
+                id=channel.id,
+                name=channel.name,
+                is_default=channel.is_default,
+                device_ids=device_ids,
+                created_at=channel.created_at,
+            )
+        )
 
     return result
 
@@ -52,9 +52,7 @@ async def get_channel(channel_id: str, db: Session) -> AudioChannelResponse | No
         return None
 
     # Get device IDs
-    device_mappings = db.query(DBChannelDeviceMapping).filter_by(
-        channel_id=channel.id
-    ).all()
+    device_mappings = db.query(DBChannelDeviceMapping).filter_by(channel_id=channel.id).all()
     device_ids = [m.device_id for m in device_mappings]
 
     return AudioChannelResponse(
@@ -123,10 +121,9 @@ async def update_channel(
     # Update name if provided
     if data.name is not None:
         # Check if name already exists (excluding current channel)
-        existing = db.query(DBAudioChannel).filter(
-            DBAudioChannel.name == data.name,
-            DBAudioChannel.id != channel_id
-        ).first()
+        existing = (
+            db.query(DBAudioChannel).filter(DBAudioChannel.name == data.name, DBAudioChannel.id != channel_id).first()
+        )
         if existing:
             raise ValueError(f"Channel with name '{data.name}' already exists")
         channel.name = data.name
@@ -149,9 +146,7 @@ async def update_channel(
     db.refresh(channel)
 
     # Get updated device IDs
-    device_mappings = db.query(DBChannelDeviceMapping).filter_by(
-        channel_id=channel.id
-    ).all()
+    device_mappings = db.query(DBChannelDeviceMapping).filter_by(channel_id=channel.id).all()
     device_ids = [m.device_id for m in device_mappings]
 
     return AudioChannelResponse(
@@ -187,9 +182,7 @@ async def delete_channel(channel_id: str, db: Session) -> bool:
 
 async def get_channel_voices(channel_id: str, db: Session) -> list[str]:
     """Get list of profile IDs assigned to a channel."""
-    mappings = db.query(DBProfileChannelMapping).filter_by(
-        channel_id=channel_id
-    ).all()
+    mappings = db.query(DBProfileChannelMapping).filter_by(channel_id=channel_id).all()
     return [m.profile_id for m in mappings]
 
 
@@ -226,9 +219,7 @@ async def set_channel_voices(
 
 async def get_profile_channels(profile_id: str, db: Session) -> list[str]:
     """Get list of channel IDs assigned to a profile."""
-    mappings = db.query(DBProfileChannelMapping).filter_by(
-        profile_id=profile_id
-    ).all()
+    mappings = db.query(DBProfileChannelMapping).filter_by(profile_id=profile_id).all()
     return [m.channel_id for m in mappings]
 
 

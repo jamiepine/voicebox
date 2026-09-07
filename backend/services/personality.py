@@ -51,13 +51,7 @@ class PersonalityResult:
 
 
 def _build_system_prompt(personality: str, task: str) -> str:
-    return (
-        _CHARACTER_FRAMING
-        + "\n\nCharacter description:\n"
-        + personality.strip()
-        + "\n\n"
-        + task
-    )
+    return _CHARACTER_FRAMING + "\n\nCharacter description:\n" + personality.strip() + "\n\n" + task
 
 
 def _require_personality(personality: str | None) -> str:

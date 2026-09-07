@@ -40,26 +40,27 @@ RESULTS_DIR = Path(__file__).resolve().parent / "results"
 
 # ── Test matrix ──────────────────────────────────────────────────────
 
+
 @dataclass(frozen=True)
 class MatrixRow:
-    label: str            # human-readable (appears in report)
-    engine: str           # /generate engine
+    label: str  # human-readable (appears in report)
+    engine: str  # /generate engine
     model_size: str | None  # /generate model_size (None = omit)
-    profile_kind: str     # "cloned" | "preset_kokoro" | "preset_qwen_cv"
-    model_name: str       # /models/status key for cache lookup
+    profile_kind: str  # "cloned" | "preset_kokoro" | "preset_qwen_cv"
+    model_name: str  # /models/status key for cache lookup
 
 
 MATRIX: list[MatrixRow] = [
-    MatrixRow("qwen 1.7B",              "qwen",              "1.7B", "cloned",          "qwen-tts-1.7B"),
-    MatrixRow("qwen 0.6B",              "qwen",              "0.6B", "cloned",          "qwen-tts-0.6B"),
-    MatrixRow("qwen_custom_voice 1.7B", "qwen_custom_voice", "1.7B", "preset_qwen_cv",  "qwen-custom-voice-1.7B"),
-    MatrixRow("qwen_custom_voice 0.6B", "qwen_custom_voice", "0.6B", "preset_qwen_cv",  "qwen-custom-voice-0.6B"),
-    MatrixRow("luxtts",                 "luxtts",            None,   "cloned",          "luxtts"),
-    MatrixRow("chatterbox",             "chatterbox",        None,   "cloned",          "chatterbox-tts"),
-    MatrixRow("chatterbox_turbo",       "chatterbox_turbo",  None,   "cloned",          "chatterbox-turbo"),
-    MatrixRow("tada 1B",                "tada",              "1B",   "cloned",          "tada-1b"),
-    MatrixRow("tada 3B",                "tada",              "3B",   "cloned",          "tada-3b-ml"),
-    MatrixRow("kokoro",                 "kokoro",            None,   "preset_kokoro",   "kokoro"),
+    MatrixRow("qwen 1.7B", "qwen", "1.7B", "cloned", "qwen-tts-1.7B"),
+    MatrixRow("qwen 0.6B", "qwen", "0.6B", "cloned", "qwen-tts-0.6B"),
+    MatrixRow("qwen_custom_voice 1.7B", "qwen_custom_voice", "1.7B", "preset_qwen_cv", "qwen-custom-voice-1.7B"),
+    MatrixRow("qwen_custom_voice 0.6B", "qwen_custom_voice", "0.6B", "preset_qwen_cv", "qwen-custom-voice-0.6B"),
+    MatrixRow("luxtts", "luxtts", None, "cloned", "luxtts"),
+    MatrixRow("chatterbox", "chatterbox", None, "cloned", "chatterbox-tts"),
+    MatrixRow("chatterbox_turbo", "chatterbox_turbo", None, "cloned", "chatterbox-turbo"),
+    MatrixRow("tada 1B", "tada", "1B", "cloned", "tada-1b"),
+    MatrixRow("tada 3B", "tada", "3B", "cloned", "tada-3b-ml"),
+    MatrixRow("kokoro", "kokoro", None, "preset_kokoro", "kokoro"),
 ]
 
 TEXT = "The quick brown fox jumps over the lazy dog."
@@ -70,12 +71,13 @@ HEALTH_TIMEOUT = 120
 
 # ── Result record ────────────────────────────────────────────────────
 
+
 @dataclass
 class ModelResult:
     label: str
     engine: str
     model_size: str | None
-    status: str                      # "passed" | "failed" | "timeout"
+    status: str  # "passed" | "failed" | "timeout"
     was_cached: bool | None = None
     generation_id: str | None = None
     elapsed_seconds: float = 0.0
@@ -88,6 +90,7 @@ class ModelResult:
 
 
 # ── Binary resolution ────────────────────────────────────────────────
+
 
 def find_binary() -> Path | None:
     """Return the first existing binary in priority order, or None."""
@@ -121,6 +124,7 @@ def build_binary() -> Path:
 
 # ── Server spawn + log capture ───────────────────────────────────────
 
+
 class ServerProcess:
     def __init__(self, binary: Path, port: int, data_dir: Path, log_path: Path):
         self.binary = binary
@@ -134,10 +138,14 @@ class ServerProcess:
     def start(self) -> None:
         args = [
             str(self.binary),
-            "--host", "127.0.0.1",
-            "--port", str(self.port),
-            "--data-dir", str(self.data_dir),
-            "--parent-pid", str(os.getpid()),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(self.port),
+            "--data-dir",
+            str(self.data_dir),
+            "--parent-pid",
+            str(os.getpid()),
         ]
         print(f"[spawn] {' '.join(args)}", flush=True)
         self._log_fh = open(self.log_path, "w", encoding="utf-8", errors="replace")
@@ -209,6 +217,7 @@ def pick_free_port() -> int:
 
 # ── HTTP helpers ─────────────────────────────────────────────────────
 
+
 def wait_for_health(base_url: str, server: ServerProcess, timeout: int) -> None:
     deadline = time.time() + timeout
     with httpx.Client(timeout=5.0) as client:
@@ -238,11 +247,14 @@ def get_model_cached(client: httpx.Client, base_url: str, model_name: str) -> bo
 
 
 def create_cloned_profile(client: httpx.Client, base_url: str, wav_path: Path, reference_text: str) -> str:
-    r = client.post(f"{base_url}/profiles", json={
-        "name": "e2e-cloned",
-        "voice_type": "cloned",
-        "language": "en",
-    })
+    r = client.post(
+        f"{base_url}/profiles",
+        json={
+            "name": "e2e-cloned",
+            "voice_type": "cloned",
+            "language": "en",
+        },
+    )
     r.raise_for_status()
     profile_id = r.json()["id"]
 
@@ -258,13 +270,16 @@ def create_cloned_profile(client: httpx.Client, base_url: str, wav_path: Path, r
 
 
 def create_preset_profile(client: httpx.Client, base_url: str, name: str, engine: str, voice_id: str) -> str:
-    r = client.post(f"{base_url}/profiles", json={
-        "name": name,
-        "voice_type": "preset",
-        "language": "en",
-        "preset_engine": engine,
-        "preset_voice_id": voice_id,
-    })
+    r = client.post(
+        f"{base_url}/profiles",
+        json={
+            "name": name,
+            "voice_type": "preset",
+            "language": "en",
+            "preset_engine": engine,
+            "preset_voice_id": voice_id,
+        },
+    )
     r.raise_for_status()
     return r.json()["id"]
 
@@ -354,6 +369,7 @@ def fetch_audio_info(
 
 # ── Report writers ───────────────────────────────────────────────────
 
+
 def write_reports(
     output_dir: Path,
     binary: Path,
@@ -421,6 +437,7 @@ def write_reports(
 
 # ── Main ─────────────────────────────────────────────────────────────
 
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Voicebox E2E model generation test")
     p.add_argument("--binary", type=Path, help="Path to voicebox-server binary (overrides auto-detect)")
@@ -472,8 +489,7 @@ def resolve_reference(args: argparse.Namespace) -> tuple[Path, str]:
         txt_path = wav.with_suffix(".txt")
         if not txt_path.exists():
             raise FileNotFoundError(
-                f"Reference transcription not found: {txt_path}\n"
-                f"Create it next to the WAV, or pass --reference-text."
+                f"Reference transcription not found: {txt_path}\nCreate it next to the WAV, or pass --reference-text."
             )
         text = txt_path.read_text().strip()
     if not text:
@@ -579,9 +595,7 @@ def main() -> int:
                     result.audio_duration = payload.get("duration")
                     result.error = payload.get("error")
                     if status == "completed" and result.generation_id:
-                        audio_path, audio_bytes = fetch_audio_info(
-                            client, base_url, result.generation_id, data_dir
-                        )
+                        audio_path, audio_bytes = fetch_audio_info(client, base_url, result.generation_id, data_dir)
                         result.audio_path = audio_path
                         result.audio_bytes = audio_bytes
                         if audio_bytes is not None and audio_bytes == 0:
@@ -602,8 +616,11 @@ def main() -> int:
                 result.elapsed_seconds = round(time.time() - t0, 2)
                 if result.status != "passed":
                     result.server_log_tail = server.log_tail(100)
-                print(f"[run] {row.label} → {result.status} in {result.elapsed_seconds}s"
-                      + (f" ({result.error})" if result.error else ""), flush=True)
+                print(
+                    f"[run] {row.label} → {result.status} in {result.elapsed_seconds}s"
+                    + (f" ({result.error})" if result.error else ""),
+                    flush=True,
+                )
                 results.append(result)
     finally:
         finished_at = datetime.now(UTC)

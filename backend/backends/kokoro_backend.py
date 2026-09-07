@@ -232,9 +232,7 @@ class KokoroTTSBackend:
         reference_texts: list[str],
     ) -> tuple[np.ndarray, str]:
         """Combine voice prompts — uses base implementation for audio concatenation."""
-        return await _combine_voice_prompts(
-            audio_paths, reference_texts, sample_rate=KOKORO_SAMPLE_RATE
-        )
+        return await _combine_voice_prompts(audio_paths, reference_texts, sample_rate=KOKORO_SAMPLE_RATE)
 
     async def generate(
         self,

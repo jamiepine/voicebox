@@ -29,11 +29,7 @@ IMPORT_AUDIO_MAX_BYTES = 200 * 1024 * 1024  # 200 MB
 def _get_or_create_import_profile(db: Session) -> DBVoiceProfile:
     """Singleton profile every imported audio clip points at — keeps the
     Generation FK happy without making profile_id nullable across the schema."""
-    row = (
-        db.query(DBVoiceProfile)
-        .filter(DBVoiceProfile.name == IMPORTED_AUDIO_PROFILE_NAME)
-        .first()
-    )
+    row = db.query(DBVoiceProfile).filter(DBVoiceProfile.name == IMPORTED_AUDIO_PROFILE_NAME).first()
     if row is not None:
         return row
     row = DBVoiceProfile(
@@ -139,7 +135,7 @@ async def generate_speech(
             mode="generate",
             max_chunk_chars=data.max_chunk_chars,
             crossfade_ms=data.crossfade_ms,
-        )
+        ),
     )
 
     return generation
@@ -181,7 +177,7 @@ async def retry_generation(generation_id: str, db: Session = Depends(get_db)):
             seed=gen.seed,
             instruct=gen.instruct,
             mode="retry",
-        )
+        ),
     )
 
     return models.GenerationResponse.model_validate(gen)
@@ -226,7 +222,7 @@ async def regenerate_generation(generation_id: str, db: Session = Depends(get_db
             instruct=gen.instruct,
             mode="regenerate",
             version_id=version_id,
-        )
+        ),
     )
 
     return models.GenerationResponse.model_validate(gen)

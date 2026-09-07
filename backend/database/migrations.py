@@ -49,6 +49,7 @@ def run_migrations(engine) -> None:
 
 # -- helpers ---------------------------------------------------------------
 
+
 def _get_columns(inspector, table: str) -> set[str]:
     return {col["name"] for col in inspector.get_columns(table)}
 
@@ -63,6 +64,7 @@ def _add_column(engine, table: str, column_sql: str, label: str) -> None:
 
 # -- per-table migrations --------------------------------------------------
 
+
 def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
     if "story_items" not in tables:
         return
@@ -74,15 +76,15 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
         logger.info("Migrating story_items: removing position column, using start_time_ms")
         with engine.connect() as conn:
             if "start_time_ms" not in columns:
-                conn.execute(text(
-                    "ALTER TABLE story_items ADD COLUMN start_time_ms INTEGER DEFAULT 0"
-                ))
-                result = conn.execute(text("""
+                conn.execute(text("ALTER TABLE story_items ADD COLUMN start_time_ms INTEGER DEFAULT 0"))
+                result = conn.execute(
+                    text("""
                     SELECT si.id, si.story_id, si.position, g.duration
                     FROM story_items si
                     JOIN generations g ON si.generation_id = g.id
                     ORDER BY si.story_id, si.position
-                """))
+                """)
+                )
                 current_story_id = None
                 current_time_ms = 0
                 for item_id, story_id, _position, duration in result.fetchall():
@@ -97,7 +99,8 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
                 conn.commit()
 
             # Recreate table without the position column (SQLite lacks DROP COLUMN)
-            conn.execute(text("""
+            conn.execute(
+                text("""
                 CREATE TABLE story_items_new (
                     id VARCHAR PRIMARY KEY,
                     story_id VARCHAR NOT NULL,
@@ -111,13 +114,16 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
                     FOREIGN KEY (story_id) REFERENCES stories(id),
                     FOREIGN KEY (generation_id) REFERENCES generations(id)
                 )
-            """))
-            conn.execute(text("""
+            """)
+            )
+            conn.execute(
+                text("""
                 INSERT INTO story_items_new (id, story_id, generation_id, start_time_ms, track, trim_start_ms, trim_end_ms, version_id, created_at)
                 SELECT id, story_id, generation_id, start_time_ms,
                     COALESCE(track, 0), COALESCE(trim_start_ms, 0), COALESCE(trim_end_ms, 0), version_id, created_at
                 FROM story_items
-            """))
+            """)
+            )
             conn.execute(text("DROP TABLE story_items"))
             conn.execute(text("ALTER TABLE story_items_new RENAME TO story_items"))
             conn.commit()
@@ -311,9 +317,7 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         for table, column in path_columns:
             if table not in tables:
                 continue
-            rows = conn.execute(
-                text(f"SELECT id, {column} FROM {table} WHERE {column} IS NOT NULL")
-            ).fetchall()
+            rows = conn.execute(text(f"SELECT id, {column} FROM {table} WHERE {column} IS NOT NULL")).fetchall()
             for row_id, path_val in rows:
                 if not path_val:
                     continue
@@ -333,6 +337,7 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         if total_fixed > 0:
             conn.commit()
             logger.info("Normalized %d stored file paths", total_fixed)
+
 
 # Columns added to the voice-agent tables after their first release. New
 # tables are created by ``Base.metadata.create_all``; this only patches

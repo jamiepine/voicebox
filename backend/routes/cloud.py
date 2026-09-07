@@ -44,11 +44,7 @@ async def cloud_callback(
     ok, message = await cloud_service.handle_callback(db, code=code, state=state)
     heading = "You're connected" if ok else "Couldn't connect"
     accent = "#16a34a" if ok else "#dc2626"
-    sub = (
-        "Voicebox is now linked to your account. You can close this tab and return to the app."
-        if ok
-        else message
-    )
+    sub = "Voicebox is now linked to your account. You can close this tab and return to the app." if ok else message
     html = f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />

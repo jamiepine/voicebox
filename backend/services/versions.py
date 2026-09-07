@@ -59,11 +59,7 @@ def get_version(version_id: str, db: Session) -> GenerationVersionResponse | Non
 
 def get_default_version(generation_id: str, db: Session) -> GenerationVersionResponse | None:
     """Get the default version for a generation."""
-    v = (
-        db.query(DBGenerationVersion)
-        .filter_by(generation_id=generation_id, is_default=True)
-        .first()
-    )
+    v = db.query(DBGenerationVersion).filter_by(generation_id=generation_id, is_default=True).first()
     if not v:
         # Fallback: return the first version
         v = (
@@ -144,11 +140,7 @@ def delete_version(version_id: str, db: Session) -> bool:
         return False
 
     # Don't allow deleting the last version
-    count = (
-        db.query(DBGenerationVersion)
-        .filter_by(generation_id=version.generation_id)
-        .count()
-    )
+    count = db.query(DBGenerationVersion).filter_by(generation_id=version.generation_id).count()
     if count <= 1:
         return False
 
@@ -184,11 +176,7 @@ def delete_version(version_id: str, db: Session) -> bool:
 
 def delete_versions_for_generation(generation_id: str, db: Session) -> int:
     """Delete all versions for a generation (used when deleting a generation)."""
-    versions = (
-        db.query(DBGenerationVersion)
-        .filter_by(generation_id=generation_id)
-        .all()
-    )
+    versions = db.query(DBGenerationVersion).filter_by(generation_id=generation_id).all()
     count = 0
     for v in versions:
         audio_path = config.resolve_storage_path(v.audio_path)
@@ -203,7 +191,5 @@ def delete_versions_for_generation(generation_id: str, db: Session) -> int:
 
 def _clear_defaults(generation_id: str, db: Session) -> None:
     """Clear the is_default flag on all versions for a generation."""
-    db.query(DBGenerationVersion).filter_by(
-        generation_id=generation_id, is_default=True
-    ).update({"is_default": False})
+    db.query(DBGenerationVersion).filter_by(generation_id=generation_id, is_default=True).update({"is_default": False})
     db.flush()

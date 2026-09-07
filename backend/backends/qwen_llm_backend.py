@@ -139,9 +139,7 @@ class PyTorchQwenLLMBackend:
         examples: list[tuple[str, str]] | None = None,
     ) -> str:
         await self.load_model(model_size)
-        return await asyncio.to_thread(
-            self._generate_sync, prompt, system, max_tokens, temperature, examples
-        )
+        return await asyncio.to_thread(self._generate_sync, prompt, system, max_tokens, temperature, examples)
 
     def _generate_sync(
         self,
@@ -256,9 +254,7 @@ class MLXQwenLLMBackend:
         examples: list[tuple[str, str]] | None = None,
     ) -> str:
         await self.load_model(model_size)
-        return await asyncio.to_thread(
-            self._generate_sync, prompt, system, max_tokens, temperature, examples
-        )
+        return await asyncio.to_thread(self._generate_sync, prompt, system, max_tokens, temperature, examples)
 
     def _generate_sync(
         self,

@@ -67,9 +67,7 @@ def _patch_torch_from_numpy():
                 "complex128": torch.complex128,
             }
 
-            def _safe_from_numpy(
-                arr, _orig=_orig, _c=ctypes, _np=np, _t=torch, _map=dtype_map
-            ):
+            def _safe_from_numpy(arr, _orig=_orig, _c=ctypes, _np=np, _t=torch, _map=dtype_map):
                 try:
                     return _orig(arr)
                 except RuntimeError:

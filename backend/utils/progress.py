@@ -10,13 +10,13 @@ from datetime import datetime
 
 class ProgressManager:
     """Manages download progress for multiple models.
-    
+
     Thread-safe: can be called from background threads (e.g., via asyncio.to_thread).
     """
 
     # Throttle settings to prevent overwhelming SSE clients
     THROTTLE_INTERVAL_SECONDS = 0.5  # Minimum time between updates
-    THROTTLE_PROGRESS_DELTA = 1.0    # Minimum progress change (%) to force update
+    THROTTLE_PROGRESS_DELTA = 1.0  # Minimum progress change (%) to force update
 
     def __init__(self):
         self._progress: dict[str, dict] = {}
@@ -33,6 +33,7 @@ class ProgressManager:
     def _notify_listeners_threadsafe(self, model_name: str, progress_data: dict):
         """Notify listeners in a thread-safe manner."""
         import logging
+
         logger = logging.getLogger(__name__)
 
         if model_name not in self._listeners:
@@ -74,7 +75,7 @@ class ProgressManager:
         Update progress for a model download.
 
         Thread-safe: can be called from background threads.
-        
+
         Progress updates are throttled to prevent overwhelming SSE clients.
         Updates are sent at most every THROTTLE_INTERVAL_SECONDS, or when
         progress changes by at least THROTTLE_PROGRESS_DELTA percent.
@@ -88,6 +89,7 @@ class ProgressManager:
         """
         import logging
         import time
+
         logger = logging.getLogger(__name__)
 
         # Calculate progress percentage, clamped to 0-100 range
@@ -123,9 +125,9 @@ class ProgressManager:
 
         # Always notify for complete/error status, or if throttle conditions are met
         should_notify = (
-            status in ("complete", "error") or
-            time_delta >= self.THROTTLE_INTERVAL_SECONDS or
-            progress_delta >= self.THROTTLE_PROGRESS_DELTA
+            status in ("complete", "error")
+            or time_delta >= self.THROTTLE_INTERVAL_SECONDS
+            or progress_delta >= self.THROTTLE_PROGRESS_DELTA
         )
 
         if not should_notify:
@@ -163,14 +165,15 @@ class ProgressManager:
     def create_progress_callback(self, model_name: str, filename: str | None = None):
         """
         Create a progress callback function for HuggingFace downloads.
-        
+
         Args:
             model_name: Name of the model
             filename: Optional filename filter
-            
+
         Returns:
             Callback function
         """
+
         def callback(progress: dict):
             """HuggingFace Hub progress callback."""
             if "total" in progress and "current" in progress:
@@ -195,6 +198,7 @@ class ProgressManager:
         Yields progress updates as Server-Sent Events.
         """
         import logging
+
         logger = logging.getLogger(__name__)
 
         # Store the main event loop for thread-safe operations
@@ -220,10 +224,10 @@ class ProgressManager:
                     initial_progress = initial_progress.copy()
 
             if initial_progress:
-                status = initial_progress.get('status')
+                status = initial_progress.get("status")
                 # Only send initial progress if download is actually in progress
                 # Don't send old 'complete' or 'error' status from previous downloads
-                if status in ('downloading', 'extracting'):
+                if status in ("downloading", "extracting"):
                     logger.info(f"Sending initial progress for {model_name}: {status}")
                     yield f"data: {json.dumps(initial_progress)}\n\n"
                 else:
@@ -236,7 +240,9 @@ class ProgressManager:
                 try:
                     # Wait for update with timeout
                     progress = await asyncio.wait_for(queue.get(), timeout=1.0)
-                    logger.debug(f"Sending progress update for {model_name}: {progress.get('status')} - {progress.get('progress', 0):.1f}%")
+                    logger.debug(
+                        f"Sending progress update for {model_name}: {progress.get('status')} - {progress.get('progress', 0):.1f}%"
+                    )
                     yield f"data: {json.dumps(progress)}\n\n"
 
                     # Stop if complete or error
@@ -255,11 +261,14 @@ class ProgressManager:
                 self._listeners[model_name].remove(queue)
                 if not self._listeners[model_name]:
                     del self._listeners[model_name]
-                logger.info(f"SSE client unsubscribed from {model_name}, remaining listeners: {len(self._listeners.get(model_name, []))}")
+                logger.info(
+                    f"SSE client unsubscribed from {model_name}, remaining listeners: {len(self._listeners.get(model_name, []))}"
+                )
 
     def mark_complete(self, model_name: str):
         """Mark a model download as complete. Thread-safe."""
         import logging
+
         logger = logging.getLogger(__name__)
 
         with self._lock:
@@ -278,6 +287,7 @@ class ProgressManager:
     def mark_error(self, model_name: str, error: str):
         """Mark a model download as failed. Thread-safe."""
         import logging
+
         logger = logging.getLogger(__name__)
 
         with self._lock:

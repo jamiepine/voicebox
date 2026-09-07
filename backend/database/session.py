@@ -57,10 +57,12 @@ def init_db() -> None:
             db.add(default_channel)
 
             for profile in db.query(VoiceProfile).all():
-                db.add(ProfileChannelMapping(
-                    profile_id=profile.id,
-                    channel_id=default_channel.id,
-                ))
+                db.add(
+                    ProfileChannelMapping(
+                        profile_id=profile.id,
+                        channel_id=default_channel.id,
+                    )
+                )
             db.commit()
     finally:
         db.close()

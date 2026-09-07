@@ -8,7 +8,7 @@ from ..backends import STTBackend, get_stt_backend
 def get_whisper_model() -> STTBackend:
     """
     Get STT backend instance (MLX or PyTorch based on platform).
-    
+
     Returns:
         STT backend instance
     """

@@ -53,11 +53,7 @@ async def get_audio(generation_id: str, db: Session = Depends(get_db)):
 
     audio_path = config.resolve_storage_path(generation.audio_path)
     if audio_path is None or not audio_path.is_file():
-        detail = (
-            "Generation failed; no audio available"
-            if generation.status == "failed"
-            else "Audio file not found"
-        )
+        detail = "Generation failed; no audio available" if generation.status == "failed" else "Audio file not found"
         raise HTTPException(status_code=404, detail=detail)
 
     return FileResponse(

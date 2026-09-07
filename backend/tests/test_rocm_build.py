@@ -97,6 +97,7 @@ class TestRocmBuildE2E:
         # Clean previous dist if it exists to ensure a fresh build
         if binary_dir.exists():
             import shutil
+
             shutil.rmtree(binary_dir)
 
         # Run the full build (this can take several minutes)
@@ -108,12 +109,8 @@ class TestRocmBuildE2E:
             timeout=900,
         )
 
-        assert result.returncode == 0, (
-            f"Build failed with stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-        )
-        assert binary_exe.exists(), (
-            f"Expected binary not found at {binary_exe}"
-        )
+        assert result.returncode == 0, f"Build failed with stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        assert binary_exe.exists(), f"Expected binary not found at {binary_exe}"
 
         # Run the binary with --help to ensure it boots without import errors
         run_result = subprocess.run(

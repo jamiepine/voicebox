@@ -2,7 +2,6 @@
 Audio processing utilities.
 """
 
-
 import librosa
 import numpy as np
 import soundfile as sf
@@ -15,12 +14,12 @@ def normalize_audio(
 ) -> np.ndarray:
     """
     Normalize audio to target loudness with peak limiting.
-    
+
     Args:
         audio: Input audio array
         target_db: Target RMS level in dB
         peak_limit: Peak limit (0.0-1.0)
-        
+
     Returns:
         Normalized audio array
     """
@@ -31,7 +30,7 @@ def normalize_audio(
     rms = np.sqrt(np.mean(audio**2))
 
     # Calculate target RMS
-    target_rms = 10**(target_db / 20)
+    target_rms = 10 ** (target_db / 20)
 
     # Apply gain
     if rms > 0:
@@ -51,12 +50,12 @@ def load_audio(
 ) -> tuple[np.ndarray, int]:
     """
     Load audio file with normalization.
-    
+
     Args:
         path: Path to audio file
         sample_rate: Target sample rate
         mono: Convert to mono
-        
+
     Returns:
         Tuple of (audio_array, sample_rate)
     """
@@ -94,7 +93,7 @@ def save_audio(
 
         # Write to temporary file first (explicit format since .tmp
         # extension is not recognised by soundfile)
-        sf.write(temp_path, audio, sample_rate, format='WAV')
+        sf.write(temp_path, audio, sample_rate, format="WAV")
 
         # Atomic rename to final path
         os.replace(temp_path, path)
@@ -184,12 +183,7 @@ def trim_tts_output(
     threshold_linear = 10 ** (silence_threshold_db / 20)
 
     # Compute per-frame RMS
-    rms = np.array(
-        [
-            np.sqrt(np.mean(audio[i * frame_len : (i + 1) * frame_len] ** 2))
-            for i in range(n_frames)
-        ]
-    )
+    rms = np.array([np.sqrt(np.mean(audio[i * frame_len : (i + 1) * frame_len] ** 2)) for i in range(n_frames)])
     is_speech = rms >= threshold_linear
 
     # Find first speech frame
@@ -314,9 +308,7 @@ def validate_reference_audio(
     Returns:
         Tuple of (is_valid, error_message)
     """
-    result = validate_and_load_reference_audio(
-        audio_path, min_duration, max_duration, min_rms
-    )
+    result = validate_and_load_reference_audio(audio_path, min_duration, max_duration, min_rms)
     return (result[0], result[1])
 
 

@@ -34,10 +34,10 @@ class VoiceProfile(Base):
 
     # Voice type system — added v0.3.x
     voice_type = Column(String, default="cloned")  # "cloned" | "preset" | "designed"
-    preset_engine = Column(String, nullable=True)   # e.g. "kokoro" — only for preset
+    preset_engine = Column(String, nullable=True)  # e.g. "kokoro" — only for preset
     preset_voice_id = Column(String, nullable=True)  # e.g. "am_adam" — only for preset
-    design_prompt = Column(Text, nullable=True)      # text description — only for designed
-    default_engine = Column(String, nullable=True)   # auto-selected engine, locked for preset
+    design_prompt = Column(Text, nullable=True)  # text description — only for designed
+    default_engine = Column(String, nullable=True)  # auto-selected engine, locked for preset
     # Free-form character prompt used by the compose button and the
     # personality-rewrite path on /generate. Describes *what* this voice
     # says and how, orthogonal to how it sounds (handled by the preset /
@@ -212,12 +212,8 @@ class CaptureSettings(Base):
     hotkey_enabled = Column(Boolean, nullable=False, default=False)
     # Lists of keytap key names (e.g. "MetaRight", "ControlRight"). Right-hand
     # modifiers by default so they don't collide with left-hand shortcuts.
-    chord_push_to_talk_keys = Column(
-        JSON, nullable=False, default=default_push_to_talk_chord
-    )
-    chord_toggle_to_talk_keys = Column(
-        JSON, nullable=False, default=default_toggle_to_talk_chord
-    )
+    chord_push_to_talk_keys = Column(JSON, nullable=False, default=default_push_to_talk_chord)
+    chord_toggle_to_talk_keys = Column(JSON, nullable=False, default=default_toggle_to_talk_chord)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
@@ -334,7 +330,7 @@ class VoiceAgent(Base):
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     name = Column(String, unique=True, nullable=False)
     mode = Column(String, nullable=False, default="outbound_sales")  # outbound_sales | customer_service | support
-    status = Column(String, nullable=False, default="draft")         # draft | active | paused | completed
+    status = Column(String, nullable=False, default="draft")  # draft | active | paused | completed
     version = Column(Integer, nullable=False, default=1)
     # Voice + language the agent speaks in.
     profile_id = Column(String, ForeignKey("profiles.id"), nullable=False)
@@ -351,7 +347,7 @@ class VoiceAgent(Base):
     company_name = Column(String, nullable=False)
     # What the agent is allowed to say / do. Supports {{contact.name}},
     # {{contact.custom.<field>}}, {{agent.company_name}}, {{today}} ...
-    brief = Column(Text, nullable=False)          # offer facts (sales) or service scope (service/support)
+    brief = Column(Text, nullable=False)  # offer facts (sales) or service scope (service/support)
     goal = Column(Text, nullable=False)
     objection_notes = Column(Text, nullable=True)
     persona = Column(Text, nullable=True)
@@ -382,8 +378,8 @@ class VoiceAgent(Base):
     webhook_secret = Column(String, nullable=True)
     # Compliance guard-rails (outbound only; inbound calls ignore the window).
     timezone = Column(String, nullable=False, default="UTC")
-    calling_window_start = Column(Integer, nullable=False, default=9)   # local hour, inclusive
-    calling_window_end = Column(Integer, nullable=False, default=20)    # local hour, exclusive
+    calling_window_start = Column(Integer, nullable=False, default=9)  # local hour, inclusive
+    calling_window_end = Column(Integer, nullable=False, default=20)  # local hour, exclusive
     calling_days = Column(JSON, nullable=False, default=lambda: [0, 1, 2, 3, 4])  # Mon=0 … Sun=6
     max_attempts = Column(Integer, nullable=False, default=3)
     daily_call_cap = Column(Integer, nullable=False, default=200)
@@ -404,8 +400,8 @@ class VoiceAgent(Base):
     # over the API / MCP; "twilio" dials / answers real numbers via webhooks.
     provider = Column(String, nullable=False, default="local")
     from_number = Column(String, nullable=True)
-    transfer_number = Column(String, nullable=True)     # warm transfer target for hand-offs (Twilio)
-    voicemail_message = Column(Text, nullable=True)     # voicemail drop; templated
+    transfer_number = Column(String, nullable=True)  # warm transfer target for hand-offs (Twilio)
+    voicemail_message = Column(Text, nullable=True)  # voicemail drop; templated
     sms_followup_template = Column(Text, nullable=True)  # templated; sent after the outcomes below
     sms_followup_outcomes = Column(JSON, nullable=False, default=_default_sms_outcomes)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -444,8 +440,8 @@ class Contact(Base):
     notes = Column(Text, nullable=True)
     memory = Column(Text, nullable=True)
     timezone = Column(String, nullable=True)
-    language = Column(String, nullable=True)          # overrides the agent's language for this person
-    custom_fields = Column(JSON, nullable=True)       # {"plan": "Pro", ...} — usable as {{contact.custom.plan}}
+    language = Column(String, nullable=True)  # overrides the agent's language for this person
+    custom_fields = Column(JSON, nullable=True)  # {"plan": "Pro", ...} — usable as {{contact.custom.plan}}
     is_test = Column(Boolean, nullable=False, default=False)  # simulation stand-in; never dialled or counted
     # Operator's record that this person agreed to be contacted. The
     # scheduler refuses contacts without it when the agent requires consent.
@@ -488,12 +484,12 @@ class AgentTool(Base):
 
     id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     agent_id = Column(String, ForeignKey("va_agents.id"), nullable=False)
-    name = Column(String, nullable=False)          # snake_case, unique per agent
-    description = Column(Text, nullable=False)     # when / why to use it — the model reads this
+    name = Column(String, nullable=False)  # snake_case, unique per agent
+    description = Column(Text, nullable=False)  # when / why to use it — the model reads this
     method = Column(String, nullable=False, default="GET")
-    url = Column(String, nullable=False)           # may contain {param} placeholders
-    headers = Column(JSON, nullable=True)          # {"Authorization": "Bearer …"}
-    params = Column(JSON, nullable=True)           # [{"name", "type", "description", "required"}]
+    url = Column(String, nullable=False)  # may contain {param} placeholders
+    headers = Column(JSON, nullable=True)  # {"Authorization": "Bearer …"}
+    params = Column(JSON, nullable=True)  # [{"name", "type", "description", "required"}]
     timeout_s = Column(Integer, nullable=False, default=10)
     enabled = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -511,13 +507,13 @@ class Call(Base):
     contact_id = Column(String, ForeignKey("va_contacts.id"), nullable=False)
     direction = Column(String, nullable=False, default="outbound")  # outbound | inbound | simulation
     status = Column(String, nullable=False, default="in_progress")  # in_progress | completed | failed
-    stage = Column(String, nullable=False, default="opening")       # opening | conversation | closing | ended
+    stage = Column(String, nullable=False, default="opening")  # opening | conversation | closing | ended
     # interested | not_interested | callback | opt_out | resolved |
     # unresolved | ticket_created | handoff | no_answer | voicemail |
     # voicemail_left | max_turns | error
     outcome = Column(String, nullable=True)
     summary = Column(Text, nullable=True)
-    variant = Column(String, nullable=True)         # A/B variant name used on this call
+    variant = Column(String, nullable=True)  # A/B variant name used on this call
     # Supervisor take-over: while paused the model stays silent and an
     # operator speaks as the agent through POST /calls/{id}/agent_say.
     ai_paused = Column(Boolean, nullable=False, default=False)
@@ -553,10 +549,10 @@ class CallTurn(Base):
     source = Column(String, nullable=False, default="llm")  # llm | system | operator | tool
     sentiment = Column(Float, nullable=True)  # -1 … 1, customer turns only
     interrupted = Column(Boolean, nullable=False, default=False)
-    stt_ms = Column(Integer, nullable=True)   # on agent turns: how long the preceding transcription took
-    llm_ms = Column(Integer, nullable=True)   # on agent turns: model latency (all passes)
+    stt_ms = Column(Integer, nullable=True)  # on agent turns: how long the preceding transcription took
+    llm_ms = Column(Integer, nullable=True)  # on agent turns: model latency (all passes)
     tool_name = Column(String, nullable=True)
-    meta = Column(JSON, nullable=True)        # tool args/result, chunk timings, …
+    meta = Column(JSON, nullable=True)  # tool args/result, chunk timings, …
     generation_id = Column(String, ForeignKey("generations.id"), nullable=True)
     generation_ids = Column(JSON, nullable=True)  # all chunk ids in playback order
     capture_id = Column(String, ForeignKey("captures.id"), nullable=True)
@@ -573,8 +569,8 @@ class Appointment(Base):
     contact_id = Column(String, ForeignKey("va_contacts.id"), nullable=False)
     call_id = Column(String, ForeignKey("va_calls.id"), nullable=True)
     starts_at = Column(DateTime, nullable=False)  # UTC
-    ends_at = Column(DateTime, nullable=False)    # UTC
-    timezone = Column(String, nullable=True)      # the contact's zone, for display
+    ends_at = Column(DateTime, nullable=False)  # UTC
+    timezone = Column(String, nullable=True)  # the contact's zone, for display
     notes = Column(Text, nullable=True)
     status = Column(String, nullable=False, default="booked")  # booked | confirmed | cancelled | completed
     created_at = Column(DateTime, default=datetime.utcnow)

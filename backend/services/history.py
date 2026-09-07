@@ -26,6 +26,7 @@ from ..models import (
 def _get_versions_for_generation(generation_id: str, db: Session) -> tuple:
     """Get versions list and active version ID for a generation."""
     import json
+
     versions_rows = (
         db.query(DBGenerationVersion)
         .filter_by(generation_id=generation_id)
@@ -45,15 +46,17 @@ def _get_versions_for_generation(generation_id: str, db: Session) -> tuple:
                 effects_chain = [EffectConfig(**e) for e in raw]
             except Exception:
                 pass
-        versions.append(GenerationVersionResponse(
-            id=v.id,
-            generation_id=v.generation_id,
-            label=v.label,
-            audio_path=v.audio_path,
-            effects_chain=effects_chain,
-            is_default=v.is_default,
-            created_at=v.created_at,
-        ))
+        versions.append(
+            GenerationVersionResponse(
+                id=v.id,
+                generation_id=v.generation_id,
+                label=v.label,
+                audio_path=v.audio_path,
+                effects_chain=effects_chain,
+                is_default=v.is_default,
+                created_at=v.created_at,
+            )
+        )
         if v.is_default:
             active_version_id = v.id
 
@@ -154,11 +157,11 @@ async def get_generation(
 ) -> GenerationResponse | None:
     """
     Get a generation by ID.
-    
+
     Args:
         generation_id: Generation ID
         db: Database session
-        
+
     Returns:
         Generation or None if not found
     """
@@ -175,21 +178,17 @@ async def list_generations(
 ) -> HistoryListResponse:
     """
     List generations with optional filters.
-    
+
     Args:
         query: Query parameters (filters, pagination)
         db: Database session
-        
+
     Returns:
         HistoryListResponse with items and total count
     """
     # Build base query with join to get profile name
-    q = db.query(
-        DBGeneration,
-        DBVoiceProfile.name.label('profile_name')
-    ).join(
-        DBVoiceProfile,
-        DBGeneration.profile_id == DBVoiceProfile.id
+    q = db.query(DBGeneration, DBVoiceProfile.name.label("profile_name")).join(
+        DBVoiceProfile, DBGeneration.profile_id == DBVoiceProfile.id
     )
 
     # Apply profile filter
@@ -217,25 +216,27 @@ async def list_generations(
     items = []
     for generation, profile_name in results:
         versions, active_version_id = _get_versions_for_generation(generation.id, db)
-        items.append(HistoryResponse(
-            id=generation.id,
-            profile_id=generation.profile_id,
-            profile_name=profile_name,
-            text=generation.text,
-            language=generation.language,
-            audio_path=generation.audio_path,
-            duration=generation.duration,
-            seed=generation.seed,
-            instruct=generation.instruct,
-            engine=generation.engine or "qwen",
-            model_size=generation.model_size,
-            status=generation.status or "completed",
-            error=generation.error,
-            is_favorited=bool(generation.is_favorited),
-            created_at=generation.created_at,
-            versions=versions,
-            active_version_id=active_version_id,
-        ))
+        items.append(
+            HistoryResponse(
+                id=generation.id,
+                profile_id=generation.profile_id,
+                profile_name=profile_name,
+                text=generation.text,
+                language=generation.language,
+                audio_path=generation.audio_path,
+                duration=generation.duration,
+                seed=generation.seed,
+                instruct=generation.instruct,
+                engine=generation.engine or "qwen",
+                model_size=generation.model_size,
+                status=generation.status or "completed",
+                error=generation.error,
+                is_favorited=bool(generation.is_favorited),
+                created_at=generation.created_at,
+                versions=versions,
+                active_version_id=active_version_id,
+            )
+        )
 
     return HistoryListResponse(
         items=items,
@@ -249,11 +250,11 @@ async def delete_generation(
 ) -> bool:
     """
     Delete a generation.
-    
+
     Args:
         generation_id: Generation ID
         db: Database session
-        
+
     Returns:
         True if deleted, False if not found
     """
@@ -263,6 +264,7 @@ async def delete_generation(
 
     # Delete all version files and records
     from . import versions as versions_mod
+
     versions_mod.delete_versions_for_generation(generation_id, db)
 
     # Delete main audio file (if not already removed by version cleanup)
@@ -321,11 +323,11 @@ async def delete_generations_by_profile(
 ) -> int:
     """
     Delete all generations for a profile.
-    
+
     Args:
         profile_id: Profile ID
         db: Database session
-        
+
     Returns:
         Number of generations deleted
     """
@@ -335,6 +337,7 @@ async def delete_generations_by_profile(
     for generation in generations:
         # Delete associated version files and rows first
         from . import versions as versions_mod
+
         versions_mod.delete_versions_for_generation(generation.id, db)
 
         # Delete audio file
@@ -354,10 +357,10 @@ async def delete_generations_by_profile(
 async def get_generation_stats(db: Session) -> dict:
     """
     Get generation statistics.
-    
+
     Args:
         db: Database session
-        
+
     Returns:
         Statistics dictionary
     """
@@ -368,15 +371,14 @@ async def get_generation_stats(db: Session) -> dict:
     total_duration = db.query(func.sum(DBGeneration.duration)).scalar() or 0
 
     # Get generations by profile
-    by_profile = db.query(
-        DBGeneration.profile_id,
-        func.count(DBGeneration.id).label('count')
-    ).group_by(DBGeneration.profile_id).all()
+    by_profile = (
+        db.query(DBGeneration.profile_id, func.count(DBGeneration.id).label("count"))
+        .group_by(DBGeneration.profile_id)
+        .all()
+    )
 
     return {
         "total_generations": total,
         "total_duration_seconds": total_duration,
-        "generations_by_profile": {
-            profile_id: count for profile_id, count in by_profile
-        },
+        "generations_by_profile": {profile_id: count for profile_id, count in by_profile},
     }

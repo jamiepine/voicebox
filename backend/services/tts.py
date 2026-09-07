@@ -13,7 +13,7 @@ from ..backends import TTSBackend, get_tts_backend
 def get_tts_model() -> TTSBackend:
     """
     Get TTS backend instance (MLX or PyTorch based on platform).
-    
+
     Returns:
         TTS backend instance
     """

@@ -83,24 +83,30 @@ def _preflight(client: TestClient, origin: str) -> dict:
 class TestCORSDefaultOrigins:
     """CORS should allow known local origins and block everything else."""
 
-    @pytest.mark.parametrize("origin", [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:17493",
-        "http://127.0.0.1:17493",
-        "tauri://localhost",
-        "https://tauri.localhost",
-    ])
+    @pytest.mark.parametrize(
+        "origin",
+        [
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "http://localhost:17493",
+            "http://127.0.0.1:17493",
+            "tauri://localhost",
+            "https://tauri.localhost",
+        ],
+    )
     def test_allowed_origins(self, client, origin):
         headers = _get_with_origin(client, origin)
         assert headers.get("access-control-allow-origin") == origin
 
-    @pytest.mark.parametrize("origin", [
-        "http://evil.com",
-        "http://localhost:9999",
-        "https://attacker.example.com",
-        "null",
-    ])
+    @pytest.mark.parametrize(
+        "origin",
+        [
+            "http://evil.com",
+            "http://localhost:9999",
+            "https://attacker.example.com",
+            "null",
+        ],
+    )
     def test_blocked_origins(self, client, origin):
         headers = _get_with_origin(client, origin)
         assert "access-control-allow-origin" not in headers

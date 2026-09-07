@@ -13,14 +13,16 @@ def backfill_generation_versions(SessionLocal, Generation, GenerationVersion) ->
     """Create 'clean' version entries for generations that predate the versions feature."""
     db = SessionLocal()
     try:
-        existing_version_gen_ids = {
-            row[0] for row in db.query(GenerationVersion.generation_id).all()
-        }
-        generations = db.query(Generation).filter(
-            Generation.status == "completed",
-            Generation.audio_path.isnot(None),
-            Generation.audio_path != "",
-        ).all()
+        existing_version_gen_ids = {row[0] for row in db.query(GenerationVersion.generation_id).all()}
+        generations = (
+            db.query(Generation)
+            .filter(
+                Generation.status == "completed",
+                Generation.audio_path.isnot(None),
+                Generation.audio_path != "",
+            )
+            .all()
+        )
 
         count = 0
         for gen in generations:

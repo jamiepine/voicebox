@@ -150,8 +150,8 @@ async def main():
     print(f"Last event: {events[-1]}")
 
     # Check if we got meaningful progress
-    has_progress = any(e.get('progress', 0) > 0 for e in events)
-    has_complete = any(e.get('status') == 'complete' for e in events)
+    has_progress = any(e.get("progress", 0) > 0 for e in events)
+    has_complete = any(e.get("status") == "complete" for e in events)
 
     if has_progress:
         print("✓ Progress updates received")

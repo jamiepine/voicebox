@@ -106,6 +106,7 @@ async def list_preset_voices(engine: str):
         }
     return {"engine": engine, "voices": []}
 
+
 @router.get("/profiles/{profile_id}", response_model=models.VoiceProfileResponse)
 async def get_profile(
     profile_id: str,
@@ -387,6 +388,4 @@ async def compose_in_character(
         result = await personality.compose_as_profile(profile.personality)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return models.PersonalityTextResponse(
-        text=result.text, model_size=result.model_size
-    )
+    return models.PersonalityTextResponse(text=result.text, model_size=result.model_size)

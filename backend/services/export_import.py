@@ -26,11 +26,11 @@ from .profiles import add_profile_sample, create_profile
 def _get_unique_profile_name(name: str, db: Session) -> str:
     """
     Get a unique profile name by appending a number if needed.
-    
+
     Args:
         name: Original profile name
         db: Database session
-        
+
     Returns:
         Unique profile name
     """
@@ -49,14 +49,14 @@ def _get_unique_profile_name(name: str, db: Session) -> str:
 def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
     """
     Export a voice profile to a ZIP archive.
-    
+
     Args:
         profile_id: Profile ID to export
         db: Database session
-        
+
     Returns:
         ZIP file contents as bytes
-        
+
     Raises:
         ValueError: If profile not found or has no samples
     """
@@ -73,7 +73,7 @@ def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
     # Create ZIP in memory
     zip_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         # Check if profile has avatar
         has_avatar = False
         if profile.avatar_path:
@@ -126,21 +126,21 @@ def export_profile_to_zip(profile_id: str, db: Session) -> bytes:
 async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfileResponse:
     """
     Import a voice profile from a ZIP archive.
-    
+
     Args:
         file_bytes: ZIP file contents
         db: Database session
-        
+
     Returns:
         Created profile
-        
+
     Raises:
         ValueError: If ZIP is invalid or missing required files
     """
     zip_buffer = io.BytesIO(file_bytes)
 
     try:
-        with zipfile.ZipFile(zip_buffer, 'r') as zip_file:
+        with zipfile.ZipFile(zip_buffer, "r") as zip_file:
             # Validate ZIP structure
             namelist = zip_file.namelist()
 
@@ -191,12 +191,14 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
                     avatar_file = avatar_files[0]
                     # Extract to temporary file
                     import tempfile
+
                     with tempfile.NamedTemporaryFile(suffix=Path(avatar_file).suffix, delete=False) as tmp:
                         tmp.write(zip_file.read(avatar_file))
                         tmp_path = tmp.name
 
                     try:
                         from .profiles import upload_avatar
+
                         await upload_avatar(profile.id, tmp_path, db)
                     finally:
                         Path(tmp_path).unlink(missing_ok=True)
@@ -206,7 +208,7 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
 
             for filename, reference_text in samples_data.items():
                 # Validate filename
-                if not filename.endswith('.wav'):
+                if not filename.endswith(".wav"):
                     raise ValueError(f"Invalid sample filename: {filename} (must be .wav)")
 
                 # Extract audio file to temp location
@@ -217,6 +219,7 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
 
                 # Extract to temporary file
                 import tempfile
+
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                     tmp.write(zip_file.read(zip_path))
                     tmp_path = tmp.name
@@ -248,14 +251,14 @@ async def import_profile_from_zip(file_bytes: bytes, db: Session) -> VoiceProfil
 def export_generation_to_zip(generation_id: str, db: Session) -> bytes:
     """
     Export a generation to a ZIP archive.
-    
+
     Args:
         generation_id: Generation ID to export
         db: Database session
-        
+
     Returns:
         ZIP file contents as bytes
-        
+
     Raises:
         ValueError: If generation not found
     """
@@ -280,7 +283,7 @@ def export_generation_to_zip(generation_id: str, db: Session) -> bytes:
     # Create ZIP in memory
     zip_buffer = io.BytesIO()
 
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         # Build version manifest entries
         version_entries = []
         for v in versions:
@@ -288,13 +291,15 @@ def export_generation_to_zip(generation_id: str, db: Session) -> bytes:
             effects_chain = None
             if v.effects_chain:
                 effects_chain = json.loads(v.effects_chain)
-            version_entries.append({
-                "id": v.id,
-                "label": v.label,
-                "is_default": v.is_default,
-                "effects_chain": effects_chain,
-                "filename": v_path.name,
-            })
+            version_entries.append(
+                {
+                    "id": v.id,
+                    "label": v.label,
+                    "is_default": v.is_default,
+                    "effects_chain": effects_chain,
+                    "filename": v_path.name,
+                }
+            )
 
         manifest = {
             "version": "1.0",
@@ -336,14 +341,14 @@ def export_generation_to_zip(generation_id: str, db: Session) -> bytes:
 async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
     """
     Import a generation from a ZIP archive.
-    
+
     Args:
         file_bytes: ZIP file contents
         db: Database session
-        
+
     Returns:
         Dictionary with generation ID and profile info
-        
+
     Raises:
         ValueError: If ZIP is invalid or missing required files
     """
@@ -357,7 +362,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
     zip_buffer = io.BytesIO(file_bytes)
 
     try:
-        with zipfile.ZipFile(zip_buffer, 'r') as zip_file:
+        with zipfile.ZipFile(zip_buffer, "r") as zip_file:
             # Validate ZIP structure
             namelist = zip_file.namelist()
 
@@ -420,7 +425,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                 generations_dir.mkdir(parents=True, exist_ok=True)
 
                 # Generate new ID for this generation
-                new_generation_id = str(__import__('uuid').uuid4())
+                new_generation_id = str(__import__("uuid").uuid4())
 
                 # Copy audio to generations directory
                 audio_dest = generations_dir / f"{new_generation_id}.wav"
@@ -448,7 +453,7 @@ async def import_generation_from_zip(file_bytes: bytes, db: Session) -> dict:
                     "profile_id": profile_id,
                     "profile_name": profile_name,
                     "text": db_generation.text,
-                    "message": f"Generation imported successfully (assigned to profile: {profile_name})"
+                    "message": f"Generation imported successfully (assigned to profile: {profile_name})",
                 }
 
             finally:

@@ -23,10 +23,11 @@ def _is_writable(stream):
     except Exception:
         return False
 
+
 if not _is_writable(sys.stdout):
-    sys.stdout = open(os.devnull, 'w')
+    sys.stdout = open(os.devnull, "w")
 if not _is_writable(sys.stderr):
-    sys.stderr = open(os.devnull, 'w')
+    sys.stderr = open(os.devnull, "w")
 
 # PyInstaller + multiprocessing: child processes re-execute the frozen binary
 # with internal arguments. freeze_support() handles this and exits early.
@@ -37,16 +38,17 @@ multiprocessing.freeze_support()
 # In frozen builds, piper_phonemize's espeak-ng C library falls back to
 # /usr/share/espeak-ng-data/ which doesn't exist.  Point it at the bundled
 # data directory instead.
-if getattr(sys, 'frozen', False):
-    _meipass = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
-    _espeak_data = os.path.join(_meipass, 'piper_phonemize', 'espeak-ng-data')
+if getattr(sys, "frozen", False):
+    _meipass = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    _espeak_data = os.path.join(_meipass, "piper_phonemize", "espeak-ng-data")
     if os.path.isdir(_espeak_data):
-        os.environ.setdefault('ESPEAK_DATA_PATH', _espeak_data)
+        os.environ.setdefault("ESPEAK_DATA_PATH", _espeak_data)
 
 # Fast path: handle --version before any heavy imports so the Rust
 # version check doesn't block for 30+ seconds loading torch etc.
 if "--version" in sys.argv:
     from backend import __version__
+
     print(f"voicebox-server {__version__}")
     sys.exit(0)
 
@@ -66,7 +68,7 @@ import logging
 # Set up logging FIRST, before any imports that might fail
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     stream=sys.stderr,  # Log to stderr so it's captured by Tauri
 )
 logger = logging.getLogger(__name__)
@@ -82,17 +84,22 @@ logger.info("=" * 60)
 try:
     logger.info("Importing argparse...")
     import argparse
+
     logger.info("Importing uvicorn...")
     import uvicorn
+
     logger.info("Standard library imports successful")
 
     # Import the FastAPI app from the backend package
     logger.info("Importing backend.config...")
     from backend import config
+
     logger.info("Importing backend.database...")
     from backend import database
+
     logger.info("Importing backend.main (this may take a while due to torch/transformers)...")
     from backend.main import app
+
     logger.info("Backend imports successful")
 except Exception as e:
     logger.error(f"Failed to import required modules: {e}", exc_info=True)
@@ -110,6 +117,7 @@ def disable_watchdog():
     # exits, which would kill the server even though we want it to persist.
     if sys.platform != "win32":
         import signal
+
         signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
 
@@ -137,7 +145,7 @@ def _start_parent_watchdog(parent_pid, data_dir=None):
             log_dir = os.path.join(data_dir, "logs")
             os.makedirs(log_dir, exist_ok=True)
             fh = logging.FileHandler(os.path.join(log_dir, "watchdog.log"))
-            fh.setFormatter(logging.Formatter('%(asctime)s - %(message)s'))
+            fh.setFormatter(logging.Formatter("%(asctime)s - %(message)s"))
             watchdog_logger.addHandler(fh)
         except Exception:
             pass
@@ -148,6 +156,7 @@ def _start_parent_watchdog(parent_pid, data_dir=None):
         try:
             if sys.platform == "win32":
                 import ctypes
+
                 kernel32 = ctypes.windll.kernel32
                 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
                 handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
@@ -279,6 +288,7 @@ if __name__ == "__main__":
         if args.parent_pid is not None:
             _parent_pid = args.parent_pid
             _data_dir = args.data_dir
+
             @app.on_event("startup")
             async def _on_startup():
                 _start_parent_watchdog(_parent_pid, _data_dir)

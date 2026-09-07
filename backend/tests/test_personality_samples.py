@@ -202,14 +202,11 @@ def detect_backend_port(hint: int | None) -> int:
         except Exception:
             continue
     raise SystemExit(
-        "No running Voicebox backend found. Start it (`python backend/main.py`) "
-        f"or pass --port. Tried: {candidates}"
+        f"No running Voicebox backend found. Start it (`python backend/main.py`) or pass --port. Tried: {candidates}"
     )
 
 
-def create_throwaway_profile(
-    client: httpx.Client, port: int, personality: Personality, model: str
-) -> str:
+def create_throwaway_profile(client: httpx.Client, port: int, personality: Personality, model: str) -> str:
     """Create a preset Kokoro profile with the test personality. Returns
     the profile id. Tests delete it in a finally block."""
     name = f"{THROWAWAY_PROFILE_PREFIX}{personality.name}-{model}-{int(time.time())}"
@@ -267,12 +264,8 @@ def format_report(cards: list[Scorecard]) -> str:
             tag = f"{c.personality} · {c.endpoint}"
             lines.append(f"  {status} {tag}  ({c.latency_ms} ms)")
             if c.input_text:
-                lines.append(
-                    f"      in:      {c.input_text[:90]}{'…' if len(c.input_text) > 90 else ''}"
-                )
-            lines.append(
-                f"      out:     {c.refined[:120]}{'…' if len(c.refined) > 120 else ''}"
-            )
+                lines.append(f"      in:      {c.input_text[:90]}{'…' if len(c.input_text) > 90 else ''}")
+            lines.append(f"      out:     {c.refined[:120]}{'…' if len(c.refined) > 120 else ''}")
             if c.flags:
                 lines.append(f"      ⚠ {'; '.join(c.flags)}")
             lines.append("")

@@ -53,9 +53,7 @@ def test_suppresses_offline_mode_is_enabled(monkeypatch):
     monkeypatch.setattr(huggingface_hub, "model_info", raise_offline)
 
     sentinel = object()
-    result = PreTrainedTokenizerBase._patch_mistral_regex(
-        sentinel, "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-    )
+    result = PreTrainedTokenizerBase._patch_mistral_regex(sentinel, "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
     assert result is sentinel
 
 
@@ -70,9 +68,7 @@ def test_suppresses_connection_errors(monkeypatch):
     monkeypatch.setattr(huggingface_hub, "model_info", raise_connection)
 
     sentinel = object()
-    result = PreTrainedTokenizerBase._patch_mistral_regex(
-        sentinel, "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-    )
+    result = PreTrainedTokenizerBase._patch_mistral_regex(sentinel, "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
     assert result is sentinel
 
 
@@ -88,9 +84,7 @@ def test_passthrough_on_success(monkeypatch):
     monkeypatch.setattr(huggingface_hub, "model_info", lambda *_a, **_kw: FakeInfo())
 
     sentinel = object()
-    result = PreTrainedTokenizerBase._patch_mistral_regex(
-        sentinel, "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-    )
+    result = PreTrainedTokenizerBase._patch_mistral_regex(sentinel, "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
     assert result is sentinel
 
 

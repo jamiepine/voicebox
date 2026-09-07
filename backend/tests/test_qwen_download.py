@@ -23,11 +23,11 @@ import httpx
 async def monitor_sse_stream(model_name: str, timeout: int = 600) -> list[dict]:
     """
     Monitor SSE stream for a model download.
-    
+
     Args:
         model_name: Name of the model to monitor
         timeout: Maximum time to wait for download (seconds)
-        
+
     Returns:
         List of SSE events received
     """
@@ -56,17 +56,19 @@ async def monitor_sse_stream(model_name: str, timeout: int = 600) -> list[dict]:
                             events.append(data)
 
                             # Print progress (only when it changes significantly)
-                            progress = data.get('progress', 0)
-                            status = data.get('status', 'unknown')
-                            filename = data.get('filename', '')
-                            current = data.get('current', 0)
-                            total = data.get('total', 0)
+                            progress = data.get("progress", 0)
+                            status = data.get("status", "unknown")
+                            filename = data.get("filename", "")
+                            current = data.get("current", 0)
+                            total = data.get("total", 0)
 
                             # Print every 5% change or status change
-                            if abs(progress - last_progress) >= 5 or status in ('complete', 'error'):
+                            if abs(progress - last_progress) >= 5 or status in ("complete", "error"):
                                 current_mb = current / (1024 * 1024)
                                 total_mb = total / (1024 * 1024)
-                                print(f"   📊 {status:12} {progress:6.1f}% ({current_mb:.1f}MB / {total_mb:.1f}MB) {filename[:50]}")
+                                print(
+                                    f"   📊 {status:12} {progress:6.1f}% ({current_mb:.1f}MB / {total_mb:.1f}MB) {filename[:50]}"
+                                )
                                 last_progress = progress
 
                             # Stop if complete or error
@@ -183,14 +185,14 @@ async def main():
         print(f"   Downloaded: {status.get('downloaded', False)}")
         print(f"   Downloading: {status.get('downloading', False)}")
         print(f"   Loaded: {status.get('loaded', False)}")
-        if status.get('size_mb'):
+        if status.get("size_mb"):
             print(f"   Size: {status['size_mb']:.1f} MB")
     else:
         print("   ⚠️  Could not get model status")
 
     # Ask if user wants to delete first
     print("\n" + "-" * 70)
-    if status and status.get('downloaded'):
+    if status and status.get("downloaded"):
         print("⚠️  Model is already downloaded. Delete it for a fresh download test?")
         print("   [y] Yes, delete and download fresh")
         print("   [n] No, just test SSE connection")
@@ -198,14 +200,14 @@ async def main():
 
         choice = input("\nChoice [y/n/q]: ").strip().lower()
 
-        if choice == 'q':
+        if choice == "q":
             print("Exiting...")
             return True
 
-        if choice == 'y':
+        if choice == "y":
             if not await delete_model(model_name):
                 print("Failed to delete model. Continue anyway? [y/n]")
-                if input().strip().lower() != 'y':
+                if input().strip().lower() != "y":
                     return False
     else:
         print("Model not downloaded. Will perform fresh download test.")
@@ -281,12 +283,12 @@ async def main():
     # Check for expected behaviors
     has_progress_updates = len(events) > 2
     has_increasing_progress = False
-    has_complete = any(e.get('status') == 'complete' for e in events)
-    has_100_percent = any(e.get('progress', 0) >= 100 for e in events)
+    has_complete = any(e.get("status") == "complete" for e in events)
+    has_100_percent = any(e.get("progress", 0) >= 100 for e in events)
 
     # Check if progress increased over time
     if len(events) >= 2:
-        progress_values = [e.get('progress', 0) for e in events]
+        progress_values = [e.get("progress", 0) for e in events]
         has_increasing_progress = progress_values[-1] > progress_values[0]
 
     print("\n📋 Checks:")

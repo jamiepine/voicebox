@@ -49,7 +49,8 @@ def test_db():
 def mock_profiles_dir(monkeypatch, tmp_path):
     """Mock the profiles directory to use a temporary path."""
     from backend import config
-    monkeypatch.setattr(config, 'get_profiles_dir', lambda: tmp_path)
+
+    monkeypatch.setattr(config, "get_profiles_dir", lambda: tmp_path)
     return tmp_path
 
 
@@ -57,21 +58,13 @@ def mock_profiles_dir(monkeypatch, tmp_path):
 async def test_create_profile_duplicate_name_raises_error(test_db, mock_profiles_dir):
     """Test that creating a profile with a duplicate name raises a ValueError."""
     # Create first profile
-    profile_data_1 = VoiceProfileCreate(
-        name="Test Profile",
-        description="First profile",
-        language="en"
-    )
+    profile_data_1 = VoiceProfileCreate(name="Test Profile", description="First profile", language="en")
 
     profile_1 = await create_profile(profile_data_1, test_db)
     assert profile_1.name == "Test Profile"
 
     # Try to create second profile with same name
-    profile_data_2 = VoiceProfileCreate(
-        name="Test Profile",
-        description="Second profile",
-        language="en"
-    )
+    profile_data_2 = VoiceProfileCreate(name="Test Profile", description="Second profile", language="en")
 
     with pytest.raises(ValueError) as exc_info:
         await create_profile(profile_data_2, test_db)
@@ -86,21 +79,13 @@ async def test_create_profile_duplicate_name_raises_error(test_db, mock_profiles
 async def test_create_profile_different_names_succeeds(test_db, mock_profiles_dir):
     """Test that creating profiles with different names succeeds."""
     # Create first profile
-    profile_data_1 = VoiceProfileCreate(
-        name="Profile One",
-        description="First profile",
-        language="en"
-    )
+    profile_data_1 = VoiceProfileCreate(name="Profile One", description="First profile", language="en")
 
     profile_1 = await create_profile(profile_data_1, test_db)
     assert profile_1.name == "Profile One"
 
     # Create second profile with different name
-    profile_data_2 = VoiceProfileCreate(
-        name="Profile Two",
-        description="Second profile",
-        language="en"
-    )
+    profile_data_2 = VoiceProfileCreate(name="Profile Two", description="Second profile", language="en")
 
     profile_2 = await create_profile(profile_data_2, test_db)
     assert profile_2.name == "Profile Two"
@@ -113,26 +98,18 @@ async def test_create_profile_different_names_succeeds(test_db, mock_profiles_di
 async def test_update_profile_to_duplicate_name_raises_error(test_db, mock_profiles_dir):
     """Test that updating a profile to a duplicate name raises a ValueError."""
     # Create two profiles with different names
-    profile_data_1 = VoiceProfileCreate(
-        name="Profile A",
-        description="First profile",
-        language="en"
-    )
+    profile_data_1 = VoiceProfileCreate(name="Profile A", description="First profile", language="en")
     # Only the name needs to exist for profile_2 to collide with it.
     await create_profile(profile_data_1, test_db)
 
-    profile_data_2 = VoiceProfileCreate(
-        name="Profile B",
-        description="Second profile",
-        language="en"
-    )
+    profile_data_2 = VoiceProfileCreate(name="Profile B", description="Second profile", language="en")
     profile_2 = await create_profile(profile_data_2, test_db)
 
     # Try to update profile_2 to use profile_1's name
     update_data = VoiceProfileCreate(
         name="Profile A",  # Duplicate name
         description="Updated description",
-        language="en"
+        language="en",
     )
 
     with pytest.raises(ValueError) as exc_info:
@@ -147,18 +124,14 @@ async def test_update_profile_to_duplicate_name_raises_error(test_db, mock_profi
 async def test_update_profile_keep_same_name_succeeds(test_db, mock_profiles_dir):
     """Test that updating a profile while keeping the same name succeeds."""
     # Create profile
-    profile_data = VoiceProfileCreate(
-        name="My Profile",
-        description="Original description",
-        language="en"
-    )
+    profile_data = VoiceProfileCreate(name="My Profile", description="Original description", language="en")
     profile = await create_profile(profile_data, test_db)
 
     # Update profile with same name but different description
     update_data = VoiceProfileCreate(
         name="My Profile",  # Same name
         description="Updated description",
-        language="en"
+        language="en",
     )
 
     updated_profile = await update_profile(profile.id, update_data, test_db)
@@ -174,19 +147,11 @@ async def test_update_profile_keep_same_name_succeeds(test_db, mock_profiles_dir
 async def test_update_profile_to_new_unique_name_succeeds(test_db, mock_profiles_dir):
     """Test that updating a profile to a new unique name succeeds."""
     # Create profile
-    profile_data = VoiceProfileCreate(
-        name="Original Name",
-        description="Profile description",
-        language="en"
-    )
+    profile_data = VoiceProfileCreate(name="Original Name", description="Profile description", language="en")
     profile = await create_profile(profile_data, test_db)
 
     # Update profile with new unique name
-    update_data = VoiceProfileCreate(
-        name="New Unique Name",
-        description="Updated description",
-        language="en"
-    )
+    update_data = VoiceProfileCreate(name="New Unique Name", description="Updated description", language="en")
 
     updated_profile = await update_profile(profile.id, update_data, test_db)
 
@@ -200,19 +165,11 @@ async def test_update_profile_to_new_unique_name_succeeds(test_db, mock_profiles
 async def test_case_sensitive_names_allowed(test_db, mock_profiles_dir):
     """Test that profile names are case-sensitive (e.g., 'Test' and 'test' are different)."""
     # Create profile with lowercase name
-    profile_data_1 = VoiceProfileCreate(
-        name="test profile",
-        description="Lowercase",
-        language="en"
-    )
+    profile_data_1 = VoiceProfileCreate(name="test profile", description="Lowercase", language="en")
     profile_1 = await create_profile(profile_data_1, test_db)
 
     # Create profile with different case
-    profile_data_2 = VoiceProfileCreate(
-        name="Test Profile",
-        description="Title case",
-        language="en"
-    )
+    profile_data_2 = VoiceProfileCreate(name="Test Profile", description="Title case", language="en")
     profile_2 = await create_profile(profile_data_2, test_db)
 
     # Both should succeed since SQLite unique constraint is case-sensitive by default

@@ -23,6 +23,7 @@ import torch.nn as nn
 
 # ── Snake activation (from dac/nn/layers.py) ────────────────────────
 
+
 # NOTE: The original DAC code uses @torch.jit.script here for a 1.4x
 # speedup.  We omit it because TorchScript calls inspect.getsource()
 # which fails inside a PyInstaller frozen binary (no .py source files).
@@ -45,6 +46,7 @@ class Snake1d(nn.Module):
 
 # ── Register as dac.nn.layers and dac.model.dac ─────────────────────
 
+
 def install_dac_shim() -> None:
     """Register fake dac package modules in sys.modules.
 
@@ -53,6 +55,7 @@ def install_dac_shim() -> None:
     """
     try:
         import dac  # noqa: F401  — real package exists, do nothing
+
         return
     except ImportError:
         pass

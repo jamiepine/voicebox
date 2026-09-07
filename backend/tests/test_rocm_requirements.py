@@ -54,6 +54,7 @@ class TestRocmRequirements:
 
     def test_requirements_file_content(self, backend_dir):
         import re
+
         req_file = backend_dir / "requirements-rocm.txt"
         content = req_file.read_text()
         assert "rocm7.2" in content, "Must point to ROCm 7.2 extra index"

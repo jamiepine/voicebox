@@ -488,11 +488,7 @@ async def update_story_item_volume(
     db: Session,
 ) -> StoryItemDetail | None:
     """Update a story item's playback volume (per-clip linear gain)."""
-    item = (
-        db.query(DBStoryItem)
-        .filter_by(id=item_id, story_id=story_id)
-        .first()
-    )
+    item = db.query(DBStoryItem).filter_by(id=item_id, story_id=story_id).first()
     if not item:
         return None
     generation = db.query(DBGeneration).filter_by(id=item.generation_id).first()
