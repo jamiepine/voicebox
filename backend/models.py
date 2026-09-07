@@ -2,7 +2,7 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 from datetime import datetime
 
@@ -824,21 +824,101 @@ _VA_ENGINE_PATTERN = "^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turb
 _VA_MODE_PATTERN = "^(outbound_sales|customer_service|support)$"
 _VA_OUTCOME_PATTERN = (
     "^(interested|not_interested|callback|opt_out|resolved|unresolved|"
-    "ticket_created|handoff|no_answer|voicemail|max_turns|error)$"
+    "ticket_created|handoff|no_answer|voicemail|voicemail_left|max_turns|error)$"
 )
+_VA_SNAKE_PATTERN = "^[a-z][a-z0-9_]{0,39}$"
 
 DEFAULT_DISCLOSURE = "Just so you know, I'm an automated AI assistant and this call may be recorded."
+DEFAULT_FILLER_PHRASES = ["One moment.", "Sure, let me check that for you.", "Okay, bear with me a second."]
+DEFAULT_EMPATHETIC_STYLE = "calm, warm and apologetic"
 
 
-class VoiceAgentCreate(BaseModel):
+class ScriptVariant(BaseModel):
+    """An A/B variant: any field left null falls back to the agent's base script."""
+
+    name: str = Field(..., min_length=1, max_length=60)
+    weight: int = Field(default=1, ge=1, le=100)
+    opening_line: Optional[str] = Field(None, max_length=1000)
+    brief: Optional[str] = Field(None, max_length=6000)
+    goal: Optional[str] = Field(None, max_length=1000)
+
+
+class AnalysisField(BaseModel):
+    """One post-call question the LLM answers from the transcript."""
+
+    key: str = Field(..., pattern=_VA_SNAKE_PATTERN)
+    question: str = Field(..., min_length=1, max_length=300)
+    type: str = Field(default="string", pattern="^(string|boolean|number|enum)$")
+    options: Optional[List[str]] = Field(None, max_length=20)
+
+
+class _VoiceAgentFields(BaseModel):
+    """Everything an operator configures. Shared by create (required
+    fields) and update (all optional) via subclassing."""
+
+    engine: Optional[str] = Field(None, pattern=_VA_ENGINE_PATTERN)
+    llm_model_size: Optional[str] = Field(None, pattern="^(0\\.6B|1\\.7B|4B)$")
+    voice_style: Optional[str] = Field(None, max_length=200)
+    empathetic_voice_style: Optional[str] = Field(DEFAULT_EMPATHETIC_STYLE, max_length=200)
+    objection_notes: Optional[str] = Field(None, max_length=4000)
+    persona: Optional[str] = Field(None, max_length=2000, description="Tone / manner of speaking.")
+    opening_line: Optional[str] = Field(None, max_length=1000)
+    escalation_promise: Optional[str] = Field(None, max_length=500)
+    variants: Optional[List[ScriptVariant]] = Field(None, max_length=8)
+    filler_phrases: List[str] = Field(default_factory=lambda: list(DEFAULT_FILLER_PHRASES), max_length=6)
+    fast_first_audio: bool = True
+    tools_enabled: bool = True
+    booking_instructions: Optional[str] = Field(None, max_length=1000)
+    appointment_duration_min: int = Field(default=30, ge=5, le=480)
+    analysis_schema: Optional[List[AnalysisField]] = Field(None, max_length=20)
+    webhook_url: Optional[str] = Field(None, max_length=500)
+    webhook_secret: Optional[str] = Field(None, max_length=200)
+    timezone: str = Field(default="UTC", max_length=64)
+    calling_window_start: int = Field(default=9, ge=0, le=23)
+    calling_window_end: int = Field(default=20, ge=1, le=24)
+    calling_days: List[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
+    max_attempts: int = Field(default=3, ge=1, le=20)
+    daily_call_cap: int = Field(default=200, ge=1, le=100000)
+    retry_delay_hours: int = Field(default=24, ge=1, le=720)
+    callback_delay_hours: int = Field(default=24, ge=1, le=720)
+    require_consent: bool = False
+    max_turns: int = Field(default=30, ge=2, le=200)
+    handoff_after_negative_turns: int = Field(default=3, ge=1, le=20)
+    redact_pii: bool = True
+    max_concurrent_calls: int = Field(default=1, ge=1, le=20)
+    schedule_start_at: Optional[datetime] = None
+    schedule_end_at: Optional[datetime] = None
+    provider: str = Field(default="local", pattern="^(local|twilio)$")
+    from_number: Optional[str] = Field(None, max_length=32)
+    transfer_number: Optional[str] = Field(None, max_length=32)
+    voicemail_message: Optional[str] = Field(None, max_length=1000)
+    sms_followup_template: Optional[str] = Field(None, max_length=640)
+    sms_followup_outcomes: List[str] = Field(default_factory=lambda: ["interested"], max_length=13)
+
+    @field_validator("filler_phrases")
+    @classmethod
+    def _filler_short(cls, phrases: List[str]) -> List[str]:
+        cleaned = [p.strip() for p in phrases if p and p.strip()]
+        for p in cleaned:
+            if len(p) > 80:
+                raise ValueError("Filler phrases must be at most 80 characters.")
+        return cleaned
+
+    @field_validator("webhook_url")
+    @classmethod
+    def _webhook_scheme(cls, url: Optional[str]) -> Optional[str]:
+        if url and not url.lower().startswith(("http://", "https://")):
+            raise ValueError("webhook_url must start with http:// or https://")
+        return url
+
+
+class VoiceAgentCreate(_VoiceAgentFields):
     """Body for ``POST /agents``."""
 
     name: str = Field(..., min_length=1, max_length=100)
     mode: str = Field(default="outbound_sales", pattern=_VA_MODE_PATTERN)
     profile: str = Field(..., description="Voice profile name or id the agent speaks in.")
-    engine: Optional[str] = Field(None, pattern=_VA_ENGINE_PATTERN)
     language: str = Field(default="en", pattern=_VA_LANGUAGE_PATTERN)
-    llm_model_size: Optional[str] = Field(None, pattern="^(0\\.6B|1\\.7B|4B)$")
     agent_name: str = Field(..., min_length=1, max_length=100)
     company_name: str = Field(..., min_length=1, max_length=200)
     brief: str = Field(
@@ -848,27 +928,7 @@ class VoiceAgentCreate(BaseModel):
         description="Facts the agent may state: the offer (sales) or the service scope (service/support).",
     )
     goal: str = Field(..., min_length=1, max_length=1000, description="What a successful call achieves.")
-    objection_notes: Optional[str] = Field(None, max_length=4000)
-    persona: Optional[str] = Field(None, max_length=2000, description="Tone / manner of speaking.")
-    opening_line: Optional[str] = Field(None, max_length=1000)
     disclosure: str = Field(default=DEFAULT_DISCLOSURE, min_length=1, max_length=500)
-    escalation_promise: Optional[str] = Field(None, max_length=500)
-    timezone: str = Field(default="UTC", max_length=64)
-    calling_window_start: int = Field(default=9, ge=0, le=23)
-    calling_window_end: int = Field(default=20, ge=1, le=24)
-    calling_days: List[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
-    max_attempts: int = Field(default=3, ge=1, le=20)
-    daily_call_cap: int = Field(default=200, ge=1, le=100000)
-    retry_delay_hours: int = Field(default=24, ge=1, le=720)
-    callback_delay_hours: int = Field(default=24, ge=1, le=720)
-    require_consent: bool = Field(
-        default=False,
-        description="When true, only contacts flagged consent=true are ever dialled.",
-    )
-    max_turns: int = Field(default=30, ge=2, le=200)
-    handoff_after_negative_turns: int = Field(default=3, ge=1, le=20)
-    provider: str = Field(default="local", pattern="^(local|twilio)$")
-    from_number: Optional[str] = Field(None, max_length=32)
 
 
 class VoiceAgentUpdate(BaseModel):
@@ -880,6 +940,8 @@ class VoiceAgentUpdate(BaseModel):
     engine: Optional[str] = Field(None, pattern=_VA_ENGINE_PATTERN)
     language: Optional[str] = Field(None, pattern=_VA_LANGUAGE_PATTERN)
     llm_model_size: Optional[str] = Field(None, pattern="^(0\\.6B|1\\.7B|4B)$")
+    voice_style: Optional[str] = Field(None, max_length=200)
+    empathetic_voice_style: Optional[str] = Field(None, max_length=200)
     agent_name: Optional[str] = Field(None, min_length=1, max_length=100)
     company_name: Optional[str] = Field(None, min_length=1, max_length=200)
     brief: Optional[str] = Field(None, min_length=1, max_length=6000)
@@ -889,6 +951,15 @@ class VoiceAgentUpdate(BaseModel):
     opening_line: Optional[str] = Field(None, max_length=1000)
     disclosure: Optional[str] = Field(None, min_length=1, max_length=500)
     escalation_promise: Optional[str] = Field(None, max_length=500)
+    variants: Optional[List[ScriptVariant]] = Field(None, max_length=8)
+    filler_phrases: Optional[List[str]] = Field(None, max_length=6)
+    fast_first_audio: Optional[bool] = None
+    tools_enabled: Optional[bool] = None
+    booking_instructions: Optional[str] = Field(None, max_length=1000)
+    appointment_duration_min: Optional[int] = Field(None, ge=5, le=480)
+    analysis_schema: Optional[List[AnalysisField]] = Field(None, max_length=20)
+    webhook_url: Optional[str] = Field(None, max_length=500)
+    webhook_secret: Optional[str] = Field(None, max_length=200)
     timezone: Optional[str] = Field(None, max_length=64)
     calling_window_start: Optional[int] = Field(None, ge=0, le=23)
     calling_window_end: Optional[int] = Field(None, ge=1, le=24)
@@ -900,8 +971,23 @@ class VoiceAgentUpdate(BaseModel):
     require_consent: Optional[bool] = None
     max_turns: Optional[int] = Field(None, ge=2, le=200)
     handoff_after_negative_turns: Optional[int] = Field(None, ge=1, le=20)
+    redact_pii: Optional[bool] = None
+    max_concurrent_calls: Optional[int] = Field(None, ge=1, le=20)
+    schedule_start_at: Optional[datetime] = None
+    schedule_end_at: Optional[datetime] = None
     provider: Optional[str] = Field(None, pattern="^(local|twilio)$")
     from_number: Optional[str] = Field(None, max_length=32)
+    transfer_number: Optional[str] = Field(None, max_length=32)
+    voicemail_message: Optional[str] = Field(None, max_length=1000)
+    sms_followup_template: Optional[str] = Field(None, max_length=640)
+    sms_followup_outcomes: Optional[List[str]] = Field(None, max_length=13)
+
+    @field_validator("webhook_url")
+    @classmethod
+    def _webhook_scheme(cls, url: Optional[str]) -> Optional[str]:
+        if url and not url.lower().startswith(("http://", "https://")):
+            raise ValueError("webhook_url must start with http:// or https://")
+        return url
 
 
 class VoiceAgentResponse(BaseModel):
@@ -909,10 +995,13 @@ class VoiceAgentResponse(BaseModel):
     name: str
     mode: str
     status: str
+    version: int = 1
     profile_id: str
     engine: Optional[str] = None
     language: str
     llm_model_size: Optional[str] = None
+    voice_style: Optional[str] = None
+    empathetic_voice_style: Optional[str] = None
     agent_name: str
     company_name: str
     brief: str
@@ -922,6 +1011,16 @@ class VoiceAgentResponse(BaseModel):
     opening_line: Optional[str] = None
     disclosure: str
     escalation_promise: Optional[str] = None
+    variants: Optional[List[ScriptVariant]] = None
+    filler_phrases: List[str] = Field(default_factory=list)
+    filler_audio: Optional[dict[str, str]] = None
+    fast_first_audio: bool = True
+    tools_enabled: bool = True
+    booking_instructions: Optional[str] = None
+    appointment_duration_min: int = 30
+    analysis_schema: Optional[List[AnalysisField]] = None
+    webhook_url: Optional[str] = None
+    webhook_secret: Optional[str] = None
     timezone: str
     calling_window_start: int
     calling_window_end: int
@@ -933,11 +1032,31 @@ class VoiceAgentResponse(BaseModel):
     require_consent: bool
     max_turns: int
     handoff_after_negative_turns: int
+    redact_pii: bool = True
+    max_concurrent_calls: int = 1
+    schedule_start_at: Optional[datetime] = None
+    schedule_end_at: Optional[datetime] = None
     provider: str
     from_number: Optional[str] = None
+    transfer_number: Optional[str] = None
+    voicemail_message: Optional[str] = None
+    sms_followup_template: Optional[str] = None
+    sms_followup_outcomes: List[str] = Field(default_factory=list)
     running: bool = False
     created_at: datetime
     updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class VoiceAgentVersionResponse(BaseModel):
+    id: str
+    agent_id: str
+    version: int
+    note: Optional[str] = None
+    snapshot: dict
+    created_at: datetime
 
     class Config:
         from_attributes = True
@@ -957,6 +1076,40 @@ class VoiceAgentStats(BaseModel):
     resolution_rate: float
     open_tickets: int
     next_dialable: int
+    appointments_upcoming: int = 0
+    avg_score: Optional[float] = None
+
+
+class AnalyticsSeriesPoint(BaseModel):
+    date: str
+    calls: int
+    goal: int
+    by_outcome: dict[str, int]
+
+
+class AnalyticsVariant(BaseModel):
+    name: str
+    calls: int
+    goal: int
+    goal_rate: float
+
+
+class AnalyticsResponse(BaseModel):
+    agent_id: str
+    days: int
+    series: List[AnalyticsSeriesPoint]
+    funnel: dict[str, int]
+    outcomes: dict[str, int]
+    avg_turns: float
+    avg_duration_s: float
+    avg_sentiment: Optional[float] = None
+    avg_stt_ms: Optional[float] = None
+    avg_llm_ms: Optional[float] = None
+    avg_score: Optional[float] = None
+    variants: List[AnalyticsVariant] = Field(default_factory=list)
+    analysis: dict[str, dict[str, int]] = Field(default_factory=dict)
+    simulations: int = 0
+    appointments: int = 0
 
 
 class ContactCreate(BaseModel):
@@ -965,6 +1118,8 @@ class ContactCreate(BaseModel):
     company: Optional[str] = Field(None, max_length=200)
     notes: Optional[str] = Field(None, max_length=2000)
     timezone: Optional[str] = Field(None, max_length=64)
+    language: Optional[str] = Field(None, pattern=_VA_LANGUAGE_PATTERN)
+    custom_fields: Optional[dict[str, str]] = None
     consent: bool = False
 
 
@@ -979,6 +1134,8 @@ class ContactUpdate(BaseModel):
     notes: Optional[str] = Field(None, max_length=2000)
     memory: Optional[str] = Field(None, max_length=8000)
     timezone: Optional[str] = Field(None, max_length=64)
+    language: Optional[str] = Field(None, pattern=_VA_LANGUAGE_PATTERN)
+    custom_fields: Optional[dict[str, str]] = None
     consent: Optional[bool] = None
     status: Optional[str] = Field(
         None,
@@ -996,6 +1153,9 @@ class ContactResponse(BaseModel):
     notes: Optional[str] = None
     memory: Optional[str] = None
     timezone: Optional[str] = None
+    language: Optional[str] = None
+    custom_fields: Optional[dict[str, str]] = None
+    is_test: bool = False
     consent: bool
     status: str
     attempts: int
@@ -1032,8 +1192,73 @@ class KnowledgeArticleResponse(BaseModel):
     title: str
     content: str
     tags: List[str] = Field(default_factory=list)
+    source: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+
+class KnowledgeImportUrlRequest(BaseModel):
+    url: str = Field(..., min_length=8, max_length=2000)
+    tags: Optional[List[str]] = None
+
+
+class KnowledgeSearchResult(BaseModel):
+    article: KnowledgeArticleResponse
+    score: float
+
+
+class ToolParam(BaseModel):
+    name: str = Field(..., pattern=_VA_SNAKE_PATTERN)
+    type: str = Field(default="string", pattern="^(string|number|boolean)$")
+    description: Optional[str] = Field(None, max_length=300)
+    required: bool = True
+
+
+class AgentToolCreate(BaseModel):
+    name: str = Field(..., pattern=_VA_SNAKE_PATTERN)
+    description: str = Field(..., min_length=1, max_length=1000)
+    method: str = Field(default="GET", pattern="^(GET|POST|PUT|PATCH|DELETE)$")
+    url: str = Field(..., min_length=8, max_length=2000)
+    headers: Optional[dict[str, str]] = None
+    params: Optional[List[ToolParam]] = Field(None, max_length=20)
+    timeout_s: int = Field(default=10, ge=1, le=60)
+    enabled: bool = True
+
+    @field_validator("url")
+    @classmethod
+    def _url_scheme(cls, url: str) -> str:
+        if not url.lower().startswith(("http://", "https://")):
+            raise ValueError("url must start with http:// or https://")
+        return url
+
+
+class AgentToolUpdate(BaseModel):
+    name: Optional[str] = Field(None, pattern=_VA_SNAKE_PATTERN)
+    description: Optional[str] = Field(None, min_length=1, max_length=1000)
+    method: Optional[str] = Field(None, pattern="^(GET|POST|PUT|PATCH|DELETE)$")
+    url: Optional[str] = Field(None, min_length=8, max_length=2000)
+    headers: Optional[dict[str, str]] = None
+    params: Optional[List[ToolParam]] = Field(None, max_length=20)
+    timeout_s: Optional[int] = Field(None, ge=1, le=60)
+    enabled: Optional[bool] = None
+
+
+class AgentToolResponse(BaseModel):
+    id: str
+    agent_id: str
+    name: str
+    description: str
+    method: str
+    url: str
+    headers: Optional[dict[str, str]] = None
+    params: Optional[List[ToolParam]] = None
+    timeout_s: int
+    enabled: bool
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class CallTurnResponse(BaseModel):
@@ -1041,8 +1266,15 @@ class CallTurnResponse(BaseModel):
     call_id: str
     role: str
     text: str
+    source: str = "llm"
     sentiment: Optional[float] = None
+    interrupted: bool = False
+    stt_ms: Optional[int] = None
+    llm_ms: Optional[int] = None
+    tool_name: Optional[str] = None
+    meta: Optional[dict] = None
     generation_id: Optional[str] = None
+    generation_ids: Optional[List[str]] = None
     capture_id: Optional[str] = None
     created_at: datetime
 
@@ -1059,6 +1291,13 @@ class CallResponse(BaseModel):
     stage: str
     outcome: Optional[str] = None
     summary: Optional[str] = None
+    variant: Optional[str] = None
+    ai_paused: bool = False
+    analysis: Optional[dict] = None
+    score: Optional[int] = None
+    score_reason: Optional[str] = None
+    flags: Optional[List[str]] = None
+    webhook_status: Optional[str] = None
     provider: str
     provider_call_id: Optional[str] = None
     turn_count: int
@@ -1083,23 +1322,108 @@ class CustomerTurnRequest(BaseModel):
     text: str = Field(..., min_length=1, max_length=4000)
 
 
+class OperatorSayRequest(BaseModel):
+    """A supervisor speaking as the agent (take-over)."""
+
+    text: str = Field(..., min_length=1, max_length=2000)
+
+
+class InterruptRequest(BaseModel):
+    turn_id: Optional[str] = None
+
+
 class AgentTurnResponse(BaseModel):
     """The agent's reply plus what it decided about the call."""
 
     call_id: str
     text: str
     generation_id: Optional[str] = None
+    generation_ids: List[str] = Field(default_factory=list)
     poll_url: Optional[str] = None
     ended: bool
     outcome: Optional[str] = None
     ticket_id: Optional[str] = None
+    appointment_id: Optional[str] = None
     customer_text: Optional[str] = None
     sentiment: Optional[float] = None
+    awaiting_operator: bool = False
+    tool_calls: List[dict] = Field(default_factory=list)
+    stt_ms: Optional[int] = None
+    llm_ms: Optional[int] = None
 
 
 class EndCallRequest(BaseModel):
     outcome: str = Field(..., pattern=_VA_OUTCOME_PATTERN)
     summary: Optional[str] = Field(None, max_length=2000)
+
+
+class SimulateRequest(BaseModel):
+    """Run a scripted test call: the LLM plays a customer with this persona."""
+
+    persona: str = Field(
+        default="A busy but polite homeowner who is mildly sceptical and asks one practical question before deciding.",
+        min_length=1,
+        max_length=1000,
+    )
+    max_turns: int = Field(default=12, ge=2, le=40)
+    variant: Optional[str] = Field(None, max_length=60)
+
+
+class AppointmentUpdate(BaseModel):
+    status: Optional[str] = Field(None, pattern="^(booked|confirmed|cancelled|completed)$")
+    notes: Optional[str] = Field(None, max_length=2000)
+    starts_at: Optional[datetime] = None
+    ends_at: Optional[datetime] = None
+
+
+class AppointmentResponse(BaseModel):
+    id: str
+    agent_id: str
+    contact_id: str
+    call_id: Optional[str] = None
+    starts_at: datetime
+    ends_at: datetime
+    timezone: Optional[str] = None
+    notes: Optional[str] = None
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MessageResponse(BaseModel):
+    id: str
+    agent_id: str
+    contact_id: str
+    call_id: Optional[str] = None
+    channel: str
+    to_number: str
+    body: str
+    status: str
+    provider_message_id: Optional[str] = None
+    error: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class WebhookDeliveryResponse(BaseModel):
+    id: str
+    agent_id: str
+    call_id: Optional[str] = None
+    event: str
+    url: str
+    status: str
+    attempts: int
+    response_code: Optional[int] = None
+    last_error: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class TicketUpdate(BaseModel):
@@ -1128,6 +1452,11 @@ class TicketResponse(BaseModel):
 class DoNotCallCreate(BaseModel):
     phone: str = Field(..., min_length=3, max_length=32)
     reason: Optional[str] = Field(None, max_length=500)
+
+
+class DoNotCallImportResult(BaseModel):
+    imported: int
+    skipped: int
 
 
 class DoNotCallResponse(BaseModel):

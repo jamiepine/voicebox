@@ -46,9 +46,13 @@ class DialResult:
 class CallProvider(Protocol):
     name: str
 
-    async def dial(self, *, call_id: str, to_number: str, from_number: str | None) -> DialResult: ...
+    async def dial(
+        self, *, call_id: str, to_number: str, from_number: str | None, machine_detection: str = "Enable"
+    ) -> DialResult: ...
 
     async def hangup(self, provider_call_id: str | None) -> None: ...
+
+    async def send_sms(self, *, to_number: str, from_number: str | None, body: str) -> str | None: ...
 
 
 class LocalProvider:
@@ -56,11 +60,16 @@ class LocalProvider:
 
     name = "local"
 
-    async def dial(self, *, call_id: str, to_number: str, from_number: str | None) -> DialResult:
+    async def dial(
+        self, *, call_id: str, to_number: str, from_number: str | None, machine_detection: str = "Enable"
+    ) -> DialResult:
         return DialResult(provider_call_id=None, remote_audio=False)
 
     async def hangup(self, provider_call_id: str | None) -> None:
         return None
+
+    async def send_sms(self, *, to_number: str, from_number: str | None, body: str) -> str | None:
+        raise ProviderError("The local provider cannot send text messages; use the Twilio provider.")
 
 
 class TwilioProvider:
@@ -106,7 +115,12 @@ class TwilioProvider:
     def turn_audio_url(self, call_id: str, turn_id: str) -> str:
         return f"{self.public_url}/calls/{call_id}/turns/{turn_id}/audio"
 
-    async def dial(self, *, call_id: str, to_number: str, from_number: str | None) -> DialResult:
+    async def dial(
+        self, *, call_id: str, to_number: str, from_number: str | None, machine_detection: str = "Enable"
+    ) -> DialResult:
+        """``machine_detection`` is "Enable" (answer webhook fires as soon as a
+        machine is suspected) or "DetectMessageEnd" (fires after the
+        voicemail greeting, so a message can be left)."""
         self._require_config()
         if not from_number:
             raise ProviderError("Twilio provider needs a `from_number` on the agent (a Twilio-owned number).")
@@ -119,7 +133,7 @@ class TwilioProvider:
             "Url": self.webhook_url(call_id, "answer"),
             "StatusCallback": self.webhook_url(call_id, "status"),
             "StatusCallbackEvent": "completed",
-            "MachineDetection": "Enable",
+            "MachineDetection": machine_detection,
         }
         async with httpx.AsyncClient(timeout=20.0) as client:
             resp = await client.post(url, data=data, auth=(self.account_sid, self.auth_token))
@@ -140,6 +154,21 @@ class TwilioProvider:
             resp = await client.post(url, data={"Status": "completed"}, auth=(self.account_sid, self.auth_token))
         if resp.status_code >= 300:
             logger.warning("Twilio hangup for %s returned %s", provider_call_id, resp.status_code)
+
+    async def send_sms(self, *, to_number: str, from_number: str | None, body: str) -> str | None:
+        self._require_config()
+        if not from_number:
+            raise ProviderError("Twilio provider needs a `from_number` on the agent to send SMS.")
+        import httpx  # lazy
+
+        url = f"{self.api_base}/Accounts/{self.account_sid}/Messages.json"
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            resp = await client.post(
+                url, data={"To": to_number, "From": from_number, "Body": body}, auth=(self.account_sid, self.auth_token)
+            )
+        if resp.status_code >= 300:
+            raise ProviderError(f"Twilio SMS failed ({resp.status_code}): {resp.text[:300]}")
+        return resp.json().get("sid")
 
     async def fetch_recording(self, recording_url: str) -> bytes:
         """Download a recording (Twilio serves WAV when ``.wav`` is appended)."""
@@ -171,6 +200,15 @@ class TwilioProvider:
     def twiml_play_and_hangup(self, call_id: str, turn_id: str) -> str:
         play = xml_escape(self.turn_audio_url(call_id, turn_id))
         return f'<?xml version="1.0" encoding="UTF-8"?><Response><Play>{play}</Play><Hangup/></Response>'
+
+    def twiml_play_and_dial(self, call_id: str, turn_id: str, number: str, *, caller_id: str | None = None) -> str:
+        """Warm transfer: play the hand-off line, then bridge to a person."""
+        play = xml_escape(self.turn_audio_url(call_id, turn_id))
+        cid = f' callerId="{xml_escape(caller_id)}"' if caller_id else ""
+        return (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            f'<Response><Play>{play}</Play><Dial{cid} timeout="30">{xml_escape(number)}</Dial></Response>'
+        )
 
     def twiml_pause_and_retry(self, call_id: str, *, seconds: int = 2) -> str:
         """TTS isn't ready yet — hold the line briefly and re-fetch."""

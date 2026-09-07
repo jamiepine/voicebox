@@ -7,6 +7,8 @@ without changing any importers.
 
 from .models import (
     Base,
+    AgentTool,
+    Appointment,
     AudioChannel,
     Call,
     CallTurn,
@@ -22,6 +24,7 @@ from .models import (
     GenerationVersion,
     KnowledgeArticle,
     MCPClientBinding,
+    Message,
     ProfileChannelMapping,
     ProfileSample,
     Project,
@@ -29,13 +32,17 @@ from .models import (
     StoryItem,
     Ticket,
     VoiceAgent,
+    VoiceAgentVersion,
     VoiceProfile,
+    WebhookDelivery,
 )
 from .session import engine, SessionLocal, _db_path, init_db, get_db
 
 __all__ = [
     # Models
     "Base",
+    "AgentTool",
+    "Appointment",
     "AudioChannel",
     "Call",
     "CallTurn",
@@ -51,6 +58,7 @@ __all__ = [
     "GenerationVersion",
     "KnowledgeArticle",
     "MCPClientBinding",
+    "Message",
     "ProfileChannelMapping",
     "ProfileSample",
     "Project",
@@ -58,7 +66,9 @@ __all__ = [
     "StoryItem",
     "Ticket",
     "VoiceAgent",
+    "VoiceAgentVersion",
     "VoiceProfile",
+    "WebhookDelivery",
     # Session
     "engine",
     "SessionLocal",

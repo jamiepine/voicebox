@@ -96,6 +96,118 @@ through the pill on desktop, and honours the profile's engine and effects.
 | Turn limit             | `max_turns` → hand-off with a ticket rather than an endless call |
 | Facts only             | The model is instructed to state only what is in the brief / knowledge |
 
+## Live mode, barge-in and latency
+
+Press **Go live** in the console for a hands-free conversation: the mic
+stays open, the console detects when you stop talking (endpointing), sends
+the utterance, and plays the agent's reply. Speak over the agent and it
+stops mid-sentence — the turn is marked *interrupted* and the model is
+told the person didn't hear the end.
+
+Three things keep the loop feeling instant on local hardware:
+
+- **Filler phrases** — short lines ("One moment.") pre-generated in the
+  agent's voice when the agent starts, played the instant you stop talking
+  while the model thinks. Edit them in Setup → Conversation engine.
+- **Fast first audio** — long replies are voiced as two generations, first
+  sentence first, so audio starts before the rest is synthesised.
+- **Latency chips** — every agent turn shows its STT and LLM time; Analytics
+  averages them so you can see what a bigger model or engine costs.
+
+The same machinery is exposed to integrators as an SSE stream
+(`GET /calls/{id}/events`: `customer_turn`, `filler`, `agent_turn`,
+`tool_call`, `interrupted`, `ai_paused`, `ended`) plus
+`POST /calls/{id}/interrupt`. Pass `?client_plays=true` on turn endpoints
+when your client plays the audio itself.
+
+## Tools and appointments
+
+With **Tools** enabled the model can act mid-call. Built-ins:
+
+| Tool | What it does |
+| --- | --- |
+| `book_appointment(when, notes)` | Parses "next Tuesday at 10am", checks for clashes, books a slot of the agent's default length. Shown under **Bookings** with an `.ics` download. |
+| `schedule_callback(when)` | Sets the contact's next attempt time. |
+| `transfer_to_human(reason)` | Ends the call as a hand-off with a ticket; on Twilio the call is bridged to the agent's *transfer number* (warm transfer). |
+| `send_sms(message)` | Twilio only — texts the caller. |
+
+**Custom HTTP tools** (Tools tab) call your own systems: give the tool a
+name, a description the model reads, a method, a URL with `{placeholders}`,
+headers, and typed arguments. Arguments are validated before the request;
+the response text goes back to the model, which answers from it. The
+conversation shows each call as a chip with its timing.
+
+## Supervisor take-over
+
+**Take over** on a live call pauses the model: the caller's turns are still
+transcribed and screened (opt-outs are always honoured) but not answered
+until you either type as the agent — spoken in the agent's voice — or
+**Hand back**. Over MCP: `voicebox.agent.say(call_id, text, pause_ai=…)`.
+
+## Test calls (simulation)
+
+**Test call** runs the agent against a customer played by the local LLM
+with a persona you choose ("busy but polite", "angry customer", "wants a
+human", or your own). It uses the real script, knowledge and tools, no
+audio, never touches your contacts, and ends with a transcript, outcome and
+score. Simulations are excluded from stats and analytics. Iterate on the
+brief until the score is where you want it, then dial.
+
+## Post-call analysis, scoring and webhooks
+
+After every call the model writes a summary into the contact's memory and
+answers your **analysis questions** (Setup → After the call): free text,
+yes/no, number, or one-of options. Each call also gets a 0–100
+goal-achievement **score** with a one-line reason. Answers show on the
+call, aggregate in Analytics, and land in the CSV export.
+
+Set a **webhook URL** and every finished call is POSTed as JSON (call,
+contact, transcript, analysis, tickets, appointments). The body is signed:
+
+```
+X-Voicebox-Event: call.ended
+X-Voicebox-Signature: sha256=<hex HMAC-SHA256 of the raw body with your secret>
+```
+
+Deliveries retry three times and are listed under Analytics. **Test** sends
+a sample payload.
+
+## Campaign controls
+
+- **A/B variants** — alternative opening hooks / briefs picked by weight per
+  call; Analytics reports the goal rate per variant.
+- **Schedule window** — a start and end for the campaign; the dialer idles
+  before and marks the agent completed after.
+- **Parallel lines** — Twilio agents can keep up to *N* calls in flight.
+- **Voicemail drop** — with `MachineDetection=DetectMessageEnd`, answering
+  machines get your templated message and the contact is retried later.
+- **Compliance presets** — one click fills calling hours, days and attempt
+  caps for US (TCPA), UK (Ofcom) or a conservative EU profile.
+- **Template variables** — `{{contact.first_name}}`, `{{contact.company}}`,
+  `{{contact.custom.<field>}}` (extra CSV columns become custom fields),
+  `{{agent.company_name}}`, `{{today}}` work in the brief, goal, opening,
+  objection notes, persona, voicemail and SMS templates.
+- **Per-contact language** — a `language` column makes the agent speak and
+  reply in that language for that person.
+- **Versions** — every save is a snapshot; roll back from the Versions tab.
+- **Exports** — calls CSV (with analysis columns), contacts CSV, per-call
+  transcript `.txt` / `.json`, appointment `.ics`.
+- **Do-not-call import** — upload a suppression list; numbers on it are
+  never dialled by any agent.
+
+## Safety
+
+- Customer turns are screened before the model sees them: opt-out phrases
+  end the call and block the number; "get me a human" hands off.
+- **PII redaction** masks payment-card numbers (Luhn-checked), national ID
+  numbers and spoken one-time codes before storage — the model never sees
+  them either.
+- **Prompt-injection screening** flags attempts to change the agent's
+  instructions and reminds the model to ignore them; flagged calls carry an
+  `injection_attempt` flag.
+- Callers who sound upset switch the voice to the agent's *empathetic style*
+  (Qwen engines) and, after N consecutive negative turns, are handed off.
+
 ## Phone line
 
 **Local (default)** — no telephony. The agent speaks through the machine and
@@ -174,9 +286,12 @@ already handle audio, or for scripting a whole campaign from Claude Code.
 | `voicebox.agent.next_call`    | Dial the next contact (or `contact_id`); returns the opening   |
 | `voicebox.agent.inbound_call` | Start a service / support conversation for a caller            |
 | `voicebox.agent.reply`        | Relay what the customer said; returns the agent's reply, `ended`, `outcome`, `ticket_id` |
+| `voicebox.agent.say`          | Supervisor take-over: speak as the agent, optionally pause the AI |
 | `voicebox.agent.end_call`     | Force an outcome                                               |
-| `voicebox.agent.get_call`     | Transcript, outcome, summary                                   |
+| `voicebox.agent.get_call`     | Transcript, outcome, summary, analysis, score                  |
+| `voicebox.agent.simulate`     | Run a test call with an LLM-played customer persona            |
 | `voicebox.agent.stats`        | Queue and outcome statistics                                   |
+| `voicebox.agent.analytics`    | Daily series, funnel, variants, latency, analysis aggregates   |
 
 ## Tuning
 

@@ -2,8 +2,13 @@ import type { LanguageCode } from '@/lib/constants/languages';
 import { useServerStore } from '@/stores/serverStore';
 import type {
   ActiveTasksResponse,
+  AgentMessage,
+  AgentTool,
+  AgentToolCreate,
   AgentTurnResponse,
+  AnalyticsResponse,
   ApplyEffectsRequest,
+  Appointment,
   AvailableEffectsResponse,
   CallListResponse,
   CaptureCreateResponse,
@@ -24,6 +29,7 @@ import type {
   ContactUpdate,
   CudaStatus,
   DoNotCallEntry,
+  DoNotCallImportResult,
   EffectConfig,
   EffectPresetCreate,
   EffectPresetResponse,
@@ -38,6 +44,7 @@ import type {
   HistoryResponse,
   KnowledgeArticle,
   KnowledgeArticleCreate,
+  KnowledgeSearchResult,
   MCPClientBinding,
   MCPClientBindingListResponse,
   MCPClientBindingUpsert,
@@ -47,6 +54,7 @@ import type {
   PresetVoice,
   ProfileSampleResponse,
   RocmStatus,
+  SimulateRequest,
   StoryCreate,
   StoryDetailResponse,
   StoryItemBatchUpdate,
@@ -66,9 +74,11 @@ import type {
   VoiceAgentCreate,
   VoiceAgentStats,
   VoiceAgentUpdate,
+  VoiceAgentVersion,
   VoiceCall,
   VoiceProfileCreate,
   VoiceProfileResponse,
+  WebhookDelivery,
   WhisperModelSize,
 } from './types';
 
@@ -965,6 +975,18 @@ class ApiClient {
 
   // ── Voice AI agent ──────────────────────────────────────────────────
 
+  private async postForm<T>(endpoint: string, formData: FormData): Promise<T> {
+    const response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+    return response.json();
+  }
+
   async listVoiceAgents(): Promise<VoiceAgent[]> {
     return this.request<VoiceAgent[]>('/agents');
   }
@@ -992,12 +1014,45 @@ class ApiClient {
     return this.request<VoiceAgentStats>(`/agents/${agentId}/stats`);
   }
 
+  async getVoiceAgentAnalytics(agentId: string, days = 30): Promise<AnalyticsResponse> {
+    return this.request<AnalyticsResponse>(`/agents/${agentId}/analytics?days=${days}`);
+  }
+
   async startVoiceAgent(agentId: string): Promise<VoiceAgent> {
     return this.request<VoiceAgent>(`/agents/${agentId}/start`, { method: 'POST' });
   }
 
   async pauseVoiceAgent(agentId: string): Promise<VoiceAgent> {
     return this.request<VoiceAgent>(`/agents/${agentId}/pause`, { method: 'POST' });
+  }
+
+  async regenerateFillers(agentId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}/fillers/regenerate`, { method: 'POST' });
+  }
+
+  async listAgentVersions(agentId: string): Promise<VoiceAgentVersion[]> {
+    return this.request<VoiceAgentVersion[]>(`/agents/${agentId}/versions`);
+  }
+
+  async restoreAgentVersion(agentId: string, versionId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}/versions/${versionId}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  async simulateCall(agentId: string, data: SimulateRequest): Promise<VoiceCall> {
+    return this.request<VoiceCall>(`/agents/${agentId}/simulate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getCallsCsvUrl(agentId: string, includeSimulations = false): string {
+    return `${this.getBaseUrl()}/agents/${agentId}/export/calls.csv?include_simulations=${includeSimulations}`;
+  }
+
+  getContactsCsvUrl(agentId: string): string {
+    return `${this.getBaseUrl()}/agents/${agentId}/export/contacts.csv`;
   }
 
   async listContacts(
@@ -1032,15 +1087,7 @@ class ApiClient {
   async importContactsCsv(agentId: string, file: File): Promise<ContactImportResult> {
     const formData = new FormData();
     formData.append('file', file);
-    const response = await fetch(`${this.getBaseUrl()}/agents/${agentId}/contacts/import`, {
-      method: 'POST',
-      body: formData,
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: response.statusText }));
-      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
-    }
-    return response.json();
+    return this.postForm(`/agents/${agentId}/contacts/import`, formData);
   }
 
   async updateContact(contactId: string, data: ContactUpdate): Promise<Contact> {
@@ -1065,6 +1112,34 @@ class ApiClient {
     });
   }
 
+  async importKnowledgeUrl(
+    agentId: string,
+    url: string,
+    tags?: string[],
+  ): Promise<KnowledgeArticle[]> {
+    return this.request<KnowledgeArticle[]>(`/agents/${agentId}/knowledge/import-url`, {
+      method: 'POST',
+      body: JSON.stringify({ url, tags: tags ?? null }),
+    });
+  }
+
+  async importKnowledgeFile(
+    agentId: string,
+    file: File,
+    tags?: string,
+  ): Promise<KnowledgeArticle[]> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (tags) formData.append('tags', tags);
+    return this.postForm(`/agents/${agentId}/knowledge/import-file`, formData);
+  }
+
+  async searchKnowledge(agentId: string, q: string): Promise<KnowledgeSearchResult[]> {
+    return this.request<KnowledgeSearchResult[]>(
+      `/agents/${agentId}/knowledge/search?q=${encodeURIComponent(q)}`,
+    );
+  }
+
   async updateKnowledge(
     articleId: string,
     data: Partial<KnowledgeArticleCreate>,
@@ -1079,20 +1154,50 @@ class ApiClient {
     return this.request(`/knowledge/${articleId}`, { method: 'DELETE' });
   }
 
+  async listTools(agentId: string): Promise<AgentTool[]> {
+    return this.request<AgentTool[]>(`/agents/${agentId}/tools`);
+  }
+
+  async createTool(agentId: string, data: AgentToolCreate): Promise<AgentTool> {
+    return this.request<AgentTool>(`/agents/${agentId}/tools`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTool(toolId: string, data: Partial<AgentToolCreate>): Promise<AgentTool> {
+    return this.request<AgentTool>(`/tools/${toolId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTool(toolId: string): Promise<{ message: string }> {
+    return this.request(`/tools/${toolId}`, { method: 'DELETE' });
+  }
+
   async listCalls(
     agentId: string,
-    params: { status?: string; limit?: number; offset?: number } = {},
+    params: { status?: string; limit?: number; offset?: number; includeSimulations?: boolean } = {},
   ): Promise<CallListResponse> {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
     if (params.limit) qs.set('limit', String(params.limit));
     if (params.offset) qs.set('offset', String(params.offset));
+    if (params.includeSimulations === false) qs.set('include_simulations', 'false');
     const suffix = qs.toString() ? `?${qs.toString()}` : '';
     return this.request<CallListResponse>(`/agents/${agentId}/calls${suffix}`);
   }
 
-  async startNextCall(agentId: string, contactId?: string): Promise<AgentTurnResponse> {
-    const suffix = contactId ? `?contact_id=${encodeURIComponent(contactId)}` : '';
+  async startNextCall(
+    agentId: string,
+    opts: { contactId?: string; variant?: string; clientPlays?: boolean } = {},
+  ): Promise<AgentTurnResponse> {
+    const qs = new URLSearchParams();
+    if (opts.contactId) qs.set('contact_id', opts.contactId);
+    if (opts.variant) qs.set('variant', opts.variant);
+    if (opts.clientPlays) qs.set('client_plays', 'true');
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
     return this.request<AgentTurnResponse>(`/agents/${agentId}/calls/next${suffix}`, {
       method: 'POST',
     });
@@ -1101,8 +1206,10 @@ class ApiClient {
   async startInboundCall(
     agentId: string,
     data: { phone: string; name?: string | null },
+    clientPlays = false,
   ): Promise<AgentTurnResponse> {
-    return this.request<AgentTurnResponse>(`/agents/${agentId}/calls/inbound`, {
+    const suffix = clientPlays ? '?client_plays=true' : '';
+    return this.request<AgentTurnResponse>(`/agents/${agentId}/calls/inbound${suffix}`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1112,8 +1219,21 @@ class ApiClient {
     return this.request<VoiceCall>(`/calls/${callId}`);
   }
 
-  async sendCustomerTurn(callId: string, text: string): Promise<AgentTurnResponse> {
-    return this.request<AgentTurnResponse>(`/calls/${callId}/turn`, {
+  getCallEventsUrl(callId: string): string {
+    return `${this.getBaseUrl()}/calls/${callId}/events`;
+  }
+
+  getCallTranscriptUrl(callId: string): string {
+    return `${this.getBaseUrl()}/calls/${callId}/transcript.txt`;
+  }
+
+  async sendCustomerTurn(
+    callId: string,
+    text: string,
+    clientPlays = false,
+  ): Promise<AgentTurnResponse> {
+    const suffix = clientPlays ? '?client_plays=true' : '';
+    return this.request<AgentTurnResponse>(`/calls/${callId}/turn${suffix}`, {
       method: 'POST',
       body: JSON.stringify({ text }),
     });
@@ -1123,19 +1243,37 @@ class ApiClient {
     callId: string,
     blob: Blob,
     language?: string,
+    clientPlays = false,
   ): Promise<AgentTurnResponse> {
     const formData = new FormData();
     formData.append('file', blob, 'turn.wav');
     if (language) formData.append('language', language);
-    const response = await fetch(`${this.getBaseUrl()}/calls/${callId}/turn/audio`, {
+    const suffix = clientPlays ? '?client_plays=true' : '';
+    return this.postForm(`/calls/${callId}/turn/audio${suffix}`, formData);
+  }
+
+  async interruptCall(
+    callId: string,
+    turnId?: string,
+  ): Promise<{ interrupted_turn_id: string | null }> {
+    return this.request(`/calls/${callId}/interrupt`, {
       method: 'POST',
-      body: formData,
+      body: JSON.stringify({ turn_id: turnId ?? null }),
     });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: response.statusText }));
-      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
-    }
-    return response.json();
+  }
+
+  async agentSay(callId: string, text: string, clientPlays = false): Promise<AgentTurnResponse> {
+    const suffix = clientPlays ? '?client_plays=true' : '';
+    return this.request<AgentTurnResponse>(`/calls/${callId}/agent_say${suffix}`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async setCallAiPaused(callId: string, paused: boolean): Promise<VoiceCall> {
+    return this.request<VoiceCall>(`/calls/${callId}/ai/${paused ? 'pause' : 'resume'}`, {
+      method: 'POST',
+    });
   }
 
   async endCall(callId: string, outcome: string, summary?: string): Promise<VoiceCall> {
@@ -1143,6 +1281,36 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ outcome, summary: summary ?? null }),
     });
+  }
+
+  async listAppointments(agentId: string, upcoming = false): Promise<Appointment[]> {
+    return this.request<Appointment[]>(`/agents/${agentId}/appointments?upcoming=${upcoming}`);
+  }
+
+  async updateAppointment(
+    appointmentId: string,
+    data: { status?: string; notes?: string; starts_at?: string; ends_at?: string },
+  ): Promise<Appointment> {
+    return this.request<Appointment>(`/appointments/${appointmentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getAppointmentIcsUrl(appointmentId: string): string {
+    return `${this.getBaseUrl()}/appointments/${appointmentId}.ics`;
+  }
+
+  async listAgentMessages(agentId: string): Promise<AgentMessage[]> {
+    return this.request<AgentMessage[]>(`/agents/${agentId}/messages`);
+  }
+
+  async listWebhookDeliveries(agentId: string): Promise<WebhookDelivery[]> {
+    return this.request<WebhookDelivery[]>(`/agents/${agentId}/webhook-deliveries`);
+  }
+
+  async testWebhook(agentId: string): Promise<WebhookDelivery> {
+    return this.request<WebhookDelivery>(`/agents/${agentId}/webhook/test`, { method: 'POST' });
   }
 
   async listTickets(
@@ -1175,6 +1343,12 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ phone, reason: reason ?? null }),
     });
+  }
+
+  async importDoNotCall(file: File): Promise<DoNotCallImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.postForm('/dnc/import', formData);
   }
 
   async removeDoNotCall(phone: string): Promise<{ message: string }> {

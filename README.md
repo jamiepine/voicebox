@@ -250,11 +250,14 @@ Also exposed as `POST /speak` for anything that doesn't speak MCP — ACP, A2A, 
 
 Turn any voice profile into a phone agent. Three modes — **outbound sales**, **customer service**, and **support** — run on the same local loop: Whisper hears the customer, the bundled Qwen3 LLM decides what to say, TTS says it in a voice you own.
 
-- **Grounded** — the agent only states facts from your brief and a per-agent knowledge base retrieved on every turn
-- **Guard-railed** — AI disclosure on every call, global do-not-call list with automatic opt-out handling, calling windows per time zone, attempt and daily caps, consent gating
-- **Resolves or escalates** — tickets for unresolved issues and hand-offs, a fixed hand-off line when a caller asks for a person, sentiment-triggered escalation
-- **Remembers** — LLM call summaries are written back to each contact for the next conversation
-- **Phone line optional** — test in the in-app console (type or speak as the customer), or wire up Twilio for real calls; MCP tools let Claude Code / Cursor drive calls too
+- **Grounded** — the agent only states facts from your brief and a per-agent knowledge base (import a web page or a file) retrieved on every turn
+- **Real-time** — hands-free live mode with endpointing and barge-in, filler phrases while the model thinks, fast first audio, per-turn latency metrics
+- **Acts** — built-in tools book appointments, schedule callbacks, transfer to a person and send SMS; custom HTTP tools call your own systems mid-call
+- **Guard-railed** — AI disclosure on every call, global do-not-call list with automatic opt-out handling, PII redaction, prompt-injection screening, calling windows per time zone, attempt and daily caps, consent gating, compliance presets
+- **Resolves or escalates** — tickets for unresolved issues and hand-offs, supervisor take-over mid-call, sentiment-triggered escalation with an empathetic voice style
+- **Learns** — post-call summaries, structured analysis of your own questions, a 0–100 goal score, signed webhooks, CSV exports, an analytics tab, A/B script variants, version history with rollback
+- **Testable** — simulated test calls where the local LLM plays a customer persona against your script
+- **Phone line optional** — test in the in-app console, or wire up Twilio for real calls with voicemail drop, warm transfer and parallel lines; MCP tools let Claude Code / Cursor drive calls too
 
 See the [Voice Agents guide](docs/content/docs/overview/voice-agent.mdx).
 

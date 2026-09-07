@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Bot, Pause, Play, Plus, Search, Trash2 } from 'lucide-react';
+import { Bot, FlaskConical, Pause, Play, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -31,6 +31,7 @@ import {
   useCall,
   useCreateVoiceAgent,
   useDeleteVoiceAgent,
+  useTestWebhook,
   useUpdateVoiceAgent,
   useVoiceAgentStats,
   useVoiceAgents,
@@ -38,12 +39,17 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { usePlayerStore } from '@/stores/playerStore';
 import { AgentForm } from './AgentForm';
+import { AnalyticsPanel } from './AnalyticsPanel';
+import { AppointmentsPanel } from './AppointmentsPanel';
 import { CallConsole } from './CallConsole';
 import { CallsPanel } from './CallsPanel';
 import { ContactsPanel } from './ContactsPanel';
 import { KnowledgePanel } from './KnowledgePanel';
+import { SimulateDialog } from './SimulateDialog';
 import { MODE_META, StatusDot, statusLabel } from './shared';
 import { TicketsPanel } from './TicketsPanel';
+import { ToolsPanel } from './ToolsPanel';
+import { VersionsPanel } from './VersionsPanel';
 
 export function AgentsTab() {
   const { t } = useTranslation();
@@ -212,6 +218,8 @@ function AgentDetail({ agent, isPlayerVisible }: { agent: VoiceAgent; isPlayerVi
   const [tab, setTab] = useState('console');
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [simulating, setSimulating] = useState(false);
+  const testWebhook = useTestWebhook(agent.id);
   const { data: stats } = useVoiceAgentStats(agent.id, agent.running || !!activeCallId);
   const { data: activeCall } = useCall(activeCallId, false);
   const isOutbound = agent.mode === 'outbound_sales';
@@ -253,6 +261,14 @@ function AgentDetail({ agent, isPlayerVisible }: { agent: VoiceAgent; isPlayerVi
           </div>
           <div className="ml-auto flex items-center gap-2">
             <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSimulating(true)}
+              title="Run a test call with a simulated customer"
+            >
+              <FlaskConical className="h-4 w-4" /> Test call
+            </Button>
+            <Button
               variant={agent.status === 'active' ? 'outline' : 'default'}
               size="sm"
               onClick={toggleRun}
@@ -288,7 +304,7 @@ function AgentDetail({ agent, isPlayerVisible }: { agent: VoiceAgent; isPlayerVi
         )}
       >
         {/* Stat tiles */}
-        <div className="grid grid-cols-5 gap-2 mb-5">
+        <div className="grid grid-cols-6 gap-2 mb-5">
           <Stat label="Contacts" value={stats?.contacts_total ?? 0} />
           <Stat
             label="Calls today"
@@ -300,12 +316,18 @@ function AgentDetail({ agent, isPlayerVisible }: { agent: VoiceAgent; isPlayerVi
             value={`${Math.round((stats?.resolution_rate ?? 0) * 100)}%`}
             sub={`avg ${stats?.avg_turns ?? 0} turns`}
           />
-          <Stat label="Open tickets" value={stats?.open_tickets ?? 0} />
+          <Stat label="Avg score" value={stats?.avg_score ?? '—'} sub="goal achievement" />
+          <Stat
+            label="Bookings"
+            value={stats?.appointments_upcoming ?? 0}
+            sub={`${stats?.open_tickets ?? 0} open tickets`}
+          />
           <Stat
             label={isOutbound ? 'Dialable now' : 'Status'}
             value={
               isOutbound ? (stats?.next_dialable ?? 0) : statusLabel(agent.status, agent.running)
             }
+            sub={`v${agent.version}`}
           />
         </div>
 
@@ -314,9 +336,13 @@ function AgentDetail({ agent, isPlayerVisible }: { agent: VoiceAgent; isPlayerVi
             <TabsTrigger value="console">Console</TabsTrigger>
             {isOutbound && <TabsTrigger value="contacts">Contacts</TabsTrigger>}
             <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
+            <TabsTrigger value="tools">Tools</TabsTrigger>
             <TabsTrigger value="calls">Calls</TabsTrigger>
+            <TabsTrigger value="appointments">Bookings</TabsTrigger>
             <TabsTrigger value="tickets">Tickets</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="setup">Setup</TabsTrigger>
+            <TabsTrigger value="versions">Versions</TabsTrigger>
           </TabsList>
           <TabsContent value="console">
             <CallConsole
@@ -333,6 +359,18 @@ function AgentDetail({ agent, isPlayerVisible }: { agent: VoiceAgent; isPlayerVi
           <TabsContent value="knowledge">
             <KnowledgePanel agentId={agent.id} />
           </TabsContent>
+          <TabsContent value="tools">
+            <ToolsPanel agent={agent} />
+          </TabsContent>
+          <TabsContent value="appointments">
+            <AppointmentsPanel agent={agent} />
+          </TabsContent>
+          <TabsContent value="analytics">
+            <AnalyticsPanel agent={agent} />
+          </TabsContent>
+          <TabsContent value="versions">
+            <VersionsPanel agent={agent} />
+          </TabsContent>
           <TabsContent value="calls">
             <CallsPanel agentId={agent.id} live={agent.running} onOpenInConsole={openInConsole} />
           </TabsContent>
@@ -341,9 +379,25 @@ function AgentDetail({ agent, isPlayerVisible }: { agent: VoiceAgent; isPlayerVi
           </TabsContent>
           <TabsContent value="setup">
             <AgentForm
+              key={agent.version}
               initial={agent}
               submitLabel="Save changes"
               submitting={update.isPending}
+              onTestWebhook={async () => {
+                try {
+                  await testWebhook.mutateAsync();
+                  toast({
+                    title: 'Test delivery queued',
+                    description: 'See Analytics → Webhook deliveries for the result.',
+                  });
+                } catch (err) {
+                  toast({
+                    title: 'Webhook test failed',
+                    description: err instanceof Error ? err.message : String(err),
+                    variant: 'destructive',
+                  });
+                }
+              }}
               onSubmit={async (data) => {
                 try {
                   await update.mutateAsync({ agentId: agent.id, data });
@@ -360,6 +414,13 @@ function AgentDetail({ agent, isPlayerVisible }: { agent: VoiceAgent; isPlayerVi
           </TabsContent>
         </Tabs>
       </div>
+
+      <SimulateDialog
+        agent={agent}
+        open={simulating}
+        onOpenChange={setSimulating}
+        onDone={openInConsole}
+      />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

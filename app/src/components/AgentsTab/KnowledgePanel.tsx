@@ -1,11 +1,17 @@
-import { BookOpen, Check, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { useState } from 'react';
+import { BookOpen, Check, Globe, Pencil, Plus, Search, Trash2, Upload, X } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import type { KnowledgeArticle } from '@/lib/api/types';
-import { useKnowledge, useKnowledgeMutations } from '@/lib/hooks/useVoiceAgents';
+import { useToast } from '@/components/ui/use-toast';
+import { apiClient } from '@/lib/api/client';
+import type { KnowledgeArticle, KnowledgeSearchResult } from '@/lib/api/types';
+import {
+  useKnowledge,
+  useKnowledgeImports,
+  useKnowledgeMutations,
+} from '@/lib/hooks/useVoiceAgents';
 
 interface KnowledgePanelProps {
   agentId: string;
@@ -23,11 +29,17 @@ function toTags(s: string): string[] {
 }
 
 export function KnowledgePanel({ agentId }: KnowledgePanelProps) {
+  const { toast } = useToast();
   const { data: articles, isLoading } = useKnowledge(agentId);
   const { create, update, remove } = useKnowledgeMutations(agentId);
+  const { importUrl, importFile } = useKnowledgeImports(agentId);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [editing, setEditing] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft>(EMPTY);
+  const [url, setUrl] = useState('');
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<KnowledgeSearchResult[] | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const add = async () => {
     if (!draft.title.trim() || !draft.content.trim()) return;
@@ -57,6 +69,51 @@ export function KnowledgePanel({ agentId }: KnowledgePanelProps) {
     setEditing(null);
   };
 
+  const doImportUrl = async () => {
+    if (!url.trim()) return;
+    try {
+      const rows = await importUrl.mutateAsync({ url: url.trim() });
+      toast({ title: `Imported ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'}` });
+      setUrl('');
+    } catch (err) {
+      toast({
+        title: 'Import failed',
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const doImportFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const rows = await importFile.mutateAsync({ file });
+      toast({
+        title: `Imported ${rows.length} entr${rows.length === 1 ? 'y' : 'ies'} from ${file.name}`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Import failed',
+        description: err instanceof Error ? err.message : String(err),
+        variant: 'destructive',
+      });
+    } finally {
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const doSearch = async () => {
+    if (!query.trim()) {
+      setResults(null);
+      return;
+    }
+    try {
+      setResults(await apiClient.searchKnowledge(agentId, query.trim()));
+    } catch (err) {
+      toast({ title: 'Search failed', description: String(err), variant: 'destructive' });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">
@@ -65,6 +122,77 @@ export function KnowledgePanel({ agentId }: KnowledgePanelProps) {
         Titles and tags weigh more than body text, so name entries the way customers ask.
       </p>
 
+      {/* Import */}
+      <div className="flex gap-2 items-center">
+        <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+        <Input
+          className="h-9"
+          placeholder="https://example.com/help — import a page"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && doImportUrl()}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={doImportUrl}
+          disabled={!url.trim() || importUrl.isPending}
+        >
+          Import page
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".txt,.md,.html,.htm,.csv,text/*"
+          className="hidden"
+          onChange={(e) => doImportFile(e.target.files?.[0])}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => fileRef.current?.click()}
+          disabled={importFile.isPending}
+        >
+          <Upload className="h-4 w-4" /> File
+        </Button>
+      </div>
+
+      {/* Retrieval tester */}
+      <div className="rounded-lg border border-border p-3 space-y-2">
+        <div className="flex gap-2 items-center">
+          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+          <Input
+            className="h-9"
+            placeholder="Test retrieval: type what a customer might say…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && doSearch()}
+          />
+          <Button size="sm" variant="ghost" onClick={doSearch}>
+            Test
+          </Button>
+        </div>
+        {results && (
+          <div className="space-y-1">
+            {results.length === 0 && (
+              <div className="text-xs text-muted-foreground">
+                Nothing would be retrieved for that.
+              </div>
+            )}
+            {results.map((r) => (
+              <div key={r.article.id} className="text-xs flex gap-2">
+                <span className="tabular-nums text-muted-foreground w-10 shrink-0">
+                  {r.score.toFixed(1)}
+                </span>
+                <span className="font-medium">{r.article.title}</span>
+                <span className="text-muted-foreground truncate">{r.article.content}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add */}
       <div className="rounded-lg border border-border p-3 space-y-2">
         <div className="flex gap-2">
           <Input
@@ -143,15 +271,18 @@ export function KnowledgePanel({ agentId }: KnowledgePanelProps) {
                     <div className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">
                       {a.content}
                     </div>
-                    {a.tags.length > 0 && (
-                      <div className="flex gap-1 mt-2 flex-wrap">
-                        {a.tags.map((t) => (
-                          <Badge key={t} variant="outline" className="text-[10px]">
-                            {t}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex gap-1 mt-2 flex-wrap items-center">
+                      {a.tags.map((t) => (
+                        <Badge key={t} variant="outline" className="text-[10px]">
+                          {t}
+                        </Badge>
+                      ))}
+                      {a.source && (
+                        <span className="text-[10px] text-muted-foreground truncate">
+                          from {a.source}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button

@@ -214,3 +214,148 @@ export function useDoNotCallMutations() {
   });
   return { add, remove };
 }
+
+// ── v2 ────────────────────────────────────────────────────────────────
+
+export function useVoiceAgentAnalytics(agentId: string | null, days = 30) {
+  return useQuery({
+    queryKey: ['voice-agents', agentId ?? '', 'analytics', days],
+    queryFn: () => apiClient.getVoiceAgentAnalytics(agentId as string, days),
+    enabled: !!agentId,
+  });
+}
+
+export function useAgentVersions(agentId: string | null) {
+  return useQuery({
+    queryKey: ['voice-agents', agentId ?? '', 'versions'],
+    queryFn: () => apiClient.listAgentVersions(agentId as string),
+    enabled: !!agentId,
+  });
+}
+
+export function useRestoreAgentVersion(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (versionId: string) => apiClient.restoreAgentVersion(agentId, versionId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: agentKeys.all });
+      qc.invalidateQueries({ queryKey: ['voice-agents', agentId, 'versions'] });
+    },
+  });
+}
+
+export function useSimulateCall(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { persona: string; max_turns: number; variant?: string | null }) =>
+      apiClient.simulateCall(agentId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: agentKeys.calls(agentId) });
+    },
+  });
+}
+
+export function useTools(agentId: string | null) {
+  return useQuery({
+    queryKey: ['voice-agents', agentId ?? '', 'tools'],
+    queryFn: () => apiClient.listTools(agentId as string),
+    enabled: !!agentId,
+  });
+}
+
+export function useToolMutations(agentId: string) {
+  const qc = useQueryClient();
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ['voice-agents', agentId, 'tools'] });
+  };
+  const create = useMutation({
+    mutationFn: (data: import('@/lib/api/types').AgentToolCreate) =>
+      apiClient.createTool(agentId, data),
+    onSuccess: invalidate,
+  });
+  const update = useMutation({
+    mutationFn: ({
+      toolId,
+      data,
+    }: {
+      toolId: string;
+      data: Partial<import('@/lib/api/types').AgentToolCreate>;
+    }) => apiClient.updateTool(toolId, data),
+    onSuccess: invalidate,
+  });
+  const remove = useMutation({
+    mutationFn: (toolId: string) => apiClient.deleteTool(toolId),
+    onSuccess: invalidate,
+  });
+  return { create, update, remove };
+}
+
+export function useAppointments(agentId: string | null, upcoming = false) {
+  return useQuery({
+    queryKey: ['voice-agents', agentId ?? '', 'appointments', upcoming],
+    queryFn: () => apiClient.listAppointments(agentId as string, upcoming),
+    enabled: !!agentId,
+  });
+}
+
+export function useUpdateAppointment(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      appointmentId,
+      data,
+    }: {
+      appointmentId: string;
+      data: { status?: string; notes?: string };
+    }) => apiClient.updateAppointment(appointmentId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['voice-agents', agentId, 'appointments'] });
+      qc.invalidateQueries({ queryKey: agentKeys.stats(agentId) });
+    },
+  });
+}
+
+export function useAgentMessages(agentId: string | null) {
+  return useQuery({
+    queryKey: ['voice-agents', agentId ?? '', 'messages'],
+    queryFn: () => apiClient.listAgentMessages(agentId as string),
+    enabled: !!agentId,
+  });
+}
+
+export function useWebhookDeliveries(agentId: string | null) {
+  return useQuery({
+    queryKey: ['voice-agents', agentId ?? '', 'webhook-deliveries'],
+    queryFn: () => apiClient.listWebhookDeliveries(agentId as string),
+    enabled: !!agentId,
+    refetchInterval: 10000,
+  });
+}
+
+export function useTestWebhook(agentId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => apiClient.testWebhook(agentId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['voice-agents', agentId, 'webhook-deliveries'] });
+    },
+  });
+}
+
+export function useKnowledgeImports(agentId: string) {
+  const qc = useQueryClient();
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: agentKeys.knowledge(agentId) });
+  };
+  const importUrl = useMutation({
+    mutationFn: ({ url, tags }: { url: string; tags?: string[] }) =>
+      apiClient.importKnowledgeUrl(agentId, url, tags),
+    onSuccess: invalidate,
+  });
+  const importFile = useMutation({
+    mutationFn: ({ file, tags }: { file: File; tags?: string }) =>
+      apiClient.importKnowledgeFile(agentId, file, tags),
+    onSuccess: invalidate,
+  });
+  return { importUrl, importFile };
+}

@@ -1,4 +1,4 @@
-import { Ban, PhoneCall, Plus, Trash2, Upload } from 'lucide-react';
+import { Ban, Download, PhoneCall, Plus, Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,6 +36,7 @@ export function ContactsPanel({ agent, onCallStarted }: ContactsPanelProps) {
   const dnc = useDoNotCall();
   const dncMut = useDoNotCallMutations();
   const fileRef = useRef<HTMLInputElement>(null);
+  const dncFileRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState({ name: '', phone: '', company: '', consent: false });
   const [showDnc, setShowDnc] = useState(false);
 
@@ -72,9 +73,25 @@ export function ContactsPanel({ agent, onCallStarted }: ContactsPanelProps) {
     }
   };
 
+  const onDncFile = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const r = await apiClient.importDoNotCall(file);
+      toast({
+        title: `Blocked ${r.imported} number${r.imported === 1 ? '' : 's'}`,
+        description: r.skipped ? `Skipped ${r.skipped}` : undefined,
+      });
+      dnc.refetch();
+    } catch (err) {
+      toast({ title: 'DNC import failed', description: String(err), variant: 'destructive' });
+    } finally {
+      if (dncFileRef.current) dncFileRef.current.value = '';
+    }
+  };
+
   const callNow = async (c: Contact) => {
     try {
-      const r = await apiClient.startNextCall(agent.id, c.id);
+      const r = await apiClient.startNextCall(agent.id, { contactId: c.id });
       onCallStarted(r.call_id);
     } catch (err) {
       toast({ title: 'Could not start call', description: String(err), variant: 'destructive' });
@@ -143,20 +160,43 @@ export function ContactsPanel({ agent, onCallStarted }: ContactsPanelProps) {
           >
             <Upload className="h-4 w-4" /> Import CSV
           </Button>
+          <Button size="sm" variant="ghost" asChild title="Export contacts CSV">
+            <a href={apiClient.getContactsCsvUrl(agent.id)} target="_blank" rel="noreferrer">
+              <Download className="h-4 w-4" />
+            </a>
+          </Button>
           <Button size="sm" variant="ghost" onClick={() => setShowDnc((v) => !v)}>
             <Ban className="h-4 w-4" /> Do-not-call ({dnc.data?.length ?? 0})
           </Button>
         </div>
       </div>
       <p className="text-[11px] text-muted-foreground -mt-2">
-        CSV headers: name, phone, company, notes, timezone, consent. Numbers on the do-not-call list
-        are never dialled, on any agent.
+        CSV headers: name, phone, company, notes, timezone, language, consent — any other column
+        becomes a custom field you can use as {'{{contact.custom.<column>}}'} in the script. Numbers
+        on the do-not-call list are never dialled, on any agent.
       </p>
 
       {showDnc && (
         <div className="rounded-lg border border-border p-3 space-y-2">
-          <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Do-not-call list
+          <div className="flex items-center gap-2">
+            <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Do-not-call list
+            </div>
+            <input
+              ref={dncFileRef}
+              type="file"
+              accept=".csv,.txt,text/*"
+              className="hidden"
+              onChange={(e) => onDncFile(e.target.files?.[0])}
+            />
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-auto h-7"
+              onClick={() => dncFileRef.current?.click()}
+            >
+              <Upload className="h-3.5 w-3.5" /> Import suppression list
+            </Button>
           </div>
           {(dnc.data ?? []).length === 0 && (
             <div className="text-sm text-muted-foreground">Empty.</div>
@@ -206,8 +246,20 @@ export function ContactsPanel({ agent, onCallStarted }: ContactsPanelProps) {
                 <TableCell>
                   <div className="font-medium">{c.name}</div>
                   {c.company && <div className="text-xs text-muted-foreground">{c.company}</div>}
+                  {c.custom_fields && Object.keys(c.custom_fields).length > 0 && (
+                    <div className="text-[10px] text-muted-foreground truncate">
+                      {Object.entries(c.custom_fields)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(' · ')}
+                    </div>
+                  )}
                 </TableCell>
-                <TableCell className="font-mono text-xs">{c.phone}</TableCell>
+                <TableCell className="font-mono text-xs">
+                  {c.phone}
+                  {c.language && (
+                    <span className="ml-1 text-muted-foreground font-sans">({c.language})</span>
+                  )}
+                </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="capitalize">
                     {contactStatusLabel(c.status)}
