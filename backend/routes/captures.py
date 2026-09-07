@@ -10,8 +10,7 @@ from .. import config, models
 from ..backends import get_llm_model_configs, get_stt_model_configs
 from ..backends.base import is_model_cached
 from ..database import Capture as DBCapture, get_db
-from ..services import captures as captures_service
-from ..services import settings as settings_service
+from ..services import captures as captures_service, settings as settings_service
 from ..services.refinement import RefinementFlags
 
 logger = logging.getLogger(__name__)

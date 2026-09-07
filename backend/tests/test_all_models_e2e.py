@@ -25,13 +25,11 @@ import tempfile
 import threading
 import time
 from collections import deque
-from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from dataclasses import asdict, dataclass
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Optional
 
 import httpx
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 BACKEND_DIR = REPO_ROOT / "backend"
@@ -46,7 +44,7 @@ RESULTS_DIR = Path(__file__).resolve().parent / "results"
 class MatrixRow:
     label: str            # human-readable (appears in report)
     engine: str           # /generate engine
-    model_size: Optional[str]  # /generate model_size (None = omit)
+    model_size: str | None  # /generate model_size (None = omit)
     profile_kind: str     # "cloned" | "preset_kokoro" | "preset_qwen_cv"
     model_name: str       # /models/status key for cache lookup
 
@@ -76,22 +74,22 @@ HEALTH_TIMEOUT = 120
 class ModelResult:
     label: str
     engine: str
-    model_size: Optional[str]
+    model_size: str | None
     status: str                      # "passed" | "failed" | "timeout"
-    was_cached: Optional[bool] = None
-    generation_id: Optional[str] = None
+    was_cached: bool | None = None
+    generation_id: str | None = None
     elapsed_seconds: float = 0.0
-    audio_duration: Optional[float] = None
-    audio_path: Optional[str] = None
-    audio_bytes: Optional[int] = None
-    error: Optional[str] = None
-    http_status: Optional[int] = None
-    server_log_tail: Optional[list[str]] = None
+    audio_duration: float | None = None
+    audio_path: str | None = None
+    audio_bytes: int | None = None
+    error: str | None = None
+    http_status: int | None = None
+    server_log_tail: list[str] | None = None
 
 
 # ── Binary resolution ────────────────────────────────────────────────
 
-def find_binary() -> Optional[Path]:
+def find_binary() -> Path | None:
     """Return the first existing binary in priority order, or None."""
     is_win = platform.system() == "Windows"
     exe = ".exe" if is_win else ""
@@ -129,9 +127,9 @@ class ServerProcess:
         self.port = port
         self.data_dir = data_dir
         self.log_path = log_path
-        self.proc: Optional[subprocess.Popen] = None
+        self.proc: subprocess.Popen | None = None
         self._log_buffer: deque[str] = deque(maxlen=500)
-        self._reader_thread: Optional[threading.Thread] = None
+        self._reader_thread: threading.Thread | None = None
 
     def start(self) -> None:
         args = [
@@ -227,7 +225,7 @@ def wait_for_health(base_url: str, server: ServerProcess, timeout: int) -> None:
     raise TimeoutError(f"Server did not become healthy within {timeout}s")
 
 
-def get_model_cached(client: httpx.Client, base_url: str, model_name: str) -> Optional[bool]:
+def get_model_cached(client: httpx.Client, base_url: str, model_name: str) -> bool | None:
     try:
         r = client.get(f"{base_url}/models/status", timeout=30.0)
         r.raise_for_status()
@@ -331,7 +329,7 @@ def run_one_generation(
 
 def fetch_audio_info(
     client: httpx.Client, base_url: str, generation_id: str, data_dir: Path
-) -> tuple[Optional[str], Optional[int]]:
+) -> tuple[str | None, int | None]:
     """Return (audio_path, audio_bytes) for a completed generation.
 
     Server stores audio_path relative to data_dir; resolve it to get a size.
@@ -504,8 +502,8 @@ def main() -> int:
 
     # Reference audio (only required if any cloning row is in the matrix)
     needs_reference = any(r.profile_kind == "cloned" for r in rows)
-    ref_wav: Optional[Path] = None
-    ref_text: Optional[str] = None
+    ref_wav: Path | None = None
+    ref_text: str | None = None
     if needs_reference:
         try:
             ref_wav, ref_text = resolve_reference(args)
@@ -518,14 +516,14 @@ def main() -> int:
     # Tempdir + log path
     data_dir = Path(tempfile.mkdtemp(prefix="voicebox-e2e-"))
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     log_path = args.output_dir / f"server-{ts}.log"
 
     port = args.port or pick_free_port()
     base_url = f"http://127.0.0.1:{port}"
 
     server = ServerProcess(binary=binary, port=port, data_dir=data_dir, log_path=log_path)
-    started_at = datetime.now(timezone.utc)
+    started_at = datetime.now(UTC)
     results: list[ModelResult] = []
 
     try:
@@ -536,9 +534,9 @@ def main() -> int:
 
         with httpx.Client(timeout=30.0) as client:
             # Profile setup (only create what's needed)
-            cloned_profile_id: Optional[str] = None
-            kokoro_profile_id: Optional[str] = None
-            qwen_cv_profile_id: Optional[str] = None
+            cloned_profile_id: str | None = None
+            kokoro_profile_id: str | None = None
+            qwen_cv_profile_id: str | None = None
             needed_kinds = {r.profile_kind for r in rows}
             if "cloned" in needed_kinds:
                 assert ref_wav is not None and ref_text is not None
@@ -608,7 +606,7 @@ def main() -> int:
                       + (f" ({result.error})" if result.error else ""), flush=True)
                 results.append(result)
     finally:
-        finished_at = datetime.now(timezone.utc)
+        finished_at = datetime.now(UTC)
         server.stop()
         if not args.keep_data_dir:
             shutil.rmtree(data_dir, ignore_errors=True)

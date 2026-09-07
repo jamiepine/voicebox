@@ -1,9 +1,9 @@
 """ORM model definitions for the voicebox SQLite database."""
 
-from datetime import datetime
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean, JSON
+from sqlalchemy import JSON, Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 
 from ..utils.capture_chords import (

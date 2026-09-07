@@ -7,20 +7,18 @@ Wraps the LuxTTS (ZipVoice) model for zero-shot voice cloning.
 
 import asyncio
 import logging
-from typing import Optional, Tuple
 
 import numpy as np
 
-from . import TTSBackend
+from ..utils.cache import cache_voice_prompt, get_cache_key, get_cached_voice_prompt
 from .base import (
-    is_model_cached,
-    get_torch_device,
-    empty_device_cache,
-    manual_seed,
     combine_voice_prompts as _combine_voice_prompts,
+    empty_device_cache,
+    get_torch_device,
+    is_model_cached,
+    manual_seed,
     model_load_progress,
 )
-from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +103,7 @@ class LuxTTSBackend:
         audio_path: str,
         reference_text: str,
         use_cache: bool = True,
-    ) -> Tuple[dict, bool]:
+    ) -> tuple[dict, bool]:
         """
         Create voice prompt from reference audio.
 
@@ -145,9 +143,9 @@ class LuxTTSBackend:
         text: str,
         voice_prompt: dict,
         language: str = "en",
-        seed: Optional[int] = None,
-        instruct: Optional[str] = None,
-    ) -> Tuple[np.ndarray, int]:
+        seed: int | None = None,
+        instruct: str | None = None,
+    ) -> tuple[np.ndarray, int]:
         """
         Generate audio from text using LuxTTS.
 

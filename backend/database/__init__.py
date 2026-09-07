@@ -6,10 +6,10 @@ without changing any importers.
 """
 
 from .models import (
-    Base,
     AgentTool,
     Appointment,
     AudioChannel,
+    Base,
     Call,
     CallTurn,
     Capture,
@@ -36,7 +36,7 @@ from .models import (
     VoiceProfile,
     WebhookDelivery,
 )
-from .session import engine, SessionLocal, _db_path, init_db, get_db
+from .session import SessionLocal, _db_path, engine, get_db, init_db
 
 __all__ = [
     # Models

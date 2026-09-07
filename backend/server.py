@@ -5,9 +5,10 @@ This module provides an entry point that works with PyInstaller by using
 absolute imports instead of relative imports.
 """
 
-import sys
 import os
 import re
+import sys
+
 
 # On Windows with --noconsole (PyInstaller), sys.stdout/stderr are None.
 # They can also be broken file objects in some edge cases.
@@ -30,6 +31,7 @@ if not _is_writable(sys.stderr):
 # PyInstaller + multiprocessing: child processes re-execute the frozen binary
 # with internal arguments. freeze_support() handles this and exits early.
 import multiprocessing
+
 multiprocessing.freeze_support()
 
 # In frozen builds, piper_phonemize's espeak-ng C library falls back to
@@ -167,9 +169,8 @@ def _start_parent_watchdog(parent_pid, data_dir=None):
                     return True  # process exists, we just can't open it
                 watchdog_logger.info(f"PID {pid}: OpenProcess failed, error={error}")
                 return False
-            else:
-                os.kill(pid, 0)
-                return True
+            os.kill(pid, 0)
+            return True
         except (OSError, PermissionError):
             return False
 

@@ -11,13 +11,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from ..database import CaptureSettings as DBCaptureSettings
-from ..database import GenerationSettings as DBGenerationSettings
+from ..database import CaptureSettings as DBCaptureSettings, GenerationSettings as DBGenerationSettings
 from ..utils.capture_chords import (
     default_push_to_talk_chord,
     default_toggle_to_talk_chord,
 )
-
 
 SINGLETON_ID = 1
 

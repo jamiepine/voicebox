@@ -18,10 +18,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from huggingface_hub.errors import OfflineModeIsEnabled  # noqa: E402
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase  # noqa: E402
+from huggingface_hub.errors import OfflineModeIsEnabled
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
-import utils.hf_offline_patch as hf_offline_patch  # noqa: E402
+import utils.hf_offline_patch as hf_offline_patch
 
 
 @pytest.fixture(autouse=True)

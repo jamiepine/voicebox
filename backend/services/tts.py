@@ -2,12 +2,12 @@
 TTS inference module - delegates to backend abstraction layer.
 """
 
-from typing import Optional
-import numpy as np
 import io
+
+import numpy as np
 import soundfile as sf
 
-from ..backends import get_tts_backend, TTSBackend
+from ..backends import TTSBackend, get_tts_backend
 
 
 def get_tts_model() -> TTSBackend:

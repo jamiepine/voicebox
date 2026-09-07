@@ -78,7 +78,7 @@ class TestRocmBuildCli:
             build_server(cuda=True, rocm=True)
 
 
-@pytest.mark.slow()
+@pytest.mark.slow
 @pytest.mark.skipif(sys.platform != "win32", reason="ROCm build E2E only runs on Windows")
 class TestRocmBuildE2E:
     """

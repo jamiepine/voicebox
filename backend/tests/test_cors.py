@@ -12,9 +12,7 @@ Usage:
     python -m pytest backend/tests/test_cors.py -v
 """
 
-import os
 import pytest
-from unittest.mock import patch
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.testclient import TestClient
@@ -54,12 +52,12 @@ def _build_app(env_origins: str = "") -> FastAPI:
     return app
 
 
-@pytest.fixture()
+@pytest.fixture
 def client():
     return TestClient(_build_app())
 
 
-@pytest.fixture()
+@pytest.fixture
 def client_with_custom_origins():
     return TestClient(_build_app("https://custom.example.com,https://other.example.com"))
 

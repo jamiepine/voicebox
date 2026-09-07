@@ -24,7 +24,6 @@ from dataclasses import dataclass
 from . import llm as llm_service
 from .refinement import collapse_repetitive_artifacts
 
-
 # Shared rules block embedded in every mode-specific system prompt. Kept
 # short because small LLMs (0.6B) degrade when the system prompt is long,
 # and because the per-mode instructions downstream carry the specifics.

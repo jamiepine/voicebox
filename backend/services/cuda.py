@@ -19,7 +19,6 @@ import os
 import sys
 import tarfile
 from pathlib import Path
-from typing import Optional
 
 from .. import __version__
 from ..config import get_data_dir
@@ -84,7 +83,7 @@ def ensure_cuda_download_supported() -> None:
         raise RuntimeError(reason)
 
 
-def get_cuda_binary_path() -> Optional[Path]:
+def get_cuda_binary_path() -> Path | None:
     """Return path to the CUDA executable if it exists inside the onedir."""
     p = get_cuda_dir() / get_cuda_exe_name()
     if p.exists():
@@ -97,7 +96,7 @@ def get_cuda_libs_manifest_path() -> Path:
     return get_cuda_dir() / "cuda-libs.json"
 
 
-def get_installed_cuda_libs_version() -> Optional[str]:
+def get_installed_cuda_libs_version() -> str | None:
     """Read the installed CUDA libs version from cuda-libs.json, or None."""
     manifest_path = get_cuda_libs_manifest_path()
     if not manifest_path.exists():
@@ -138,7 +137,7 @@ def get_cuda_status() -> dict:
     }
 
 
-def _needs_server_download(version: Optional[str] = None) -> bool:
+def _needs_server_download(version: str | None = None) -> bool:
     """Check if the server core archive needs to be (re)downloaded."""
     cuda_path = get_cuda_binary_path()
     if not cuda_path:
@@ -162,7 +161,7 @@ def _needs_cuda_libs_download() -> bool:
 async def _download_and_extract_archive(
     client,
     url: str,
-    sha256_url: Optional[str],
+    sha256_url: str | None,
     dest_dir: Path,
     label: str,
     progress_offset: int,
@@ -259,7 +258,7 @@ async def _download_and_extract_archive(
     return downloaded
 
 
-async def download_cuda_binary(version: Optional[str] = None):
+async def download_cuda_binary(version: str | None = None):
     """Download the CUDA backend (server core + CUDA libs if needed).
 
     Downloads both archives from GitHub Releases, extracts them into
@@ -279,7 +278,7 @@ async def download_cuda_binary(version: Optional[str] = None):
         await _download_cuda_binary_locked(version)
 
 
-async def _download_cuda_binary_locked(version: Optional[str] = None):
+async def _download_cuda_binary_locked(version: str | None = None):
     """Inner implementation of download_cuda_binary, called under _download_lock."""
     ensure_cuda_download_supported()
 
@@ -379,7 +378,7 @@ async def _download_cuda_binary_locked(version: Optional[str] = None):
         raise
 
 
-def get_cuda_binary_version() -> Optional[str]:
+def get_cuda_binary_version() -> str | None:
     """Get the version of the installed CUDA binary, or None if not installed."""
     import subprocess
 

@@ -9,17 +9,15 @@ from __future__ import annotations
 
 import json
 import uuid
-from pathlib import Path
-from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from ..database import (
-    GenerationVersion as DBGenerationVersion,
-    Generation as DBGeneration,
-)
-from ..models import GenerationVersionResponse, EffectConfig
 from .. import config
+from ..database import (
+    Generation as DBGeneration,
+    GenerationVersion as DBGenerationVersion,
+)
+from ..models import EffectConfig, GenerationVersionResponse
 
 
 def _version_response(v: DBGenerationVersion) -> GenerationVersionResponse:
@@ -40,7 +38,7 @@ def _version_response(v: DBGenerationVersion) -> GenerationVersionResponse:
     )
 
 
-def list_versions(generation_id: str, db: Session) -> List[GenerationVersionResponse]:
+def list_versions(generation_id: str, db: Session) -> list[GenerationVersionResponse]:
     """List all versions for a generation."""
     versions = (
         db.query(DBGenerationVersion)
@@ -51,7 +49,7 @@ def list_versions(generation_id: str, db: Session) -> List[GenerationVersionResp
     return [_version_response(v) for v in versions]
 
 
-def get_version(version_id: str, db: Session) -> Optional[GenerationVersionResponse]:
+def get_version(version_id: str, db: Session) -> GenerationVersionResponse | None:
     """Get a specific version by ID."""
     v = db.query(DBGenerationVersion).filter_by(id=version_id).first()
     if not v:
@@ -59,7 +57,7 @@ def get_version(version_id: str, db: Session) -> Optional[GenerationVersionRespo
     return _version_response(v)
 
 
-def get_default_version(generation_id: str, db: Session) -> Optional[GenerationVersionResponse]:
+def get_default_version(generation_id: str, db: Session) -> GenerationVersionResponse | None:
     """Get the default version for a generation."""
     v = (
         db.query(DBGenerationVersion)
@@ -84,9 +82,9 @@ def create_version(
     label: str,
     audio_path: str,
     db: Session,
-    effects_chain: Optional[List[dict]] = None,
+    effects_chain: list[dict] | None = None,
     is_default: bool = False,
-    source_version_id: Optional[str] = None,
+    source_version_id: str | None = None,
 ) -> GenerationVersionResponse:
     """Create a new version for a generation.
 
@@ -119,7 +117,7 @@ def create_version(
     return _version_response(version)
 
 
-def set_default_version(version_id: str, db: Session) -> Optional[GenerationVersionResponse]:
+def set_default_version(version_id: str, db: Session) -> GenerationVersionResponse | None:
     """Set a version as the default for its generation."""
     version = db.query(DBGenerationVersion).filter_by(id=version_id).first()
     if not version:

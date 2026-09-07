@@ -7,16 +7,16 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from .. import config
+from .migrations import run_migrations
 from .models import (
-    Base,
     AudioChannel,
+    Base,
     EffectPreset,
     Generation,
     GenerationVersion,
     ProfileChannelMapping,
     VoiceProfile,
 )
-from .migrations import run_migrations
 from .seed import backfill_generation_versions, seed_builtin_presets
 
 logger = logging.getLogger(__name__)

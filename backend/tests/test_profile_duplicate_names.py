@@ -5,20 +5,23 @@ This test suite verifies that the application correctly handles
 duplicate profile names and provides user-friendly error messages.
 """
 
-import pytest
-import tempfile
 import shutil
-from pathlib import Path
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 # Add parent directory to path to import backend modules
 import sys
+import tempfile
+from pathlib import Path
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database import Base, VoiceProfile as DBVoiceProfile
-from models import VoiceProfileCreate
 from profiles import create_profile, update_profile
+
+from database import Base
+from models import VoiceProfileCreate
 
 
 @pytest.fixture

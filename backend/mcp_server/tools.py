@@ -18,12 +18,10 @@ from fastmcp import FastMCP
 
 from .. import models
 from ..database import get_db
-from ..services import captures as captures_service
-from ..services import profiles as profiles_service
+from ..services import captures as captures_service, profiles as profiles_service
 from . import events as mcp_events
 from .context import current_client_id, request_is_loopback
 from .resolve import resolve_profile
-
 
 logger = logging.getLogger(__name__)
 

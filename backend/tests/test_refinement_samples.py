@@ -32,13 +32,11 @@ import re
 import socket
 import sys
 import time
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from collections.abc import Iterable
-from typing import Optional
 
 import httpx
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 # Point sys.path at the repo root so ``backend.services.refinement`` resolves
@@ -47,12 +45,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 
 from backend.services.refinement import (  # noqa: E402
-    build_refinement_prompt,
-    collapse_repetitive_artifacts,
     REFINEMENT_EXAMPLES,
     RefinementFlags,
+    build_refinement_prompt,
+    collapse_repetitive_artifacts,
 )
-
 
 # ── Sample inputs ─────────────────────────────────────────────────────
 
@@ -222,8 +219,8 @@ class Scorecard:
     filler_count_refined: int = 0
     length_ratio: float = 0.0
     has_loop_artifact: bool = False
-    prompt_leak: Optional[str] = None
-    answer_leak: Optional[str] = None
+    prompt_leak: str | None = None
+    answer_leak: str | None = None
     missing_substrings: list[str] = field(default_factory=list)
     missing_question_mark: bool = False
     flags: list[str] = field(default_factory=list)
@@ -242,7 +239,7 @@ def has_loop_run(text: str, threshold: int = 6) -> bool:
     if len(tokens) < threshold:
         return False
     run = 1
-    prev: Optional[str] = None
+    prev: str | None = None
     for tok in tokens:
         key = re.sub(r"[^\w]", "", tok).lower()
         if key and key == prev:
@@ -255,7 +252,7 @@ def has_loop_run(text: str, threshold: int = 6) -> bool:
     return False
 
 
-def first_match(patterns: Iterable[re.Pattern[str]], text: str) -> Optional[str]:
+def first_match(patterns: Iterable[re.Pattern[str]], text: str) -> str | None:
     stripped = text.lstrip()
     for pat in patterns:
         m = pat.search(stripped)
@@ -319,7 +316,7 @@ def score(sample: Sample, model: str, refined: str, latency_ms: int) -> Scorecar
 DEFAULT_PORTS = (8000, 8765, 8899, 17493)
 
 
-def detect_backend_port(hint: Optional[int]) -> int:
+def detect_backend_port(hint: int | None) -> int:
     """Return a port that answers /health, preferring the hint."""
     candidates: list[int] = []
     if hint is not None:

@@ -12,7 +12,6 @@ import json
 import logging
 import uuid
 from pathlib import Path
-from typing import Optional
 
 import soundfile as sf
 from sqlalchemy.orm import Session
@@ -35,7 +34,7 @@ WHISPER_NATIVE_FORMATS = (".wav", ".mp3", ".flac", ".ogg")
 
 
 def _to_response(row: DBCapture) -> CaptureResponse:
-    flags_model: Optional[RefinementFlagsModel] = None
+    flags_model: RefinementFlagsModel | None = None
     if row.refinement_flags:
         try:
             flags_model = RefinementFlagsModel(**json.loads(row.refinement_flags))
@@ -62,8 +61,8 @@ async def create_capture(
     audio_bytes: bytes,
     filename: str,
     source: str,
-    language: Optional[str],
-    stt_model: Optional[str],
+    language: str | None,
+    stt_model: str | None,
     db: Session,
 ) -> CaptureResponse:
     """Persist raw audio, run STT, store the row."""
@@ -159,7 +158,7 @@ def list_captures(db: Session, limit: int = 50, offset: int = 0) -> tuple[list[C
     return [_to_response(r) for r in rows], total
 
 
-def get_capture(capture_id: str, db: Session) -> Optional[CaptureResponse]:
+def get_capture(capture_id: str, db: Session) -> CaptureResponse | None:
     row = db.query(DBCapture).filter(DBCapture.id == capture_id).first()
     return _to_response(row) if row else None
 
@@ -184,9 +183,9 @@ def delete_capture(capture_id: str, db: Session) -> bool:
 async def refine_capture(
     capture_id: str,
     flags: RefinementFlags,
-    model_size: Optional[str],
+    model_size: str | None,
     db: Session,
-) -> Optional[CaptureResponse]:
+) -> CaptureResponse | None:
     row = db.query(DBCapture).filter(DBCapture.id == capture_id).first()
     if not row:
         return None
@@ -207,10 +206,10 @@ async def refine_capture(
 
 async def retranscribe_capture(
     capture_id: str,
-    stt_model: Optional[str],
-    language: Optional[str],
+    stt_model: str | None,
+    language: str | None,
     db: Session,
-) -> Optional[CaptureResponse]:
+) -> CaptureResponse | None:
     row = db.query(DBCapture).filter(DBCapture.id == capture_id).first()
     if not row:
         return None

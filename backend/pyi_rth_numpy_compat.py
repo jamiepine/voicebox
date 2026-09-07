@@ -44,6 +44,7 @@ def _patch_torch_from_numpy():
             return
         try:
             import ctypes
+
             import numpy as np
 
             _orig = torch.from_numpy

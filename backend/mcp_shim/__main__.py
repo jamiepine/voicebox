@@ -23,7 +23,6 @@ from typing import Any
 
 import httpx
 
-
 CLIENT_ID_HEADER = "X-Voicebox-Client-Id"
 SESSION_HEADER = "mcp-session-id"
 HEALTH_TIMEOUT_S = 30.0

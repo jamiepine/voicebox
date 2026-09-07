@@ -8,7 +8,6 @@ floating pill surfaces whenever an agent is speaking.
 import asyncio
 from typing import Any
 
-
 # Each subscriber gets its own queue. Bounded to drop oldest if a client lags.
 _subscribers: set[asyncio.Queue[dict[str, Any]]] = set()
 

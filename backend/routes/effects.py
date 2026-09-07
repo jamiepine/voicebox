@@ -9,8 +9,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history
 from ..database import Generation as DBGeneration, get_db
+from ..services import history
 
 router = APIRouter()
 
@@ -29,8 +29,8 @@ async def preview_effects(
         raise HTTPException(status_code=400, detail="Generation is not completed")
 
     from ..services import versions as versions_mod
-    from ..utils.effects import apply_effects, validate_effects_chain
     from ..utils.audio import load_audio
+    from ..utils.effects import apply_effects, validate_effects_chain
 
     chain_dicts = [e.model_dump() for e in data.effects_chain]
     error = validate_effects_chain(chain_dicts)
@@ -170,8 +170,8 @@ async def apply_effects_to_generation(
         raise HTTPException(status_code=400, detail="Generation is not completed")
 
     from ..services import versions as versions_mod
-    from ..utils.effects import apply_effects, validate_effects_chain
     from ..utils.audio import load_audio, save_audio
+    from ..utils.effects import apply_effects, validate_effects_chain
 
     chain_dicts = [e.model_dump() for e in data.effects_chain]
     error = validate_effects_chain(chain_dicts)

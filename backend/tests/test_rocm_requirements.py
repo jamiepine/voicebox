@@ -40,7 +40,7 @@ def _has_amd_hardware():
         return False
 
 
-@pytest.fixture()
+@pytest.fixture
 def backend_dir():
     return Path(__file__).parent.parent
 

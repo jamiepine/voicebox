@@ -7,10 +7,9 @@ without hitting the network.
 
 import json
 import tarfile
-import tempfile
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

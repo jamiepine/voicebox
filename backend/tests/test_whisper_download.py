@@ -4,48 +4,47 @@ Test real model download with SSE progress monitoring.
 
 import asyncio
 import json
+
 import httpx
-import time
-from typing import List, Dict
+
 
 async def monitor_sse_stream(model_name: str, timeout: int = 300):
     """Monitor SSE stream for a model download."""
-    events: List[Dict] = []
+    events: list[dict] = []
     url = f"http://localhost:8000/models/progress/{model_name}"
 
     print(f"Connecting to SSE endpoint: {url}")
 
-    async with httpx.AsyncClient(timeout=timeout) as client:
-        async with client.stream("GET", url) as response:
-            print(f"SSE connected, status: {response.status_code}")
+    async with httpx.AsyncClient(timeout=timeout) as client, client.stream("GET", url) as response:
+        print(f"SSE connected, status: {response.status_code}")
 
-            if response.status_code != 200:
-                print(f"Error: SSE endpoint returned {response.status_code}")
-                return events
+        if response.status_code != 200:
+            print(f"Error: SSE endpoint returned {response.status_code}")
+            return events
 
-            async for line in response.aiter_lines():
-                if not line:
-                    continue
+        async for line in response.aiter_lines():
+            if not line:
+                continue
 
-                print(f"  Raw SSE: {line[:100]}...")  # Print first 100 chars
+            print(f"  Raw SSE: {line[:100]}...")  # Print first 100 chars
 
-                if line.startswith("data: "):
-                    try:
-                        data = json.loads(line[6:])
-                        print(f"  → {data['status']:12} {data.get('progress', 0):6.1f}% {data.get('filename', '')}")
-                        events.append(data)
+            if line.startswith("data: "):
+                try:
+                    data = json.loads(line[6:])
+                    print(f"  → {data['status']:12} {data.get('progress', 0):6.1f}% {data.get('filename', '')}")
+                    events.append(data)
 
-                        # Stop if complete or error
-                        if data.get("status") in ("complete", "error"):
-                            print(f"  Download {data['status']}!")
-                            break
+                    # Stop if complete or error
+                    if data.get("status") in ("complete", "error"):
+                        print(f"  Download {data['status']}!")
+                        break
 
-                    except json.JSONDecodeError as e:
-                        print(f"  Error parsing JSON: {e}")
-                        print(f"  Line was: {line}")
+                except json.JSONDecodeError as e:
+                    print(f"  Error parsing JSON: {e}")
+                    print(f"  Line was: {line}")
 
-                elif line.startswith(": heartbeat"):
-                    print("  ♥ heartbeat")
+            elif line.startswith(": heartbeat"):
+                print("  ♥ heartbeat")
 
     return events
 

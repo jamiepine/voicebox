@@ -16,16 +16,15 @@ Languages supported: zh, en, ja, ko, de, fr, ru, pt, es, it
 
 import asyncio
 import logging
-from typing import Optional
 
 import numpy as np
 import torch
 
-from . import TTSBackend, LANGUAGE_CODE_TO_NAME
+from . import LANGUAGE_CODE_TO_NAME
 from .base import (
-    is_model_cached,
-    get_torch_device,
     combine_voice_prompts as _combine_voice_prompts,
+    get_torch_device,
+    is_model_cached,
     model_load_progress,
 )
 
@@ -62,7 +61,7 @@ class QwenCustomVoiceBackend:
         self.model = None
         self.model_size = model_size
         self.device = self._get_device()
-        self._current_model_size: Optional[str] = None
+        self._current_model_size: str | None = None
 
     def _get_device(self) -> str:
         return get_torch_device(allow_xpu=True, allow_directml=True)
@@ -75,11 +74,11 @@ class QwenCustomVoiceBackend:
             raise ValueError(f"Unknown model size: {model_size}")
         return QWEN_CV_HF_REPOS[model_size]
 
-    def _is_model_cached(self, model_size: Optional[str] = None) -> bool:
+    def _is_model_cached(self, model_size: str | None = None) -> bool:
         size = model_size or self.model_size
         return is_model_cached(self._get_model_path(size))
 
-    async def load_model_async(self, model_size: Optional[str] = None) -> None:
+    async def load_model_async(self, model_size: str | None = None) -> None:
         if model_size is None:
             model_size = self.model_size
 
@@ -164,8 +163,8 @@ class QwenCustomVoiceBackend:
         text: str,
         voice_prompt: dict,
         language: str = "en",
-        seed: Optional[int] = None,
-        instruct: Optional[str] = None,
+        seed: int | None = None,
+        instruct: str | None = None,
     ) -> tuple[np.ndarray, int]:
         """
         Generate audio using Qwen CustomVoice.

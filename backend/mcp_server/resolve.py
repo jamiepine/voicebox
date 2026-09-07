@@ -30,7 +30,7 @@ def resolve_profile(
     if client_id:
         # Per-client binding. Imported lazily so this module stays importable
         # even before the migration adds the table on first boot.
-        from ..database.models import MCPClientBinding  # noqa: WPS433
+        from ..database.models import MCPClientBinding
 
         binding = (
             db.query(MCPClientBinding)
