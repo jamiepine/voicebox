@@ -103,21 +103,42 @@ class ApiClient {
     return serverUrl;
   }
 
+  private notReachableMessage(baseUrl: string): string {
+    return `Cannot reach the KALVOICE server at ${baseUrl || 'the configured address'}. Make sure the KALVOICE backend is running and the server URL is correct.`;
+  }
+
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${this.getBaseUrl()}${endpoint}`;
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
+    const baseUrl = this.getBaseUrl();
+    const url = `${baseUrl}${endpoint}`;
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
+    } catch {
+      // Native fetch rejects for network failures, DNS errors, and blocked
+      // mixed-content requests. WebKit surfaces the last case as the cryptic
+      // "The string did not match the expected pattern" — normalize them all.
+      throw new Error(this.notReachableMessage(baseUrl));
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({
         detail: response.statusText,
       }));
       throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+
+    // A static host (e.g. the hosted web build with no backend) answers
+    // unknown routes with the SPA's index.html and a 200; treat that as a
+    // missing backend rather than letting JSON parsing throw a cryptic error.
+    if ((response.headers.get('content-type') || '').includes('text/html')) {
+      throw new Error(this.notReachableMessage(baseUrl));
     }
 
     return response.json();
