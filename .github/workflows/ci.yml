@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+  # Lets the checks be re-run on demand from the Actions tab (or the API)
+  # without pushing a commit — useful after enabling Actions on a fork,
+  # where the events that would have triggered earlier runs are long gone.
+  workflow_dispatch:
 
 jobs:
   frontend-quality:
