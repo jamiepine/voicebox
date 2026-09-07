@@ -360,6 +360,12 @@ async def _run_shutdown() -> None:
     """Unload models on lifespan exit."""
     logger.info("Voicebox server shutting down...")
     try:
+        from .services import voice_agent_runner
+
+        await voice_agent_runner.stop_all()
+    except Exception:
+        logger.exception("Failed to stop voice agent dialers")
+    try:
         tts.unload_tts_model()
     except Exception:
         logger.exception("Failed to unload TTS model")

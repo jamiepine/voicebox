@@ -16,7 +16,9 @@ interface GenerationStatusEvent {
 
 // Agent-initiated generations are played by the floating pill, not the
 // main-window AudioPlayer. Skip autoplay here to avoid double-playback.
-const AGENT_SOURCES = new Set(['mcp', 'rest']);
+// Voice-agent turns are played by the Agents console (web) or the pill
+// (desktop); remote ones go down the phone line and must never autoplay.
+const AGENT_SOURCES = new Set(['mcp', 'rest', 'voice_agent', 'voice_agent_remote']);
 
 /**
  * Subscribes to SSE for all pending generations. When a generation completes,

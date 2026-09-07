@@ -1,0 +1,191 @@
+---
+title: "Voice Agents"
+description: "Outbound sales, customer service, and support calls — run entirely by the local voice stack in a voice you own."
+---
+
+## Overview
+
+A **voice agent** is a phone persona built from the three models Voicebox
+already runs locally:
+
+```
+customer audio ──Whisper──▶ text ──Qwen3 LLM──▶ reply ──TTS──▶ agent voice
+```
+
+Give it a name, a company, a voice profile (any profile — including one you
+cloned from your own recording), a brief of what it may say, and a goal.
+Then hand it a contact list (outbound) or a phone number (inbound) and it
+runs the conversation: opening line, questions, objections, next steps,
+tickets, hand-offs, summaries. Nothing leaves your machine unless you plug
+in a phone provider.
+
+Three modes ship, all sharing one engine:
+
+| Mode                 | Direction | What it does                                                                               |
+| -------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| **Outbound sales**   | outbound  | Auto-dials a contact list, pitches from the brief, handles objections, books the goal.     |
+| **Customer service** | inbound   | Greets, answers from the knowledge base, logs what it can't resolve, hands off on request. |
+| **Support**          | inbound   | Diagnoses one question at a time, walks through fixes from the knowledge base, opens tickets. |
+
+<Callout type="warn">
+  Outbound calling is regulated almost everywhere (TCPA in the US, PECR in the
+  UK, GDPR ePrivacy across the EU, and equivalents elsewhere). The agent
+  ships with guard-rails — disclosure on every call, a global do-not-call
+  list, calling windows, attempt caps, consent gating — but you are
+  responsible for having the right to call each number and for the
+  jurisdiction-specific rules. See [Responsible Use](https://github.com/jamiepine/voicebox/blob/main/RESPONSIBLE_USE.md).
+</Callout>
+
+## Quick start
+
+1. **Voices tab** — make sure you have a voice profile. Clone one from a
+   recording or pick a preset.
+2. **Agents tab → +** — choose a mode, pick the voice, fill in the brief and
+   goal, save.
+3. **Knowledge** — add a few FAQ / troubleshooting entries (optional for
+   sales, strongly recommended for service and support).
+4. **Contacts** (outbound only) — add contacts or import a CSV.
+5. **Console** — press **Call next contact** (or **Answer call** for inbound
+   modes). The agent speaks first; type or hold the mic to answer as the
+   customer. Watch the transcript, sentiment, and outcome land.
+6. **Start dialing** — once you're happy, let the auto-dialer work the list.
+
+Every agent turn is a normal Voicebox generation: it shows in History, plays
+through the pill on desktop, and honours the profile's engine and effects.
+
+## How a call runs
+
+1. **Opening.** Deterministic, not generated — greeting, who's calling, the
+   **disclosure** sentence ("I'm an automated AI assistant…") which cannot be
+   blanked, then your opening hook.
+2. **Each customer turn** is scored for sentiment and screened before the
+   model sees it:
+   - *"Stop calling me / take me off your list"* → the agent reads a fixed
+     opt-out line, the number goes on the global do-not-call list, the call
+     ends. The LLM is never consulted.
+   - *"Get me a human / a real person"* → hand-off closing, a ticket is
+     opened.
+   - A voicemail greeting on the first reply → call closed as `voicemail`,
+     retry scheduled.
+   - N consecutive upset turns (configurable) → hand-off with a high-priority
+     ticket.
+3. **The model's turn.** The system prompt carries the hard rules (AI
+   identity when asked, facts only from the brief/knowledge, one question per
+   turn, no pressure, never ask for card numbers or codes), the mode's
+   playbook, your brief / objection notes / persona, the top-3 knowledge
+   entries retrieved for this turn, and what the agent remembers about this
+   contact from earlier calls. The reply is short and spoken.
+4. **Control tags.** The model ends a reply with `[OUTCOME: interested]`,
+   `[TICKET: subject]`, `[HANDOFF]` etc. when the call reaches a conclusion.
+   Tags are stripped before TTS and only outcomes valid for the mode are
+   trusted.
+5. **Close.** Outcome → contact status, retry/callback scheduling, a ticket
+   for leads and hand-offs, and an LLM summary written into the contact's
+   memory so the next call starts with context.
+
+## Compliance guard-rails
+
+| Guard-rail             | Where                                        |
+| ---------------------- | -------------------------------------------- |
+| AI disclosure          | Spoken verbatim on every call; required field |
+| Do-not-call list       | Global across agents; auto-appended on opt-out; checked before every dial |
+| Calling window         | Per contact time zone (falls back to the agent's); hours + weekdays |
+| Attempt cap / retry    | `max_attempts`, `retry_delay_hours`, `callback_delay_hours` |
+| Daily cap              | `daily_call_cap` calls started per agent per day |
+| Consent gating         | `require_consent` → only contacts flagged `consent=true` are dialled |
+| Turn limit             | `max_turns` → hand-off with a ticket rather than an endless call |
+| Facts only             | The model is instructed to state only what is in the brief / knowledge |
+
+## Phone line
+
+**Local (default)** — no telephony. The agent speaks through the machine and
+the customer's side comes from the console (typed or mic), the REST API, or
+the MCP tools. Use it to test scripts, to demo, or for attended calling with
+a softphone on the same machine.
+
+**Twilio** — real PSTN calls via TwiML webhooks. Set in the server
+environment:
+
+```
+TWILIO_ACCOUNT_SID=ACxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxx
+VOICEBOX_PUBLIC_URL=https://your-tunnel.example.com   # must reach Voicebox
+```
+
+Set the agent's provider to *Twilio* and its **from number** to a
+Twilio-owned number. For inbound agents, point the number's *A call comes
+in* webhook at `{VOICEBOX_PUBLIC_URL}/webhooks/twilio/inbound/{agent_id}`.
+Webhooks are signature-verified; recordings are transcribed locally.
+
+<Callout type="info">
+  Twilio waits at most 15 s for a webhook. The agent generates each reply
+  while the caller's recording is being fetched and holds the line with a
+  short pause if TTS is still running, so a fast engine (LuxTTS, Kokoro, or
+  Qwen 0.6B) and the 0.6B / 1.7B LLM keep calls fluid.
+</Callout>
+
+## REST API
+
+```bash
+# Create an agent
+curl -X POST http://127.0.0.1:17493/agents -H 'Content-Type: application/json' -d '{
+  "name": "Support desk", "mode": "support", "profile": "Morgan",
+  "agent_name": "Sam", "company_name": "Acme Broadband",
+  "brief": "Acme provides home broadband. Routers are Acme Hub 3.",
+  "goal": "Fix the customer's issue or open a ticket.",
+  "escalation_promise": "an engineer will call you back within one business day"
+}'
+
+# Knowledge
+curl -X POST http://127.0.0.1:17493/agents/$AGENT/knowledge -H 'Content-Type: application/json' \
+  -d '{"title":"Router keeps rebooting","content":"Check the power supply, then hold reset for 10 seconds.","tags":["router"]}'
+
+# Inbound conversation
+curl -X POST http://127.0.0.1:17493/agents/$AGENT/calls/inbound -H 'Content-Type: application/json' \
+  -d '{"phone":"+44 7700 900123","name":"Jane"}'
+# → {"call_id": "...", "text": "Hi Jane, you've reached Acme Broadband, this is Sam. …", "ended": false}
+
+curl -X POST http://127.0.0.1:17493/calls/$CALL/turn -H 'Content-Type: application/json' \
+  -d '{"text":"my router reboots every night"}'
+# → {"text": "…", "ended": false, "generation_id": "…"}
+
+# Or send audio
+curl -X POST http://127.0.0.1:17493/calls/$CALL/turn/audio -F "file=@reply.wav"
+
+# Outbound
+curl -X POST http://127.0.0.1:17493/agents/$AGENT/contacts/import -F "file=@leads.csv"
+curl -X POST http://127.0.0.1:17493/agents/$AGENT/start        # auto-dialer
+curl -X POST http://127.0.0.1:17493/agents/$AGENT/calls/next   # or one call at a time
+curl      http://127.0.0.1:17493/agents/$AGENT/stats
+curl      http://127.0.0.1:17493/tickets?agent_id=$AGENT
+curl -X POST http://127.0.0.1:17493/dnc -H 'Content-Type: application/json' -d '{"phone":"+15550100000"}'
+```
+
+Full schemas at `http://127.0.0.1:17493/docs` under the `voice-agent` tag.
+
+## MCP tools
+
+Any MCP client can act as the phone line — useful for agent harnesses that
+already handle audio, or for scripting a whole campaign from Claude Code.
+
+| Tool                          | Purpose                                                        |
+| ----------------------------- | -------------------------------------------------------------- |
+| `voicebox.agent.list`         | Agents with mode / status / running                            |
+| `voicebox.agent.next_call`    | Dial the next contact (or `contact_id`); returns the opening   |
+| `voicebox.agent.inbound_call` | Start a service / support conversation for a caller            |
+| `voicebox.agent.reply`        | Relay what the customer said; returns the agent's reply, `ended`, `outcome`, `ticket_id` |
+| `voicebox.agent.end_call`     | Force an outcome                                               |
+| `voicebox.agent.get_call`     | Transcript, outcome, summary                                   |
+| `voicebox.agent.stats`        | Queue and outcome statistics                                   |
+
+## Tuning
+
+- **Brief > persona.** Small models follow facts better than vibes; put the
+  substance in the brief and knowledge entries, keep the persona to a
+  sentence or two.
+- **Name knowledge entries the way customers ask.** Titles and tags are
+  weighted 3× / 2.5× over body text in retrieval.
+- **Model size.** 0.6B is fast and fine for scripted sales; 1.7B or 4B
+  judges support conversations noticeably better.
+- **Turn limit.** Default 30. Lower it for sales (a 30-turn pitch is a bad
+  sign) and raise it for support.

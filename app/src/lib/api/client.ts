@@ -2,23 +2,49 @@ import type { LanguageCode } from '@/lib/constants/languages';
 import { useServerStore } from '@/stores/serverStore';
 import type {
   ActiveTasksResponse,
+  AgentTurnResponse,
   ApplyEffectsRequest,
   AvailableEffectsResponse,
+  CallListResponse,
+  CaptureCreateResponse,
+  CaptureListResponse,
+  CaptureReadinessResponse,
+  CaptureRefineRequest,
+  CaptureResponse,
+  CaptureRetranscribeRequest,
+  CaptureSettings,
+  CaptureSettingsUpdate,
+  CaptureSource,
+  CloudLoginStartResponse,
+  CloudStatus,
+  Contact,
+  ContactCreate,
+  ContactImportResult,
+  ContactListResponse,
+  ContactUpdate,
   CudaStatus,
+  DoNotCallEntry,
   EffectConfig,
   EffectPresetCreate,
   EffectPresetResponse,
   GenerationRequest,
   GenerationResponse,
+  GenerationSettings,
+  GenerationSettingsUpdate,
   GenerationVersionResponse,
   HealthResponse,
   HistoryListResponse,
   HistoryQuery,
   HistoryResponse,
+  KnowledgeArticle,
+  KnowledgeArticleCreate,
+  MCPClientBinding,
+  MCPClientBindingListResponse,
+  MCPClientBindingUpsert,
   ModelDownloadRequest,
   ModelStatusListResponse,
-  PresetVoice,
   PersonalityTextResponse,
+  PresetVoice,
   ProfileSampleResponse,
   RocmStatus,
   StoryCreate,
@@ -33,26 +59,17 @@ import type {
   StoryItemVersionUpdate,
   StoryItemVolumeUpdate,
   StoryResponse,
+  Ticket,
+  TicketListResponse,
   TranscriptionResponse,
+  VoiceAgent,
+  VoiceAgentCreate,
+  VoiceAgentStats,
+  VoiceAgentUpdate,
+  VoiceCall,
   VoiceProfileCreate,
   VoiceProfileResponse,
   WhisperModelSize,
-  CaptureListResponse,
-  CaptureResponse,
-  CaptureCreateResponse,
-  CaptureReadinessResponse,
-  CaptureRefineRequest,
-  CaptureRetranscribeRequest,
-  CaptureSettings,
-  CaptureSettingsUpdate,
-  CaptureSource,
-  GenerationSettings,
-  GenerationSettingsUpdate,
-  MCPClientBinding,
-  MCPClientBindingListResponse,
-  MCPClientBindingUpsert,
-  CloudLoginStartResponse,
-  CloudStatus,
 } from './types';
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
@@ -427,9 +444,7 @@ class ApiClient {
 
   // Captures
   async listCaptures(limit = 50, offset = 0): Promise<CaptureListResponse> {
-    return this.request<CaptureListResponse>(
-      `/captures?limit=${limit}&offset=${offset}`,
-    );
+    return this.request<CaptureListResponse>(`/captures?limit=${limit}&offset=${offset}`);
   }
 
   async getCapture(captureId: string): Promise<CaptureResponse> {
@@ -467,10 +482,7 @@ class ApiClient {
     });
   }
 
-  async refineCapture(
-    captureId: string,
-    body: CaptureRefineRequest,
-  ): Promise<CaptureResponse> {
+  async refineCapture(captureId: string, body: CaptureRefineRequest): Promise<CaptureResponse> {
     return this.request<CaptureResponse>(`/captures/${captureId}/refine`, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -511,9 +523,7 @@ class ApiClient {
     return this.request<GenerationSettings>('/settings/generation');
   }
 
-  async updateGenerationSettings(
-    patch: GenerationSettingsUpdate,
-  ): Promise<GenerationSettings> {
+  async updateGenerationSettings(patch: GenerationSettingsUpdate): Promise<GenerationSettings> {
     return this.request<GenerationSettings>('/settings/generation', {
       method: 'PUT',
       body: JSON.stringify(patch),
@@ -525,9 +535,7 @@ class ApiClient {
     return this.request<MCPClientBindingListResponse>('/mcp/bindings');
   }
 
-  async upsertMCPBinding(
-    data: MCPClientBindingUpsert,
-  ): Promise<MCPClientBinding> {
+  async upsertMCPBinding(data: MCPClientBindingUpsert): Promise<MCPClientBinding> {
     return this.request<MCPClientBinding>('/mcp/bindings', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -535,10 +543,9 @@ class ApiClient {
   }
 
   async deleteMCPBinding(clientId: string): Promise<{ deleted: string }> {
-    return this.request<{ deleted: string }>(
-      `/mcp/bindings/${encodeURIComponent(clientId)}`,
-      { method: 'DELETE' },
-    );
+    return this.request<{ deleted: string }>(`/mcp/bindings/${encodeURIComponent(clientId)}`, {
+      method: 'DELETE',
+    });
   }
 
   // Model Management
@@ -954,6 +961,224 @@ class ApiClient {
 
   async disconnectCloud(): Promise<CloudStatus> {
     return this.request<CloudStatus>('/cloud/disconnect', { method: 'POST' });
+  }
+
+  // ── Voice AI agent ──────────────────────────────────────────────────
+
+  async listVoiceAgents(): Promise<VoiceAgent[]> {
+    return this.request<VoiceAgent[]>('/agents');
+  }
+
+  async getVoiceAgent(agentId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}`);
+  }
+
+  async createVoiceAgent(data: VoiceAgentCreate): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>('/agents', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateVoiceAgent(agentId: string, data: VoiceAgentUpdate): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteVoiceAgent(agentId: string): Promise<{ message: string }> {
+    return this.request(`/agents/${agentId}`, { method: 'DELETE' });
+  }
+
+  async getVoiceAgentStats(agentId: string): Promise<VoiceAgentStats> {
+    return this.request<VoiceAgentStats>(`/agents/${agentId}/stats`);
+  }
+
+  async startVoiceAgent(agentId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}/start`, { method: 'POST' });
+  }
+
+  async pauseVoiceAgent(agentId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}/pause`, { method: 'POST' });
+  }
+
+  async listContacts(
+    agentId: string,
+    params: { status?: string; limit?: number; offset?: number } = {},
+  ): Promise<ContactListResponse> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.offset) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<ContactListResponse>(`/agents/${agentId}/contacts${suffix}`);
+  }
+
+  async createContact(agentId: string, data: ContactCreate): Promise<Contact> {
+    return this.request<Contact>(`/agents/${agentId}/contacts`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async bulkCreateContacts(
+    agentId: string,
+    contacts: ContactCreate[],
+  ): Promise<ContactImportResult> {
+    return this.request<ContactImportResult>(`/agents/${agentId}/contacts/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ contacts }),
+    });
+  }
+
+  async importContactsCsv(agentId: string, file: File): Promise<ContactImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await fetch(`${this.getBaseUrl()}/agents/${agentId}/contacts/import`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+    return response.json();
+  }
+
+  async updateContact(contactId: string, data: ContactUpdate): Promise<Contact> {
+    return this.request<Contact>(`/contacts/${contactId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteContact(contactId: string): Promise<{ message: string }> {
+    return this.request(`/contacts/${contactId}`, { method: 'DELETE' });
+  }
+
+  async listKnowledge(agentId: string): Promise<KnowledgeArticle[]> {
+    return this.request<KnowledgeArticle[]>(`/agents/${agentId}/knowledge`);
+  }
+
+  async createKnowledge(agentId: string, data: KnowledgeArticleCreate): Promise<KnowledgeArticle> {
+    return this.request<KnowledgeArticle>(`/agents/${agentId}/knowledge`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateKnowledge(
+    articleId: string,
+    data: Partial<KnowledgeArticleCreate>,
+  ): Promise<KnowledgeArticle> {
+    return this.request<KnowledgeArticle>(`/knowledge/${articleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteKnowledge(articleId: string): Promise<{ message: string }> {
+    return this.request(`/knowledge/${articleId}`, { method: 'DELETE' });
+  }
+
+  async listCalls(
+    agentId: string,
+    params: { status?: string; limit?: number; offset?: number } = {},
+  ): Promise<CallListResponse> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.offset) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<CallListResponse>(`/agents/${agentId}/calls${suffix}`);
+  }
+
+  async startNextCall(agentId: string, contactId?: string): Promise<AgentTurnResponse> {
+    const suffix = contactId ? `?contact_id=${encodeURIComponent(contactId)}` : '';
+    return this.request<AgentTurnResponse>(`/agents/${agentId}/calls/next${suffix}`, {
+      method: 'POST',
+    });
+  }
+
+  async startInboundCall(
+    agentId: string,
+    data: { phone: string; name?: string | null },
+  ): Promise<AgentTurnResponse> {
+    return this.request<AgentTurnResponse>(`/agents/${agentId}/calls/inbound`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCall(callId: string): Promise<VoiceCall> {
+    return this.request<VoiceCall>(`/calls/${callId}`);
+  }
+
+  async sendCustomerTurn(callId: string, text: string): Promise<AgentTurnResponse> {
+    return this.request<AgentTurnResponse>(`/calls/${callId}/turn`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async sendCustomerTurnAudio(
+    callId: string,
+    blob: Blob,
+    language?: string,
+  ): Promise<AgentTurnResponse> {
+    const formData = new FormData();
+    formData.append('file', blob, 'turn.wav');
+    if (language) formData.append('language', language);
+    const response = await fetch(`${this.getBaseUrl()}/calls/${callId}/turn/audio`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+    return response.json();
+  }
+
+  async endCall(callId: string, outcome: string, summary?: string): Promise<VoiceCall> {
+    return this.request<VoiceCall>(`/calls/${callId}/end`, {
+      method: 'POST',
+      body: JSON.stringify({ outcome, summary: summary ?? null }),
+    });
+  }
+
+  async listTickets(
+    params: { agentId?: string; status?: string; limit?: number } = {},
+  ): Promise<TicketListResponse> {
+    const qs = new URLSearchParams();
+    if (params.agentId) qs.set('agent_id', params.agentId);
+    if (params.status) qs.set('status', params.status);
+    if (params.limit) qs.set('limit', String(params.limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<TicketListResponse>(`/tickets${suffix}`);
+  }
+
+  async updateTicket(
+    ticketId: string,
+    data: { status?: string; priority?: string; description?: string },
+  ): Promise<Ticket> {
+    return this.request<Ticket>(`/tickets/${ticketId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listDoNotCall(): Promise<DoNotCallEntry[]> {
+    return this.request<DoNotCallEntry[]>('/dnc');
+  }
+
+  async addDoNotCall(phone: string, reason?: string): Promise<DoNotCallEntry> {
+    return this.request<DoNotCallEntry>('/dnc', {
+      method: 'POST',
+      body: JSON.stringify({ phone, reason: reason ?? null }),
+    });
+  }
+
+  async removeDoNotCall(phone: string): Promise<{ message: string }> {
+    return this.request(`/dnc/${encodeURIComponent(phone)}`, { method: 'DELETE' });
   }
 }
 

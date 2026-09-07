@@ -815,3 +815,326 @@ class CloudStatusResponse(BaseModel):
     key_prefix: Optional[str] = None
     connected_at: Optional[datetime] = None
     dashboard_url: str
+
+
+# ── Voice AI agent ────────────────────────────────────────────────────
+
+_VA_LANGUAGE_PATTERN = "^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$"
+_VA_ENGINE_PATTERN = "^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$"
+_VA_MODE_PATTERN = "^(outbound_sales|customer_service|support)$"
+_VA_OUTCOME_PATTERN = (
+    "^(interested|not_interested|callback|opt_out|resolved|unresolved|"
+    "ticket_created|handoff|no_answer|voicemail|max_turns|error)$"
+)
+
+DEFAULT_DISCLOSURE = "Just so you know, I'm an automated AI assistant and this call may be recorded."
+
+
+class VoiceAgentCreate(BaseModel):
+    """Body for ``POST /agents``."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    mode: str = Field(default="outbound_sales", pattern=_VA_MODE_PATTERN)
+    profile: str = Field(..., description="Voice profile name or id the agent speaks in.")
+    engine: Optional[str] = Field(None, pattern=_VA_ENGINE_PATTERN)
+    language: str = Field(default="en", pattern=_VA_LANGUAGE_PATTERN)
+    llm_model_size: Optional[str] = Field(None, pattern="^(0\\.6B|1\\.7B|4B)$")
+    agent_name: str = Field(..., min_length=1, max_length=100)
+    company_name: str = Field(..., min_length=1, max_length=200)
+    brief: str = Field(
+        ...,
+        min_length=1,
+        max_length=6000,
+        description="Facts the agent may state: the offer (sales) or the service scope (service/support).",
+    )
+    goal: str = Field(..., min_length=1, max_length=1000, description="What a successful call achieves.")
+    objection_notes: Optional[str] = Field(None, max_length=4000)
+    persona: Optional[str] = Field(None, max_length=2000, description="Tone / manner of speaking.")
+    opening_line: Optional[str] = Field(None, max_length=1000)
+    disclosure: str = Field(default=DEFAULT_DISCLOSURE, min_length=1, max_length=500)
+    escalation_promise: Optional[str] = Field(None, max_length=500)
+    timezone: str = Field(default="UTC", max_length=64)
+    calling_window_start: int = Field(default=9, ge=0, le=23)
+    calling_window_end: int = Field(default=20, ge=1, le=24)
+    calling_days: List[int] = Field(default_factory=lambda: [0, 1, 2, 3, 4])
+    max_attempts: int = Field(default=3, ge=1, le=20)
+    daily_call_cap: int = Field(default=200, ge=1, le=100000)
+    retry_delay_hours: int = Field(default=24, ge=1, le=720)
+    callback_delay_hours: int = Field(default=24, ge=1, le=720)
+    require_consent: bool = Field(
+        default=False,
+        description="When true, only contacts flagged consent=true are ever dialled.",
+    )
+    max_turns: int = Field(default=30, ge=2, le=200)
+    handoff_after_negative_turns: int = Field(default=3, ge=1, le=20)
+    provider: str = Field(default="local", pattern="^(local|twilio)$")
+    from_number: Optional[str] = Field(None, max_length=32)
+
+
+class VoiceAgentUpdate(BaseModel):
+    """Body for ``PUT /agents/{id}`` — every field optional."""
+
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    mode: Optional[str] = Field(None, pattern=_VA_MODE_PATTERN)
+    profile: Optional[str] = None
+    engine: Optional[str] = Field(None, pattern=_VA_ENGINE_PATTERN)
+    language: Optional[str] = Field(None, pattern=_VA_LANGUAGE_PATTERN)
+    llm_model_size: Optional[str] = Field(None, pattern="^(0\\.6B|1\\.7B|4B)$")
+    agent_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    company_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    brief: Optional[str] = Field(None, min_length=1, max_length=6000)
+    goal: Optional[str] = Field(None, min_length=1, max_length=1000)
+    objection_notes: Optional[str] = Field(None, max_length=4000)
+    persona: Optional[str] = Field(None, max_length=2000)
+    opening_line: Optional[str] = Field(None, max_length=1000)
+    disclosure: Optional[str] = Field(None, min_length=1, max_length=500)
+    escalation_promise: Optional[str] = Field(None, max_length=500)
+    timezone: Optional[str] = Field(None, max_length=64)
+    calling_window_start: Optional[int] = Field(None, ge=0, le=23)
+    calling_window_end: Optional[int] = Field(None, ge=1, le=24)
+    calling_days: Optional[List[int]] = None
+    max_attempts: Optional[int] = Field(None, ge=1, le=20)
+    daily_call_cap: Optional[int] = Field(None, ge=1, le=100000)
+    retry_delay_hours: Optional[int] = Field(None, ge=1, le=720)
+    callback_delay_hours: Optional[int] = Field(None, ge=1, le=720)
+    require_consent: Optional[bool] = None
+    max_turns: Optional[int] = Field(None, ge=2, le=200)
+    handoff_after_negative_turns: Optional[int] = Field(None, ge=1, le=20)
+    provider: Optional[str] = Field(None, pattern="^(local|twilio)$")
+    from_number: Optional[str] = Field(None, max_length=32)
+
+
+class VoiceAgentResponse(BaseModel):
+    id: str
+    name: str
+    mode: str
+    status: str
+    profile_id: str
+    engine: Optional[str] = None
+    language: str
+    llm_model_size: Optional[str] = None
+    agent_name: str
+    company_name: str
+    brief: str
+    goal: str
+    objection_notes: Optional[str] = None
+    persona: Optional[str] = None
+    opening_line: Optional[str] = None
+    disclosure: str
+    escalation_promise: Optional[str] = None
+    timezone: str
+    calling_window_start: int
+    calling_window_end: int
+    calling_days: List[int]
+    max_attempts: int
+    daily_call_cap: int
+    retry_delay_hours: int
+    callback_delay_hours: int
+    require_consent: bool
+    max_turns: int
+    handoff_after_negative_turns: int
+    provider: str
+    from_number: Optional[str] = None
+    running: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class VoiceAgentStats(BaseModel):
+    agent_id: str
+    mode: str
+    status: str
+    running: bool
+    contacts_total: int
+    contacts_by_status: dict[str, int]
+    calls_total: int
+    calls_today: int
+    calls_by_outcome: dict[str, int]
+    avg_turns: float
+    resolution_rate: float
+    open_tickets: int
+    next_dialable: int
+
+
+class ContactCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    phone: str = Field(..., min_length=3, max_length=32)
+    company: Optional[str] = Field(None, max_length=200)
+    notes: Optional[str] = Field(None, max_length=2000)
+    timezone: Optional[str] = Field(None, max_length=64)
+    consent: bool = False
+
+
+class ContactBulkCreate(BaseModel):
+    contacts: List[ContactCreate] = Field(..., min_length=1, max_length=10000)
+
+
+class ContactUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    phone: Optional[str] = Field(None, min_length=3, max_length=32)
+    company: Optional[str] = Field(None, max_length=200)
+    notes: Optional[str] = Field(None, max_length=2000)
+    memory: Optional[str] = Field(None, max_length=8000)
+    timezone: Optional[str] = Field(None, max_length=64)
+    consent: Optional[bool] = None
+    status: Optional[str] = Field(
+        None,
+        pattern="^(new|callback|contacted|interested|not_interested|resolved|unresolved|do_not_call|exhausted)$",
+    )
+    next_attempt_at: Optional[datetime] = None
+
+
+class ContactResponse(BaseModel):
+    id: str
+    agent_id: str
+    name: str
+    phone: str
+    company: Optional[str] = None
+    notes: Optional[str] = None
+    memory: Optional[str] = None
+    timezone: Optional[str] = None
+    consent: bool
+    status: str
+    attempts: int
+    last_attempt_at: Optional[datetime] = None
+    next_attempt_at: Optional[datetime] = None
+    last_outcome: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ContactImportResult(BaseModel):
+    imported: int
+    skipped: int
+    skipped_reasons: dict[str, int]
+
+
+class KnowledgeArticleCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1, max_length=20000)
+    tags: Optional[List[str]] = None
+
+
+class KnowledgeArticleUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    content: Optional[str] = Field(None, min_length=1, max_length=20000)
+    tags: Optional[List[str]] = None
+
+
+class KnowledgeArticleResponse(BaseModel):
+    id: str
+    agent_id: str
+    title: str
+    content: str
+    tags: List[str] = Field(default_factory=list)
+    created_at: datetime
+    updated_at: datetime
+
+
+class CallTurnResponse(BaseModel):
+    id: str
+    call_id: str
+    role: str
+    text: str
+    sentiment: Optional[float] = None
+    generation_id: Optional[str] = None
+    capture_id: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CallResponse(BaseModel):
+    id: str
+    agent_id: str
+    contact_id: str
+    direction: str
+    status: str
+    stage: str
+    outcome: Optional[str] = None
+    summary: Optional[str] = None
+    provider: str
+    provider_call_id: Optional[str] = None
+    turn_count: int
+    started_at: datetime
+    ended_at: Optional[datetime] = None
+    turns: List[CallTurnResponse] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+
+class InboundCallRequest(BaseModel):
+    """Start an inbound conversation (customer service / support)."""
+
+    phone: str = Field(..., min_length=3, max_length=32)
+    name: Optional[str] = Field(None, max_length=200)
+
+
+class CustomerTurnRequest(BaseModel):
+    """What the customer said, as text. Audio goes to ``/turn/audio``."""
+
+    text: str = Field(..., min_length=1, max_length=4000)
+
+
+class AgentTurnResponse(BaseModel):
+    """The agent's reply plus what it decided about the call."""
+
+    call_id: str
+    text: str
+    generation_id: Optional[str] = None
+    poll_url: Optional[str] = None
+    ended: bool
+    outcome: Optional[str] = None
+    ticket_id: Optional[str] = None
+    customer_text: Optional[str] = None
+    sentiment: Optional[float] = None
+
+
+class EndCallRequest(BaseModel):
+    outcome: str = Field(..., pattern=_VA_OUTCOME_PATTERN)
+    summary: Optional[str] = Field(None, max_length=2000)
+
+
+class TicketUpdate(BaseModel):
+    status: Optional[str] = Field(None, pattern="^(open|in_progress|resolved|closed)$")
+    priority: Optional[str] = Field(None, pattern="^(low|normal|high|urgent)$")
+    description: Optional[str] = Field(None, max_length=8000)
+
+
+class TicketResponse(BaseModel):
+    id: str
+    agent_id: str
+    contact_id: str
+    call_id: Optional[str] = None
+    kind: str
+    priority: str
+    status: str
+    subject: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class DoNotCallCreate(BaseModel):
+    phone: str = Field(..., min_length=3, max_length=32)
+    reason: Optional[str] = Field(None, max_length=500)
+
+
+class DoNotCallResponse(BaseModel):
+    phone: str
+    reason: Optional[str] = None
+    source: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

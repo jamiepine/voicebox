@@ -1,5 +1,15 @@
 import { Link, useMatchRoute } from '@tanstack/react-router';
-import { AudioLines, Box, Captions, type LucideIcon, Mic, Settings, Volume2, Wand2 } from 'lucide-react';
+import {
+  AudioLines,
+  Bot,
+  Box,
+  Captions,
+  type LucideIcon,
+  Mic,
+  Settings,
+  Volume2,
+  Wand2,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import voiceboxLogo from '@/assets/kalvoice-logo.png';
@@ -24,6 +34,7 @@ const tabs: Array<{
   { id: 'stories', path: '/stories', icon: AudioLines, labelKey: 'nav.stories' },
   { id: 'captures', path: '/captures', icon: Captions, labelKey: 'nav.captures' },
   { id: 'voices', path: '/voices', icon: Mic, labelKey: 'nav.voices' },
+  { id: 'agents', path: '/agents', icon: Bot, labelKey: 'nav.agents' },
   { id: 'effects', path: '/effects', icon: Wand2, labelKey: 'nav.effects' },
   { id: 'models', path: '/models', icon: Box, labelKey: 'nav.models' },
   { id: 'settings', path: '/settings', icon: Settings, labelKey: 'nav.settings' },

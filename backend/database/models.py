@@ -301,3 +301,192 @@ class Capture(Base):
     llm_model = Column(String, nullable=True)
     refinement_flags = Column(Text, nullable=True)  # JSON blob
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+# ── Voice AI agent ────────────────────────────────────────────────────
+# Conversational phone/voice agents driven by the local LLM (dialogue),
+# TTS (the agent's voice) and Whisper (the customer's side). One
+# ``VoiceAgent`` row is a fully configured persona for one of three modes:
+# outbound sales (telemarketing), inbound customer service, or inbound
+# support / issue resolution. See services/voice_agent.py for the call
+# lifecycle and docs/overview/voice-agent.mdx for the user guide.
+
+
+class VoiceAgent(Base):
+    """A configured voice agent: identity, mode, what it may say, which
+    voice it speaks in, and the compliance guard-rails.
+
+    The LLM only ever sees ``brief`` / ``objection_notes`` / ``persona``
+    plus retrieved knowledge articles, so the operator controls every
+    claim the agent can make.
+    """
+
+    __tablename__ = "va_agents"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    name = Column(String, unique=True, nullable=False)
+    mode = Column(String, nullable=False, default="outbound_sales")  # outbound_sales | customer_service | support
+    status = Column(String, nullable=False, default="draft")         # draft | active | paused | completed
+    # Voice + language the agent speaks in.
+    profile_id = Column(String, ForeignKey("profiles.id"), nullable=False)
+    engine = Column(String, nullable=True)
+    language = Column(String, nullable=False, default="en")
+    llm_model_size = Column(String, nullable=True)
+    # Identity the agent presents on the call.
+    agent_name = Column(String, nullable=False)
+    company_name = Column(String, nullable=False)
+    # What the agent is allowed to say / do.
+    brief = Column(Text, nullable=False)          # offer facts (sales) or service scope (service/support)
+    goal = Column(Text, nullable=False)
+    objection_notes = Column(Text, nullable=True)
+    persona = Column(Text, nullable=True)
+    opening_line = Column(Text, nullable=True)
+    # Spoken verbatim at the top of every call. Defaults to an AI-disclosure
+    # sentence; operators can localise it but not blank it.
+    disclosure = Column(Text, nullable=False)
+    # Where unresolved issues / handoffs go — free text shown to the caller
+    # ("a specialist will call you back within one business day").
+    escalation_promise = Column(Text, nullable=True)
+    # Compliance guard-rails (outbound only; inbound calls ignore the window).
+    timezone = Column(String, nullable=False, default="UTC")
+    calling_window_start = Column(Integer, nullable=False, default=9)   # local hour, inclusive
+    calling_window_end = Column(Integer, nullable=False, default=20)    # local hour, exclusive
+    calling_days = Column(JSON, nullable=False, default=lambda: [0, 1, 2, 3, 4])  # Mon=0 … Sun=6
+    max_attempts = Column(Integer, nullable=False, default=3)
+    daily_call_cap = Column(Integer, nullable=False, default=200)
+    retry_delay_hours = Column(Integer, nullable=False, default=24)
+    callback_delay_hours = Column(Integer, nullable=False, default=24)
+    require_consent = Column(Boolean, nullable=False, default=False)
+    max_turns = Column(Integer, nullable=False, default=30)
+    # Auto-handoff after this many consecutive negative customer turns.
+    handoff_after_negative_turns = Column(Integer, nullable=False, default=3)
+    # Telephony: "local" plays through the speakers and takes customer turns
+    # over the API / MCP; "twilio" dials / answers real numbers via webhooks.
+    provider = Column(String, nullable=False, default="local")
+    from_number = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Contact(Base):
+    """A person the agent talks to — an outbound lead or an inbound caller.
+
+    ``phone`` is stored normalised (digits with a leading ``+`` where
+    present) so DNC matching is exact. ``memory`` accumulates LLM call
+    summaries so the next conversation starts with context.
+    """
+
+    __tablename__ = "va_contacts"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    agent_id = Column(String, ForeignKey("va_agents.id"), nullable=False)
+    name = Column(String, nullable=False)
+    phone = Column(String, nullable=False)
+    company = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    memory = Column(Text, nullable=True)
+    timezone = Column(String, nullable=True)
+    # Operator's record that this person agreed to be contacted. The
+    # scheduler refuses contacts without it when the agent requires consent.
+    consent = Column(Boolean, nullable=False, default=False)
+    # new | callback | calling | contacted | interested | not_interested |
+    # resolved | unresolved | do_not_call | exhausted
+    status = Column(String, nullable=False, default="new")
+    attempts = Column(Integer, nullable=False, default=0)
+    last_attempt_at = Column(DateTime, nullable=True)
+    next_attempt_at = Column(DateTime, nullable=True)
+    last_outcome = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class KnowledgeArticle(Base):
+    """Grounding material the agent may quote from: FAQs, pricing, policies,
+    troubleshooting steps. Retrieved per turn by keyword overlap and
+    injected into the system prompt, so the agent answers from the
+    operator's facts rather than the model's imagination."""
+
+    __tablename__ = "va_knowledge"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    agent_id = Column(String, ForeignKey("va_agents.id"), nullable=False)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+    tags = Column(String, nullable=True)  # comma-separated
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Call(Base):
+    """One conversation (outbound dial attempt or inbound call) with its
+    running state."""
+
+    __tablename__ = "va_calls"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    agent_id = Column(String, ForeignKey("va_agents.id"), nullable=False)
+    contact_id = Column(String, ForeignKey("va_contacts.id"), nullable=False)
+    direction = Column(String, nullable=False, default="outbound")  # outbound | inbound
+    status = Column(String, nullable=False, default="in_progress")  # in_progress | completed | failed
+    stage = Column(String, nullable=False, default="opening")       # opening | conversation | closing | ended
+    # interested | not_interested | callback | opt_out | resolved |
+    # unresolved | ticket_created | handoff | no_answer | voicemail |
+    # max_turns | error
+    outcome = Column(String, nullable=True)
+    summary = Column(Text, nullable=True)
+    provider = Column(String, nullable=False, default="local")
+    provider_call_id = Column(String, nullable=True)
+    turn_count = Column(Integer, nullable=False, default=0)
+    negative_streak = Column(Integer, nullable=False, default=0)
+    started_at = Column(DateTime, default=datetime.utcnow)
+    ended_at = Column(DateTime, nullable=True)
+    last_activity_at = Column(DateTime, default=datetime.utcnow)
+
+
+class CallTurn(Base):
+    """A single utterance on a call. Agent turns link to the TTS generation
+    that voiced them; customer turns carry a sentiment score and link to
+    the capture when the audio came in through the API."""
+
+    __tablename__ = "va_call_turns"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    call_id = Column(String, ForeignKey("va_calls.id"), nullable=False)
+    role = Column(String, nullable=False)  # agent | customer
+    text = Column(Text, nullable=False)
+    sentiment = Column(Float, nullable=True)  # -1 … 1, customer turns only
+    generation_id = Column(String, ForeignKey("generations.id"), nullable=True)
+    capture_id = Column(String, ForeignKey("captures.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Ticket(Base):
+    """An issue the agent could not close on the call: escalations, human
+    handoffs, and support cases that need follow-up."""
+
+    __tablename__ = "va_tickets"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    agent_id = Column(String, ForeignKey("va_agents.id"), nullable=False)
+    contact_id = Column(String, ForeignKey("va_contacts.id"), nullable=False)
+    call_id = Column(String, ForeignKey("va_calls.id"), nullable=True)
+    kind = Column(String, nullable=False, default="support")  # support | handoff | callback | sales_lead
+    priority = Column(String, nullable=False, default="normal")  # low | normal | high | urgent
+    status = Column(String, nullable=False, default="open")  # open | in_progress | resolved | closed
+    subject = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DoNotCallEntry(Base):
+    """Global do-not-call list. Checked before every outbound dial, across
+    agents. Rows are appended automatically when a customer opts out
+    mid-call."""
+
+    __tablename__ = "va_do_not_call"
+
+    phone = Column(String, primary_key=True)
+    reason = Column(String, nullable=True)
+    source = Column(String, nullable=False, default="manual")  # manual | opt_out | import
+    created_at = Column(DateTime, default=datetime.utcnow)

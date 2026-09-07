@@ -34,6 +34,9 @@ MAX_TRANSCRIBE_BYTES = 200 * 1024 * 1024  # 200 MB
 
 def register_tools(mcp: FastMCP) -> None:
     """Attach all Voicebox tools to the given FastMCP instance."""
+    from .agent_tools import register_agent_tools
+
+    register_agent_tools(mcp)
 
     @mcp.tool(
         name="voicebox.speak",

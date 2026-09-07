@@ -82,6 +82,7 @@ The two cloud incumbents sit on opposite halves of the voice I/O loop — Eleven
 - **Voice input** — global dictation hotkey with push-to-talk and toggle modes, accessibility-verified auto-paste on macOS, in-app mic on every text field, Whisper-based STT
 - **Agent voice output** — one tool call (`voicebox.speak`) and any MCP-aware agent (Claude Code, Cursor, Cline) speaks to you in a voice you've cloned
 - **Voice personalities** — attach a free-form persona to any voice profile, then Compose, Rewrite, or Respond via a bundled local LLM — agents can invoke the same modes over MCP
+- **Voice agents** — outbound sales, customer service and support phone agents built on the same local stack, with a knowledge base, tickets, do-not-call list and an optional Twilio line
 - **API-first** — REST API plus a built-in MCP server for integrating voice I/O into your own apps and agents
 - **Native performance** — built with Tauri (Rust), not Electron
 - **Runs everywhere** — macOS (MLX/Metal), Windows (CUDA), Linux, AMD ROCm, Intel Arc, Docker
@@ -244,6 +245,18 @@ Also exposed as `POST /speak` for anything that doesn't speak MCP — ACP, A2A, 
 - **Per-agent voice binding** — in **Settings → MCP**, pin Claude Code to Morgan and Cursor to Scarlett so you can tell which agent is talking without looking. Each client's `last_seen_at` timestamp confirms the install actually took
 - **Always visible** — no silent background TTS; every agent-initiated speak surfaces the pill with the voice profile name for the full duration
 - **HTTP + stdio transports** — install as a URL in Claude Code / Cursor / Windsurf / VS Code MCP, or point stdio-only clients at the bundled `voicebox-mcp` binary
+
+### Voice Agents
+
+Turn any voice profile into a phone agent. Three modes — **outbound sales**, **customer service**, and **support** — run on the same local loop: Whisper hears the customer, the bundled Qwen3 LLM decides what to say, TTS says it in a voice you own.
+
+- **Grounded** — the agent only states facts from your brief and a per-agent knowledge base retrieved on every turn
+- **Guard-railed** — AI disclosure on every call, global do-not-call list with automatic opt-out handling, calling windows per time zone, attempt and daily caps, consent gating
+- **Resolves or escalates** — tickets for unresolved issues and hand-offs, a fixed hand-off line when a caller asks for a person, sentiment-triggered escalation
+- **Remembers** — LLM call summaries are written back to each contact for the next conversation
+- **Phone line optional** — test in the in-app console (type or speak as the customer), or wire up Twilio for real calls; MCP tools let Claude Code / Cursor drive calls too
+
+See the [Voice Agents guide](docs/content/docs/overview/voice-agent.mdx).
 
 ### Voice Personalities
 
