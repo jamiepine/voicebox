@@ -43,6 +43,7 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_voice_agent(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
 
 
@@ -334,3 +335,71 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         if total_fixed > 0:
             conn.commit()
             logger.info("Normalized %d stored file paths", total_fixed)
+
+# Columns added to the voice-agent tables after their first release. New
+# tables are created by ``Base.metadata.create_all``; this only patches
+# databases that already carry an earlier shape of these tables.
+_VOICE_AGENT_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "va_agents": [
+        ("version", "version INTEGER NOT NULL DEFAULT 1"),
+        ("voice_style", "voice_style VARCHAR"),
+        ("empathetic_voice_style", "empathetic_voice_style VARCHAR DEFAULT 'calm, warm and apologetic'"),
+        ("variants", "variants JSON"),
+        (
+            "filler_phrases",
+            'filler_phrases JSON NOT NULL DEFAULT \'["One moment.", "Sure, let me check that for you.", "Okay, bear with me a second."]\'',
+        ),
+        ("filler_audio", "filler_audio JSON"),
+        ("fast_first_audio", "fast_first_audio BOOLEAN NOT NULL DEFAULT 1"),
+        ("tools_enabled", "tools_enabled BOOLEAN NOT NULL DEFAULT 1"),
+        ("booking_instructions", "booking_instructions TEXT"),
+        ("appointment_duration_min", "appointment_duration_min INTEGER NOT NULL DEFAULT 30"),
+        ("analysis_schema", "analysis_schema JSON"),
+        ("webhook_url", "webhook_url VARCHAR"),
+        ("webhook_secret", "webhook_secret VARCHAR"),
+        ("redact_pii", "redact_pii BOOLEAN NOT NULL DEFAULT 1"),
+        ("max_concurrent_calls", "max_concurrent_calls INTEGER NOT NULL DEFAULT 1"),
+        ("schedule_start_at", "schedule_start_at DATETIME"),
+        ("schedule_end_at", "schedule_end_at DATETIME"),
+        ("transfer_number", "transfer_number VARCHAR"),
+        ("voicemail_message", "voicemail_message TEXT"),
+        ("sms_followup_template", "sms_followup_template TEXT"),
+        ("sms_followup_outcomes", "sms_followup_outcomes JSON NOT NULL DEFAULT '[\"interested\"]'"),
+    ],
+    "va_contacts": [
+        ("language", "language VARCHAR"),
+        ("custom_fields", "custom_fields JSON"),
+        ("is_test", "is_test BOOLEAN NOT NULL DEFAULT 0"),
+    ],
+    "va_knowledge": [
+        ("source", "source VARCHAR"),
+    ],
+    "va_calls": [
+        ("variant", "variant VARCHAR"),
+        ("ai_paused", "ai_paused BOOLEAN NOT NULL DEFAULT 0"),
+        ("analysis", "analysis JSON"),
+        ("score", "score INTEGER"),
+        ("score_reason", "score_reason TEXT"),
+        ("flags", "flags JSON"),
+        ("webhook_status", "webhook_status VARCHAR"),
+    ],
+    "va_call_turns": [
+        ("source", "source VARCHAR NOT NULL DEFAULT 'llm'"),
+        ("interrupted", "interrupted BOOLEAN NOT NULL DEFAULT 0"),
+        ("stt_ms", "stt_ms INTEGER"),
+        ("llm_ms", "llm_ms INTEGER"),
+        ("tool_name", "tool_name VARCHAR"),
+        ("meta", "meta JSON"),
+        ("generation_ids", "generation_ids JSON"),
+    ],
+}
+
+
+def _migrate_voice_agent(engine, inspector, tables: set[str]) -> None:
+    for table, columns in _VOICE_AGENT_COLUMNS.items():
+        if table not in tables:
+            continue
+        existing = _get_columns(inspector, table)
+        for name, ddl in columns:
+            if name not in existing:
+                _add_column(engine, table, ddl, name)

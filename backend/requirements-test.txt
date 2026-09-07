@@ -1,0 +1,25 @@
+# Dependencies for the test suites that run in CI.
+#
+# The CI suites exercise the API, database and conversation logic with the
+# TTS / STT / LLM backends stubbed out, so none of the ML stack in
+# requirements.txt is reachable from them — installing torch and friends
+# would add gigabytes and minutes to every run for code the tests never
+# import. Version floors match requirements.txt where the two overlap.
+#
+# Run the same checks locally:
+#
+#     pip install -r backend/requirements-test.txt
+#     python -m pytest backend/tests/test_voice_agent.py backend/tests/test_voice_agent_v2.py
+
+# Application deps reachable from the tests
+fastapi>=0.109.0
+pydantic>=2.5.0
+sqlalchemy>=2.0.0
+httpx>=0.27.0
+sse-starlette>=2.0
+python-multipart>=0.0.6
+
+# Test + lint tooling
+pytest>=8.0
+pytest-asyncio>=0.23
+ruff>=0.6

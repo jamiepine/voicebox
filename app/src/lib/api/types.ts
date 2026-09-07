@@ -560,3 +560,429 @@ export interface CloudStatus {
   connected_at: string | null;
   dashboard_url: string;
 }
+
+/* ─── Voice AI agent ──────────────────────────────────────────────────── */
+
+export type VoiceAgentMode = 'outbound_sales' | 'customer_service' | 'support';
+export type VoiceAgentStatus = 'draft' | 'active' | 'paused' | 'completed';
+export type VoiceAgentProvider = 'local' | 'twilio';
+
+export type CallOutcome =
+  | 'interested'
+  | 'not_interested'
+  | 'callback'
+  | 'opt_out'
+  | 'resolved'
+  | 'unresolved'
+  | 'ticket_created'
+  | 'handoff'
+  | 'no_answer'
+  | 'voicemail'
+  | 'voicemail_left'
+  | 'max_turns'
+  | 'error';
+
+export interface ScriptVariant {
+  name: string;
+  weight: number;
+  opening_line?: string | null;
+  brief?: string | null;
+  goal?: string | null;
+}
+
+export interface AnalysisField {
+  key: string;
+  question: string;
+  type: 'string' | 'boolean' | 'number' | 'enum';
+  options?: string[] | null;
+}
+
+export interface VoiceAgentCreate {
+  name: string;
+  mode: VoiceAgentMode;
+  profile: string;
+  engine?: string | null;
+  language: string;
+  llm_model_size?: string | null;
+  voice_style?: string | null;
+  empathetic_voice_style?: string | null;
+  agent_name: string;
+  company_name: string;
+  brief: string;
+  goal: string;
+  objection_notes?: string | null;
+  persona?: string | null;
+  opening_line?: string | null;
+  disclosure: string;
+  escalation_promise?: string | null;
+  variants?: ScriptVariant[] | null;
+  filler_phrases: string[];
+  fast_first_audio: boolean;
+  tools_enabled: boolean;
+  booking_instructions?: string | null;
+  appointment_duration_min: number;
+  analysis_schema?: AnalysisField[] | null;
+  webhook_url?: string | null;
+  webhook_secret?: string | null;
+  timezone: string;
+  calling_window_start: number;
+  calling_window_end: number;
+  calling_days: number[];
+  max_attempts: number;
+  daily_call_cap: number;
+  retry_delay_hours: number;
+  callback_delay_hours: number;
+  require_consent: boolean;
+  max_turns: number;
+  handoff_after_negative_turns: number;
+  redact_pii: boolean;
+  max_concurrent_calls: number;
+  schedule_start_at?: string | null;
+  schedule_end_at?: string | null;
+  provider: VoiceAgentProvider;
+  from_number?: string | null;
+  transfer_number?: string | null;
+  voicemail_message?: string | null;
+  sms_followup_template?: string | null;
+  sms_followup_outcomes: string[];
+}
+
+export type VoiceAgentUpdate = Partial<VoiceAgentCreate>;
+
+export interface VoiceAgent extends Omit<VoiceAgentCreate, 'profile'> {
+  id: string;
+  status: VoiceAgentStatus;
+  version: number;
+  profile_id: string;
+  filler_audio?: Record<string, string> | null;
+  running: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VoiceAgentVersion {
+  id: string;
+  agent_id: string;
+  version: number;
+  note: string | null;
+  snapshot: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface VoiceAgentStats {
+  agent_id: string;
+  mode: VoiceAgentMode;
+  status: VoiceAgentStatus;
+  running: boolean;
+  contacts_total: number;
+  contacts_by_status: Record<string, number>;
+  calls_total: number;
+  calls_today: number;
+  calls_by_outcome: Record<string, number>;
+  avg_turns: number;
+  resolution_rate: number;
+  open_tickets: number;
+  next_dialable: number;
+  appointments_upcoming: number;
+  avg_score: number | null;
+}
+
+export interface AnalyticsSeriesPoint {
+  date: string;
+  calls: number;
+  goal: number;
+  by_outcome: Record<string, number>;
+}
+
+export interface AnalyticsVariant {
+  name: string;
+  calls: number;
+  goal: number;
+  goal_rate: number;
+}
+
+export interface AnalyticsResponse {
+  agent_id: string;
+  days: number;
+  series: AnalyticsSeriesPoint[];
+  funnel: Record<string, number>;
+  outcomes: Record<string, number>;
+  avg_turns: number;
+  avg_duration_s: number;
+  avg_sentiment: number | null;
+  avg_stt_ms: number | null;
+  avg_llm_ms: number | null;
+  avg_score: number | null;
+  variants: AnalyticsVariant[];
+  analysis: Record<string, Record<string, number>>;
+  simulations: number;
+  appointments: number;
+}
+
+export interface ContactCreate {
+  name: string;
+  phone: string;
+  company?: string | null;
+  notes?: string | null;
+  timezone?: string | null;
+  language?: string | null;
+  custom_fields?: Record<string, string> | null;
+  consent?: boolean;
+}
+
+export interface ContactUpdate extends Partial<ContactCreate> {
+  memory?: string | null;
+  status?: string;
+  next_attempt_at?: string | null;
+}
+
+export interface Contact {
+  id: string;
+  agent_id: string;
+  name: string;
+  phone: string;
+  company: string | null;
+  notes: string | null;
+  memory: string | null;
+  timezone: string | null;
+  language: string | null;
+  custom_fields: Record<string, string> | null;
+  is_test: boolean;
+  consent: boolean;
+  status: string;
+  attempts: number;
+  last_attempt_at: string | null;
+  next_attempt_at: string | null;
+  last_outcome: string | null;
+  created_at: string;
+}
+
+export interface ContactListResponse {
+  contacts: Contact[];
+  total: number;
+}
+
+export interface ContactImportResult {
+  imported: number;
+  skipped: number;
+  skipped_reasons: Record<string, number>;
+}
+
+export interface KnowledgeArticleCreate {
+  title: string;
+  content: string;
+  tags?: string[] | null;
+}
+
+export interface KnowledgeArticle extends KnowledgeArticleCreate {
+  id: string;
+  agent_id: string;
+  tags: string[];
+  source: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface KnowledgeSearchResult {
+  article: KnowledgeArticle;
+  score: number;
+}
+
+export interface ToolParam {
+  name: string;
+  type: 'string' | 'number' | 'boolean';
+  description?: string | null;
+  required: boolean;
+}
+
+export interface AgentToolCreate {
+  name: string;
+  description: string;
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  url: string;
+  headers?: Record<string, string> | null;
+  params?: ToolParam[] | null;
+  timeout_s: number;
+  enabled: boolean;
+}
+
+export interface AgentTool extends AgentToolCreate {
+  id: string;
+  agent_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CallTurn {
+  id: string;
+  call_id: string;
+  role: 'agent' | 'customer' | 'tool';
+  text: string;
+  source: 'llm' | 'system' | 'operator' | 'tool';
+  sentiment: number | null;
+  interrupted: boolean;
+  stt_ms: number | null;
+  llm_ms: number | null;
+  tool_name: string | null;
+  meta: Record<string, unknown> | null;
+  generation_id: string | null;
+  generation_ids: string[] | null;
+  capture_id: string | null;
+  created_at: string;
+}
+
+export interface VoiceCall {
+  id: string;
+  agent_id: string;
+  contact_id: string;
+  direction: 'outbound' | 'inbound' | 'simulation';
+  status: 'in_progress' | 'completed' | 'failed';
+  stage: string;
+  outcome: CallOutcome | null;
+  summary: string | null;
+  variant: string | null;
+  ai_paused: boolean;
+  analysis: Record<string, unknown> | null;
+  score: number | null;
+  score_reason: string | null;
+  flags: string[] | null;
+  webhook_status: string | null;
+  provider: string;
+  provider_call_id: string | null;
+  turn_count: number;
+  started_at: string;
+  ended_at: string | null;
+  turns: CallTurn[];
+}
+
+export interface CallListResponse {
+  calls: VoiceCall[];
+  total: number;
+}
+
+export interface ToolCallRecord {
+  name: string;
+  args: Record<string, unknown>;
+  ok: boolean;
+  result: string;
+  ms: number;
+}
+
+export interface AgentTurnResponse {
+  call_id: string;
+  text: string;
+  generation_id: string | null;
+  generation_ids: string[];
+  poll_url: string | null;
+  ended: boolean;
+  outcome: CallOutcome | null;
+  ticket_id: string | null;
+  appointment_id: string | null;
+  customer_text: string | null;
+  sentiment: number | null;
+  awaiting_operator: boolean;
+  tool_calls: ToolCallRecord[];
+  stt_ms: number | null;
+  llm_ms: number | null;
+}
+
+/** Events on GET /calls/{id}/events (SSE). */
+export type CallEvent =
+  | { kind: 'customer_turn'; turn_id: string; text: string; sentiment: number | null }
+  | {
+      kind: 'agent_turn';
+      turn_id: string;
+      text: string;
+      source: string;
+      generation_id: string | null;
+      generation_ids: string[];
+      ended: boolean;
+      outcome?: CallOutcome | null;
+      holding?: boolean;
+      stt_ms: number | null;
+      llm_ms: number | null;
+    }
+  | { kind: 'filler'; text: string; generation_id: string }
+  | { kind: 'tool_call'; name: string; ok: boolean; result: string; ms: number }
+  | { kind: 'interrupted'; turn_id: string }
+  | { kind: 'ai_paused'; paused: boolean }
+  | { kind: 'awaiting_operator'; customer_turn_id: string }
+  | { kind: 'ended'; outcome: CallOutcome; summary: string | null; score: number | null };
+
+export interface Appointment {
+  id: string;
+  agent_id: string;
+  contact_id: string;
+  call_id: string | null;
+  starts_at: string;
+  ends_at: string;
+  timezone: string | null;
+  notes: string | null;
+  status: 'booked' | 'confirmed' | 'cancelled' | 'completed';
+  created_at: string;
+}
+
+export interface AgentMessage {
+  id: string;
+  agent_id: string;
+  contact_id: string;
+  call_id: string | null;
+  channel: string;
+  to_number: string;
+  body: string;
+  status: string;
+  provider_message_id: string | null;
+  error: string | null;
+  created_at: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  agent_id: string;
+  call_id: string | null;
+  event: string;
+  url: string;
+  status: 'pending' | 'delivered' | 'failed';
+  attempts: number;
+  response_code: number | null;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SimulateRequest {
+  persona: string;
+  max_turns: number;
+  variant?: string | null;
+}
+
+export interface Ticket {
+  id: string;
+  agent_id: string;
+  contact_id: string;
+  call_id: string | null;
+  kind: 'support' | 'handoff' | 'callback' | 'sales_lead';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  status: 'open' | 'in_progress' | 'resolved' | 'closed';
+  subject: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TicketListResponse {
+  tickets: Ticket[];
+  total: number;
+}
+
+export interface DoNotCallEntry {
+  phone: string;
+  reason: string | null;
+  source: string;
+  created_at: string;
+}
+
+export interface DoNotCallImportResult {
+  imported: number;
+  skipped: number;
+}

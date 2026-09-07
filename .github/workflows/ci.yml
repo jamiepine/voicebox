@@ -5,6 +5,10 @@ on:
   push:
     branches:
       - main
+  # Lets the checks be re-run on demand from the Actions tab (or the API)
+  # without pushing a commit — useful after enabling Actions on a fork,
+  # where the events that would have triggered earlier runs are long gone.
+  workflow_dispatch:
 
 jobs:
   frontend-quality:
@@ -24,3 +28,45 @@ jobs:
 
       - name: Build web smoke test
         run: bun run build:web
+
+  backend-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-test.txt
+
+      # Deliberately not requirements.txt: the suites below stub the TTS /
+      # STT / LLM backends, so torch and the rest of the ML stack are never
+      # imported. See the header of requirements-test.txt.
+      - name: Install test dependencies
+        run: pip install -r backend/requirements-test.txt
+
+      # The rest of the backend is still being migrated to ruff (see
+      # backend/STYLE_GUIDE.md), so linting is scoped to the modules that are
+      # clean today rather than gating CI on pre-existing findings.
+      - name: Lint voice-agent modules
+        run: |
+          paths=(
+            backend/services/voice_agent*.py
+            backend/services/telephony.py
+            backend/routes/voice_agent.py
+            backend/mcp_server/agent_tools.py
+            backend/tests/conftest.py
+            backend/tests/test_voice_agent*.py
+          )
+          ruff check "${paths[@]}"
+          ruff format --check "${paths[@]}"
+
+      - name: Backend tests
+        run: |
+          python -m pytest \
+            backend/tests/test_voice_agent.py \
+            backend/tests/test_voice_agent_v2.py \
+            -q

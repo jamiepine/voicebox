@@ -30,7 +30,8 @@ def build_mcp_server() -> FastMCP:
             "Voicebox is a local voice I/O layer. Use `voicebox.speak` to "
             "play text in a voice profile, `voicebox.transcribe` for "
             "audio→text, and the `list_*` tools to discover profiles and "
-            "captures."
+            "captures. The `voicebox.agent.*` tools drive configured voice "
+            "agents (outbound sales, customer service, support) call by call."
         ),
     )
     register_tools(mcp)
