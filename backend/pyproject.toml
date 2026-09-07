@@ -16,6 +16,12 @@ src = ["."]
 extend-exclude = [
     "voicebox-server.spec",
     "build_binary.py",
+    # ruff >= 0.16 formats python code blocks inside Markdown. The snippets in
+    # STYLE_GUIDE.md are illustrative fragments, not runnable code -- one is a
+    # single list element shown with its comment, which the formatter rewrites
+    # into a tuple -- and several rely on column alignment the formatter
+    # collapses. Documentation is prose; leave it alone.
+    "*.md",
 ]
 
 [tool.ruff.lint]
