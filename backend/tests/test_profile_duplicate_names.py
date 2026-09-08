@@ -5,23 +5,30 @@ This test suite verifies that the application correctly handles
 duplicate profile names and provides user-friendly error messages.
 """
 
+import importlib.util
 import shutil
-
-# Add parent directory to path to import backend modules
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# backend.services.profiles pulls in the audio stack at module scope, though
+# the duplicate-name checks below never reach it: utils.audio imports librosa /
+# numpy / soundfile, utils.cache imports torch, utils.images imports PIL. Stand
+# in for whichever are absent so this module is importable under the light test
+# manifest, which omits them on purpose (see requirements-test.txt). A real
+# install always wins, so this changes nothing in a full environment.
+for _heavy in ("librosa", "numpy", "soundfile", "torch", "PIL"):
+    if importlib.util.find_spec(_heavy) is None:
+        sys.modules[_heavy] = MagicMock()
 
-from profiles import create_profile, update_profile
-
-from database import Base
-from models import VoiceProfileCreate
+from backend.database import Base  # noqa: E402 -- must follow the stubs above
+from backend.models import VoiceProfileCreate  # noqa: E402
+from backend.services.profiles import create_profile, update_profile  # noqa: E402
 
 
 @pytest.fixture

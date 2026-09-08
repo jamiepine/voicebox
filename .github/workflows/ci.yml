@@ -61,4 +61,5 @@ jobs:
           python -m pytest \
             backend/tests/test_voice_agent.py \
             backend/tests/test_voice_agent_v2.py \
+            backend/tests/test_profile_duplicate_names.py \
             -q
