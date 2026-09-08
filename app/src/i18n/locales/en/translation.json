@@ -167,6 +167,7 @@
         "title": "Microphone access is turned off",
         "bodyMac": "Voicebox can't record until you allow it in <path>System Settings → Privacy & Security → Microphone</path>. Turn Voicebox on there, then come back and try again.",
         "bodyWindows": "Voicebox can't record until you allow it in <path>Settings → Privacy & security → Microphone</path>. Turn Voicebox on there, then come back and try again.",
+        "bodyLinux": "Voicebox can't record until your desktop allows microphone access for it. Check your system's sound or privacy settings, then come back and try again.",
         "bodyWeb": "Your browser is blocking microphone access for Voicebox. Allow the microphone from the icon in the address bar, then try again.",
         "openSettings": "Open Settings",
         "retry": "Try again",

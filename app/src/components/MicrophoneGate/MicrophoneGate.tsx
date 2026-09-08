@@ -5,6 +5,9 @@ import { Trans, useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { usePlatform } from '@/platform/PlatformContext';
 
+const isMacOSAgent = () => /Mac|iPhone|iPad/.test(navigator.userAgent);
+const isWindowsAgent = () => /Win/.test(navigator.userAgent);
+
 /**
  * Deep-link into the OS microphone privacy pane. Unlike the Accessibility and
  * Input Monitoring gates there is no `check_*` counterpart: WKWebView exposes
@@ -14,17 +17,22 @@ import { usePlatform } from '@/platform/PlatformContext';
 export function useMicrophonePermissionHelp() {
   const platform = usePlatform();
 
-  const canOpenSettings = platform.metadata.isTauri;
+  // Only macOS and Windows have a settings pane to deep-link into; the Rust
+  // command errors elsewhere, so Linux must not be offered the button.
+  const canOpenSettings = platform.metadata.isTauri && (isMacOSAgent() || isWindowsAgent());
 
-  /** Reveal the microphone pane in the OS settings app. No-op on the web. */
+  /**
+   * Reveal the microphone pane in the OS settings app. No-op where there is
+   * no such pane to open, which is the web build and Linux.
+   */
   const openSettings = useCallback(async () => {
-    if (!platform.metadata.isTauri) return;
+    if (!canOpenSettings) return;
     try {
       await invoke('open_microphone_settings');
     } catch (err) {
       console.warn('[microphone] open settings failed:', err);
     }
-  }, [platform.metadata.isTauri]);
+  }, [canOpenSettings]);
 
   return { canOpenSettings, openSettings };
 }
@@ -47,14 +55,19 @@ export function MicrophonePermissionNotice({
   showRestartHint?: boolean;
 }) {
   const { t } = useTranslation();
+  const platform = usePlatform();
   const { canOpenSettings, openSettings } = useMicrophonePermissionHelp();
-  const isMacOS = /Mac|iPhone|iPad/.test(navigator.userAgent);
+  const isMacOS = isMacOSAgent();
 
-  const bodyKey = !canOpenSettings
+  // Linux Tauri builds have no settings pane to point at, so they get generic
+  // wording rather than the Windows steps.
+  const bodyKey = !platform.metadata.isTauri
     ? 'captures.permissions.microphone.bodyWeb'
     : isMacOS
       ? 'captures.permissions.microphone.bodyMac'
-      : 'captures.permissions.microphone.bodyWindows';
+      : isWindowsAgent()
+        ? 'captures.permissions.microphone.bodyWindows'
+        : 'captures.permissions.microphone.bodyLinux';
 
   return (
     <div className="w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-3">
