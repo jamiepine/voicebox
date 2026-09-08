@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import models
-from ..services import channels
 from ..database import get_db
+from ..services import channels
 
 router = APIRouter()
 
@@ -25,7 +25,7 @@ async def create_channel(
     try:
         return await channels.create_channel(data, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/channels/{channel_id}", response_model=models.AudioChannelResponse)
@@ -53,7 +53,7 @@ async def update_channel(
             raise HTTPException(status_code=404, detail="Channel not found")
         return channel
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/channels/{channel_id}")
@@ -68,7 +68,7 @@ async def delete_channel(
             raise HTTPException(status_code=404, detail="Channel not found")
         return {"message": "Channel deleted successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/channels/{channel_id}/voices")
@@ -81,7 +81,7 @@ async def get_channel_voices(
         profile_ids = await channels.get_channel_voices(channel_id, db)
         return {"profile_ids": profile_ids}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/channels/{channel_id}/voices")
@@ -95,4 +95,4 @@ async def set_channel_voices(
         await channels.set_channel_voices(channel_id, data, db)
         return {"message": "Channel voices updated successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e

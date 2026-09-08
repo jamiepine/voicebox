@@ -12,7 +12,6 @@ import json
 import logging
 import uuid
 from pathlib import Path
-from typing import Optional
 
 import soundfile as sf
 from sqlalchemy.orm import Session
@@ -35,7 +34,7 @@ WHISPER_NATIVE_FORMATS = (".wav", ".mp3", ".flac", ".ogg")
 
 
 def _to_response(row: DBCapture) -> CaptureResponse:
-    flags_model: Optional[RefinementFlagsModel] = None
+    flags_model: RefinementFlagsModel | None = None
     if row.refinement_flags:
         try:
             flags_model = RefinementFlagsModel(**json.loads(row.refinement_flags))
@@ -62,8 +61,8 @@ async def create_capture(
     audio_bytes: bytes,
     filename: str,
     source: str,
-    language: Optional[str],
-    stt_model: Optional[str],
+    language: str | None,
+    stt_model: str | None,
     db: Session,
 ) -> CaptureResponse:
     """Persist raw audio, run STT, store the row."""
@@ -90,9 +89,7 @@ async def create_capture(
             audio, sr = load_audio(str(raw_path))
             duration_ms = int((len(audio) / sr) * 1000) if sr else None
         except Exception as decode_err:
-            logger.warning(
-                "Could not decode capture %s (%s): %r", capture_id, suffix, decode_err
-            )
+            logger.warning("Could not decode capture %s (%s): %r", capture_id, suffix, decode_err)
             audio, sr = None, None
             duration_ms = None
 
@@ -101,9 +98,7 @@ async def create_capture(
             # source is a format its miniaudio loader can still read — webm,
             # m4a, etc. would just 500 later. Surface a clean error instead.
             if suffix not in WHISPER_NATIVE_FORMATS:
-                raise ValueError(
-                    f"Could not decode {suffix} audio — the recording may be empty or corrupt"
-                )
+                raise ValueError(f"Could not decode {suffix} audio — the recording may be empty or corrupt")
             audio_path = raw_path
         elif suffix == ".wav":
             audio_path = raw_path
@@ -138,10 +133,8 @@ async def create_capture(
         # disk has no row pointing at it — clean up so data/captures doesn't
         # accumulate orphan blobs across failed transcribes.
         for path in written_files:
-            try:
+            with contextlib.suppress(OSError):
                 path.unlink()
-            except OSError:
-                pass
         raise
 
     return _to_response(row)
@@ -149,17 +142,11 @@ async def create_capture(
 
 def list_captures(db: Session, limit: int = 50, offset: int = 0) -> tuple[list[CaptureResponse], int]:
     total = db.query(DBCapture).count()
-    rows = (
-        db.query(DBCapture)
-        .order_by(DBCapture.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-        .all()
-    )
+    rows = db.query(DBCapture).order_by(DBCapture.created_at.desc()).limit(limit).offset(offset).all()
     return [_to_response(r) for r in rows], total
 
 
-def get_capture(capture_id: str, db: Session) -> Optional[CaptureResponse]:
+def get_capture(capture_id: str, db: Session) -> CaptureResponse | None:
     row = db.query(DBCapture).filter(DBCapture.id == capture_id).first()
     return _to_response(row) if row else None
 
@@ -184,9 +171,9 @@ def delete_capture(capture_id: str, db: Session) -> bool:
 async def refine_capture(
     capture_id: str,
     flags: RefinementFlags,
-    model_size: Optional[str],
+    model_size: str | None,
     db: Session,
-) -> Optional[CaptureResponse]:
+) -> CaptureResponse | None:
     row = db.query(DBCapture).filter(DBCapture.id == capture_id).first()
     if not row:
         return None
@@ -207,10 +194,10 @@ async def refine_capture(
 
 async def retranscribe_capture(
     capture_id: str,
-    stt_model: Optional[str],
-    language: Optional[str],
+    stt_model: str | None,
+    language: str | None,
     db: Session,
-) -> Optional[CaptureResponse]:
+) -> CaptureResponse | None:
     row = db.query(DBCapture).filter(DBCapture.id == capture_id).first()
     if not row:
         return None

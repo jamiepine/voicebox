@@ -9,7 +9,7 @@ import os
 import threading
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +25,9 @@ logger = logging.getLogger(__name__)
 
 _offline_lock = threading.RLock()
 _offline_refcount = 0
-_saved_env: Optional[str] = None
-_saved_hf_const: Optional[bool] = None
-_saved_transformers_const: Optional[bool] = None
+_saved_env: str | None = None
+_saved_hf_const: bool | None = None
+_saved_transformers_const: bool | None = None
 
 
 @contextmanager
@@ -61,8 +61,8 @@ def force_offline_if_cached(is_cached: bool, model_label: str = ""):
             # bumping the refcount — a persistent offline leak that outlives
             # the process and is miserable to debug.
             prev_env = os.environ.get("HF_HUB_OFFLINE")
-            prev_hf: Optional[bool] = None
-            prev_tf: Optional[bool] = None
+            prev_hf: bool | None = None
+            prev_tf: bool | None = None
             try:
                 try:
                     import huggingface_hub.constants as hf_const
@@ -206,8 +206,8 @@ def patch_huggingface_hub_offline():
             repo_id: str,
             filename: str,
             cache_dir: Union[str, Path, None] = None,
-            revision: Optional[str] = None,
-            repo_type: Optional[str] = None,
+            revision: str | None = None,
+            repo_type: str | None = None,
         ):
             result = original_try_load(
                 repo_id=repo_id,

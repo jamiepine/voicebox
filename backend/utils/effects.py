@@ -19,24 +19,23 @@ Supported effect types:
 
 from __future__ import annotations
 
-import numpy as np
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+import numpy as np
 from pedalboard import (
-    Pedalboard,
     Chorus,
-    Reverb,
     Compressor,
+    Delay,
     Gain,
     HighpassFilter,
     LowpassFilter,
-    Delay,
+    Pedalboard,
     PitchShift,
+    Reverb,
 )
 
-
 # Each param definition: (default, min, max, description)
-EFFECT_REGISTRY: Dict[str, Dict[str, Any]] = {
+EFFECT_REGISTRY: dict[str, dict[str, Any]] = {
     "chorus": {
         "cls": Chorus,
         "label": "Chorus / Flanger",
@@ -147,7 +146,7 @@ EFFECT_REGISTRY: Dict[str, Dict[str, Any]] = {
 }
 
 
-BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
+BUILTIN_PRESETS: dict[str, dict[str, Any]] = {
     "robotic": {
         "name": "Robotic",
         "sort_order": 0,
@@ -255,7 +254,7 @@ BUILTIN_PRESETS: Dict[str, Dict[str, Any]] = {
 }
 
 
-def get_available_effects() -> List[Dict[str, Any]]:
+def get_available_effects() -> list[dict[str, Any]]:
     """Return the list of available effect types with their parameter definitions.
 
     Used by the frontend to build the effects chain editor UI.
@@ -273,12 +272,12 @@ def get_available_effects() -> List[Dict[str, Any]]:
     return result
 
 
-def get_builtin_presets() -> Dict[str, Dict[str, Any]]:
+def get_builtin_presets() -> dict[str, dict[str, Any]]:
     """Return all built-in effect presets."""
     return BUILTIN_PRESETS
 
 
-def validate_effects_chain(effects_chain: List[Dict[str, Any]]) -> Optional[str]:
+def validate_effects_chain(effects_chain: list[dict[str, Any]]) -> str | None:
     """Validate an effects chain configuration.
 
     Returns None if valid, or an error message string.
@@ -315,7 +314,7 @@ def validate_effects_chain(effects_chain: List[Dict[str, Any]]) -> Optional[str]
     return None
 
 
-def build_pedalboard(effects_chain: List[Dict[str, Any]]) -> Pedalboard:
+def build_pedalboard(effects_chain: list[dict[str, Any]]) -> Pedalboard:
     """Build a Pedalboard instance from an effects chain config.
 
     Skips effects where ``enabled`` is ``False``.
@@ -342,7 +341,7 @@ def build_pedalboard(effects_chain: List[Dict[str, Any]]) -> Pedalboard:
 def apply_effects(
     audio: np.ndarray,
     sample_rate: int,
-    effects_chain: List[Dict[str, Any]],
+    effects_chain: list[dict[str, Any]],
 ) -> np.ndarray:
     """Apply an effects chain to audio data.
 

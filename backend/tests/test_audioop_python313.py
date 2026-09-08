@@ -41,6 +41,7 @@ class TestAudioopRuntime:
     def test_validate_reference_wav_does_not_fail_on_missing_audioop(self, tmp_path):
         import numpy as np
         import soundfile as sf
+
         from utils.audio import validate_and_load_reference_audio
 
         sr = 24000

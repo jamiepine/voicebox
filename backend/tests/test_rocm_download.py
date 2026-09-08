@@ -7,10 +7,9 @@ without hitting the network.
 
 import json
 import tarfile
-import tempfile
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -22,6 +21,7 @@ from backend.utils.progress import get_progress_manager
 def reset_progress_manager():
     """Reset the global progress manager before each test."""
     import backend.utils.progress
+
     backend.utils.progress._progress_manager = None
     yield
     backend.utils.progress._progress_manager = None

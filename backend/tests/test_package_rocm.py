@@ -76,13 +76,7 @@ class TestPackage:
         _write(onedir / "_internal" / "torch" / "lib" / "amdhip64.dll")
         _write(onedir / "_internal" / "_rocm_sdk_core" / "miopen.dll")
         _write(
-            onedir
-            / "_internal"
-            / "_rocm_sdk_libraries_custom"
-            / "lib"
-            / "rocblas"
-            / "library"
-            / "TensileLibrary.dat"
+            onedir / "_internal" / "_rocm_sdk_libraries_custom" / "lib" / "rocblas" / "library" / "TensileLibrary.dat"
         )
 
         out = tmp_path / "release-assets"
@@ -102,10 +96,7 @@ class TestPackage:
 
         assert "_internal/torch/lib/amdhip64.dll" in lib_names
         assert "_internal/_rocm_sdk_core/miopen.dll" in lib_names
-        assert (
-            "_internal/_rocm_sdk_libraries_custom/lib/rocblas/library/TensileLibrary.dat"
-            in lib_names
-        )
+        assert "_internal/_rocm_sdk_libraries_custom/lib/rocblas/library/TensileLibrary.dat" in lib_names
         assert "voicebox-server-rocm.exe" in core_names
         assert "_internal/torch/lib/torch_cpu.dll" in core_names
         assert "_internal/rocm_sdk/__init__.py" in core_names

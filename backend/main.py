@@ -5,10 +5,11 @@ entry point for development.
 """
 
 import argparse
+
 import uvicorn
 
-from .app import app  # noqa: F401 -- re-export for uvicorn "backend.main:app"
 from . import config, database
+from .app import app  # noqa: F401 -- re-export for uvicorn "backend.main:app"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="voicebox backend server")

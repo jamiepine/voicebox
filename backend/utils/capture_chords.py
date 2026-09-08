@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import sys
 
-
 MAC_PUSH_TO_TALK = ["MetaRight", "AltGr"]
 MAC_TOGGLE_TO_TALK = ["MetaRight", "AltGr", "Space"]
 NON_MAC_PUSH_TO_TALK = ["ControlRight", "ShiftRight"]

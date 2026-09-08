@@ -2,25 +2,59 @@ import type { LanguageCode } from '@/lib/constants/languages';
 import { useServerStore } from '@/stores/serverStore';
 import type {
   ActiveTasksResponse,
+  AgentMessage,
+  AgentTool,
+  AgentToolCreate,
+  AgentTurnResponse,
+  AnalyticsResponse,
   ApplyEffectsRequest,
+  Appointment,
   AvailableEffectsResponse,
+  CallListResponse,
+  CaptureCreateResponse,
+  CaptureListResponse,
+  CaptureReadinessResponse,
+  CaptureRefineRequest,
+  CaptureResponse,
+  CaptureRetranscribeRequest,
+  CaptureSettings,
+  CaptureSettingsUpdate,
+  CaptureSource,
+  CloudLoginStartResponse,
+  CloudStatus,
+  Contact,
+  ContactCreate,
+  ContactImportResult,
+  ContactListResponse,
+  ContactUpdate,
   CudaStatus,
+  DoNotCallEntry,
+  DoNotCallImportResult,
   EffectConfig,
   EffectPresetCreate,
   EffectPresetResponse,
   GenerationRequest,
   GenerationResponse,
+  GenerationSettings,
+  GenerationSettingsUpdate,
   GenerationVersionResponse,
   HealthResponse,
   HistoryListResponse,
   HistoryQuery,
   HistoryResponse,
+  KnowledgeArticle,
+  KnowledgeArticleCreate,
+  KnowledgeSearchResult,
+  MCPClientBinding,
+  MCPClientBindingListResponse,
+  MCPClientBindingUpsert,
   ModelDownloadRequest,
   ModelStatusListResponse,
-  PresetVoice,
   PersonalityTextResponse,
+  PresetVoice,
   ProfileSampleResponse,
   RocmStatus,
+  SimulateRequest,
   StoryCreate,
   StoryDetailResponse,
   StoryItemBatchUpdate,
@@ -33,26 +67,19 @@ import type {
   StoryItemVersionUpdate,
   StoryItemVolumeUpdate,
   StoryResponse,
+  Ticket,
+  TicketListResponse,
   TranscriptionResponse,
+  VoiceAgent,
+  VoiceAgentCreate,
+  VoiceAgentStats,
+  VoiceAgentUpdate,
+  VoiceAgentVersion,
+  VoiceCall,
   VoiceProfileCreate,
   VoiceProfileResponse,
+  WebhookDelivery,
   WhisperModelSize,
-  CaptureListResponse,
-  CaptureResponse,
-  CaptureCreateResponse,
-  CaptureReadinessResponse,
-  CaptureRefineRequest,
-  CaptureRetranscribeRequest,
-  CaptureSettings,
-  CaptureSettingsUpdate,
-  CaptureSource,
-  GenerationSettings,
-  GenerationSettingsUpdate,
-  MCPClientBinding,
-  MCPClientBindingListResponse,
-  MCPClientBindingUpsert,
-  CloudLoginStartResponse,
-  CloudStatus,
 } from './types';
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
@@ -76,21 +103,42 @@ class ApiClient {
     return serverUrl;
   }
 
+  private notReachableMessage(baseUrl: string): string {
+    return `Cannot reach the KALVOICE server at ${baseUrl || 'the configured address'}. Make sure the KALVOICE backend is running and the server URL is correct.`;
+  }
+
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-    const url = `${this.getBaseUrl()}${endpoint}`;
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
+    const baseUrl = this.getBaseUrl();
+    const url = `${baseUrl}${endpoint}`;
+
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
+    } catch {
+      // Native fetch rejects for network failures, DNS errors, and blocked
+      // mixed-content requests. WebKit surfaces the last case as the cryptic
+      // "The string did not match the expected pattern" — normalize them all.
+      throw new Error(this.notReachableMessage(baseUrl));
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({
         detail: response.statusText,
       }));
       throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+
+    // A static host (e.g. the hosted web build with no backend) answers
+    // unknown routes with the SPA's index.html and a 200; treat that as a
+    // missing backend rather than letting JSON parsing throw a cryptic error.
+    if ((response.headers.get('content-type') || '').includes('text/html')) {
+      throw new Error(this.notReachableMessage(baseUrl));
     }
 
     return response.json();
@@ -427,9 +475,7 @@ class ApiClient {
 
   // Captures
   async listCaptures(limit = 50, offset = 0): Promise<CaptureListResponse> {
-    return this.request<CaptureListResponse>(
-      `/captures?limit=${limit}&offset=${offset}`,
-    );
+    return this.request<CaptureListResponse>(`/captures?limit=${limit}&offset=${offset}`);
   }
 
   async getCapture(captureId: string): Promise<CaptureResponse> {
@@ -467,10 +513,7 @@ class ApiClient {
     });
   }
 
-  async refineCapture(
-    captureId: string,
-    body: CaptureRefineRequest,
-  ): Promise<CaptureResponse> {
+  async refineCapture(captureId: string, body: CaptureRefineRequest): Promise<CaptureResponse> {
     return this.request<CaptureResponse>(`/captures/${captureId}/refine`, {
       method: 'POST',
       body: JSON.stringify(body),
@@ -511,9 +554,7 @@ class ApiClient {
     return this.request<GenerationSettings>('/settings/generation');
   }
 
-  async updateGenerationSettings(
-    patch: GenerationSettingsUpdate,
-  ): Promise<GenerationSettings> {
+  async updateGenerationSettings(patch: GenerationSettingsUpdate): Promise<GenerationSettings> {
     return this.request<GenerationSettings>('/settings/generation', {
       method: 'PUT',
       body: JSON.stringify(patch),
@@ -525,9 +566,7 @@ class ApiClient {
     return this.request<MCPClientBindingListResponse>('/mcp/bindings');
   }
 
-  async upsertMCPBinding(
-    data: MCPClientBindingUpsert,
-  ): Promise<MCPClientBinding> {
+  async upsertMCPBinding(data: MCPClientBindingUpsert): Promise<MCPClientBinding> {
     return this.request<MCPClientBinding>('/mcp/bindings', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -535,10 +574,9 @@ class ApiClient {
   }
 
   async deleteMCPBinding(clientId: string): Promise<{ deleted: string }> {
-    return this.request<{ deleted: string }>(
-      `/mcp/bindings/${encodeURIComponent(clientId)}`,
-      { method: 'DELETE' },
-    );
+    return this.request<{ deleted: string }>(`/mcp/bindings/${encodeURIComponent(clientId)}`, {
+      method: 'DELETE',
+    });
   }
 
   // Model Management
@@ -954,6 +992,388 @@ class ApiClient {
 
   async disconnectCloud(): Promise<CloudStatus> {
     return this.request<CloudStatus>('/cloud/disconnect', { method: 'POST' });
+  }
+
+  // ── Voice AI agent ──────────────────────────────────────────────────
+
+  private async postForm<T>(endpoint: string, formData: FormData): Promise<T> {
+    const response = await fetch(`${this.getBaseUrl()}${endpoint}`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+    return response.json();
+  }
+
+  async listVoiceAgents(): Promise<VoiceAgent[]> {
+    return this.request<VoiceAgent[]>('/agents');
+  }
+
+  async getVoiceAgent(agentId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}`);
+  }
+
+  async createVoiceAgent(data: VoiceAgentCreate): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>('/agents', { method: 'POST', body: JSON.stringify(data) });
+  }
+
+  async updateVoiceAgent(agentId: string, data: VoiceAgentUpdate): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteVoiceAgent(agentId: string): Promise<{ message: string }> {
+    return this.request(`/agents/${agentId}`, { method: 'DELETE' });
+  }
+
+  async getVoiceAgentStats(agentId: string): Promise<VoiceAgentStats> {
+    return this.request<VoiceAgentStats>(`/agents/${agentId}/stats`);
+  }
+
+  async getVoiceAgentAnalytics(agentId: string, days = 30): Promise<AnalyticsResponse> {
+    return this.request<AnalyticsResponse>(`/agents/${agentId}/analytics?days=${days}`);
+  }
+
+  async startVoiceAgent(agentId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}/start`, { method: 'POST' });
+  }
+
+  async pauseVoiceAgent(agentId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}/pause`, { method: 'POST' });
+  }
+
+  async regenerateFillers(agentId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}/fillers/regenerate`, { method: 'POST' });
+  }
+
+  async listAgentVersions(agentId: string): Promise<VoiceAgentVersion[]> {
+    return this.request<VoiceAgentVersion[]>(`/agents/${agentId}/versions`);
+  }
+
+  async restoreAgentVersion(agentId: string, versionId: string): Promise<VoiceAgent> {
+    return this.request<VoiceAgent>(`/agents/${agentId}/versions/${versionId}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  async simulateCall(agentId: string, data: SimulateRequest): Promise<VoiceCall> {
+    return this.request<VoiceCall>(`/agents/${agentId}/simulate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getCallsCsvUrl(agentId: string, includeSimulations = false): string {
+    return `${this.getBaseUrl()}/agents/${agentId}/export/calls.csv?include_simulations=${includeSimulations}`;
+  }
+
+  getContactsCsvUrl(agentId: string): string {
+    return `${this.getBaseUrl()}/agents/${agentId}/export/contacts.csv`;
+  }
+
+  async listContacts(
+    agentId: string,
+    params: { status?: string; limit?: number; offset?: number } = {},
+  ): Promise<ContactListResponse> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.offset) qs.set('offset', String(params.offset));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<ContactListResponse>(`/agents/${agentId}/contacts${suffix}`);
+  }
+
+  async createContact(agentId: string, data: ContactCreate): Promise<Contact> {
+    return this.request<Contact>(`/agents/${agentId}/contacts`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async bulkCreateContacts(
+    agentId: string,
+    contacts: ContactCreate[],
+  ): Promise<ContactImportResult> {
+    return this.request<ContactImportResult>(`/agents/${agentId}/contacts/bulk`, {
+      method: 'POST',
+      body: JSON.stringify({ contacts }),
+    });
+  }
+
+  async importContactsCsv(agentId: string, file: File): Promise<ContactImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.postForm(`/agents/${agentId}/contacts/import`, formData);
+  }
+
+  async updateContact(contactId: string, data: ContactUpdate): Promise<Contact> {
+    return this.request<Contact>(`/contacts/${contactId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteContact(contactId: string): Promise<{ message: string }> {
+    return this.request(`/contacts/${contactId}`, { method: 'DELETE' });
+  }
+
+  async listKnowledge(agentId: string): Promise<KnowledgeArticle[]> {
+    return this.request<KnowledgeArticle[]>(`/agents/${agentId}/knowledge`);
+  }
+
+  async createKnowledge(agentId: string, data: KnowledgeArticleCreate): Promise<KnowledgeArticle> {
+    return this.request<KnowledgeArticle>(`/agents/${agentId}/knowledge`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async importKnowledgeUrl(
+    agentId: string,
+    url: string,
+    tags?: string[],
+  ): Promise<KnowledgeArticle[]> {
+    return this.request<KnowledgeArticle[]>(`/agents/${agentId}/knowledge/import-url`, {
+      method: 'POST',
+      body: JSON.stringify({ url, tags: tags ?? null }),
+    });
+  }
+
+  async importKnowledgeFile(
+    agentId: string,
+    file: File,
+    tags?: string,
+  ): Promise<KnowledgeArticle[]> {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (tags) formData.append('tags', tags);
+    return this.postForm(`/agents/${agentId}/knowledge/import-file`, formData);
+  }
+
+  async searchKnowledge(agentId: string, q: string): Promise<KnowledgeSearchResult[]> {
+    return this.request<KnowledgeSearchResult[]>(
+      `/agents/${agentId}/knowledge/search?q=${encodeURIComponent(q)}`,
+    );
+  }
+
+  async updateKnowledge(
+    articleId: string,
+    data: Partial<KnowledgeArticleCreate>,
+  ): Promise<KnowledgeArticle> {
+    return this.request<KnowledgeArticle>(`/knowledge/${articleId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteKnowledge(articleId: string): Promise<{ message: string }> {
+    return this.request(`/knowledge/${articleId}`, { method: 'DELETE' });
+  }
+
+  async listTools(agentId: string): Promise<AgentTool[]> {
+    return this.request<AgentTool[]>(`/agents/${agentId}/tools`);
+  }
+
+  async createTool(agentId: string, data: AgentToolCreate): Promise<AgentTool> {
+    return this.request<AgentTool>(`/agents/${agentId}/tools`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateTool(toolId: string, data: Partial<AgentToolCreate>): Promise<AgentTool> {
+    return this.request<AgentTool>(`/tools/${toolId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTool(toolId: string): Promise<{ message: string }> {
+    return this.request(`/tools/${toolId}`, { method: 'DELETE' });
+  }
+
+  async listCalls(
+    agentId: string,
+    params: { status?: string; limit?: number; offset?: number; includeSimulations?: boolean } = {},
+  ): Promise<CallListResponse> {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.offset) qs.set('offset', String(params.offset));
+    if (params.includeSimulations === false) qs.set('include_simulations', 'false');
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<CallListResponse>(`/agents/${agentId}/calls${suffix}`);
+  }
+
+  async startNextCall(
+    agentId: string,
+    opts: { contactId?: string; variant?: string; clientPlays?: boolean } = {},
+  ): Promise<AgentTurnResponse> {
+    const qs = new URLSearchParams();
+    if (opts.contactId) qs.set('contact_id', opts.contactId);
+    if (opts.variant) qs.set('variant', opts.variant);
+    if (opts.clientPlays) qs.set('client_plays', 'true');
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<AgentTurnResponse>(`/agents/${agentId}/calls/next${suffix}`, {
+      method: 'POST',
+    });
+  }
+
+  async startInboundCall(
+    agentId: string,
+    data: { phone: string; name?: string | null },
+    clientPlays = false,
+  ): Promise<AgentTurnResponse> {
+    const suffix = clientPlays ? '?client_plays=true' : '';
+    return this.request<AgentTurnResponse>(`/agents/${agentId}/calls/inbound${suffix}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getCall(callId: string): Promise<VoiceCall> {
+    return this.request<VoiceCall>(`/calls/${callId}`);
+  }
+
+  getCallEventsUrl(callId: string): string {
+    return `${this.getBaseUrl()}/calls/${callId}/events`;
+  }
+
+  getCallTranscriptUrl(callId: string): string {
+    return `${this.getBaseUrl()}/calls/${callId}/transcript.txt`;
+  }
+
+  async sendCustomerTurn(
+    callId: string,
+    text: string,
+    clientPlays = false,
+  ): Promise<AgentTurnResponse> {
+    const suffix = clientPlays ? '?client_plays=true' : '';
+    return this.request<AgentTurnResponse>(`/calls/${callId}/turn${suffix}`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async sendCustomerTurnAudio(
+    callId: string,
+    blob: Blob,
+    language?: string,
+    clientPlays = false,
+  ): Promise<AgentTurnResponse> {
+    const formData = new FormData();
+    formData.append('file', blob, 'turn.wav');
+    if (language) formData.append('language', language);
+    const suffix = clientPlays ? '?client_plays=true' : '';
+    return this.postForm(`/calls/${callId}/turn/audio${suffix}`, formData);
+  }
+
+  async interruptCall(
+    callId: string,
+    turnId?: string,
+  ): Promise<{ interrupted_turn_id: string | null }> {
+    return this.request(`/calls/${callId}/interrupt`, {
+      method: 'POST',
+      body: JSON.stringify({ turn_id: turnId ?? null }),
+    });
+  }
+
+  async agentSay(callId: string, text: string, clientPlays = false): Promise<AgentTurnResponse> {
+    const suffix = clientPlays ? '?client_plays=true' : '';
+    return this.request<AgentTurnResponse>(`/calls/${callId}/agent_say${suffix}`, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    });
+  }
+
+  async setCallAiPaused(callId: string, paused: boolean): Promise<VoiceCall> {
+    return this.request<VoiceCall>(`/calls/${callId}/ai/${paused ? 'pause' : 'resume'}`, {
+      method: 'POST',
+    });
+  }
+
+  async endCall(callId: string, outcome: string, summary?: string): Promise<VoiceCall> {
+    return this.request<VoiceCall>(`/calls/${callId}/end`, {
+      method: 'POST',
+      body: JSON.stringify({ outcome, summary: summary ?? null }),
+    });
+  }
+
+  async listAppointments(agentId: string, upcoming = false): Promise<Appointment[]> {
+    return this.request<Appointment[]>(`/agents/${agentId}/appointments?upcoming=${upcoming}`);
+  }
+
+  async updateAppointment(
+    appointmentId: string,
+    data: { status?: string; notes?: string; starts_at?: string; ends_at?: string },
+  ): Promise<Appointment> {
+    return this.request<Appointment>(`/appointments/${appointmentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  getAppointmentIcsUrl(appointmentId: string): string {
+    return `${this.getBaseUrl()}/appointments/${appointmentId}.ics`;
+  }
+
+  async listAgentMessages(agentId: string): Promise<AgentMessage[]> {
+    return this.request<AgentMessage[]>(`/agents/${agentId}/messages`);
+  }
+
+  async listWebhookDeliveries(agentId: string): Promise<WebhookDelivery[]> {
+    return this.request<WebhookDelivery[]>(`/agents/${agentId}/webhook-deliveries`);
+  }
+
+  async testWebhook(agentId: string): Promise<WebhookDelivery> {
+    return this.request<WebhookDelivery>(`/agents/${agentId}/webhook/test`, { method: 'POST' });
+  }
+
+  async listTickets(
+    params: { agentId?: string; status?: string; limit?: number } = {},
+  ): Promise<TicketListResponse> {
+    const qs = new URLSearchParams();
+    if (params.agentId) qs.set('agent_id', params.agentId);
+    if (params.status) qs.set('status', params.status);
+    if (params.limit) qs.set('limit', String(params.limit));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return this.request<TicketListResponse>(`/tickets${suffix}`);
+  }
+
+  async updateTicket(
+    ticketId: string,
+    data: { status?: string; priority?: string; description?: string },
+  ): Promise<Ticket> {
+    return this.request<Ticket>(`/tickets/${ticketId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listDoNotCall(): Promise<DoNotCallEntry[]> {
+    return this.request<DoNotCallEntry[]>('/dnc');
+  }
+
+  async addDoNotCall(phone: string, reason?: string): Promise<DoNotCallEntry> {
+    return this.request<DoNotCallEntry>('/dnc', {
+      method: 'POST',
+      body: JSON.stringify({ phone, reason: reason ?? null }),
+    });
+  }
+
+  async importDoNotCall(file: File): Promise<DoNotCallImportResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.postForm('/dnc/import', formData);
+  }
+
+  async removeDoNotCall(phone: string): Promise<{ message: string }> {
+    return this.request(`/dnc/${encodeURIComponent(phone)}`, { method: 'DELETE' });
   }
 }
 
