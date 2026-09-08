@@ -10,7 +10,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy import create_engine
@@ -22,13 +22,23 @@ from sqlalchemy.orm import sessionmaker
 # in for whichever are absent so this module is importable under the light test
 # manifest, which omits them on purpose (see requirements-test.txt). A real
 # install always wins, so this changes nothing in a full environment.
-for _heavy in ("librosa", "numpy", "soundfile", "torch", "PIL"):
-    if importlib.util.find_spec(_heavy) is None:
-        sys.modules[_heavy] = MagicMock()
+#
+# patch.dict, not a bare sys.modules assignment: it restores the whole mapping
+# on exit, so the stand-ins -- and the backend modules imported under them --
+# are gone by the time any other test module is collected. Leaving them in
+# place lets files that legitimately cannot import here do so anyway, and they
+# then run against half-mocked internals and corrupt shared state for
+# everything after them.
+_stubs = {
+    name: MagicMock()
+    for name in ("librosa", "numpy", "soundfile", "torch", "PIL")
+    if importlib.util.find_spec(name) is None
+}
 
-from backend.database import Base  # noqa: E402 -- must follow the stubs above
-from backend.models import VoiceProfileCreate  # noqa: E402
-from backend.services.profiles import create_profile, update_profile  # noqa: E402
+with patch.dict(sys.modules, _stubs):
+    from backend.database import Base
+    from backend.models import VoiceProfileCreate
+    from backend.services.profiles import create_profile, update_profile
 
 
 @pytest.fixture
