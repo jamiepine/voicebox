@@ -1,6 +1,55 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { usePlatform } from '@/platform/PlatformContext';
+import { useTranslation } from 'react-i18next';
 import { convertToWav } from '@/lib/utils/audio';
+import { usePlatform } from '@/platform/PlatformContext';
+
+/**
+ * Why a recording attempt failed, so callers can pick a recovery affordance
+ * instead of dumping the browser's own prose at the user. `permission-denied`
+ * is the one that needs a way out — macOS never re-prompts once TCC has a
+ * denial on record, so the UI has to deep-link the user into System Settings.
+ */
+export type RecordingErrorKind =
+  | 'permission-denied'
+  | 'no-device'
+  | 'device-busy'
+  | 'unavailable'
+  | 'unknown';
+
+/**
+ * Map a `getUserMedia` rejection onto {@link RecordingErrorKind}. The spec-defined
+ * `DOMException.name` is the only stable signal here — `message` is wildly
+ * engine-specific (WebKit's denial reads "The request is not allowed by the user
+ * agent or the platform in the current context…") and must never reach the UI.
+ */
+function classifyMediaError(err: unknown): RecordingErrorKind {
+  const name = err instanceof Error ? err.name : '';
+  switch (name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'permission-denied';
+    case 'NotFoundError':
+    case 'OverconstrainedError':
+      return 'no-device';
+    case 'NotReadableError':
+    case 'AbortError':
+      return 'device-busy';
+    default:
+      return 'unknown';
+  }
+}
+
+/**
+ * `navigator.mediaDevices` itself is missing — a stale WKWebView, a non-secure
+ * origin on the web build. Distinct from a denial: there is no permission for
+ * the user to flip, so the recovery advice differs.
+ */
+class MediaUnavailableError extends Error {
+  constructor() {
+    super('mediaDevices unavailable');
+    this.name = 'MediaUnavailableError';
+  }
+}
 
 interface UseAudioRecordingOptions {
   maxDurationSeconds?: number;
@@ -12,9 +61,11 @@ export function useAudioRecording({
   onRecordingComplete,
 }: UseAudioRecordingOptions = {}) {
   const platform = usePlatform();
+  const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [errorKind, setErrorKind] = useState<RecordingErrorKind | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -22,9 +73,30 @@ export function useAudioRecording({
   const startTimeRef = useRef<number | null>(null);
   const cancelledRef = useRef<boolean>(false);
 
+  const describeError = useCallback(
+    (kind: RecordingErrorKind): string => {
+      switch (kind) {
+        case 'permission-denied':
+          return t('audioSample.errors.permissionDenied');
+        case 'no-device':
+          return t('audioSample.errors.noDevice');
+        case 'device-busy':
+          return t('audioSample.errors.deviceBusy');
+        case 'unavailable':
+          return platform.metadata.isTauri
+            ? t('audioSample.errors.unavailableTauri')
+            : t('audioSample.errors.unavailableWeb');
+        default:
+          return t('audioSample.errors.unknown');
+      }
+    },
+    [t, platform.metadata.isTauri],
+  );
+
   const startRecording = useCallback(async () => {
     try {
       setError(null);
+      setErrorKind(null);
       chunksRef.current = [];
       cancelledRef.current = false;
       setDuration(0);
@@ -32,10 +104,7 @@ export function useAudioRecording({
       // Check if getUserMedia is available
       // In Tauri, navigator.mediaDevices might not be available immediately
       if (typeof navigator === 'undefined') {
-        const errorMsg =
-          'Navigator API is not available. This might be a Tauri configuration issue.';
-        setError(errorMsg);
-        throw new Error(errorMsg);
+        throw new MediaUnavailableError();
       }
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -50,11 +119,7 @@ export function useAudioRecording({
             isTauri: platform.metadata.isTauri,
           });
 
-          const errorMsg = platform.metadata.isTauri
-            ? 'Microphone access is not available. Please ensure:\n1. The app has microphone permissions in System Settings (macOS: System Settings > Privacy & Security > Microphone)\n2. You restart the app after granting permissions\n3. You are using Tauri v2 with a webview that supports getUserMedia'
-            : 'Microphone access is not available. Please ensure you are using a secure context (HTTPS or localhost) and that your browser has microphone permissions enabled.';
-          setError(errorMsg);
-          throw new Error(errorMsg);
+          throw new MediaUnavailableError();
         }
       }
 
@@ -120,7 +185,8 @@ export function useAudioRecording({
       };
 
       mediaRecorder.onerror = (event) => {
-        setError('Recording error occurred');
+        setError(t('audioSample.errors.recorderFailed'));
+        setErrorKind('unknown');
         console.error('MediaRecorder error:', event);
       };
 
@@ -155,14 +221,15 @@ export function useAudioRecording({
         }
       }, 100);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Failed to access microphone. Please check permissions.';
-      setError(errorMessage);
+      const kind = err instanceof MediaUnavailableError ? 'unavailable' : classifyMediaError(err);
+      // Keep the raw rejection in the console for bug reports — only the
+      // translated summary reaches the UI.
+      console.error('Failed to start recording:', err);
+      setErrorKind(kind);
+      setError(describeError(kind));
       setIsRecording(false);
     }
-  }, [maxDurationSeconds, onRecordingComplete]);
+  }, [maxDurationSeconds, onRecordingComplete, platform.metadata.isTauri, t, describeError]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -213,6 +280,7 @@ export function useAudioRecording({
     isRecording,
     duration,
     error,
+    errorKind,
     startRecording,
     stopRecording,
     cancelRecording,

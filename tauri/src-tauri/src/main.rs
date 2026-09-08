@@ -1182,6 +1182,34 @@ fn open_input_monitoring_settings(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
+/// Open the Privacy & Security → Microphone pane in System Settings. macOS
+/// never re-prompts once the user has denied the mic on record, so the
+/// recording UI deep-links here instead of leaving them to hunt for the
+/// toggle. Windows has an equivalent `ms-settings:` pane.
+#[command]
+fn open_microphone_settings(app: tauri::AppHandle) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let url = "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+        app.shell()
+            .open(url, None)
+            .map_err(|e| format!("Failed to open Microphone settings: {e}"))?;
+        Ok(())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        app.shell()
+            .open("ms-settings:privacy-microphone", None)
+            .map_err(|e| format!("Failed to open Microphone settings: {e}"))?;
+        Ok(())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        let _ = app;
+        Err("Microphone settings pane is only implemented on macOS and Windows".into())
+    }
+}
+
 /// Deliver `text` into the UI that had focus when the chord fired.
 ///
 /// Pipeline: activate the captured PID → settle → save the user's
@@ -1527,6 +1555,7 @@ pub fn run() {
             check_input_monitoring_permission,
             open_accessibility_settings,
             open_input_monitoring_settings,
+            open_microphone_settings,
             paste_final_text,
             enable_hotkey,
             disable_hotkey,
