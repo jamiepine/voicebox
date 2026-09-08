@@ -16,6 +16,7 @@ export function useMicrophonePermissionHelp() {
 
   const canOpenSettings = platform.metadata.isTauri;
 
+  /** Reveal the microphone pane in the OS settings app. No-op on the web. */
   const openSettings = useCallback(async () => {
     if (!platform.metadata.isTauri) return;
     try {

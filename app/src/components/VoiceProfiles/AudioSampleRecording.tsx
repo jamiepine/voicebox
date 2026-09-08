@@ -39,6 +39,15 @@ interface AudioSampleRecordingProps {
   permissionDenied?: boolean;
 }
 
+/**
+ * The record-a-sample surface shared by the Create Voice and Add Sample
+ * dialogs: a mic button that becomes a live waveform, then playback and
+ * transcribe controls once a clip exists.
+ *
+ * When the microphone is denied it swaps the record button for
+ * {@link MicrophonePermissionNotice}, which is the only affordance the user
+ * gets: macOS does not re-prompt once a denial is on record.
+ */
 export function AudioSampleRecording({
   file,
   isRecording,

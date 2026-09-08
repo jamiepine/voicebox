@@ -56,6 +56,18 @@ interface UseAudioRecordingOptions {
   onRecordingComplete?: (blob: Blob, duration?: number) => void;
 }
 
+/**
+ * Record a single audio clip from the user's microphone.
+ *
+ * Wraps `getUserMedia` plus `MediaRecorder` and hands the caller a WAV blob
+ * through `onRecordingComplete`, falling back to the raw WebM when conversion
+ * fails. Pass `maxDurationSeconds` to auto-stop (voice-clone samples use 29s);
+ * omit it for open-ended dictation that runs until `stopRecording`.
+ *
+ * Failures surface as a translated `error` string plus an `errorKind` the UI
+ * can branch on, so a denied microphone can offer a way to grant it rather
+ * than printing the browser's own wording.
+ */
 export function useAudioRecording({
   maxDurationSeconds,
   onRecordingComplete,
@@ -73,6 +85,11 @@ export function useAudioRecording({
   const startTimeRef = useRef<number | null>(null);
   const cancelledRef = useRef<boolean>(false);
 
+  /**
+   * Translate a {@link RecordingErrorKind} into the sentence shown to the
+   * user. `unavailable` splits by platform: on desktop the microphone is a
+   * system grant, in the browser it is usually a non-secure origin.
+   */
   const describeError = useCallback(
     (kind: RecordingErrorKind): string => {
       switch (kind) {
