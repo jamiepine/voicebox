@@ -23,7 +23,7 @@
 
 The backend exposes:
 
-- **`TTSBackend` Protocol** with seven concrete engine implementations:
+- **`TTSBackend` Protocol** with eight concrete engine implementations:
   - Qwen3-TTS (PyTorch or MLX depending on platform)
   - Qwen CustomVoice (predefined speakers with instruct)
   - LuxTTS (fast, CPU-friendly)
@@ -31,6 +31,7 @@ The backend exposes:
   - Chatterbox Turbo (English, paralinguistic tags)
   - TADA (1B English, 3B multilingual via HumeAI)
   - Kokoro 82M (pre-built voices, CPU realtime)
+  - VoxCPM2 (30-language local cloning)
 - **`STTBackend` Protocol** for Whisper (PyTorch or MLX-Whisper)
 - **Profiles / History / Stories** services for persistence and timeline editing
 

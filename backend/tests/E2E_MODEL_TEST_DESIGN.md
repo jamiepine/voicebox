@@ -4,7 +4,7 @@
 
 A single script, runnable on macOS and Windows, that exercises every TTS model against the **frozen PyInstaller binary** (not the dev server), captures per-model pass/fail and error messages, and exits non-zero if any model fails. Generation is strictly sequential — one model loaded at a time.
 
-## Test matrix (10 runs)
+## Test matrix (11 runs)
 
 Derived from `backend/backends/__init__.py:185-316`. Each row maps to one `POST /generate` call.
 
