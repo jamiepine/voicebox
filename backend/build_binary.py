@@ -121,6 +121,8 @@ def build_server(cuda=False, rocm=False):
             "--hidden-import",
             "backend.backends.qwen_custom_voice_backend",
             "--hidden-import",
+            "backend.backends.voxcpm_backend",
+            "--hidden-import",
             "backend.utils.audio",
             "--hidden-import",
             "backend.utils.cache",
@@ -186,6 +188,8 @@ def build_server(cuda=False, rocm=False):
             "--hidden-import",
             "qwen_tts",
             "--hidden-import",
+            "voxcpm",
+            "--hidden-import",
             "qwen_tts.inference",
             "--hidden-import",
             "qwen_tts.inference.qwen3_tts_model",
@@ -197,6 +201,8 @@ def build_server(cuda=False, rocm=False):
             "qwen_tts.cli",
             "--copy-metadata",
             "qwen-tts",
+            "--copy-metadata",
+            "voxcpm",
             "--copy-metadata",
             "requests",
             "--copy-metadata",
@@ -215,6 +221,10 @@ def build_server(cuda=False, rocm=False):
             # modeling_qwen3_tts.py — needs physical .py source files bundled
             "--collect-all",
             "qwen_tts",
+            # VoxCPM2's AudioVAE uses @torch.jit.script, which requires the
+            # physical Python source files in frozen builds.
+            "--collect-all",
+            "voxcpm",
             # Fix for pkg_resources and jaraco namespace packages
             "--hidden-import",
             "pkg_resources.extern",
@@ -721,6 +731,8 @@ def build_shim():
         "--exclude-module",
         "kokoro",
         "--exclude-module",
+        "voxcpm",
+        "--exclude-module",
         "misaki",
         "--exclude-module",
         "spacy",
@@ -784,4 +796,3 @@ if __name__ == "__main__":
         build_shim()
     else:
         build_server(cuda=cli_args.cuda, rocm=cli_args.rocm)
-

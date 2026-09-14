@@ -69,7 +69,7 @@ The backend exposes:
 ```
 POST /generate
   1. Look up voice profile from DB
-  2. Resolve engine from request (qwen | qwen_custom_voice | luxtts | chatterbox | chatterbox_turbo | tada | kokoro)
+  2. Resolve engine from request (qwen | qwen_custom_voice | luxtts | chatterbox | chatterbox_turbo | tada | kokoro | voxcpm2)
   3. Get backend: get_tts_backend_for_engine(engine)  # thread-safe singleton per engine
   4. Check model cache → if missing, trigger background download, return HTTP 202
   5. Load model (lazy): tts_backend.load_model(model_size)
@@ -189,7 +189,7 @@ Shipped 2026-04-25 (PR #544). Voicebox went from a voice-cloning studio to a ful
 | Model | PR / Branch | Reason |
 |-------|-------------|--------|
 | **CosyVoice2/3** | PR #311 | Output quality too poor. Heavy deps, no PyPI, needed 5+ shims. PR should be closed. |
-| **VoxCPM 1.5 / VoxCPM2** | `voicebox-new-models` research (2026-04-18) | **Backlogged.** See detailed analysis below. |
+| **VoxCPM 1.5 / VoxCPM2** | `feat/voxcpm2-backend` | **Active community integration.** VoxCPM2 now has a native Voicebox backend draft using CUDA with macOS CPU fallback; see detailed analysis below. |
 
 #### VoxCPM — Evaluation Notes (2026-04-18)
 
@@ -203,18 +203,15 @@ Shipped 2026-04-25 (PR #544). Voicebox went from a voice-cloning studio to a ful
 - Zero-shot cloning + style control via parenthetical prefixes in text (`(slightly faster, cheerful tone)...`)
 - Relatively high-quality output per demos
 
-**Why we backlogged it:**
-- **Effectively CUDA-only.** README states `CUDA ≥ 12.0` as hard requirement. Source code's `from_pretrained(device=None|"auto")` claims "preferring CUDA, then MPS, then CPU," but in practice:
-  - **MPS (Apple Silicon) broken upstream** — OpenBMB/VoxCPM issues #232 (`NotImplementedError: Output channels > 65536 not supported at the MPS device`) and #248 (`IndexError` on M3 Mac) are both open with no resolution.
-  - **CPU unsupported in the Python package** — issue #256 shows `voxcpm --device cpu` rejected with `unrecognized arguments`. The only CPU path is the third-party **VoxCPM.cpp** GGML engine, which is a separate ecosystem project, not `pip install voxcpm`.
-  - **macOS source install fails** — issue #233 open with no resolution.
-- Would require CUDA-only gating in UI (new `requires_cuda` flag on `ModelConfig`, lock icon + "Requires NVIDIA GPU" in `ModelManagement.tsx` / `EngineModelSelector.tsx`) plus a hard error at `load_model()` as safety net. Doable but adds first-class platform gating that doesn't exist for any other engine today.
-- Voicebox's user base skews Apple Silicon (MLX is a primary backend). Shipping a CUDA-only model sets a precedent worth a separate scoping discussion (see issues #419 engine sprawl, #420 platform tiers, PR #465).
+**Earlier backlog assessment:**
+- The original 2026-04-18 assessment treated VoxCPM2 as effectively CUDA-only because CPU/MPS reports failed during model warm-up and generation.
+- Upstream subsequently added explicit device selection, safe MPS dtype handling, and a broadcastable SDPA mask for the CPU attention path.
+- Local validation on Apple Silicon with PyTorch 2.8.0 confirmed CPU loading, ordinary generation, reference-audio cloning, and a short MPS generation all complete successfully. MPS was substantially slower in the smoke test, so the integration follows existing Chatterbox/TADA precedent: CUDA where available and CPU on macOS.
 
-**What would change the decision:**
-- Upstream fixes MPS crashes (watch issues #232, #248).
-- We define an "experimental / CUDA-only" engine tier as part of issue #419 / PR #465, and decide it's acceptable to ship engines that are hidden on non-NVIDIA platforms.
-- VoxCPM.cpp matures into a viable CPU path we can wrap (currently separate project, C++/GGML, unclear ergonomics).
+**Remaining validation before shipping:**
+- Exercise the frozen PyInstaller binary with a clean model cache.
+- Validate CUDA generation on Windows/Linux hardware.
+- Keep macOS on CPU until MPS performance and stability are consistently better.
 
 **Integration shape if we revive it:** Zero-shot cloning maps naturally to the Chatterbox-style backend (store `ref_audio` + `ref_text` paths in the voice prompt dict, process at generate time). Est. ~250 lines for `voxcpm_backend.py` + one `ModelConfig` entry + engine registration in `backends/__init__.py`. Frontend UI gating is the bigger lift.
 
@@ -260,7 +257,7 @@ Shipped 2026-04-25 (PR #544). Voicebox went from a voice-cloning studio to a ful
 
 - **Thread-safe backend registry** (`_tts_backends` dict + `_tts_backends_lock`) with double-checked locking
 - **Per-engine backend instances** — each engine gets its own singleton, loaded lazily
-- **Engine field on GenerationRequest** — frontend sends `engine: 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox' | 'chatterbox_turbo' | 'tada' | 'kokoro'`
+- **Engine field on GenerationRequest** — frontend sends `engine: 'qwen' | 'qwen_custom_voice' | 'luxtts' | 'chatterbox' | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'voxcpm2'`
 - **Per-engine language filtering** — `ENGINE_LANGUAGES` map in frontend, backend regex accepts all languages
 - **Per-engine voice prompts** — `create_voice_prompt_for_profile()` dispatches to the correct backend
 - **Profile type system** — preset vs cloned profiles, UI grays out incompatible engines and auto-switches on selection
@@ -578,7 +575,7 @@ Notable:
 | **HumeAI TADA 1B/3B** | Zero-shot | 5x faster than LLM-TTS | 24 kHz | EN (1B), 10 (3B) | Medium | Partial — prosody | PyTorch | **Shipped** (PR #296) |
 | **Kokoro-82M** | Preset voices | CPU realtime | 24 kHz | 8 | Tiny (82M) | None | All | **Shipped** (PR #325) |
 | ~~**CosyVoice2-0.5B**~~ | 3-10s zero-shot | Very fast | 24 kHz | Multilingual | Low | **Yes** | — | **Abandoned** (PR #311) — poor output quality |
-| ~~**VoxCPM2**~~ | Zero-shot | ~0.15 RTF streaming | 48 kHz | 30 | Medium | Partial — parenthetical style | **CUDA-only in practice** | **Backlogged** (2026-04-18) — see notes above |
+| **VoxCPM2** | Zero-shot | ~0.15 RTF streaming on CUDA | 48 kHz | 30 | Medium | Partial — parenthetical style | CUDA + CPU fallback | **Integration in progress** — see notes above |
 | **Fish Speech** | 10-30s few-shot | Real-time | 24-44 kHz | 50+ | Medium | **Yes** — word-level inline | All | Candidate — license TBD |
 | **Fish Audio S2** | — | — | — | — | — | — | — | Candidate (#385) |
 | **XTTS-v2** | 6s zero-shot | Mid-GPU | 24 kHz | 17+ | Medium | Partial — style transfer from ref | All | Candidate — CPML license likely blocker |
@@ -687,7 +684,7 @@ The generation form now uses a flat model dropdown with engine-based routing. Pe
 
 ### 7. Engine Sprawl — NEW
 
-Seven TTS engines shipped, more candidates queued. Issue #419 asks for a first-class vs experimental distinction. Related: issue #420 asks for formalized platform support tiers. Combined, these would let us ship more engines more confidently with clearer expectations for users.
+Eight TTS engines are represented by the active integration set, with more candidates queued. Issue #419 asks for a first-class vs experimental distinction. Related: issue #420 asks for formalized platform support tiers. Combined, these would let us ship more engines more confidently with clearer expectations for users.
 
 ---
 

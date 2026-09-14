@@ -62,6 +62,7 @@ MATRIX: list[MatrixRow] = [
     MatrixRow("tada 1B",                "tada",              "1B",   "cloned",          "tada-1b"),
     MatrixRow("tada 3B",                "tada",              "3B",   "cloned",          "tada-3b-ml"),
     MatrixRow("kokoro",                 "kokoro",            None,   "preset_kokoro",   "kokoro"),
+    MatrixRow("voxcpm2",                "voxcpm2",           None,   "cloned",          "voxcpm2"),
 ]
 
 TEXT = "The quick brown fox jumps over the lazy dog."

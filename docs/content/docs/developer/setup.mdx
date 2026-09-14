@@ -181,7 +181,7 @@ Models are automatically downloaded from HuggingFace Hub on first use, with live
 See [Model Management](/developer/model-management) for the full list.
 
 <Callout type="warn">
-  First-time usage will be slower due to model downloads, but subsequent runs will use cached models.
+  First-time usage will be slower due to model downloads, but subsequent runs will use cached models. VoxCPM2 requires roughly 4.8 GB and outputs 48kHz audio.
 </Callout>
 
 ## Generate OpenAPI Client
@@ -231,8 +231,11 @@ pip install -r requirements-mlx.txt
 # Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
 pip install --no-deps chatterbox-tts
 
-# HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
+# HumeAI TADA pins a narrow torch range; keep Voicebox's shared torch build
 pip install --no-deps hume-tada
+
+# Voicebox uses VoxCPM2 synthesis without its optional UI/training/denoiser stack
+pip install --no-deps "voxcpm>=2.0.3,<2.1"
 
 # Install Qwen3-TTS from source
 pip install git+https://github.com/QwenLM/Qwen3-TTS.git
