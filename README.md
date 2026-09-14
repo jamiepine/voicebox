@@ -67,16 +67,16 @@
 
 ## What is Voicebox?
 
-Voicebox is a **local-first AI voice studio** — a free and open-source alternative to **ElevenLabs** and **WisprFlow** in one app. Clone voices from a few seconds of audio, generate speech in 23 languages across 7 TTS engines, dictate into any text field with a global hotkey, and give any MCP-aware AI agent a voice of your choosing.
+Voicebox is a **local-first AI voice studio** — a free and open-source alternative to **ElevenLabs** and **WisprFlow** in one app. Clone voices from a few seconds of audio, generate speech in 30 languages across 8 TTS engines, dictate into any text field with a global hotkey, and give any MCP-aware AI agent a voice of your choosing.
 
 The two cloud incumbents sit on opposite halves of the voice I/O loop — ElevenLabs on output, WisprFlow on input. Voicebox does both, bridges them with a bundled local LLM for refinement and per-profile personas, and runs the whole thing on your machine.
 
 - **Complete privacy** — models, voice data, and captures never leave your machine
-- **7 TTS engines** — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, and Kokoro
+- **8 TTS engines** — Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox Multilingual, Chatterbox Turbo, HumeAI TADA, Kokoro, and VoxCPM2
 - **Voice cloning and preset voices** — zero-shot cloning from a reference sample, or 50+ curated preset voices via Kokoro and Qwen CustomVoice
-- **23 languages** — from English to Arabic, Japanese, Hindi, Swahili, and more
+- **30 languages** — from English to Arabic, Japanese, Hindi, Thai, Vietnamese, and more
 - **Post-processing effects** — pitch shift, reverb, delay, chorus, compression, and filters
-- **Expressive speech** — paralinguistic tags like `[laugh]`, `[sigh]`, `[gasp]` via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice
+- **Expressive speech** — paralinguistic tags like `[laugh]`, `[sigh]`, `[gasp]` via Chatterbox Turbo; natural-language delivery control via Qwen CustomVoice and VoxCPM2
 - **Unlimited length** — auto-chunking with crossfade for scripts, articles, and chapters
 - **Stories editor** — multi-track timeline for conversations, podcasts, and narratives
 - **Voice input** — global dictation hotkey with push-to-talk and toggle modes, accessibility-verified auto-paste on macOS, in-app mic on every text field, Whisper-based STT
@@ -109,7 +109,7 @@ The two cloud incumbents sit on opposite halves of the voice I/O loop — Eleven
 
 ### Multi-Engine Voice Cloning
 
-Seven TTS engines with different strengths, switchable per-generation:
+Eight TTS engines with different strengths, switchable per-generation:
 
 | Engine                      | Languages | Strengths                                                                                                                                |
 | --------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -120,11 +120,12 @@ Seven TTS engines with different strengths, switchable per-generation:
 | **Chatterbox Turbo**        | English   | Fast 350M model with paralinguistic emotion/sound tags                                                                                   |
 | **TADA** (1B / 3B)          | 10        | HumeAI speech-language model — 700s+ coherent audio, text-acoustic dual alignment                                                        |
 | **Kokoro**                  | 8         | 50 curated preset voices, tiny 82M model, fast CPU inference                                                                             |
+| **VoxCPM2**                 | 30        | 2B multilingual model, 48kHz output, high-fidelity reference-audio cloning; CUDA or CPU fallback                                        |
 
 ### Emotions & Paralinguistic Tags
 
 Only **Chatterbox Turbo** interprets paralinguistic tags like `[laugh]` and
-`[sigh]`. Qwen3-TTS, LuxTTS, Chatterbox Multilingual, and HumeAI TADA read them
+`[sigh]`. Qwen3-TTS, LuxTTS, Chatterbox Multilingual, HumeAI TADA, and VoxCPM2 read them
 literally as text.
 
 With **Chatterbox Turbo** selected, type `/` in the text input to open the tag
@@ -370,7 +371,7 @@ Full API documentation available at `http://127.0.0.1:17493/docs`.
 | Frontend      | React, TypeScript, Tailwind CSS                                                 |
 | State         | Zustand, React Query                                                            |
 | Backend       | FastAPI (Python)                                                                |
-| TTS Engines   | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
+| TTS Engines   | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro, VoxCPM2 |
 | STT           | Whisper / Whisper Turbo (PyTorch or MLX)                                        |
 | Local LLM     | Qwen3 (0.6B / 1.7B / 4B), shared runtime with TTS / STT                         |
 | MCP Server    | FastMCP mounted at `/mcp` (Streamable HTTP) + bundled stdio shim binary         |

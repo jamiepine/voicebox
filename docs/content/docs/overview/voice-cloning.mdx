@@ -7,7 +7,7 @@ description: "Clone any voice from a few seconds of reference audio"
 
 Voicebox can replicate a specific person's voice from a short audio sample — known as **zero-shot voice cloning**. You provide 10-30 seconds of clear speech, the model extracts a voice embedding, and from then on you can generate any text in that voice.
 
-Five engines in 0.4 support cloning:
+Six engines support cloning:
 
 | Engine                      | Languages | Strengths                                                                  |
 | --------------------------- | --------- | -------------------------------------------------------------------------- |
@@ -16,6 +16,7 @@ Five engines in 0.4 support cloning:
 | **Chatterbox Turbo**        | English   | Fast 350M model with paralinguistic emotion tags (`[laugh]`, `[sigh]`)     |
 | **LuxTTS**                  | English   | Lightweight (~1 GB VRAM), 48 kHz output, 150x realtime on CPU              |
 | **TADA** (1B / 3B)          | 10        | Speech-language model with 700s+ coherent long-form generation             |
+| **VoxCPM2**                 | 30        | 2B multilingual model, 48 kHz output, transcript-guided high-fidelity cloning |
 
 <Callout type="info">
   Don't want to record audio? Use a curated voice from Kokoro or Qwen CustomVoice instead — see [Preset Voices](/overview/preset-voices).
@@ -50,6 +51,7 @@ Different engines suit different use cases. The profile grid greys out unsupport
 | Expressive English with `[laugh]` `[sigh]` tags    | **Chatterbox Turbo**  |
 | CPU-only or GPU-light setup, English               | **LuxTTS**            |
 | Long-form generation (audiobooks, full chapters)   | **TADA 3B**           |
+| Broad multilingual cloning with 48 kHz output      | **VoxCPM2**           |
 
 ## Best Practices
 
@@ -89,6 +91,7 @@ Adding multiple samples from the same speaker can improve quality:
 - **Chatterbox Turbo** — English
 - **LuxTTS** — English
 - **TADA 3B** — 10 multilingual; **TADA 1B** — English
+- **VoxCPM2** — 30 languages; CUDA acceleration with CPU fallback
 
 For complete language tables and engine-specific notes, see the [TTS Engines developer guide](/developer/tts-engines).
 

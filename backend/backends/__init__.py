@@ -216,6 +216,7 @@ TTS_ENGINES = {
     "chatterbox_turbo": "Chatterbox Turbo",
     "tada": "TADA",
     "kokoro": "Kokoro",
+    "voxcpm2": "VoxCPM2",
 }
 
 LLM_ENGINES = {
@@ -370,6 +371,18 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             hf_repo_id="hexgrad/Kokoro-82M",
             size_mb=350,
             languages=["en", "es", "fr", "hi", "it", "pt", "ja", "zh"],
+        ),
+        ModelConfig(
+            model_name="voxcpm2",
+            display_name="VoxCPM2",
+            engine="voxcpm2",
+            hf_repo_id="openbmb/VoxCPM2",
+            size_mb=4800,
+            languages=[
+                "zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it",
+                "he", "ar", "da", "el", "fi", "hi", "id", "km", "lo", "ms",
+                "my", "nl", "no", "pl", "sv", "sw", "th", "tl", "tr", "vi",
+            ],
         ),
     ]
 
@@ -723,6 +736,10 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 
             backend = QwenCustomVoiceBackend()
+        elif engine == "voxcpm2":
+            from .voxcpm_backend import VoxCPMBackend
+
+            backend = VoxCPMBackend()
         else:
             raise ValueError(f"Unknown TTS engine: {engine}. Supported: {list(TTS_ENGINES.keys())}")
 

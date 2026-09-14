@@ -81,7 +81,7 @@ async def create_generation(
         instruct: Natural language instruction used (if any)
         generation_id: Pre-assigned ID (for async generation flow)
         status: Generation status (generating, completed, failed)
-        engine: TTS engine used (qwen, luxtts, chatterbox, chatterbox_turbo)
+        engine: TTS engine used (qwen, luxtts, chatterbox, chatterbox_turbo, voxcpm2)
         model_size: Model size variant (1.7B, 0.6B) — only relevant for qwen
         source: Origin marker stored on the row. ``"manual"`` for regular
             /generate calls; ``"personality_speak"`` for rows created

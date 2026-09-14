@@ -151,7 +151,8 @@ export function FloatingGenerateBox({
     | 'chatterbox_turbo'
     | 'tada'
     | 'kokoro'
-    | 'qwen_custom_voice';
+    | 'qwen_custom_voice'
+    | 'voxcpm2';
   useEffect(() => {
     if (selectedProfile?.language) {
       form.setValue('language', selectedProfile.language as LanguageCode);
@@ -436,9 +437,11 @@ export function FloatingGenerateBox({
                   )}
                 </AnimatePresence>
 
-                {/* Instruct toggle — only for Qwen CustomVoice, which actually honors the kwarg */}
+                {/* Delivery controls for engines that support natural-language instruction. */}
                 <AnimatePresence>
-                  {isExpanded && form.watch('engine') === 'qwen_custom_voice' && (
+                  {isExpanded &&
+                    (form.watch('engine') === 'qwen_custom_voice' ||
+                      form.watch('engine') === 'voxcpm2') && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
@@ -507,7 +510,9 @@ export function FloatingGenerateBox({
 
             {/* Additive instruct textarea — shown below main text when toggle is on and engine supports it */}
             <AnimatePresence>
-              {isInstructExpanded && form.watch('engine') === 'qwen_custom_voice' && (
+              {isInstructExpanded &&
+                (form.watch('engine') === 'qwen_custom_voice' ||
+                  form.watch('engine') === 'voxcpm2') && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}

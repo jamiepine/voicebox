@@ -4,7 +4,7 @@
 
 A single script, runnable on macOS and Windows, that exercises every TTS model against the **frozen PyInstaller binary** (not the dev server), captures per-model pass/fail and error messages, and exits non-zero if any model fails. Generation is strictly sequential — one model loaded at a time.
 
-## Test matrix (10 runs)
+## Test matrix (11 runs)
 
 Derived from `backend/backends/__init__.py:185-316`. Each row maps to one `POST /generate` call.
 
@@ -20,8 +20,9 @@ Derived from `backend/backends/__init__.py:185-316`. Each row maps to one `POST 
 | 8 | `tada`                | `1B`       | cloned       | tada-1b, English only |
 | 9 | `tada`                | `3B`       | cloned       | tada-3b-ml, multilingual |
 | 10| `kokoro`              | —          | preset       | `preset_voice_id="af_heart"` |
+| 11| `voxcpm2`             | —          | cloned       | shared reference WAV + transcript |
 
-Cloned engines (1, 2, 5, 6, 7, 8, 9) share **one** profile created once with the reference WAV. Preset profiles are created separately, one for kokoro and one for qwen_custom_voice.
+Cloned engines (1, 2, 5, 6, 7, 8, 9, 11) share **one** profile created once with the reference WAV. Preset profiles are created separately, one for kokoro and one for qwen_custom_voice.
 
 Language for every run: `en` (covers every engine's supported set).
 
