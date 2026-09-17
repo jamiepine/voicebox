@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import models
@@ -92,3 +93,88 @@ async def speak(
         },
     )
     return generation
+
+
+@router.post("/speak/stream")
+async def speak_stream(
+    data: models.SpeakStreamRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> StreamingResponse:
+    """SSE variant of ``POST /speak`` that streams audio as it renders.
+
+    Same profile / engine / personality resolution as ``/speak``, but
+    the response body is a ``text/event-stream`` sequence of frames:
+
+    - ``meta``   — one, up front, carrying sample rate + channels.
+    - ``audio``  — one per sentence, base64-encoded PCM float32.
+    - ``complete`` — one, right before the terminal sentinel.
+    - ``[DONE]`` — OpenAI-style terminator.
+    """
+    client_id = request.headers.get("X-Voicebox-Client-Id")
+    profile = resolve_profile(data.profile, client_id, db)
+    if profile is None:
+        if data.profile:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Voice profile '{data.profile}' not found.",
+            )
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No voice profile resolved. Pass `profile` (name or id), "
+                "or configure a default in Voicebox → Settings → MCP."
+            ),
+        )
+
+    binding = None
+    if client_id:
+        binding = (
+            db.query(MCPClientBinding)
+            .filter(MCPClientBinding.client_id == client_id)
+            .first()
+        )
+
+    personality_flag = data.personality
+    if personality_flag is None and binding is not None:
+        personality_flag = bool(binding.default_personality)
+
+    engine = data.engine
+    if engine is None and binding is not None:
+        engine = binding.default_engine
+    if engine is None:
+        engine = "qwen"
+
+    # Late import to keep top-of-file cheap for the fire-and-forget path.
+    from ..services.stream_speak import stream_speak_events
+
+    generator = stream_speak_events(
+        profile_id=profile.id,
+        text=data.text,
+        engine=engine,
+        language=data.language or "en",
+        personality=bool(personality_flag),
+        profile_personality=getattr(profile, "personality", None),
+        max_chunk_chars=data.max_chunk_chars,
+    )
+
+    mcp_events.publish(
+        "speak-start",
+        {
+            "profile_name": profile.name,
+            "source": "rest_stream",
+            "client_id": client_id,
+        },
+    )
+
+    return StreamingResponse(
+        generator,
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            # Disable nginx-style response buffering so each frame lands
+            # on the wire the instant we yield it.
+            "X-Accel-Buffering": "no",
+        },
+    )

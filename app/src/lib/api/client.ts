@@ -21,6 +21,8 @@ import type {
   PersonalityTextResponse,
   ProfileSampleResponse,
   RocmStatus,
+  SpeakStreamEvent,
+  StreamingSpeakRequest,
   StoryCreate,
   StoryDetailResponse,
   StoryItemBatchUpdate,
@@ -54,6 +56,23 @@ import type {
   CloudLoginStartResponse,
   CloudStatus,
 } from './types';
+
+function _extractSseData(frame: string): string | null {
+  // Frames may carry multiple ``data:`` lines whose values concatenate per
+  // the SSE spec; we only need to handle the one-liner shape our server
+  // emits, but the join keeps us robust to future comment lines and
+  // multi-line payloads.
+  const lines = frame.split('\n');
+  const parts: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith('data:')) {
+      parts.push(line.slice(5).trimStart());
+    }
+    // Comment lines (`:...`) and unknown fields are ignored.
+  }
+  return parts.length === 0 ? null : parts.join('\n');
+}
+
 
 function formatErrorDetail(detail: unknown, fallback: string): string {
   if (typeof detail === 'string') return detail;
@@ -256,6 +275,83 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  /**
+   * SSE-driven counterpart to /speak. Opens ``POST /speak/stream`` and
+   * dispatches every parsed frame through ``onEvent`` in arrival order.
+   * Resolves when the terminal ``[DONE]`` sentinel lands (or the fetch
+   * aborts) and rejects on transport or HTTP errors.
+   *
+   * The route emits ``meta`` → ``audio`` (per sentence) → ``complete`` →
+   * ``[DONE]``; error frames arrive in place of ``complete`` when the
+   * server hits a fault mid-stream and are still followed by ``[DONE]``,
+   * so callers only need one terminator handler.
+   */
+  async streamSpeak(
+    data: StreamingSpeakRequest,
+    onEvent: (event: SpeakStreamEvent) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const response = await fetch(`${this.getBaseUrl()}/speak/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+      },
+      body: JSON.stringify(data),
+      signal,
+    });
+
+    if (!response.ok) {
+      // Try to surface the JSON detail for parity with request().
+      let detail = `${response.status} ${response.statusText}`;
+      try {
+        const body = await response.json();
+        detail = formatErrorDetail(body?.detail, detail);
+      } catch {
+        // ignore — non-JSON error body
+      }
+      throw new Error(detail);
+    }
+    if (!response.body) {
+      throw new Error('Streaming speak response has no body');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE spec: frames are separated by a blank line. The server
+        // always yields ``data: ...\n\n``, so splitting on ``\n\n`` gives
+        // one full message per element; the last element is either an
+        // incomplete tail we hold onto for the next chunk or an empty
+        // string when the stream boundary aligns cleanly.
+        const parts = buffer.split('\n\n');
+        buffer = parts.pop() ?? '';
+        for (const part of parts) {
+          const trimmed = part.trim();
+          if (!trimmed) continue;
+          const payload = _extractSseData(trimmed);
+          if (payload === null) continue;
+          if (payload === '[DONE]') return;
+          try {
+            const event = JSON.parse(payload) as SpeakStreamEvent;
+            onEvent(event);
+          } catch {
+            // Malformed frame — skip rather than tearing down the stream.
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
   }
 
   async retryGeneration(generationId: string): Promise<GenerationResponse> {

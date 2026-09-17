@@ -2,8 +2,8 @@
 Pydantic models for request/response validation.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_validator
+from typing import Any, Literal, Optional, List
 from datetime import datetime
 
 from .utils.capture_chords import (
@@ -264,6 +264,38 @@ class CaptureSettingsResponse(BaseModel):
     chord_toggle_to_talk_keys: List[str] = Field(
         default_factory=default_toggle_to_talk_chord
     )
+    custom_llm_endpoint: Optional[str] = None
+    custom_llm_model: Optional[str] = None
+    # Provider credential — write-only. The response reports whether one is
+    # configured but never echoes the value, so the settings API can't be
+    # used to exfiltrate stored keys and the frontend can't rehydrate them
+    # into React state where a browser cache could pick them up.
+    custom_llm_api_key_configured: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def _mask_custom_llm_api_key(cls, data: Any) -> Any:
+        """Replace the raw ``custom_llm_api_key`` with a boolean ``_configured`` flag.
+
+        Runs before field validation so the stored credential is never
+        materialised on a Response instance, even in memory. Accepts both
+        SQLAlchemy ORM rows (``from_attributes=True`` path) and plain dicts
+        so tests that construct the model directly get the same treatment.
+        """
+        if isinstance(data, dict):
+            raw_key = data.pop("custom_llm_api_key", None)
+            data.setdefault("custom_llm_api_key_configured", bool(raw_key))
+            return data
+        # ORM row — build a snapshot dict, drop the secret, and hand the
+        # rest to Pydantic. ``from_attributes`` won't reach the raw
+        # attribute anymore because the returned dict wins.
+        columns = getattr(getattr(data, "__table__", None), "columns", None)
+        if columns is None:
+            return data
+        snapshot = {c.name: getattr(data, c.name, None) for c in columns}
+        raw_key = snapshot.pop("custom_llm_api_key", None)
+        snapshot["custom_llm_api_key_configured"] = bool(raw_key)
+        return snapshot
 
     class Config:
         from_attributes = True
@@ -284,6 +316,9 @@ class CaptureSettingsUpdate(BaseModel):
     hotkey_enabled: Optional[bool] = None
     chord_push_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
     chord_toggle_to_talk_keys: Optional[List[str]] = Field(default=None, min_length=1, max_length=6)
+    custom_llm_endpoint: Optional[str] = None
+    custom_llm_model: Optional[str] = None
+    custom_llm_api_key: Optional[str] = None
 
 
 class GenerationSettingsResponse(BaseModel):
@@ -365,6 +400,82 @@ class SpeakRequest(BaseModel):
         None,
         pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
     )
+
+
+class SpeakStreamRequest(BaseModel):
+    """Body for POST /speak/stream — like SpeakRequest, plus a chunk sizer.
+
+    Kept separate from ``SpeakRequest`` so the streaming route can grow
+    stream-only knobs without polluting the fire-and-forget /speak
+    contract. Everything else mirrors the plain /speak body.
+    """
+
+    text: str = Field(..., min_length=1, max_length=10000)
+    profile: Optional[str] = Field(None)
+    engine: Optional[str] = Field(
+        None,
+        pattern="^(qwen|qwen_custom_voice|luxtts|chatterbox|chatterbox_turbo|tada|kokoro)$",
+    )
+    personality: Optional[bool] = Field(None)
+    language: Optional[str] = Field(
+        None,
+        pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$",
+    )
+    max_chunk_chars: int = Field(default=800, ge=100, le=5000)
+
+
+# --- SSE event shapes ------------------------------------------------------
+#
+# These live server-side only — each is JSON-serialised into the ``data:``
+# field of an SSE frame. The ``type`` discriminator lets the client route
+# frames to the right handler (audio decoder, completion callback, error
+# toast) without a schema-per-frame lookup.
+
+
+class SpeakStreamMeta(BaseModel):
+    """First event sent — metadata the client needs before any audio."""
+
+    type: Literal["meta"] = "meta"
+    generation_id: str
+    sample_rate: int
+    channels: int = 1
+    # Which of the two backend paths produced the stream. Useful for the
+    # client to display an "LLM streaming enabled" hint and for
+    # observability — the sequential path emits the same event shape but
+    # ships a single audio chunk at the end.
+    streaming_llm: bool
+
+
+class SpeakStreamAudioChunk(BaseModel):
+    """One sentence's worth of audio, base64-encoded PCM float32."""
+
+    type: Literal["audio"] = "audio"
+    sentence_index: int
+    # Base64-encoded raw float32 PCM samples, little-endian, single channel.
+    # The client decodes with ``atob`` → ``Uint8Array`` → ``Float32Array`` →
+    # ``AudioBuffer`` and schedules against ``audioCtx.currentTime`` so
+    # sentence boundaries land gap-lessly.
+    pcm_base64: str
+    # Sentence text this audio was rendered from, echoed back so the client
+    # can subtitle progressively without re-running the LLM.
+    text: str
+
+
+class SpeakStreamComplete(BaseModel):
+    """Terminal event before ``[DONE]`` — final generation record + duration."""
+
+    type: Literal["complete"] = "complete"
+    generation_id: str
+    duration: float
+    audio_path: Optional[str] = None
+
+
+class SpeakStreamError(BaseModel):
+    """Streamed error — sent instead of ``complete`` when generation fails."""
+
+    type: Literal["error"] = "error"
+    generation_id: Optional[str] = None
+    message: str
 
 
 class LLMGenerateRequest(BaseModel):
