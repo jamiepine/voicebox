@@ -49,7 +49,7 @@ if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
 # Only set HSA_OVERRIDE_GFX_VERSION for older GPUs that need it.
 # RDNA 3+ (gfx1100+) and RDNA 4 (gfx1200+) are natively supported by ROCm
 # and the override can cause suboptimal performance or errors.
-if not os.environ.get("HSA_OVERRIDE_GFX_VERSION"):
+if not os.environ.get("HSA_OVERRIDE_GFX_VERSION") and Path("/dev/kfd").exists():
     try:
         result = subprocess.run(
             ["rocminfo"],

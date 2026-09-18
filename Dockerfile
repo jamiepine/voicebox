@@ -84,12 +84,20 @@ RUN mkdir -p /app/data/generations \
 
 WORKDIR /app
 
-# Install only runtime system dependencies (gosu drops root in the entrypoint)
+# Install only runtime system dependencies (gosu drops root in the entrypoint).
+# sox is required by qwen-tts's speech_vq X-vector extractor, which shells
+# out to it via the `sox` Python bindings for reference-audio normalization.
+# gcc/g++ are required by Triton (used by some torch ops, e.g.
+# bmm_outer_product) to JIT-compile its CUDA driver shim on first use --
+# without them, PyTorch's CUDA-capable build crashes with "Failed to find
+# C compiler" even when a GPU is actually present.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
+    sox \
+    gcc \
+    g++ \
     curl \
     gosu \
-    sox \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy installed Python packages from builder stage
