@@ -12,4 +12,11 @@ for dev in /dev/kfd /dev/dri/render*; do
     }
     usermod -aG "$grp" voicebox
 done
+
+# Named volumes are created root-owned by Docker on first use; fix the
+# mount points so the unprivileged voicebox user can write into them.
+# Non-recursive: only the mount point itself needs fixing, not its
+# contents, and the HF cache can be large.
+chown voicebox:voicebox /app/data /app/data/generations /home/voicebox/.cache/huggingface 2>/dev/null || true
+
 exec gosu voicebox "$@"
