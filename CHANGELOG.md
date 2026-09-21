@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+### Docker & Infrastructure
+
+- **NVIDIA GPU Docker Compose overlay.** Added `docker-compose.nvidia.yml` overlay
+  enabling NVIDIA CUDA GPU acceleration with `deploy.resources.reservations.devices`.
+- **Runtime C compiler for Triton JIT.** Added `gcc` and `libc6-dev` to the
+  runtime stage of the Dockerfile so Triton can JIT-compile CUDA kernels during
+  model inference without failing with missing C compiler errors.
+- **Cache and volume permissions self-healing.** The entrypoint now ensures
+  proper ownership of `/home/voicebox` and `/app/data` on startup so unprivileged
+  container users can write to HuggingFace model cache directories without
+  permission errors.
+
 ### Linux
 
 - **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch

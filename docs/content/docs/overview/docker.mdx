@@ -109,20 +109,10 @@ The `huggingface-cache` volume is important -- without it, models would be re-do
 
 ### NVIDIA GPU (CUDA)
 
-To use your NVIDIA GPU inside the container, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) and add GPU access to your compose file:
+To use your NVIDIA GPU inside the container, install the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) and run with the NVIDIA overlay:
 
-```yaml
-services:
-  voicebox:
-    build: .
-    # ... existing config ...
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+```bash
+docker compose -f docker-compose.yml -f docker-compose.nvidia.yml up -d
 ```
 
 ### AMD GPU (ROCm)
