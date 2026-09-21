@@ -2,7 +2,7 @@
 LLM inference module - delegates to backend abstraction layer.
 """
 
-from ..backends import get_llm_backend, LLMBackend
+from ..backends import LLMBackend, get_llm_backend
 
 
 def get_llm_model() -> LLMBackend:

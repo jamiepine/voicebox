@@ -1,18 +1,18 @@
 """Health and infrastructure endpoints."""
 
 import asyncio
+import contextlib
 import os
 import signal
 from pathlib import Path
 
 import torch
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
 
 from .. import config, models
 from ..services import tts
-from ..database import get_db
+from ..services.task_queue import create_background_task
 from ..utils.platform_detect import get_backend_type, is_amd_gpu_windows
 
 router = APIRouter()
@@ -40,7 +40,9 @@ async def shutdown():
         await asyncio.sleep(0.1)
         os.kill(os.getpid(), signal.SIGTERM)
 
-    asyncio.create_task(shutdown_async())
+    # Held in task_queue's strong-ref set: a bare create_task can be garbage
+    # collected before it fires, which would leave the server running.
+    create_background_task(shutdown_async())
     return {"message": "Shutting down..."}
 
 
@@ -56,8 +58,9 @@ async def watchdog_disable():
 @router.get("/health", response_model=models.HealthResponse)
 async def health():
     """Health check endpoint."""
-    from huggingface_hub import constants as hf_constants
     from pathlib import Path
+
+    from huggingface_hub import constants as hf_constants
 
     tts_model = tts.get_tts_model()
     backend_type = get_backend_type()
@@ -120,10 +123,9 @@ async def health():
     if has_cuda:
         vram_used = torch.cuda.memory_allocated() / 1024 / 1024
     elif has_xpu:
-        try:
+        # memory_allocated() may not be available on all IPEX versions
+        with contextlib.suppress(Exception):
             vram_used = torch.xpu.memory_allocated() / 1024 / 1024
-        except Exception:
-            pass  # memory_allocated() may not be available on all IPEX versions
 
     model_loaded = False
     model_size = None
@@ -221,10 +223,8 @@ async def filesystem_health():
             except OSError as e:
                 error = str(e)
             finally:
-                try:
+                with contextlib.suppress(Exception):
                     probe.unlink(missing_ok=True)
-                except Exception:
-                    pass
         else:
             error = "Directory does not exist"
 

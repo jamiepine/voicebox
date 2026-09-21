@@ -5,6 +5,7 @@ import {
   Outlet,
   redirect,
 } from '@tanstack/react-router';
+import { AgentsTab } from '@/components/AgentsTab/AgentsTab';
 import { AppFrame } from '@/components/AppFrame/AppFrame';
 import { CapturesTab } from '@/components/CapturesTab/CapturesTab';
 import { EffectsTab } from '@/components/EffectsTab/EffectsTab';
@@ -120,6 +121,13 @@ const capturesRoute = createRoute({
   component: CapturesTab,
 });
 
+// Voice agents route
+const agentsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/agents',
+  component: AgentsTab,
+});
+
 // Effects route
 const effectsRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -205,6 +213,7 @@ const routeTree = rootRoute.addChildren([
   storiesRoute,
   capturesRoute,
   voicesRoute,
+  agentsRoute,
   effectsRoute,
   modelsRoute,
   settingsRoute.addChildren([

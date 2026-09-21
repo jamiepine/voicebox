@@ -9,8 +9,8 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history
 from ..database import Generation as DBGeneration, get_db
+from ..services import history
 
 router = APIRouter()
 
@@ -29,8 +29,8 @@ async def preview_effects(
         raise HTTPException(status_code=400, detail="Generation is not completed")
 
     from ..services import versions as versions_mod
-    from ..utils.effects import apply_effects, validate_effects_chain
     from ..utils.audio import load_audio
+    from ..utils.effects import apply_effects, validate_effects_chain
 
     chain_dicts = [e.model_dump() for e in data.effects_chain]
     error = validate_effects_chain(chain_dicts)
@@ -101,7 +101,7 @@ async def create_effect_preset(
     try:
         return effects_mod.create_preset(data, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.put("/effects/presets/{preset_id}", response_model=models.EffectPresetResponse)
@@ -119,7 +119,7 @@ async def update_effect_preset(
             raise HTTPException(status_code=404, detail="Preset not found")
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/effects/presets/{preset_id}")
@@ -132,7 +132,7 @@ async def delete_effect_preset(preset_id: str, db: Session = Depends(get_db)):
             raise HTTPException(status_code=404, detail="Preset not found")
         return {"status": "deleted"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get(
@@ -170,8 +170,8 @@ async def apply_effects_to_generation(
         raise HTTPException(status_code=400, detail="Generation is not completed")
 
     from ..services import versions as versions_mod
-    from ..utils.effects import apply_effects, validate_effects_chain
     from ..utils.audio import load_audio, save_audio
+    from ..utils.effects import apply_effects, validate_effects_chain
 
     chain_dicts = [e.model_dump() for e in data.effects_chain]
     error = validate_effects_chain(chain_dicts)

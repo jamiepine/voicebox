@@ -2,13 +2,12 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from .. import models
 from ..utils.cache import clear_voice_prompt_cache
 from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
-from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -39,7 +38,7 @@ async def clear_cache():
             "files_deleted": deleted_count,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to clear cache: {e!s}") from e
 
 
 @router.get("/tasks/active", response_model=models.ActiveTasksResponse)

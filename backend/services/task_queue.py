@@ -5,8 +5,9 @@ to avoid GPU contention.
 
 import asyncio
 import traceback
+from collections.abc import Coroutine
 from dataclasses import dataclass
-from typing import Coroutine, Literal
+from typing import Literal
 
 # Keep references to fire-and-forget background tasks to prevent GC
 _background_tasks: set = set()

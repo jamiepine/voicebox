@@ -2,14 +2,13 @@
 STT (Speech-to-Text) module - delegates to backend abstraction layer.
 """
 
-from typing import Optional
-from ..backends import get_stt_backend, STTBackend
+from ..backends import STTBackend, get_stt_backend
 
 
 def get_whisper_model() -> STTBackend:
     """
     Get STT backend instance (MLX or PyTorch based on platform).
-    
+
     Returns:
         STT backend instance
     """

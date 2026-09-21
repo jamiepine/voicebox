@@ -9,15 +9,14 @@ binary bundled with the desktop app.
 from __future__ import annotations
 
 import logging
-from contextlib import AsyncExitStack, asynccontextmanager
 from collections.abc import Callable
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from fastmcp import FastMCP
 
 from .context import ClientIdMiddleware
 from .tools import register_tools
-
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +29,8 @@ def build_mcp_server() -> FastMCP:
             "Voicebox is a local voice I/O layer. Use `voicebox.speak` to "
             "play text in a voice profile, `voicebox.transcribe` for "
             "audio→text, and the `list_*` tools to discover profiles and "
-            "captures."
+            "captures. The `voicebox.agent.*` tools drive configured voice "
+            "agents (outbound sales, customer service, support) call by call."
         ),
     )
     register_tools(mcp)

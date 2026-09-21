@@ -32,10 +32,8 @@ import sys
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Optional
 
 import httpx
-
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -126,13 +124,13 @@ class Scorecard:
     refined: str
     latency_ms: int
     length_chars: int = 0
-    prompt_leak: Optional[str] = None
-    refusal: Optional[str] = None
+    prompt_leak: str | None = None
+    refusal: str | None = None
     stage_directions: list[str] = field(default_factory=list)
     flags: list[str] = field(default_factory=list)
 
 
-def first_match(patterns, text: str) -> Optional[str]:
+def first_match(patterns, text: str) -> str | None:
     s = text.lstrip()
     for pat in patterns:
         m = pat.search(s)
@@ -186,7 +184,7 @@ known-shipping Kokoro voice so the throwaway profile satisfies the
 preset-engine validator on creation."""
 
 
-def detect_backend_port(hint: Optional[int]) -> int:
+def detect_backend_port(hint: int | None) -> int:
     candidates: list[int] = []
     if hint is not None:
         candidates.append(hint)
@@ -204,14 +202,11 @@ def detect_backend_port(hint: Optional[int]) -> int:
         except Exception:
             continue
     raise SystemExit(
-        "No running Voicebox backend found. Start it (`python backend/main.py`) "
-        f"or pass --port. Tried: {candidates}"
+        f"No running Voicebox backend found. Start it (`python backend/main.py`) or pass --port. Tried: {candidates}"
     )
 
 
-def create_throwaway_profile(
-    client: httpx.Client, port: int, personality: Personality, model: str
-) -> str:
+def create_throwaway_profile(client: httpx.Client, port: int, personality: Personality, model: str) -> str:
     """Create a preset Kokoro profile with the test personality. Returns
     the profile id. Tests delete it in a finally block."""
     name = f"{THROWAWAY_PROFILE_PREFIX}{personality.name}-{model}-{int(time.time())}"
@@ -269,12 +264,8 @@ def format_report(cards: list[Scorecard]) -> str:
             tag = f"{c.personality} · {c.endpoint}"
             lines.append(f"  {status} {tag}  ({c.latency_ms} ms)")
             if c.input_text:
-                lines.append(
-                    f"      in:      {c.input_text[:90]}{'…' if len(c.input_text) > 90 else ''}"
-                )
-            lines.append(
-                f"      out:     {c.refined[:120]}{'…' if len(c.refined) > 120 else ''}"
-            )
+                lines.append(f"      in:      {c.input_text[:90]}{'…' if len(c.input_text) > 90 else ''}")
+            lines.append(f"      out:     {c.refined[:120]}{'…' if len(c.refined) > 120 else ''}")
             if c.flags:
                 lines.append(f"      ⚠ {'; '.join(c.flags)}")
             lines.append("")

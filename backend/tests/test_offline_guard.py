@@ -21,7 +21,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.hf_offline_patch import force_offline_if_cached  # noqa: E402
+from utils.hf_offline_patch import force_offline_if_cached
 
 
 def _hf_const():
@@ -53,7 +53,7 @@ def test_mutates_cached_transformers_constant():
 def test_sets_env_variable():
     original = os.environ.get("HF_HUB_OFFLINE")
     with force_offline_if_cached(True, "t"):
-        assert "1" == os.environ.get("HF_HUB_OFFLINE")
+        assert os.environ.get("HF_HUB_OFFLINE") == "1"
     assert original == os.environ.get("HF_HUB_OFFLINE")
 
 
@@ -88,14 +88,14 @@ def test_concurrent_threads_share_offline_window():
                 barrier.wait(timeout=5)
                 assert fast_exited.wait(timeout=5), "fast thread did not exit"
                 observations.append(_hf_const().HF_HUB_OFFLINE)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errors.append(exc)
 
     def fast():
         try:
             with force_offline_if_cached(True, "fast"):
                 barrier.wait(timeout=5)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             errors.append(exc)
         finally:
             fast_exited.set()

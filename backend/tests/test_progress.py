@@ -4,18 +4,16 @@ Test script to debug model download progress tracking.
 
 import asyncio
 import json
-import time
-from typing import List, Dict
 import logging
+import time
+
+import pytest
+
+from backend.utils.hf_progress import MIN_TOTAL_BYTES, HFProgressTracker, create_hf_progress_callback
+from backend.utils.progress import ProgressManager, get_progress_manager
 
 # Set up logging to see what's happening
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-from utils.progress import ProgressManager, get_progress_manager
-from utils.hf_progress import HFProgressTracker, create_hf_progress_callback
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
 
 def test_progress_manager_basic():
@@ -27,13 +25,7 @@ def test_progress_manager_basic():
     pm = ProgressManager()
 
     # Test update_progress
-    pm.update_progress(
-        model_name="test-model",
-        current=50,
-        total=100,
-        filename="test.bin",
-        status="downloading"
-    )
+    pm.update_progress(model_name="test-model", current=50, total=100, filename="test.bin", status="downloading")
 
     # Test get_progress
     progress = pm.get_progress("test-model")
@@ -51,7 +43,6 @@ def test_progress_manager_basic():
     assert progress["progress"] == 100.0
 
     print("✓ Test 1 PASSED\n")
-    return True
 
 
 async def test_progress_manager_sse():
@@ -61,7 +52,7 @@ async def test_progress_manager_sse():
     print("=" * 60)
 
     pm = ProgressManager()
-    collected_events: List[Dict] = []
+    collected_events: list[dict] = []
 
     # Simulate SSE client
     async def sse_client():
@@ -94,7 +85,7 @@ async def test_progress_manager_sse():
                 current=i,
                 total=100,
                 filename=f"file_{i}.bin",
-                status="downloading" if i < 100 else "downloading"
+                status="downloading",
             )
             await asyncio.sleep(0.1)
 
@@ -103,10 +94,7 @@ async def test_progress_manager_sse():
         pm.mark_complete("test-model-sse")
 
     # Run SSE client and download simulation concurrently
-    await asyncio.gather(
-        sse_client(),
-        simulate_download()
-    )
+    await asyncio.gather(sse_client(), simulate_download())
 
     # Verify we got events
     print(f"\n  Collected {len(collected_events)} events")
@@ -114,7 +102,6 @@ async def test_progress_manager_sse():
     assert collected_events[-1]["status"] == "complete", "Last event should be 'complete'"
 
     print("✓ Test 2 PASSED\n")
-    return True
 
 
 def test_hf_progress_tracker():
@@ -123,7 +110,7 @@ def test_hf_progress_tracker():
     print("Test 3: HFProgressTracker tqdm Patching")
     print("=" * 60)
 
-    captured_progress: List[tuple] = []
+    captured_progress: list[tuple] = []
 
     def progress_callback(downloaded: int, total: int, filename: str):
         """Capture progress updates."""
@@ -132,35 +119,42 @@ def test_hf_progress_tracker():
 
     tracker = HFProgressTracker(progress_callback)
 
+    # The tracker works by subclassing tqdm, so there is nothing to exercise
+    # without it. Skip rather than swallow the ImportError: this test asserts
+    # nothing on that path, so catching it turned a missing dependency into a
+    # silent pass.
+    tqdm_module = pytest.importorskip("tqdm")
+
     # Simulate a download with tqdm
     with tracker.patch_download():
-        try:
-            from tqdm import tqdm
+        # Resolved inside the block on purpose: patch_download() rebinds
+        # tqdm.tqdm to the tracking subclass, so a reference taken before it
+        # is the untracked original and nothing reaches the callback.
+        tqdm = tqdm_module.tqdm
 
-            # Simulate downloading a file
-            print("  Simulating download with tqdm...")
-            total_size = 1000
-            with tqdm(total=total_size, desc="model.bin", unit="B", unit_scale=True) as pbar:
-                for chunk in range(0, total_size, 100):
-                    pbar.update(100)
-                    time.sleep(0.01)
+        # Simulate downloading a file
+        print("  Simulating download with tqdm...")
+        # Above MIN_TOTAL_BYTES: the tracker drops progress under that, so a
+        # smaller transfer reports nothing and the assertion below can never
+        # hold. Derived from the constant so the two cannot drift apart.
+        total_size = 2 * MIN_TOTAL_BYTES
+        chunk_size = total_size // 10
+        with tqdm(total=total_size, desc="model.bin", unit="B", unit_scale=True) as pbar:
+            for _chunk in range(0, total_size, chunk_size):
+                pbar.update(chunk_size)
+                time.sleep(0.01)
 
-            print(f"  Captured {len(captured_progress)} progress updates")
-            assert len(captured_progress) > 0, "Should have captured progress updates"
+        print(f"  Captured {len(captured_progress)} progress updates")
+        assert len(captured_progress) > 0, "Should have captured progress updates"
 
-            # Verify progress increases
-            last_downloaded = 0
-            for downloaded, total, filename in captured_progress:
-                assert downloaded >= last_downloaded, "Downloaded bytes should increase"
-                assert total == total_size, "Total should be consistent"
-                last_downloaded = downloaded
+        # Verify progress increases
+        last_downloaded = 0
+        for downloaded, total, _filename in captured_progress:
+            assert downloaded >= last_downloaded, "Downloaded bytes should increase"
+            assert total == total_size, "Total should be consistent"
+            last_downloaded = downloaded
 
-            print("✓ Test 3 PASSED\n")
-            return True
-
-        except ImportError:
-            print("✗ tqdm not available, skipping test\n")
-            return None
+        print("✓ Test 3 PASSED\n")
 
 
 async def test_full_integration():
@@ -169,8 +163,13 @@ async def test_full_integration():
     print("Test 4: Full Integration (ProgressManager + HFProgressTracker)")
     print("=" * 60)
 
+    # Same as test 3 -- without tqdm there is no download to track. The old
+    # handler marked the transfer "error" and then asserted "complete", so a
+    # missing dependency surfaced as a failed assertion rather than a skip.
+    tqdm_module = pytest.importorskip("tqdm")
+
     pm = get_progress_manager()
-    collected_events: List[Dict] = []
+    collected_events: list[dict] = []
 
     # SSE client
     async def sse_client():
@@ -194,59 +193,48 @@ async def test_full_integration():
         tracker = HFProgressTracker(progress_callback)
 
         # Initialize progress
-        pm.update_progress(
-            model_name="integration-test",
-            current=0,
-            total=1,
-            filename="",
-            status="downloading"
-        )
+        pm.update_progress(model_name="integration-test", current=0, total=1, filename="", status="downloading")
 
         # Simulate download with tqdm patching
         with tracker.patch_download():
-            try:
-                from tqdm import tqdm
+            # Resolved inside the block -- see test 3.
+            tqdm = tqdm_module.tqdm
 
-                # Simulate multi-file download (like HuggingFace does)
-                files = [
-                    ("model.safetensors", 5000),
-                    ("config.json", 1000),
-                    ("tokenizer.json", 500),
-                ]
+            # Simulate multi-file download (like HuggingFace does)
+            # Sized above MIN_TOTAL_BYTES for the same reason as test 3 --
+            # below it the tracker stays silent and this exercises only
+            # mark_complete(), not the integration it is named for. Chunk
+            # counts are unchanged, so the runtime is too.
+            files = [
+                ("model.safetensors", 10 * MIN_TOTAL_BYTES),
+                ("config.json", 2 * MIN_TOTAL_BYTES),
+                ("tokenizer.json", MIN_TOTAL_BYTES),
+            ]
+            step = MIN_TOTAL_BYTES
 
-                for filename, size in files:
-                    print(f"  Backend: Downloading {filename}...")
-                    with tqdm(total=size, desc=filename, unit="B") as pbar:
-                        for chunk in range(0, size, 500):
-                            chunk_size = min(500, size - chunk)
-                            pbar.update(chunk_size)
-                            await asyncio.sleep(0.05)
+            for filename, size in files:
+                print(f"  Backend: Downloading {filename}...")
+                with tqdm(total=size, desc=filename, unit="B") as pbar:
+                    for chunk in range(0, size, step):
+                        pbar.update(min(step, size - chunk))
+                        await asyncio.sleep(0.05)
 
-                # Mark complete
-                print("  Backend: Download complete")
-                pm.mark_complete("integration-test")
-
-            except ImportError:
-                print("  ✗ tqdm not available")
-                pm.mark_error("integration-test", "tqdm not available")
+            # Mark complete
+            print("  Backend: Download complete")
+            pm.mark_complete("integration-test")
 
     # Run both
-    await asyncio.gather(
-        sse_client(),
-        simulate_real_download()
-    )
+    await asyncio.gather(sse_client(), simulate_real_download())
 
     # Verify
     print(f"\n  Collected {len(collected_events)} events")
-    if len(collected_events) > 0:
-        print(f"  First event: {collected_events[0]}")
-        print(f"  Last event: {collected_events[-1]}")
-        assert collected_events[-1]["status"] == "complete", "Should end with 'complete'"
-        print("✓ Test 4 PASSED\n")
-        return True
-    else:
-        print("✗ Test 4 FAILED - No events received\n")
-        return False
+    # Asserted, not branched on: the old "no events" path printed FAILED and
+    # returned False, which pytest reports as a pass.
+    assert collected_events, "Should have received at least one event"
+    print(f"  First event: {collected_events[0]}")
+    print(f"  Last event: {collected_events[-1]}")
+    assert collected_events[-1]["status"] == "complete", "Should end with 'complete'"
+    print("✓ Test 4 PASSED\n")
 
 
 async def main():

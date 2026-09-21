@@ -23,7 +23,6 @@ from typing import Any
 
 import httpx
 
-
 CLIENT_ID_HEADER = "X-Voicebox-Client-Id"
 SESSION_HEADER = "mcp-session-id"
 HEALTH_TIMEOUT_S = 30.0
@@ -96,9 +95,7 @@ async def _handle_request(
     # 202 Accepted and we stay quiet.
     is_notification = isinstance(message, dict) and "id" not in message
 
-    async with client.stream(
-        "POST", url, headers=req_headers, content=raw.encode("utf-8")
-    ) as response:
+    async with client.stream("POST", url, headers=req_headers, content=raw.encode("utf-8")) as response:
         # Capture session id on initialize.
         if session_id[0] is None:
             sid = response.headers.get(SESSION_HEADER)
@@ -109,10 +106,7 @@ async def _handle_request(
             return  # notification acknowledged
         if response.status_code >= 400:
             body = await response.aread()
-            _err(
-                f"server {response.status_code}: "
-                f"{body.decode('utf-8', errors='replace')[:400]}"
-            )
+            _err(f"server {response.status_code}: {body.decode('utf-8', errors='replace')[:400]}")
             if is_notification:
                 return
             _write_stdout(
@@ -121,9 +115,7 @@ async def _handle_request(
                     "id": message.get("id"),
                     "error": {
                         "code": -32000,
-                        "message": (
-                            f"Voicebox MCP proxy got HTTP {response.status_code}"
-                        ),
+                        "message": (f"Voicebox MCP proxy got HTTP {response.status_code}"),
                     },
                 }
             )
@@ -146,10 +138,7 @@ async def _handle_request(
             try:
                 _write_stdout(json.loads(body))
             except json.JSONDecodeError:
-                _err(
-                    f"non-JSON response ({ctype}): "
-                    f"{body.decode('utf-8', errors='replace')[:200]}"
-                )
+                _err(f"non-JSON response ({ctype}): {body.decode('utf-8', errors='replace')[:200]}")
 
 
 async def _run() -> int:
@@ -163,9 +152,7 @@ async def _run() -> int:
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(300.0)) as client:
         if not await _wait_for_backend(client, health_url):
-            _err(
-                f"timed out waiting for Voicebox at {health_url} — is the app open?"
-            )
+            _err(f"timed out waiting for Voicebox at {health_url} — is the app open?")
             return 2
 
         try:
@@ -176,9 +163,7 @@ async def _run() -> int:
                 line = line.strip()
                 if not line:
                     continue
-                await _handle_request(
-                    client, url, line, forward_headers, session_id
-                )
+                await _handle_request(client, url, line, forward_headers, session_id)
         except (KeyboardInterrupt, SystemExit):
             return 0
         except Exception as exc:

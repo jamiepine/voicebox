@@ -43,10 +43,12 @@ def run_migrations(engine) -> None:
     _migrate_generation_versions(engine, inspector, tables)
     _migrate_capture_settings(engine, inspector, tables)
     _migrate_mcp_bindings(engine, inspector, tables)
+    _migrate_voice_agent(engine, inspector, tables)
     _normalize_storage_paths(engine, tables)
 
 
 # -- helpers ---------------------------------------------------------------
+
 
 def _get_columns(inspector, table: str) -> set[str]:
     return {col["name"] for col in inspector.get_columns(table)}
@@ -62,6 +64,7 @@ def _add_column(engine, table: str, column_sql: str, label: str) -> None:
 
 # -- per-table migrations --------------------------------------------------
 
+
 def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
     if "story_items" not in tables:
         return
@@ -73,15 +76,15 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
         logger.info("Migrating story_items: removing position column, using start_time_ms")
         with engine.connect() as conn:
             if "start_time_ms" not in columns:
-                conn.execute(text(
-                    "ALTER TABLE story_items ADD COLUMN start_time_ms INTEGER DEFAULT 0"
-                ))
-                result = conn.execute(text("""
+                conn.execute(text("ALTER TABLE story_items ADD COLUMN start_time_ms INTEGER DEFAULT 0"))
+                result = conn.execute(
+                    text("""
                     SELECT si.id, si.story_id, si.position, g.duration
                     FROM story_items si
                     JOIN generations g ON si.generation_id = g.id
                     ORDER BY si.story_id, si.position
-                """))
+                """)
+                )
                 current_story_id = None
                 current_time_ms = 0
                 for item_id, story_id, _position, duration in result.fetchall():
@@ -96,7 +99,8 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
                 conn.commit()
 
             # Recreate table without the position column (SQLite lacks DROP COLUMN)
-            conn.execute(text("""
+            conn.execute(
+                text("""
                 CREATE TABLE story_items_new (
                     id VARCHAR PRIMARY KEY,
                     story_id VARCHAR NOT NULL,
@@ -110,13 +114,16 @@ def _migrate_story_items(engine, inspector, tables: set[str]) -> None:
                     FOREIGN KEY (story_id) REFERENCES stories(id),
                     FOREIGN KEY (generation_id) REFERENCES generations(id)
                 )
-            """))
-            conn.execute(text("""
+            """)
+            )
+            conn.execute(
+                text("""
                 INSERT INTO story_items_new (id, story_id, generation_id, start_time_ms, track, trim_start_ms, trim_end_ms, version_id, created_at)
                 SELECT id, story_id, generation_id, start_time_ms,
                     COALESCE(track, 0), COALESCE(trim_start_ms, 0), COALESCE(trim_end_ms, 0), version_id, created_at
                 FROM story_items
-            """))
+            """)
+            )
             conn.execute(text("DROP TABLE story_items"))
             conn.execute(text("ALTER TABLE story_items_new RENAME TO story_items"))
             conn.commit()
@@ -296,9 +303,7 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
     """Normalize stored file paths to be relative to the configured data dir."""
     from pathlib import Path
 
-    from ..config import get_data_dir, to_storage_path, resolve_storage_path
-
-    data_dir = get_data_dir()
+    from ..config import resolve_storage_path, to_storage_path
 
     path_columns = [
         ("generations", "audio_path"),
@@ -312,9 +317,7 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         for table, column in path_columns:
             if table not in tables:
                 continue
-            rows = conn.execute(
-                text(f"SELECT id, {column} FROM {table} WHERE {column} IS NOT NULL")
-            ).fetchall()
+            rows = conn.execute(text(f"SELECT id, {column} FROM {table} WHERE {column} IS NOT NULL")).fetchall()
             for row_id, path_val in rows:
                 if not path_val:
                     continue
@@ -334,3 +337,72 @@ def _normalize_storage_paths(engine, tables: set[str]) -> None:
         if total_fixed > 0:
             conn.commit()
             logger.info("Normalized %d stored file paths", total_fixed)
+
+
+# Columns added to the voice-agent tables after their first release. New
+# tables are created by ``Base.metadata.create_all``; this only patches
+# databases that already carry an earlier shape of these tables.
+_VOICE_AGENT_COLUMNS: dict[str, list[tuple[str, str]]] = {
+    "va_agents": [
+        ("version", "version INTEGER NOT NULL DEFAULT 1"),
+        ("voice_style", "voice_style VARCHAR"),
+        ("empathetic_voice_style", "empathetic_voice_style VARCHAR DEFAULT 'calm, warm and apologetic'"),
+        ("variants", "variants JSON"),
+        (
+            "filler_phrases",
+            'filler_phrases JSON NOT NULL DEFAULT \'["One moment.", "Sure, let me check that for you.", "Okay, bear with me a second."]\'',
+        ),
+        ("filler_audio", "filler_audio JSON"),
+        ("fast_first_audio", "fast_first_audio BOOLEAN NOT NULL DEFAULT 1"),
+        ("tools_enabled", "tools_enabled BOOLEAN NOT NULL DEFAULT 1"),
+        ("booking_instructions", "booking_instructions TEXT"),
+        ("appointment_duration_min", "appointment_duration_min INTEGER NOT NULL DEFAULT 30"),
+        ("analysis_schema", "analysis_schema JSON"),
+        ("webhook_url", "webhook_url VARCHAR"),
+        ("webhook_secret", "webhook_secret VARCHAR"),
+        ("redact_pii", "redact_pii BOOLEAN NOT NULL DEFAULT 1"),
+        ("max_concurrent_calls", "max_concurrent_calls INTEGER NOT NULL DEFAULT 1"),
+        ("schedule_start_at", "schedule_start_at DATETIME"),
+        ("schedule_end_at", "schedule_end_at DATETIME"),
+        ("transfer_number", "transfer_number VARCHAR"),
+        ("voicemail_message", "voicemail_message TEXT"),
+        ("sms_followup_template", "sms_followup_template TEXT"),
+        ("sms_followup_outcomes", "sms_followup_outcomes JSON NOT NULL DEFAULT '[\"interested\"]'"),
+    ],
+    "va_contacts": [
+        ("language", "language VARCHAR"),
+        ("custom_fields", "custom_fields JSON"),
+        ("is_test", "is_test BOOLEAN NOT NULL DEFAULT 0"),
+    ],
+    "va_knowledge": [
+        ("source", "source VARCHAR"),
+    ],
+    "va_calls": [
+        ("variant", "variant VARCHAR"),
+        ("ai_paused", "ai_paused BOOLEAN NOT NULL DEFAULT 0"),
+        ("analysis", "analysis JSON"),
+        ("score", "score INTEGER"),
+        ("score_reason", "score_reason TEXT"),
+        ("flags", "flags JSON"),
+        ("webhook_status", "webhook_status VARCHAR"),
+    ],
+    "va_call_turns": [
+        ("source", "source VARCHAR NOT NULL DEFAULT 'llm'"),
+        ("interrupted", "interrupted BOOLEAN NOT NULL DEFAULT 0"),
+        ("stt_ms", "stt_ms INTEGER"),
+        ("llm_ms", "llm_ms INTEGER"),
+        ("tool_name", "tool_name VARCHAR"),
+        ("meta", "meta JSON"),
+        ("generation_ids", "generation_ids JSON"),
+    ],
+}
+
+
+def _migrate_voice_agent(engine, inspector, tables: set[str]) -> None:
+    for table, columns in _VOICE_AGENT_COLUMNS.items():
+        if table not in tables:
+            continue
+        existing = _get_columns(inspector, table)
+        for name, ddl in columns:
+            if name not in existing:
+                _add_column(engine, table, ddl, name)

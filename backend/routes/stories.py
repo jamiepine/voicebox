@@ -7,9 +7,9 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import database, models
-from ..services import stories
 from ..app import safe_content_disposition
 from ..database import get_db
+from ..services import stories
 
 router = APIRouter()
 
@@ -29,7 +29,7 @@ async def create_story(
     try:
         return await stories.create_story(data, db)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/stories/{story_id}", response_model=models.StoryDetailResponse)
@@ -234,4 +234,4 @@ async def export_story_audio(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e

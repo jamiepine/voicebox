@@ -7,11 +7,14 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import export_import, history
 from ..app import safe_content_disposition
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
+from ..services import export_import, history
 
 router = APIRouter()
+
+# Upper bound on an uploaded generation archive.
+MAX_IMPORT_FILE_SIZE = 50 * 1024 * 1024
 
 
 @router.get("/history", response_model=models.HistoryListResponse)
@@ -44,22 +47,21 @@ async def import_generation(
     db: Session = Depends(get_db),
 ):
     """Import a generation from a ZIP archive."""
-    MAX_FILE_SIZE = 50 * 1024 * 1024
 
     content = await file.read()
 
-    if len(content) > MAX_FILE_SIZE:
+    if len(content) > MAX_IMPORT_FILE_SIZE:
         raise HTTPException(
-            status_code=400, detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024 * 1024)}MB"
+            status_code=400, detail=f"File too large. Maximum size is {MAX_IMPORT_FILE_SIZE / (1024 * 1024)}MB"
         )
 
     try:
         result = await export_import.import_generation_from_zip(content, db)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.delete("/history/failed")
@@ -144,9 +146,9 @@ async def export_generation(
     try:
         zip_bytes = export_import.export_generation_to_zip(generation_id, db)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     safe_text = "".join(c for c in generation.text[:30] if c.isalnum() or c in (" ", "-", "_")).strip()
     if not safe_text:

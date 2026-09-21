@@ -11,7 +11,6 @@ overhead.
 
 import logging
 import re
-from typing import List, Tuple
 
 import numpy as np
 
@@ -60,7 +59,7 @@ _ABBREVIATIONS = frozenset(
 _PARA_TAG_RE = re.compile(r"\[[^\]]*\]")
 
 
-def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) -> List[str]:
+def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) -> list[str]:
     """Split *text* at natural boundaries into chunks of at most *max_chars*.
 
     Priority: sentence-end (``.!?`` not preceded by an abbreviation and not
@@ -75,7 +74,7 @@ def split_text_into_chunks(text: str, max_chars: int = DEFAULT_MAX_CHUNK_CHARS) 
     if len(text) <= max_chars:
         return [text]
 
-    chunks: List[str] = []
+    chunks: list[str] = []
     remaining = text
 
     while remaining:
@@ -155,10 +154,7 @@ def _find_last_clause_boundary(text: str) -> int:
 
 def _inside_bracket_tag(text: str, pos: int) -> bool:
     """Return True if *pos* falls inside a ``[...]`` tag."""
-    for m in _PARA_TAG_RE.finditer(text):
-        if m.start() < pos < m.end():
-            return True
-    return False
+    return any(m.start() < pos < m.end() for m in _PARA_TAG_RE.finditer(text))
 
 
 def _safe_hard_cut(segment: str, max_chars: int) -> int:
@@ -172,7 +168,7 @@ def _safe_hard_cut(segment: str, max_chars: int) -> int:
 
 
 def concatenate_audio_chunks(
-    chunks: List[np.ndarray],
+    chunks: list[np.ndarray],
     sample_rate: int,
     crossfade_ms: int = 50,
 ) -> np.ndarray:
@@ -214,7 +210,7 @@ async def generate_chunked(
     crossfade_ms: int = 50,
     trim_fn=None,
     runaway_detector=None,
-) -> Tuple[np.ndarray, int]:
+) -> tuple[np.ndarray, int]:
     """Generate audio with automatic chunking for long text.
 
     For text shorter than *max_chunk_chars* this is a thin wrapper around
@@ -250,6 +246,7 @@ async def generate_chunked(
     -------
     (audio, sample_rate) : Tuple[np.ndarray, int]
     """
+
     async def generate_one(
         chunk_text: str,
         chunk_seed: int | None,
@@ -265,9 +262,7 @@ async def generate_chunked(
 
         if runaway_detector is not None and runaway_detector(chunk_audio, chunk_sr):
             if retry_depth >= MAX_RUNAWAY_RETRIES or len(chunk_text) <= MIN_RUNAWAY_RETRY_CHARS:
-                raise RuntimeError(
-                    "TTS output remained unstable after retrying smaller text chunks"
-                )
+                raise RuntimeError("TTS output remained unstable after retrying smaller text chunks")
 
             retry_max_chars = max(MIN_RUNAWAY_RETRY_CHARS, len(chunk_text) // 2)
             retry_chunks = split_text_into_chunks(chunk_text, retry_max_chars)
@@ -281,11 +276,7 @@ async def generate_chunked(
             )
             retry_audio: list[np.ndarray] = []
             for i, retry_text in enumerate(retry_chunks):
-                retry_seed = (
-                    chunk_seed + ((retry_depth + 1) * 1000) + i
-                    if chunk_seed is not None
-                    else None
-                )
+                retry_seed = chunk_seed + ((retry_depth + 1) * 1000) + i if chunk_seed is not None else None
                 audio, sample_rate = await generate_one(
                     retry_text,
                     retry_seed,
@@ -319,7 +310,7 @@ async def generate_chunked(
         len(chunks),
         max_chunk_chars,
     )
-    audio_chunks: List[np.ndarray] = []
+    audio_chunks: list[np.ndarray] = []
     sample_rate: int | None = None
 
     for i, chunk_text in enumerate(chunks):

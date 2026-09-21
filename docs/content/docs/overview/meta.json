@@ -13,6 +13,7 @@
     "preset-voices",
     "voice-personalities",
     "mcp-server",
+    "voice-agent",
     "stories-editor",
     "recording-transcription",
     "generation-history",

@@ -14,11 +14,10 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from utils.audio import (  # noqa: E402
+from utils.audio import (
     preprocess_reference_audio,
     validate_and_load_reference_audio,
 )
-
 
 SR = 24000
 
