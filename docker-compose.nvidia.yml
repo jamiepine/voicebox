@@ -1,0 +1,21 @@
+---
+# NVIDIA GPU (CUDA) overlay for Voicebox
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.nvidia.yml up -d
+#
+# Requirements:
+#   - NVIDIA GPU (6GB+ VRAM recommended)
+#   - NVIDIA drivers installed on the host
+#   - NVIDIA Container Toolkit configured on the host:
+#     https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+
+services:
+  voicebox:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
