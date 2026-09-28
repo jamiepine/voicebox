@@ -27,6 +27,39 @@ if not _is_writable(sys.stdout):
 if not _is_writable(sys.stderr):
     sys.stderr = open(os.devnull, 'w')
 
+
+class _PipeSafeStream:
+    """Falls back to devnull once the pipe to the Tauri app is gone.
+
+    The app reads our stdout/stderr through a pipe. When the server outlives
+    it (keep-running mode, or a sidecar the next launch reuses), every later
+    print()/tqdm write raises "[Errno 32] Broken pipe" and fails whatever
+    request triggered it, e.g. POST /captures.
+    """
+
+    def __init__(self, stream):
+        self._stream = stream
+
+    def write(self, s):
+        try:
+            return self._stream.write(s)
+        except (OSError, ValueError):
+            self._stream = open(os.devnull, 'w')
+            return len(s)
+
+    def flush(self):
+        try:
+            self._stream.flush()
+        except (OSError, ValueError):
+            self._stream = open(os.devnull, 'w')
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+
+
+sys.stdout = _PipeSafeStream(sys.stdout)
+sys.stderr = _PipeSafeStream(sys.stderr)
+
 # PyInstaller + multiprocessing: child processes re-execute the frozen binary
 # with internal arguments. freeze_support() handles this and exits early.
 import multiprocessing
