@@ -45,7 +45,16 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
   const generation = useGeneration();
   const addPendingGeneration = useGenerationStore((state) => state.addPendingGeneration);
   const { settings: genSettings } = useGenerationSettings();
-  const maxChunkChars = genSettings?.max_chunk_chars ?? 800;
+  // Factory default for the chunk slider. When the user hasn't customized
+  // it, leave max_chunk_chars unset so the backend can pick the engine's
+  // own default — Qwen engines use a smaller chunk as part of their
+  // EOS-miss runaway guard (300 chars vs the global 800).
+  const FACTORY_DEFAULT_CHUNK_CHARS = 800;
+  const customChunkChars =
+    genSettings?.max_chunk_chars != null &&
+    genSettings.max_chunk_chars !== FACTORY_DEFAULT_CHUNK_CHARS
+      ? genSettings.max_chunk_chars
+      : undefined;
   const crossfadeMs = genSettings?.crossfade_ms ?? 50;
   const normalizeAudio = genSettings?.normalize_audio ?? true;
   const selectedEngine = useUIStore((state) => state.selectedEngine);
@@ -153,7 +162,7 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
         engine,
         instruct: supportsInstruct ? data.instruct || undefined : undefined,
         personality: data.personality || undefined,
-        max_chunk_chars: maxChunkChars,
+        max_chunk_chars: customChunkChars,
         crossfade_ms: crossfadeMs,
         normalize: normalizeAudio,
         effects_chain: effectsChain?.length ? effectsChain : undefined,

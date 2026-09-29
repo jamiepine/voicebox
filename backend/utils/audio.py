@@ -147,6 +147,66 @@ def has_tts_runaway(
     return False
 
 
+# Minimum delivery rate considered sane, in non-whitespace characters per
+# second of audio. The slowest normal narration observed in the wild (very
+# short lines with heavy pausing) runs ~1.6 chars/sec; anything meaningfully
+# below this means the model is emitting silence/gibberish, not speech.
+# Whitespace is excluded so padding (blank lines, indent runs) can't
+# inflate the threshold and mask a runaway.
+MIN_PLAUSIBLE_CHARS_PER_SEC = 1.2
+# Grace period added on top of the expected duration to absorb leading/
+# trailing silence and natural end-of-clip decay.
+PLAUSIBLE_DURATION_BUFFER_S = 15.0
+
+
+def exceeds_plausible_speech_duration(
+    audio: np.ndarray,
+    sample_rate: int,
+    text: str,
+    min_chars_per_sec: float = MIN_PLAUSIBLE_CHARS_PER_SEC,
+    buffer_seconds: float = PLAUSIBLE_DURATION_BUFFER_S,
+) -> bool:
+    """Detect a clip that runs far longer than its text can plausibly fill.
+
+    Catches the worst EOS-miss runaway shape — the model renders the text
+    (or degenerates immediately) and then emits near-silent "room tone"
+    or gibberish for minutes. Such output is not always bounded by
+    internal silence, so :func:`has_tts_runaway` alone misses it; the
+    duration ratio is the reliable signal. Only non-whitespace characters
+    count (blank lines and padding must not raise the threshold), and
+    trailing junk under the buffer is tolerated, so healthy clips never
+    trip this.
+    """
+    if audio is None or len(audio) == 0 or not text:
+        return False
+
+    spoken_chars = len("".join(text.split()))
+    if spoken_chars == 0:
+        return False
+
+    duration_s = len(audio) / sample_rate
+    max_plausible_s = spoken_chars / min_chars_per_sec + buffer_seconds
+    return duration_s > max_plausible_s
+
+
+def detect_tts_runaway(
+    audio: np.ndarray,
+    sample_rate: int,
+    text: str,
+) -> bool:
+    """Combined runaway detector used for Qwen3-TTS engines.
+
+    Flags either shape of an EOS miss:
+      - speech → long internal silence → more output
+        (:func:`has_tts_runaway`), or
+      - output that runs implausibly long for its input text
+        (:func:`exceeds_plausible_speech_duration`).
+    """
+    return has_tts_runaway(audio, sample_rate) or exceeds_plausible_speech_duration(
+        audio, sample_rate, text
+    )
+
+
 def trim_tts_output(
     audio: np.ndarray,
     sample_rate: int = 24000,

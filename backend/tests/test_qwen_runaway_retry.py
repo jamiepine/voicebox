@@ -1,4 +1,4 @@
-"""Regression coverage for runaway MLX Qwen TTS output."""
+"""Regression coverage for runaway Qwen TTS output."""
 
 from unittest.mock import patch
 
@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from backend.backends import engine_needs_trim, engine_retries_runaway
-from backend.utils.audio import has_tts_runaway
+from backend.utils.audio import detect_tts_runaway, has_tts_runaway
 from backend.utils.chunked_tts import generate_chunked
 
 SAMPLE_RATE = 1000
@@ -18,10 +18,21 @@ def test_mlx_qwen_enables_runaway_retry_without_aggressive_trim():
         assert engine_retries_runaway("qwen") is True
 
 
-def test_pytorch_qwen_keeps_runaway_retry_disabled():
+def test_pytorch_qwen_enables_runaway_retry_too():
+    # EOS misses are model-intrinsic (QwenLM/Qwen3-TTS#118) — the guard
+    # must cover the PyTorch CPU/GPU path as well, not just MLX.
     with patch("backend.backends.get_backend_type", return_value="pytorch"):
         assert engine_needs_trim("qwen") is False
-        assert engine_retries_runaway("qwen") is False
+        assert engine_retries_runaway("qwen") is True
+
+
+def test_qwen_custom_voice_enables_runaway_retry():
+    with patch("backend.backends.get_backend_type", return_value="pytorch"):
+        assert engine_retries_runaway("qwen_custom_voice") is True
+
+
+def test_non_qwen_engines_keep_runaway_retry_disabled():
+    assert engine_retries_runaway("kokoro") is False
 
 
 def test_detector_flags_long_internal_silence():
@@ -78,7 +89,7 @@ async def test_runaway_chunk_is_retried_as_smaller_chunks():
         {},
         max_chunk_chars=800,
         crossfade_ms=50,
-        runaway_detector=has_tts_runaway,
+        runaway_detector=detect_tts_runaway,
     )
 
     assert sample_rate == SAMPLE_RATE
@@ -111,7 +122,7 @@ async def test_persistent_runaway_fails_instead_of_returning_corrupt_audio():
             text,
             {},
             max_chunk_chars=800,
-            runaway_detector=has_tts_runaway,
+            runaway_detector=detect_tts_runaway,
         )
 
     assert [len(call) for call in backend.calls] == [241, 120, 100]
