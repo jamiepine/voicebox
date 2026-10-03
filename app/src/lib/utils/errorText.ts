@@ -69,15 +69,15 @@ export function condenseError(raw: string | null | undefined): CondensedError {
   // A traceback's first line is nearly always the message; prefer it whenever
   // it fits, since a newline is a stronger boundary than any punctuation.
   const firstLine = text.split('\n', 1)[0].trim();
-  let head =
-    firstLine.length > 0 && firstLine.length <= HEAD_BUDGET
-      ? firstLine
-      : text.slice(0, HEAD_BUDGET);
+  const useFirstLine = firstLine.length > 0 && firstLine.length <= HEAD_BUDGET;
+  let head = useFirstLine ? firstLine : text.slice(0, HEAD_BUDGET);
 
-  if (head.length < text.length && head === text.slice(0, head.length)) {
-    // Back off to the last sentence end inside the budget so the text does not
-    // stop mid-word. Only accept it if it keeps most of the budget — otherwise
-    // a stray early period would throw away usable context.
+  if (!useFirstLine) {
+    // A raw slice can stop mid-word, so back off to the last sentence end
+    // inside the budget. A first line that fit already ends at a newline, the
+    // stronger boundary, and is kept whole. Only accept the backoff if it
+    // keeps most of the budget — otherwise a stray early period would throw
+    // away usable context.
     const lastStop = Math.max(head.lastIndexOf('. '), head.lastIndexOf('? '));
     if (lastStop > HEAD_BUDGET * 0.4) {
       head = head.slice(0, lastStop + 1);
