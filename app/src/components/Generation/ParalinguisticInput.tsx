@@ -35,7 +35,8 @@ const PARALINGUISTIC_TAGS = [
   { tag: '[advertisement]', label: 'advertisement', emoji: '\u{1F4E2}' },
 ] as const;
 
-const TAG_REGEX = /\[(laugh|chuckle|gasp|cough|sigh|groan|sniff|shush|clear throat|angry|crying|dramatic|fear|happy|narration|sarcastic|surprised|whispering|advertisement)\]/gi;
+const TAG_REGEX =
+  /\[(laugh|chuckle|gasp|cough|sigh|groan|sniff|shush|clear throat|angry|crying|dramatic|fear|happy|narration|sarcastic|surprised|whispering|advertisement)\]/gi;
 
 // Data attribute used to identify badge spans in the DOM
 const BADGE_ATTR = 'data-ptag';
