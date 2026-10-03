@@ -199,7 +199,7 @@ async def test_delete_profile_survives_unremovable_version_audio(db, monkeypatch
 
 @pytest.mark.asyncio
 async def test_one_locked_file_does_not_strand_the_rest(db, monkeypatch):
-    """The sweep commits per generation, so aborting mid-loop half-deletes."""
+    """One locked file must not leave the other generations' rows behind."""
     _make_profile(db)
     for i in range(3):
         _, gen_stored = _write_wav(f"gen{i}.wav")
