@@ -98,9 +98,7 @@ async def _call_rest(monkeypatch, profile_language, requested_language=None):
     )
 
 
-async def test_rest_speak_falls_back_to_profile_language(
-    captured_request, monkeypatch
-):
+async def test_rest_speak_falls_back_to_profile_language(captured_request, monkeypatch):
     await _call_rest(monkeypatch, profile_language="fr")
     assert captured_request["req"].language == "fr"
 
@@ -112,9 +110,7 @@ async def test_rest_speak_explicit_language_wins(captured_request, monkeypatch):
     assert captured_request["req"].language == "en"
 
 
-async def test_rest_speak_defaults_to_en_without_profile_language(
-    captured_request, monkeypatch
-):
+async def test_rest_speak_defaults_to_en_without_profile_language(captured_request, monkeypatch):
     # Profiles predating the language column resolve to None; the "en"
     # backstop keeps their behaviour unchanged.
     await _call_rest(monkeypatch, profile_language=None)
@@ -142,9 +138,7 @@ async def _call_mcp(monkeypatch, profile_language, requested_language=None):
     await mcp.call_tool("voicebox.speak", args)
 
 
-async def test_mcp_speak_falls_back_to_profile_language(
-    captured_request, monkeypatch
-):
+async def test_mcp_speak_falls_back_to_profile_language(captured_request, monkeypatch):
     # The agent-facing path matters most: an MCP client can't know the
     # profile's language, so omitting it must not silently mean English.
     await _call_mcp(monkeypatch, profile_language="fr")
@@ -156,8 +150,6 @@ async def test_mcp_speak_explicit_language_wins(captured_request, monkeypatch):
     assert captured_request["req"].language == "en"
 
 
-async def test_mcp_speak_defaults_to_en_without_profile_language(
-    captured_request, monkeypatch
-):
+async def test_mcp_speak_defaults_to_en_without_profile_language(captured_request, monkeypatch):
     await _call_mcp(monkeypatch, profile_language=None)
     assert captured_request["req"].language == "en"
