@@ -65,23 +65,45 @@ fn main() {
                 ])
                 .output();
 
+            // A missing or failing actool is survivable for dev builds (the
+            // stub block below writes empty Assets.car / partial.plist), but a
+            // release bundle must never ship those stubs as its icon catalog.
+            let release_build = std::env::var("PROFILE").as_deref() == Ok("release");
             match output {
                 Ok(output) => {
                     if !output.status.success() {
+                        let detail = String::from_utf8_lossy(&output.stdout)
+                            .lines()
+                            .chain(String::from_utf8_lossy(&output.stderr).lines())
+                            .filter(|line| !line.trim().is_empty())
+                            .map(|line| line.trim().to_string())
+                            .collect::<Vec<_>>();
+                        if release_build {
+                            for line in &detail {
+                                eprintln!("actool: {}", line);
+                            }
+                            panic!("actool failed to compile icon (release build requires full Xcode)");
+                        }
                         println!(
                             "cargo:warning=actool failed (requires full Xcode, not just CLT) — \
-                             stub files will be used. stderr: {}",
-                            String::from_utf8_lossy(&output.stderr).trim()
+                             stub files will be used for this dev build"
                         );
+                        for line in &detail {
+                            println!("cargo:warning=actool: {}", line);
+                        }
                     } else {
                         println!("Successfully compiled icon to {}", gen_dir);
                     }
                 }
                 Err(e) => {
+                    if release_build {
+                        eprintln!("Failed to execute xcrun actool: {}", e);
+                        panic!("Icon compilation failed (release build requires full Xcode)");
+                    }
                     println!(
                         "cargo:warning=xcrun actool not available ({e}) — \
                          install Xcode from the App Store for Liquid Glass icons. \
-                         Stub files will be used for dev builds."
+                         Stub files will be used for this dev build."
                     );
                 }
             }
