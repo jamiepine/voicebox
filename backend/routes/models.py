@@ -244,6 +244,7 @@ async def get_model_status():
         use_scan_cache = False
 
     from ..backends import get_all_model_configs, check_model_loaded
+    from ..backends.base import has_in_progress_download
 
     registry_configs = get_all_model_configs()
     model_configs = [
@@ -293,8 +294,7 @@ async def get_model_status():
                         try:
                             cache_dir = hf_constants.HF_HUB_CACHE
                             blobs_dir = Path(cache_dir) / ("models--" + repo_id.replace("/", "--")) / "blobs"
-                            if blobs_dir.exists():
-                                has_incomplete = any(blobs_dir.glob("*.incomplete"))
+                            has_incomplete = has_in_progress_download(blobs_dir)
                         except Exception:
                             pass
 
@@ -314,7 +314,7 @@ async def get_model_status():
 
                     if repo_cache.exists():
                         blobs_dir = repo_cache / "blobs"
-                        has_incomplete = blobs_dir.exists() and any(blobs_dir.glob("*.incomplete"))
+                        has_incomplete = has_in_progress_download(blobs_dir)
 
                         if not has_incomplete:
                             snapshots_dir = repo_cache / "snapshots"

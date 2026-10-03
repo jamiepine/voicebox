@@ -21,6 +21,24 @@ from ..utils.tasks import get_task_manager
 logger = logging.getLogger(__name__)
 
 
+def has_in_progress_download(blobs_dir: Path) -> bool:
+    """
+    Whether a HuggingFace repo's ``blobs`` dir holds a genuinely in-progress download.
+
+    An ``.incomplete`` blob means a download is still in progress -- unless a
+    completed blob with the same hash already sits next to it, which happens
+    when a retried/concurrent download leaves a stale ``.incomplete`` behind
+    after the real transfer already finished. Only orphaned ``.incomplete``
+    files (no matching completed blob) count as "in progress".
+    """
+    if not blobs_dir.exists():
+        return False
+    return any(
+        not incomplete.with_name(incomplete.name.removesuffix(".incomplete")).exists()
+        for incomplete in blobs_dir.glob("*.incomplete")
+    )
+
+
 def is_model_cached(
     hf_repo: str,
     *,
@@ -47,18 +65,9 @@ def is_model_cached(
         if not repo_cache.exists():
             return False
 
-        # An .incomplete blob means a download is still in progress -- unless
-        # a completed blob with the same hash already sits next to it, which
-        # happens when a retried/concurrent download leaves a stale .incomplete
-        # behind after the real transfer already finished. Only orphaned
-        # .incomplete files (no matching completed blob) count as "in progress".
-        blobs_dir = repo_cache / "blobs"
-        if blobs_dir.exists():
-            for incomplete in blobs_dir.glob("*.incomplete"):
-                completed = incomplete.with_name(incomplete.name.removesuffix(".incomplete"))
-                if not completed.exists():
-                    logger.debug(f"Found in-progress .incomplete file for {hf_repo}")
-                    return False
+        if has_in_progress_download(repo_cache / "blobs"):
+            logger.debug(f"Found in-progress .incomplete file for {hf_repo}")
+            return False
 
         snapshots_dir = repo_cache / "snapshots"
         if not snapshots_dir.exists():

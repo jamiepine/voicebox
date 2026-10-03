@@ -20,10 +20,10 @@ from typing import Optional
 
 _SOURCE = (Path(__file__).parent.parent / "backends" / "base.py").read_text()
 _MODULE = ast.parse(_SOURCE)
-_FUNC_SRC = next(
+_FUNC_SRC = "\n\n".join(
     ast.get_source_segment(_SOURCE, node)
     for node in _MODULE.body
-    if isinstance(node, ast.FunctionDef) and node.name == "is_model_cached"
+    if isinstance(node, ast.FunctionDef) and node.name in ("has_in_progress_download", "is_model_cached")
 )
 
 _namespace = {
