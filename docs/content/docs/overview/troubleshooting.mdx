@@ -419,11 +419,13 @@ bun run tauri build
 
 ```bash
 # macOS
-rm ~/Library/Application\ Support/sh.voicebox.app/data/voicebox.db
+rm ~/Library/Application\ Support/sh.voicebox.app/data/voicebox.db*
 
 # Windows
-del %APPDATA%\sh.voicebox.app\data\voicebox.db
+del %APPDATA%\sh.voicebox.app\data\voicebox.db*
 ```
+
+The wildcard also removes the `voicebox.db-wal` and `voicebox.db-shm` sidecar files that SQLite keeps next to the database in WAL mode, so the reset starts completely clean.
 
 Restart the app to create a fresh database.
 

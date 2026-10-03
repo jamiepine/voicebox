@@ -348,12 +348,12 @@ db-init: _ensure-venv
 # Reset database (delete + reinit)
 [unix]
 db-reset:
-    rm -f {{ backend_dir }}/data/voicebox.db
+    rm -f {{ backend_dir }}/data/voicebox.db {{ backend_dir }}/data/voicebox.db-wal {{ backend_dir }}/data/voicebox.db-shm
     just db-init
 
 [windows]
 db-reset:
-    if (Test-Path "{{ backend_dir }}/data/voicebox.db") { Remove-Item -Force "{{ backend_dir }}/data/voicebox.db" }
+    Remove-Item -Force -ErrorAction SilentlyContinue "{{ backend_dir }}/data/voicebox.db", "{{ backend_dir }}/data/voicebox.db-wal", "{{ backend_dir }}/data/voicebox.db-shm"
     just db-init
 
 # ─── Utilities ────────────────────────────────────────────────────────
