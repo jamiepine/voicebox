@@ -14,7 +14,6 @@
 
 ### Linux
 
-
 - **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch
   on the ROCm wheel index during dependency installation, so later installs do
   not replace it with CUDA wheels. The ROCm compose overlay no longer assumes
