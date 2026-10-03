@@ -7,12 +7,30 @@ from backend.backends import engine_needs_trim, get_model_config
 from backend.utils.audio import trim_tts_output
 
 
-def test_kokoro_engine_needs_trim_enabled():
-    """Verify Kokoro engine is registered with needs_trim=True in model config."""
-    assert engine_needs_trim("kokoro") is True
+def test_kokoro_engine_does_not_use_generic_trim():
+    """Kokoro trims inside the backend; the generic needs_trim path would cut
+    multi-segment output at the first >1s inter-segment gap."""
+    assert engine_needs_trim("kokoro") is False
     config = get_model_config("kokoro")
     assert config is not None
-    assert config.needs_trim is True
+    assert config.needs_trim is False
+
+
+def test_trim_tts_output_edge_only_keeps_internal_gaps():
+    """With max_internal_silence_ms=None only the edges are trimmed."""
+    sr = 24000
+    speech = np.full(int(sr * 1.0), 0.2, dtype=np.float32)
+    gap = np.zeros(int(sr * 1.5), dtype=np.float32)  # longer than the 1s default cut
+    pad = np.zeros(int(sr * 0.5), dtype=np.float32)
+    raw_audio = np.concatenate([pad, speech, gap, speech, pad])
+
+    default_trim = trim_tts_output(raw_audio, sample_rate=sr)
+    edge_trim = trim_tts_output(raw_audio, sample_rate=sr, max_internal_silence_ms=None)
+
+    # Default behaviour cuts at the internal gap and drops the second utterance.
+    assert len(default_trim) / sr == pytest.approx(1.0, abs=0.25)
+    # Edge-only trim keeps both utterances and the gap between them.
+    assert len(edge_trim) / sr == pytest.approx(1.0 + 1.5 + 1.0 + 0.2, abs=0.05)
 
 
 def test_kokoro_trim_tts_output_removes_trailing_dead_space():
@@ -54,13 +72,15 @@ async def test_kokoro_backend_generate_applies_trimming(monkeypatch):
     class FakePipeline:
         def __call__(self, text, voice, speed=1.0):
             yield FakeResult(fake_audio)
+            yield FakeResult(fake_audio)
 
     monkeypatch.setattr(backend, "_get_pipeline", lambda lang: FakePipeline())
 
     audio, sample_rate = await backend.generate("Read it back to me.", voice_prompt={})
 
     assert sample_rate == sr
-    # Original fake audio was 2.0s (1s speech + 1s silence).
-    # Trimmed cuts trailing silence down to 1.0s speech boundary.
-    assert len(audio) / sr == pytest.approx(1.0, abs=0.05)
-    assert len(audio) < len(fake_audio)
+    # Two segments of (1s speech + 1s silence) = 4.0s raw. Only the trailing
+    # pad is trimmed (down to a 0.2s tail); the 1s gap between the segments
+    # must survive, otherwise the second segment would be dropped.
+    assert len(audio) / sr == pytest.approx(1.0 + 1.0 + 1.0 + 0.2, abs=0.05)
+    assert len(audio) < 2 * len(fake_audio)

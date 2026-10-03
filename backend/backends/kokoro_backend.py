@@ -290,7 +290,12 @@ class KokoroTTSBackend:
             audio = np.concatenate(audio_chunks).astype(np.float32)
             from ..utils.audio import trim_tts_output
 
-            audio = trim_tts_output(audio, sample_rate=KOKORO_SAMPLE_RATE)
+            # Edge-only trim: Kokoro pads ~0.3s before and ~0.7s after speech.
+            # The internal-gap cut is disabled because KPipeline synthesizes
+            # newline/token-limit segments independently and the pads at each
+            # segment boundary add up to >1s of silence; with the default cut
+            # everything after the first segment would be dropped.
+            audio = trim_tts_output(audio, sample_rate=KOKORO_SAMPLE_RATE, max_internal_silence_ms=None)
             return audio, KOKORO_SAMPLE_RATE
 
         return await asyncio.to_thread(_generate_sync)

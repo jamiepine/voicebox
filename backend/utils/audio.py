@@ -153,7 +153,7 @@ def trim_tts_output(
     frame_ms: int = 20,
     silence_threshold_db: float = -40.0,
     min_silence_ms: int = 200,
-    max_internal_silence_ms: int = 1000,
+    max_internal_silence_ms: int | None = 1000,
     fade_ms: int = 30,
 ) -> np.ndarray:
     """
@@ -170,7 +170,8 @@ def trim_tts_output(
         frame_ms: Frame size for RMS energy calculation
         silence_threshold_db: dB threshold below which a frame is silence
         min_silence_ms: Minimum trailing silence to keep
-        max_internal_silence_ms: Cut after any silence gap longer than this
+        max_internal_silence_ms: Cut after any silence gap longer than this.
+            ``None`` disables the internal cut and only trims the edges.
         fade_ms: Cosine fade-out duration in ms
 
     Returns:
@@ -200,18 +201,18 @@ def trim_tts_output(
             break
 
     # Walk forward from first speech; cut at long internal silence gaps
-    max_silence_frames = int(max_internal_silence_ms / frame_ms)
-    consecutive_silence = 0
     cut_frame = n_frames
-
-    for i in range(first_speech, n_frames):
-        if is_speech[i]:
-            consecutive_silence = 0
-        else:
-            consecutive_silence += 1
-            if consecutive_silence >= max_silence_frames:
-                cut_frame = i - consecutive_silence + 1
-                break
+    if max_internal_silence_ms is not None:
+        max_silence_frames = int(max_internal_silence_ms / frame_ms)
+        consecutive_silence = 0
+        for i in range(first_speech, n_frames):
+            if is_speech[i]:
+                consecutive_silence = 0
+            else:
+                consecutive_silence += 1
+                if consecutive_silence >= max_silence_frames:
+                    cut_frame = i - consecutive_silence + 1
+                    break
 
     # Trim trailing silence from the cut point
     min_silence_frames = int(min_silence_ms / frame_ms)
