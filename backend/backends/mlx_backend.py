@@ -133,21 +133,16 @@ class MLXTTSBackend:
     def unload_model(self):
         """Unload the model to free memory.
 
-        Safe to call from any thread (e.g. the FastAPI event loop, from the
-        /models/unload routes): the actual teardown is submitted to the MLX
-        worker thread and awaited synchronously here, so Metal resources are
-        always released on the same OS thread that created them. Do not call
-        this from within a callable already running ON the MLX worker thread
-        (e.g. from _reload_sync) — use _unload_model_sync directly there, or
-        this would deadlock the single-worker executor waiting on itself.
+        Runs inline on the calling thread rather than on the MLX worker:
+        dropping the Python reference is thread-safe (MLX frees buffers
+        through its global allocator, no stream needed), and routing it
+        through the single worker would block the caller — usually the
+        FastAPI event loop, via /models/unload — until any in-flight
+        generation on that worker finishes. A generation still running keeps
+        its own reference to the model, so it completes normally and the
+        next generate() reloads via _reload_and_generate_sync.
         """
-        # Submit unconditionally rather than checking self.model here first:
-        # that check would race against a load already queued on the worker
-        # thread (this call could see None, skip, and leave a model that
-        # finishes loading a moment later still resident). The loaded check
-        # belongs inside _unload_model_sync, where it runs atomically with
-        # the teardown itself.
-        _mlx_executor.submit(self._unload_model_sync).result()
+        self._unload_model_sync()
 
     def _unload_model_sync(self):
         if self.model is not None:
@@ -375,13 +370,8 @@ class MLXSTTBackend:
         logger.info("MLX Whisper model %s loaded successfully", model_size)
 
     def unload_model(self):
-        """Unload the model to free memory.
-
-        Safe to call from any thread — see MLXTTSBackend.unload_model for why,
-        including why this submits unconditionally instead of checking
-        self.model first.
-        """
-        _mlx_executor.submit(self._unload_model_sync).result()
+        """Unload the model to free memory (inline; see MLXTTSBackend.unload_model)."""
+        self._unload_model_sync()
 
     def _unload_model_sync(self):
         if self.model is not None:
