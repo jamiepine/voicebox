@@ -24,8 +24,8 @@ def get_tts_model() -> TTSBackend:
 def unload_tts_model():
     """Unload TTS model to free memory."""
     backend = get_tts_backend()
-    backend.unload_model()
     clear_voice_prompt_memory_cache()
+    backend.unload_model()
 
 
 def audio_to_wav_bytes(audio: np.ndarray, sample_rate: int) -> bytes:

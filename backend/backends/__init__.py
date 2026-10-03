@@ -595,16 +595,16 @@ def unload_model_by_config(config: ModelConfig) -> bool:
         backend = get_tts_backend_for_engine(config.engine)
         loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
         if backend.is_loaded() and loaded_size == config.model_size:
-            backend.unload_model()
             clear_voice_prompt_memory_cache()
+            backend.unload_model()
             return True
         return False
 
     # All other TTS engines
     backend = get_tts_backend_for_engine(config.engine)
     if backend.is_loaded():
-        backend.unload_model()
         clear_voice_prompt_memory_cache()
+        backend.unload_model()
         return True
     return False
 
