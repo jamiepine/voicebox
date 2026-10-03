@@ -410,7 +410,7 @@
     },
     "deleteDialog": {
       "title": "Delete Profile",
-      "body": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+      "body": "Are you sure you want to delete \"{{name}}\"? All generations made with this voice, including their audio files, will be deleted too. This action cannot be undone.",
       "deleting": "Deleting…"
     }
   },

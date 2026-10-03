@@ -410,7 +410,7 @@
     },
     "deleteDialog": {
       "title": "Excluir Perfil",
-      "body": "Tem certeza de que deseja excluir \"{{name}}\"? Esta ação não pode ser desfeita.",
+      "body": "Tem certeza de que deseja excluir \"{{name}}\"? Todas as gerações feitas com esta voz, incluindo seus arquivos de áudio, também serão excluídas. Esta ação não pode ser desfeita.",
       "deleting": "Excluindo…"
     }
   },

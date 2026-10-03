@@ -410,7 +410,7 @@
     },
     "deleteDialog": {
       "title": "Elimina profilo",
-      "body": "Sei sicuro di voler eliminare \"{{name}}\"? Questa azione non può essere annullata.",
+      "body": "Sei sicuro di voler eliminare \"{{name}}\"? Verranno eliminate anche tutte le generazioni create con questa voce, inclusi i relativi file audio. Questa azione non può essere annullata.",
       "deleting": "Eliminazione in corso…"
     }
   },
