@@ -108,6 +108,7 @@ def get_torch_device(
     # Stripped: on Windows, where this override matters most, it is usually set
     # through the GUI environment editor.
     if os.environ.get(FORCE_CPU_ENV_VAR, "").strip() == FORCE_CPU_ENABLED_VALUE:
+        logger.info("%s=%s set, forcing CPU device", FORCE_CPU_ENV_VAR, FORCE_CPU_ENABLED_VALUE)
         return "cpu"
 
     if force_cpu_on_mac and platform.system() == "Darwin":
