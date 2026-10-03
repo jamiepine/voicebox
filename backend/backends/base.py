@@ -185,9 +185,8 @@ def empty_device_cache(device: str) -> None:
         torch.cuda.empty_cache()
     elif device == "xpu" and hasattr(torch, "xpu"):
         torch.xpu.empty_cache()
-    elif device == "mps" and hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        if hasattr(torch.mps, "empty_cache"):
-            torch.mps.empty_cache()
+    elif device == "mps" and torch.backends.mps.is_available() and hasattr(torch.mps, "empty_cache"):
+        torch.mps.empty_cache()
 
 
 def manual_seed(seed: int, device: str) -> None:
