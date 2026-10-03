@@ -440,7 +440,7 @@ async def delete_profile(
     # Generations carry a non-null FK to the profile and the history query
     # inner-joins profiles, so anything left behind here becomes a row the UI
     # can never show and a .wav in data/generations the user can never reclaim.
-    deleted_generations = await history.delete_generations_by_profile(profile_id, db)
+    deleted_generations = await history.delete_generations_by_profile(profile_id, db, commit=False)
     if deleted_generations:
         logger.info("Deleted %d generations belonging to profile %s", deleted_generations, profile_id)
 

@@ -187,7 +187,7 @@ def delete_version(version_id: str, db: Session) -> bool:
     return True
 
 
-def delete_versions_for_generation(generation_id: str, db: Session) -> int:
+def delete_versions_for_generation(generation_id: str, db: Session, commit: bool = True) -> int:
     """Delete all versions for a generation (used when deleting a generation).
 
     This runs as part of a wider cascade — deleting one generation, sweeping
@@ -196,6 +196,9 @@ def delete_versions_for_generation(generation_id: str, db: Session) -> int:
     strand the caller half-deleted, so the row goes regardless and the leaked
     file is logged. ``delete_version`` keeps raising, because a single
     user-initiated delete should fail loudly.
+
+    Pass ``commit=False`` when the caller owns the transaction and will commit
+    the whole cascade itself.
     """
     versions = (
         db.query(DBGenerationVersion)
@@ -214,7 +217,7 @@ def delete_versions_for_generation(generation_id: str, db: Session) -> int:
                 )
         db.delete(v)
         count += 1
-    if count > 0:
+    if count > 0 and commit:
         db.commit()
     return count
 

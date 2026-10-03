@@ -18,7 +18,7 @@ from .. import config
 logger = logging.getLogger(__name__)
 
 
-def _delete_generation_children(generation_id: str, db: Session) -> None:
+def _delete_generation_children(generation_id: str, db: Session, commit: bool = True) -> None:
     """Remove the rows that reference a generation, plus any version audio files.
 
     Story items and versions both point at the generation by a non-null FK.
@@ -28,7 +28,7 @@ def _delete_generation_children(generation_id: str, db: Session) -> None:
     from . import versions as versions_mod
 
     db.query(DBStoryItem).filter_by(generation_id=generation_id).delete()
-    versions_mod.delete_versions_for_generation(generation_id, db)
+    versions_mod.delete_versions_for_generation(generation_id, db, commit=commit)
 
 
 def _get_versions_for_generations(generation_ids: list[str], db: Session) -> dict:
@@ -349,14 +349,18 @@ async def delete_failed_generations(db: Session) -> int:
 async def delete_generations_by_profile(
     profile_id: str,
     db: Session,
+    commit: bool = True,
 ) -> int:
     """
     Delete all generations for a profile.
-    
+
     Args:
         profile_id: Profile ID
         db: Database session
-        
+        commit: Commit at the end. Pass False when the caller owns the
+            transaction (e.g. deleting the profile itself) so the whole
+            cascade lands in one commit.
+
     Returns:
         Number of generations deleted
     """
@@ -365,7 +369,7 @@ async def delete_generations_by_profile(
     count = 0
     for generation in generations:
         # Delete associated version files and rows first
-        _delete_generation_children(generation.id, db)
+        _delete_generation_children(generation.id, db, commit=commit)
 
         # Delete audio file
         audio_path = config.resolve_storage_path(generation.audio_path)
@@ -380,9 +384,10 @@ async def delete_generations_by_profile(
         # Delete from database
         db.delete(generation)
         count += 1
-    
-    db.commit()
-    
+
+    if commit:
+        db.commit()
+
     return count
 
 
