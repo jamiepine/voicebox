@@ -47,6 +47,10 @@ class _PipeSafeStream:
             self._stream = open(os.devnull, 'w')
             return len(s)
 
+    def writelines(self, lines):
+        for line in lines:
+            self.write(line)
+
     def flush(self):
         try:
             self._stream.flush()
