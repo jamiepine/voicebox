@@ -321,8 +321,13 @@ def _migrate_add_indexes(engine, tables: set[str]) -> None:
     ]
 
     with engine.connect() as conn:
+        existing = {
+            row[0]
+            for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type = 'index'"))
+        }
+        created = []
         for index_name, table, column in indexes:
-            if table not in tables:
+            if table not in tables or index_name in existing:
                 continue
             conn.execute(
                 text(
@@ -330,7 +335,11 @@ def _migrate_add_indexes(engine, tables: set[str]) -> None:
                     f" ON {table} ({column})"
                 )
             )
+            created.append(index_name)
         conn.commit()
+
+    if created:
+        logger.info("Created %d missing index(es): %s", len(created), ", ".join(created))
 
 
 def _normalize_storage_paths(engine, tables: set[str]) -> None:
