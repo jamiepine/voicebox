@@ -3,7 +3,7 @@
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Column, Index, String, Integer, Float, DateTime, Text, ForeignKey, Boolean, JSON
+from sqlalchemy import Column, String, Integer, Float, DateTime, Text, ForeignKey, Boolean, JSON
 from sqlalchemy.ext.declarative import declarative_base
 
 from ..utils.capture_chords import (
