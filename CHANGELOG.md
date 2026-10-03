@@ -7,7 +7,13 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Voice generation requests that omit `engine` now honor the selected profile's
+  configured engine instead of silently defaulting to Qwen.
+
 ### Linux
+
 
 - **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch
   on the ROCm wheel index during dependency installation, so later installs do
