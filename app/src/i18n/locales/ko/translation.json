@@ -1050,7 +1050,7 @@
       },
       "defaultVoice": {
         "title": "기본 음성",
-        "description": "에이전트가 특정 프로필 없이 voicebox.speak를 호출하고 클라이언트별 바인딩도 없을 때 사용됩니다.",
+        "description": "에이전트가 특정 프로필 없이 voicebox_speak를 호출하고 클라이언트별 바인딩도 없을 때 사용됩니다.",
         "label": "기본 재생 음성",
         "labelHint": "캡처 탭의 'Play as 음성' 드롭다운과 공유 — 수동 재생용 기본 음성입니다.",
         "none": "(없음)"

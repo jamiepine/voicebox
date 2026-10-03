@@ -152,7 +152,7 @@ const CAPTURES: Capture[] = [
     transcriptRaw:
       "draft an update for the blog about the agent voice feature the key point is one MCP tool call and any agent on your machine gets a voice claude code finishes a long task calls voicebox dot speak and you hear it in a voice you've cloned morgan scarlett whatever you set up same pill that shows when you're dictating also shows when an agent is speaking so you always know what's coming out of your machine closes the whole voice IO loop for agents",
     transcriptRefined:
-      "Draft an update for the blog about the agent voice feature. The key point: one MCP tool call, and any agent on your machine gets a voice. Claude Code finishes a long task, calls voicebox.speak, and you hear it in a voice you've cloned — Morgan, Scarlett, whatever you've set up. The same pill that shows when you're dictating also shows when an agent is speaking, so you always know what's coming out of your machine. It closes the full voice I/O loop for agents.",
+      "Draft an update for the blog about the agent voice feature. The key point: one MCP tool call, and any agent on your machine gets a voice. Claude Code finishes a long task, calls voicebox_speak, and you hear it in a voice you've cloned — Morgan, Scarlett, whatever you've set up. The same pill that shows when you're dictating also shows when an agent is speaking, so you always know what's coming out of your machine. It closes the full voice I/O loop for agents.",
     durationMs: 41000,
     ago: '22 min ago',
     createdAtLabel: 'Apr 22, 3:29 PM',

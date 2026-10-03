@@ -49,10 +49,10 @@ claude mcp add voicebox \
 
 | Name | Purpose |
 |---|---|
-| `voicebox.speak`          | Speak text in a voice profile. Returns a generation id you can poll. |
-| `voicebox.transcribe`     | Whisper transcription of a base64 blob or an absolute local path. |
-| `voicebox.list_captures`  | Recent captures (dictation / recording / file) with transcripts. |
-| `voicebox.list_profiles`  | Available voice profiles (cloned + preset). |
+| `voicebox_speak`          | Speak text in a voice profile. Returns a generation id you can poll. |
+| `voicebox_transcribe`     | Whisper transcription of a base64 blob or an absolute local path. |
+| `voicebox_list_captures`  | Recent captures (dictation / recording / file) with transcripts. |
+| `voicebox_list_profiles`  | Available voice profiles (cloned + preset). |
 
 All tools resolve voice profiles in this precedence:
 
@@ -69,8 +69,8 @@ Settings → MCP.
 npx @modelcontextprotocol/inspector http://127.0.0.1:17493/mcp
 ```
 
-Point it at the URL, hit "List tools," call `voicebox.list_profiles`
-first to confirm wiring, then `voicebox.speak` for end-to-end.
+Point it at the URL, hit "List tools," call `voicebox_list_profiles`
+first to confirm wiring, then `voicebox_speak` for end-to-end.
 
 ## Non-MCP REST surface
 

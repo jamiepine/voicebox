@@ -1,4 +1,4 @@
-"""POST /speak — REST wrapper around voicebox.speak for non-MCP callers.
+"""POST /speak — REST wrapper around voicebox_speak for non-MCP callers.
 
 Shell scripts, ACP, A2A, or any agent that doesn't speak MCP can hit this
 endpoint to play text through a cloned voice. Uses the same profile
@@ -30,7 +30,7 @@ async def speak(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Speak text in a voice profile. Mirrors voicebox.speak (MCP).
+    """Speak text in a voice profile. Mirrors voicebox_speak (MCP).
 
     Response shape matches POST /generate — a ``GenerationResponse`` with
     ``status="generating"`` and an ``id`` the caller polls at

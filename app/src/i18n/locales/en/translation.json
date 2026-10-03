@@ -1055,7 +1055,7 @@
       },
       "defaultVoice": {
         "title": "Default voice",
-        "description": "Used when an agent calls voicebox.speak without a specific profile and has no per-client binding.",
+        "description": "Used when an agent calls voicebox_speak without a specific profile and has no per-client binding.",
         "label": "Default playback voice",
         "labelHint": "Shared with the Captures-tab 'Play as voice' dropdown — one default voice for passive playback.",
         "none": "(none)"

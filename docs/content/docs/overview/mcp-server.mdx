@@ -105,15 +105,15 @@ for the shim to connect.
 
 | Tool | Use |
 |---|---|
-| `voicebox.speak` | Speak text in a voice profile. Returns a `generation_id` to poll. |
-| `voicebox.transcribe` | Whisper transcription of base64 audio or an absolute local path. |
-| `voicebox.list_captures` | Recent captures with transcripts, paginated. |
-| `voicebox.list_profiles` | Available voice profiles (cloned + preset). |
+| `voicebox_speak` | Speak text in a voice profile. Returns a `generation_id` to poll. |
+| `voicebox_transcribe` | Whisper transcription of base64 audio or an absolute local path. |
+| `voicebox_list_captures` | Recent captures with transcripts, paginated. |
+| `voicebox_list_profiles` | Available voice profiles (cloned + preset). |
 
-### `voicebox.speak`
+### `voicebox_speak`
 
 ```ts
-voicebox.speak({
+voicebox_speak({
   text: "Deploy complete.",
   profile?: "Morgan",            // name or id; falls back to per-client binding, then default
   engine?: "qwen",               // qwen | qwen_custom_voice | luxtts | chatterbox | chatterbox_turbo | tada | kokoro
@@ -138,10 +138,10 @@ Returns:
 - **Persona mode** — `personality: true` and the profile must have a personality prompt set.
   The LLM rewrites the text in character before TTS. See [Voice Personalities](/overview/voice-personalities).
 
-### `voicebox.transcribe`
+### `voicebox_transcribe`
 
 ```ts
-voicebox.transcribe({
+voicebox_transcribe({
   audio_base64?: "<base64>",    // exactly one of these two
   audio_path?: "/absolute/path/to/file.wav",
   language?: "en",
@@ -151,18 +151,18 @@ voicebox.transcribe({
 
 Returns `{ text, duration, language, model }`. 200 MB ceiling on either path.
 
-### `voicebox.list_captures`
+### `voicebox_list_captures`
 
 `{ limit?: 20, offset?: 0 }` → `{ captures: [...], total }`. `limit` is
 clamped to `1..=200`.
 
-### `voicebox.list_profiles`
+### `voicebox_list_profiles`
 
 No args → `{ profiles: [{ id, name, voice_type, language, has_personality }] }`.
 
 ## Voice resolution
 
-Every call to `voicebox.speak` (and `POST /speak`) resolves the voice profile
+Every call to `voicebox_speak` (and `POST /speak`) resolves the voice profile
 in this order:
 
 <Steps>
@@ -195,7 +195,7 @@ carries:
 | `label` | Display name in the Settings UI (e.g. "Claude Code"). |
 | `profile_id` | The voice this client uses when `profile` isn't passed. |
 | `default_engine` | Override the TTS engine for this client. |
-| `default_personality` | When true, `voicebox.speak` routes through the profile's personality LLM (rewrite) by default. |
+| `default_personality` | When true, `voicebox_speak` routes through the profile's personality LLM (rewrite) by default. |
 | `last_seen_at` | Last time the server saw a request from this client. |
 
 `last_seen_at` is stamped automatically by middleware on every `/mcp/*`
@@ -239,8 +239,8 @@ agent:
 npx @modelcontextprotocol/inspector http://127.0.0.1:17493/mcp
 ```
 
-Start with `voicebox.list_profiles` to confirm wiring, then
-`voicebox.speak` for end-to-end — you should hear audio and see the
+Start with `voicebox_list_profiles` to confirm wiring, then
+`voicebox_speak` for end-to-end — you should hear audio and see the
 generation land in the Captures tab.
 
 <Callout type="info">
@@ -262,7 +262,7 @@ generation land in the Captures tab.
   boundary. If you're scripting against a shared host, prefer
   `audio_base64` so you don't have to think about path sandboxing.
 - **Voice cloning consent applies.** See [Voice Cloning](/overview/voice-cloning#limitations)
-  — an agent being able to call `voicebox.speak` in someone's voice
+  — an agent being able to call `voicebox_speak` in someone's voice
   doesn't change the ethics of whose voices you clone.
 
 ## Implementation notes

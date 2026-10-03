@@ -1050,7 +1050,7 @@
       },
       "defaultVoice": {
         "title": "預設聲音",
-        "description": "當代理呼叫 voicebox.speak 卻未指定聲音檔案,且沒有對應客戶端綁定時使用。",
+        "description": "當代理呼叫 voicebox_speak 卻未指定聲音檔案,且沒有對應客戶端綁定時使用。",
         "label": "預設播放聲音",
         "labelHint": "與「擷取」分頁的「以聲音播放」下拉選單共用——一個用於被動播放的預設聲音。",
         "none": "(無)"

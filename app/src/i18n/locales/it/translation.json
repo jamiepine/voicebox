@@ -1055,7 +1055,7 @@
       },
       "defaultVoice": {
         "title": "Voce predefinita",
-        "description": "Utilizzata quando un agente chiama voicebox.speak senza specificare un profilo e non ha un'associazione per singolo client.",
+        "description": "Utilizzata quando un agente chiama voicebox_speak senza specificare un profilo e non ha un'associazione per singolo client.",
         "label": "Voce di riproduzione predefinita",
         "labelHint": "Condivisa con il menu a discesa 'Riproduci come voce' della scheda Acquisizioni — una sola voce predefinita per la riproduzione passiva.",
         "none": "(nessuna)"

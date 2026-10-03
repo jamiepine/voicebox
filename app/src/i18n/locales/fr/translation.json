@@ -1050,7 +1050,7 @@
       },
       "defaultVoice": {
         "title": "Voix par défaut",
-        "description": "Utilisée quand un agent appelle voicebox.speak sans profil spécifique et sans liaison par client.",
+        "description": "Utilisée quand un agent appelle voicebox_speak sans profil spécifique et sans liaison par client.",
         "label": "Voix de lecture par défaut",
         "labelHint": "Partagé avec la liste déroulante « Lire avec » de l'onglet Captures — une voix par défaut pour la lecture passive.",
         "none": "(aucune)"

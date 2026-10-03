@@ -33,7 +33,7 @@ current_client_id: ContextVar[str | None] = ContextVar(
 )
 
 # Remote address of the in-flight request. Used by tools that gate
-# host-filesystem access to loopback callers (see voicebox.transcribe).
+# host-filesystem access to loopback callers (see voicebox_transcribe).
 current_remote_addr: ContextVar[str | None] = ContextVar(
     "current_remote_addr", default=None
 )
@@ -61,12 +61,12 @@ def request_is_loopback() -> bool:
 # ignored so the Settings UI's "last heard from" column only reflects
 # calls that actually acted on the client's bindings.
 #
-# - /mcp — FastMCP tool calls (voicebox.speak, voicebox.transcribe, …)
+# - /mcp — FastMCP tool calls (voicebox_speak, voicebox_transcribe, …)
 #   and the /mcp/bindings admin surface. The admin surface is never
 #   called with the header in practice (the frontend manages bindings
 #   over plain REST), so the `startswith("/mcp")` match doesn't cause
 #   false stamps.
-# - /speak — REST mirror of voicebox.speak for non-MCP agents (shell
+# - /speak — REST mirror of voicebox_speak for non-MCP agents (shell
 #   scripts, ACP, A2A). Uses the same per-client binding lookup, so its
 #   callers belong in the last-seen list too.
 _STAMPED_PATH_PREFIXES: tuple[str, ...] = ("/mcp", "/speak")

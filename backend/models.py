@@ -309,7 +309,7 @@ class GenerationSettingsUpdate(BaseModel):
 
 class MCPClientBindingResponse(BaseModel):
     """Per-MCP-client voice binding — what voice / engine the server should
-    use when a given client_id calls voicebox.speak without args, plus an
+    use when a given client_id calls voicebox_speak without args, plus an
     opt-in personality-rewrite default."""
 
     client_id: str
@@ -346,7 +346,7 @@ class MCPClientBindingListResponse(BaseModel):
 
 
 class SpeakRequest(BaseModel):
-    """Body for POST /speak — non-MCP REST surface that mirrors voicebox.speak."""
+    """Body for POST /speak — non-MCP REST surface that mirrors voicebox_speak."""
 
     text: str = Field(..., min_length=1, max_length=10000)
     profile: Optional[str] = Field(

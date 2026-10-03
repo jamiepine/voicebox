@@ -27,8 +27,8 @@ def build_mcp_server() -> FastMCP:
     mcp = FastMCP(
         name="voicebox",
         instructions=(
-            "Voicebox is a local voice I/O layer. Use `voicebox.speak` to "
-            "play text in a voice profile, `voicebox.transcribe` for "
+            "Voicebox is a local voice I/O layer. Use `voicebox_speak` to "
+            "play text in a voice profile, `voicebox_transcribe` for "
             "audio→text, and the `list_*` tools to discover profiles and "
             "captures."
         ),

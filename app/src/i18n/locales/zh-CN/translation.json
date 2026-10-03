@@ -1050,7 +1050,7 @@
       },
       "defaultVoice": {
         "title": "默认声音",
-        "description": "当代理调用 voicebox.speak 但未指定具体档案、且没有按客户端绑定时使用。",
+        "description": "当代理调用 voicebox_speak 但未指定具体档案、且没有按客户端绑定时使用。",
         "label": "默认播放声音",
         "labelHint": "与「捕获」标签页的「播放为」下拉菜单共享——被动播放的统一默认声音。",
         "none": "(无)"

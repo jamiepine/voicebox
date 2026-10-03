@@ -272,7 +272,7 @@ class MCPClientBinding(Base):
     label = Column(String, nullable=True)  # display name
     profile_id = Column(String, ForeignKey("profiles.id"), nullable=True)
     default_engine = Column(String, nullable=True)
-    # When true, voicebox.speak routes through the profile's personality LLM
+    # When true, voicebox_speak routes through the profile's personality LLM
     # (rewrite) before TTS by default. Callers can still override per call.
     default_personality = Column(Boolean, nullable=False, default=False)
     last_seen_at = Column(DateTime, nullable=True)

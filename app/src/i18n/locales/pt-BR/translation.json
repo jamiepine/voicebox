@@ -1050,7 +1050,7 @@
       },
       "defaultVoice": {
         "title": "Voz padrão",
-        "description": "Usada quando um agente chama voicebox.speak sem um perfil específico e não tem vínculo por cliente.",
+        "description": "Usada quando um agente chama voicebox_speak sem um perfil específico e não tem vínculo por cliente.",
         "label": "Voz de reprodução padrão",
         "labelHint": "Compartilhada com o menu 'Reproduzir como voz' da aba Capturas — uma voz padrão para reprodução passiva.",
         "none": "(nenhuma)"

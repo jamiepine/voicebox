@@ -1,8 +1,9 @@
 """Voicebox MCP tool implementations.
 
-Thin wrappers over existing services/routes. Tools are registered with dotted
-names (``voicebox.speak`` etc.) so they look natural in agent logs —
-the Python function name stays snake_case.
+Thin wrappers over existing services/routes. Tools are registered with
+underscore-separated names (``voicebox_speak`` etc.): MCP clients such as
+Claude Desktop validate tool names against ``^[a-zA-Z0-9_-]{1,64}$`` and
+reject the whole tool list if any name contains a dot (#790).
 """
 
 from __future__ import annotations
@@ -202,7 +203,7 @@ def register_tools(mcp: FastMCP) -> None:
         name="voicebox_list_profiles",
         description=(
             "List available voice profiles (both cloned voices and presets). "
-            "Use the returned `name` with voicebox.speak(profile=...)."
+            "Use the returned `name` with voicebox_speak(profile=...)."
         ),
     )
     async def voicebox_list_profiles() -> dict[str, Any]:

@@ -1,6 +1,6 @@
 """In-memory pub/sub for speaking-pill SSE broadcasts.
 
-MCP ``voicebox.speak`` calls and the REST ``POST /speak`` route publish
+MCP ``voicebox_speak`` calls and the REST ``POST /speak`` route publish
 start/end events that DictateWindow subscribes to via /events/speak, so the
 floating pill surfaces whenever an agent is speaking.
 """

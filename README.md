@@ -80,7 +80,7 @@ The two cloud incumbents sit on opposite halves of the voice I/O loop — Eleven
 - **Unlimited length** — auto-chunking with crossfade for scripts, articles, and chapters
 - **Stories editor** — multi-track timeline for conversations, podcasts, and narratives
 - **Voice input** — global dictation hotkey with push-to-talk and toggle modes, accessibility-verified auto-paste on macOS, in-app mic on every text field, Whisper-based STT
-- **Agent voice output** — one tool call (`voicebox.speak`) and any MCP-aware agent (Claude Code, Cursor, Cline) speaks to you in a voice you've cloned
+- **Agent voice output** — one tool call (`voicebox_speak`) and any MCP-aware agent (Claude Code, Cursor, Cline) speaks to you in a voice you've cloned
 - **Voice personalities** — attach a free-form persona to any voice profile, then Compose, Rewrite, or Respond via a bundled local LLM — agents can invoke the same modes over MCP
 - **API-first** — REST API plus a built-in MCP server for integrating voice I/O into your own apps and agents
 - **Native performance** — built with Tauri (Rust), not Electron
@@ -232,7 +232,7 @@ Every agent gets a voice. One tool call and any MCP-aware agent can speak to you
 
 ```ts
 // In any MCP-aware agent:
-await voicebox.speak({
+await voicebox_speak({
   text: "Deploy complete.",
   profile: "Morgan",
 });
@@ -252,7 +252,7 @@ Attach a free-form personality to any voice profile — who this voice is, how t
 - **Compose** — a shuffle button that drops a fresh in-character line into the textarea; edit and speak, or click again for a different take
 - **Speak in character** — a toggle that routes your input text through the personality LLM to be rewritten in their voice before TTS
 
-Agents can reach the same rewrite path over MCP by passing `personality: true` to `voicebox.speak`, turning the tool into a text-in → personality-LLM → TTS pipeline. The same LLM backs dictation's refinement step — one LLM in the app, one model cache, one GPU-memory footprint.
+Agents can reach the same rewrite path over MCP by passing `personality: true` to `voicebox_speak`, turning the tool into a text-in → personality-LLM → TTS pipeline. The same LLM backs dictation's refinement step — one LLM in the app, one model cache, one GPU-memory footprint.
 
 **Local LLM options:** Qwen3 0.6B / 1.7B / 4B, sharing the TTS runtime (MLX on Apple Silicon, PyTorch elsewhere).
 
@@ -345,11 +345,11 @@ claude mcp add voicebox \
 }
 ```
 
-Four tools ship: `voicebox.speak`, `voicebox.transcribe`, `voicebox.list_captures`, `voicebox.list_profiles`. Per-client voice bindings are managed in **Voicebox → Settings → MCP**. See the [full MCP guide](docs/content/docs/overview/mcp-server.mdx) for tool signatures, resolution precedence, the speaking-pill contract, and security notes.
+Four tools ship: `voicebox_speak`, `voicebox_transcribe`, `voicebox_list_captures`, `voicebox_list_profiles`. Per-client voice bindings are managed in **Voicebox → Settings → MCP**. See the [full MCP guide](docs/content/docs/overview/mcp-server.mdx) for tool signatures, resolution precedence, the speaking-pill contract, and security notes.
 
 ```ts
 // In any MCP-aware agent:
-await voicebox.speak({
+await voicebox_speak({
   text: "Tests passing. Ready to merge.",
   profile: "Morgan",      // optional — falls back to the per-client binding
   personality: true,      // optional — rewrites text through the profile's personality LLM first

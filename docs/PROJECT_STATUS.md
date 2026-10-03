@@ -121,7 +121,7 @@ POST /generate
 Shipped 2026-04-25 (PR #544). Voicebox went from a voice-cloning studio to a full voice studio — dictation in, agent speech out, a local LLM in the middle.
 
 - **Dictation** — global hotkey capture (push-to-talk + toggle chords), on-screen pill with live state, auto-paste into the focused field with clipboard save/restore, chord-picker UI. Scoped Accessibility permission (transcripts still land if paste is denied).
-- **MCP server** at `http://127.0.0.1:17493/mcp` — `voicebox.speak` / `.transcribe` / `.list_captures` / `.list_profiles`. Streamable HTTP primary transport, stdio sidecar shim, per-client voice binding via `X-Voicebox-Client-Id`. Speaking pill always shows agent-initiated output.
+- **MCP server** at `http://127.0.0.1:17493/mcp` — `voicebox_speak` / `voicebox_transcribe` / `voicebox_list_captures` / `voicebox_list_profiles`. Streamable HTTP primary transport, stdio sidecar shim, per-client voice binding via `X-Voicebox-Client-Id`. Speaking pill always shows agent-initiated output.
 - **Personality** — voice profiles carry an optional ≤2000-char persona. Compose (shuffle an in-character line) and Speak-in-character (rewrite input before TTS), both on a local Qwen3 LLM that doubles as the refinement model.
 - **Refinement** — on-device Qwen3 strips fillers, fixes punctuation, optional self-correction rewrites; Whisper hallucination-loop stripping at a 6-token threshold; per-capture flag snapshots; model picker (0.6B / 1.7B / 4B).
 - **`POST /speak` REST wrapper** and **i18next foundation** (English + zh-CN) also landed.

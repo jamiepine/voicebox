@@ -276,19 +276,19 @@ export function MCPPage() {
           <h3 className="text-sm font-semibold">{t('settings.mcp.sidebar.toolsTitle')}</h3>
           <ul className="text-sm text-muted-foreground space-y-1.5 leading-relaxed">
             <li>
-              <code className="text-accent">voicebox.speak</code>
+              <code className="text-accent">voicebox_speak</code>
               <div>{t('settings.mcp.sidebar.tools.speak')}</div>
             </li>
             <li>
-              <code className="text-accent">voicebox.transcribe</code>
+              <code className="text-accent">voicebox_transcribe</code>
               <div>{t('settings.mcp.sidebar.tools.transcribe')}</div>
             </li>
             <li>
-              <code className="text-accent">voicebox.list_captures</code>
+              <code className="text-accent">voicebox_list_captures</code>
               <div>{t('settings.mcp.sidebar.tools.listCaptures')}</div>
             </li>
             <li>
-              <code className="text-accent">voicebox.list_profiles</code>
+              <code className="text-accent">voicebox_list_profiles</code>
               <div>{t('settings.mcp.sidebar.tools.listProfiles')}</div>
             </li>
           </ul>

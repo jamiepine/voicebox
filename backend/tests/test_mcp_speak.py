@@ -1,4 +1,4 @@
-"""Tests for the voicebox.speak MCP tool's ``model_size`` plumbing (issue #884).
+"""Tests for the voicebox_speak MCP tool's ``model_size`` plumbing (issue #884).
 
 The MCP speak path used to build its ``GenerationRequest`` without a
 ``model_size``, so every agent-triggered generation silently fell back to the

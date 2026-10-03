@@ -128,7 +128,7 @@ until you flip it back off.
 - **Agents that speak in a voice you own.** Combine the persona toggle with
   the built-in [MCP Server](/overview/mcp-server) so Claude Code, Cursor,
   Cline, or any MCP-aware agent can talk back through a profile with a
-  personality. The agent calls `voicebox.speak({ text, profile, personality:
+  personality. The agent calls `voicebox_speak({ text, profile, personality:
   true })` and Voicebox rewrites the text in character before speaking.
 - **Interactive characters.** Games, narrative tools, accessibility
   experiences. A character with a personality description plus a cloned
@@ -151,7 +151,7 @@ Personalities are accessible via REST:
 | `POST` | `/generate` | Include `personality: true` to run input text through the personality LLM before TTS. Same for `POST /speak`. |
 
 `POST /generate` with `personality: true` is the same primitive MCP's
-`voicebox.speak` tool uses when you pass `personality: true`. Scripts and
+`voicebox_speak` tool uses when you pass `personality: true`. Scripts and
 agents can use it directly.
 
 ## Limits and gotchas

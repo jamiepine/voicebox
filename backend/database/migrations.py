@@ -249,7 +249,7 @@ def _migrate_mcp_bindings(engine, inspector, tables: set[str]) -> None:
     """Drop the legacy ``default_intent`` column and add ``default_personality``.
 
     The intent tri-state (respond / rewrite / compose) has been collapsed
-    to a boolean: when true, ``voicebox.speak`` rewrites input through the
+    to a boolean: when true, ``voicebox_speak`` rewrites input through the
     profile's personality LLM before TTS.
     """
     if "mcp_client_bindings" not in tables:
