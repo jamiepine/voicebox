@@ -121,7 +121,10 @@ async def test_rest_speak_defaults_to_en_without_profile_language(captured_reque
 
 
 async def _call_mcp(monkeypatch, profile_language, requested_language=None):
-    from mcp.server.fastmcp import FastMCP
+    # Build the server from the same ``fastmcp`` package production imports so
+    # the registered ``voicebox.speak`` wrapper — where the profile fallback
+    # lives — is the code under test.
+    from fastmcp import FastMCP
 
     monkeypatch.setattr(
         tools,
