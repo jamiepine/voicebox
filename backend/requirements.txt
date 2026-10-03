@@ -64,7 +64,7 @@ pedalboard>=0.9.0
 httpx>=0.27.0
 
 # MCP server (Model Context Protocol) — lets local AI agents call
-# voicebox.speak / .transcribe / .list_captures / .list_profiles
+# voicebox_speak / voicebox_transcribe / voicebox_list_captures / voicebox_list_profiles
 fastmcp>=3.0,<4.0
 sse-starlette>=2.0
 

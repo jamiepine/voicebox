@@ -1434,7 +1434,7 @@ pub fn run() {
                     }
                 });
 
-                // Agent-initiated speech (voicebox.speak over MCP or POST /speak)
+                // Agent-initiated speech (voicebox_speak over MCP or POST /speak)
                 // pops the pill up so the user can see what's coming out of their
                 // machine. The `dictate:show` listener is kept for any frontend
                 // caller that wants to force-surface the pill directly, but the
