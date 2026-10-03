@@ -130,7 +130,9 @@ literally as text.
 With **Chatterbox Turbo** selected, type `/` in the text input to open the tag
 inserter and add expressive tags inline with speech:
 
-`[laugh]` `[chuckle]` `[gasp]` `[cough]` `[sigh]` `[groan]` `[sniff]` `[shush]` `[clear throat]`
+Sounds: `[laugh]` `[chuckle]` `[gasp]` `[cough]` `[sigh]` `[groan]` `[sniff]` `[shush]` `[clear throat]`
+
+Delivery: `[angry]` `[crying]` `[dramatic]` `[fear]` `[happy]` `[narration]` `[sarcastic]` `[surprised]` `[whispering]` `[advertisement]`
 
 ### Post-Processing Effects
 

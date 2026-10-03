@@ -29,9 +29,9 @@ const PARALINGUISTIC_TAGS = [
   { tag: '[fear]', label: 'fear', emoji: '\u{1F628}' },
   { tag: '[happy]', label: 'happy', emoji: '\u{1F60A}' },
   { tag: '[narration]', label: 'narration', emoji: '\u{1F4D6}' },
-  { tag: '[sarcastic]', label: 'sarcastic', emoji: '\u{1F60F}' },
+  { tag: '[sarcastic]', label: 'sarcastic', emoji: '\u{1F644}' },
   { tag: '[surprised]', label: 'surprised', emoji: '\u{1F632}' },
-  { tag: '[whispering]', label: 'whispering', emoji: '\u{1F92B}' },
+  { tag: '[whispering]', label: 'whispering', emoji: '\u{1F62F}' },
   { tag: '[advertisement]', label: 'advertisement', emoji: '\u{1F4E2}' },
 ] as const;
 
@@ -147,6 +147,7 @@ export const ParalinguisticInput = forwardRef<ParalinguisticInputRef, Paralingui
       left: 0,
     });
     const triggerRangeRef = useRef<Range | null>(null);
+    const menuListRef = useRef<HTMLDivElement | null>(null);
     const lastSerializedRef = useRef<string>('');
     const isComposingRef = useRef(false);
 
@@ -154,6 +155,14 @@ export const ParalinguisticInput = forwardRef<ParalinguisticInputRef, Paralingui
       focus: () => editorRef.current?.focus(),
       element: editorRef.current,
     }));
+
+    // The list is taller than the menu's max-height, so keep the keyboard
+    // highlight visible as ArrowUp/ArrowDown move it.
+    useEffect(() => {
+      if (!showMenu) return;
+      const item = menuListRef.current?.children[menuIndex] as HTMLElement | undefined;
+      item?.scrollIntoView({ block: 'nearest' });
+    }, [showMenu, menuIndex]);
 
     // Filtered tag list for the autocomplete menu
     const filteredTags = PARALINGUISTIC_TAGS.filter((t) =>
@@ -392,6 +401,7 @@ export const ParalinguisticInput = forwardRef<ParalinguisticInputRef, Paralingui
           createPortal(
             <AnimatePresence>
               <motion.div
+                ref={menuListRef}
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 4 }}
