@@ -3,8 +3,8 @@ import { useEffect, useRef } from 'react';
 import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
-import { condenseError } from '@/lib/utils/errorText';
 import { useGenerationSettings } from '@/lib/hooks/useSettings';
+import { condenseError } from '@/lib/utils/errorText';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
 
@@ -133,9 +133,7 @@ export function useGenerationProgress() {
 
             queryClient.refetchQueries({ queryKey: ['history'] });
 
-            const condensed = condenseError(
-              data.error || 'An error occurred during generation',
-            );
+            const condensed = condenseError(data.error || 'An error occurred during generation');
             toast({
               title: data.status === 'not_found' ? 'Generation not found' : 'Generation failed',
               description: condensed.truncated
