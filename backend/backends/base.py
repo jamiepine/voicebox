@@ -231,6 +231,12 @@ def empty_mlx_cache() -> None:
     returning them to the OS. Backends must call this after unloading an
     MLX model, or the process's memory footprint never shrinks even though
     the model object itself was dropped.
+
+    Safe from any thread: ``mx.clear_cache`` only drains the global
+    allocator pool and never touches the per-thread stream registry, so
+    unlike load/generate it does not have to run on the MLX worker thread
+    (verified from the FastAPI event loop with a generation in flight on
+    the worker).
     """
     import mlx.core as mx
 
