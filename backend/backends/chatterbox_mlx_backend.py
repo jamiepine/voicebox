@@ -30,9 +30,13 @@ from .mlx_backend import _run_on_mlx_thread
 logger = logging.getLogger(__name__)
 
 CHATTERBOX_MLX_HF_REPO = "mlx-community/chatterbox-multilingual-v3"
+# mlx-audio's Model.from_pretrained fetches the S3 speech tokenizer from this
+# second repo (~470 MB), so the engine is only "downloaded" once both are cached.
+S3_TOKENIZER_HF_REPO = "mlx-community/S3TokenizerV2"
 
 # Files that must be present for the MLX multilingual model
 _MLX_WEIGHT_FILES = ["model.safetensors", "config.json", "tokenizer.json"]
+_S3_TOKENIZER_FILES = ["model.safetensors", "config.json"]
 
 
 class ChatterboxMLXTTSBackend:
@@ -51,7 +55,9 @@ class ChatterboxMLXTTSBackend:
         return CHATTERBOX_MLX_HF_REPO
 
     def _is_model_cached(self, model_size: str = "default") -> bool:
-        return is_model_cached(CHATTERBOX_MLX_HF_REPO, required_files=_MLX_WEIGHT_FILES)
+        model_cached = is_model_cached(CHATTERBOX_MLX_HF_REPO, required_files=_MLX_WEIGHT_FILES)
+        tokenizer_cached = is_model_cached(S3_TOKENIZER_HF_REPO, required_files=_S3_TOKENIZER_FILES)
+        return model_cached and tokenizer_cached
 
     async def load_model(self, model_size: str = "default") -> None:
         """Load the Chatterbox multilingual MLX model."""
@@ -75,7 +81,7 @@ class ChatterboxMLXTTSBackend:
 
             logger.info("Loading Chatterbox Multilingual TTS on MLX (Metal)...")
             ckpt_dir = snapshot_download(CHATTERBOX_MLX_HF_REPO)
-            self.model = Model.from_pretrained(ckpt_dir)
+            self.model = Model.from_pretrained(ckpt_dir, s3_tokenizer_repo=S3_TOKENIZER_HF_REPO)
 
         logger.info("Chatterbox Multilingual TTS (MLX) loaded successfully")
 

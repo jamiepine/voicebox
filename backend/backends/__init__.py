@@ -297,7 +297,8 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
     on_mlx = get_backend_type() == "mlx"
     if on_mlx:
         chatterbox_repo = "mlx-community/chatterbox-multilingual-v3"
-        chatterbox_size_mb = 2600
+        # 2.5 GB of weights plus the separately fetched S3TokenizerV2 (~470 MB)
+        chatterbox_size_mb = 3000
     else:
         chatterbox_repo = "ResembleAI/chatterbox"
         chatterbox_size_mb = 3200
