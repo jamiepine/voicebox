@@ -98,6 +98,12 @@ fn pill_panel_class() -> &'static objc::runtime::Class {
         let superclass = class!(NSPanel);
         let mut decl =
             ClassDecl::new("VoiceboxPillPanel", superclass).expect("register VoiceboxPillPanel");
+        // The object being re-classed is tao's `TaoWindow`, not a bare
+        // NSWindow: tao declares a `focusable` ivar on it and reads it from
+        // `Window::set_focusable` and its own key/main-window overrides.
+        // Declare the same ivar here so those lookups keep resolving after
+        // the swap instead of panicking on a missing ivar.
+        decl.add_ivar::<BOOL>("focusable");
         unsafe {
             decl.add_method(
                 sel!(canBecomeKeyWindow),
@@ -1381,8 +1387,14 @@ async fn paste_final_text(
     // it holds key focus Spotlight-style — the keystroke would land in the
     // pill instead of the target app. Hidden it can't swallow keys; restored
     // immediately after so the webview never suspends between dictations.
+    // Only a pill that was actually on screen gets restored: a paste that
+    // lands after the frontend's `dictate:hide` already ran must not bring
+    // the window back, since nothing would hide it again until the next
+    // dictation.
     #[cfg(target_os = "macos")]
-    let pill = app.get_webview_window(DICTATE_WINDOW_LABEL);
+    let pill = app
+        .get_webview_window(DICTATE_WINDOW_LABEL)
+        .filter(|w| w.is_visible().unwrap_or(false));
     #[cfg(target_os = "macos")]
     if let Some(ref w) = pill {
         let _ = w.hide();
