@@ -64,7 +64,7 @@ fn build_dictate_window(app: &tauri::AppHandle) -> tauri::Result<tauri::WebviewW
     Ok(window)
 }
 
-/// `object_setClass` — reclass a live object. Not re-exported by `objc`.
+// `object_setClass` — reclass a live object. Not re-exported by `objc`.
 #[cfg(target_os = "macos")]
 extern "C" {
     fn object_setClass(
