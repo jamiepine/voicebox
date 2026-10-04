@@ -1380,6 +1380,23 @@ async fn debug_clipboard_roundtrip(
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// Final step of the main-window close flow, after the frontend has had its
+/// chance to stop the server.
+///
+/// On Linux, closing the main window must exit the process: the hidden dictate
+/// pill webview is still a window, so Tauri would otherwise keep running with
+/// no UI, the backend already stopped, and `speak_monitor` retrying
+/// `/events/speak` every 30 s (#1040). On macOS and Windows the window just
+/// closes, as before, so "Keep server running" plus the global hotkey keep
+/// dictation available without the main window.
+fn finish_main_window_close(window: &tauri::Window) {
+    if cfg!(target_os = "linux") {
+        window.app_handle().exit(0);
+    } else {
+        window.close().ok();
+    }
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -1550,7 +1567,7 @@ pub fn run() {
 
                 if let Err(e) = app_handle.emit("window-close-requested", ()) {
                     eprintln!("Failed to emit window-close-requested event: {}", e);
-                    window.close().ok();
+                    finish_main_window_close(window);
                     return;
                 }
 
@@ -1566,12 +1583,12 @@ pub fn run() {
                 tauri::async_runtime::spawn(async move {
                     tokio::select! {
                         _ = rx.recv() => {
-                            println!("Frontend cleanup complete, exiting application");
-                            window_for_close.app_handle().exit(0);
+                            println!("Frontend cleanup complete, closing");
+                            finish_main_window_close(&window_for_close);
                         }
                         _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
-                            eprintln!("Window close timeout, exiting application anyway");
-                            window_for_close.app_handle().exit(0);
+                            eprintln!("Window close timeout, closing anyway");
+                            finish_main_window_close(&window_for_close);
                         }
                     }
                     window_for_close.unlisten(listener_id);

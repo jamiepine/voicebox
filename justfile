@@ -344,6 +344,7 @@ build-server-cuda: _ensure-venv
     cp -a backend/dist/voicebox-server-cuda/. "${XDG_DATA_HOME:-$HOME/.local/share}/sh.voicebox.app/backends/cuda/"
     chmod +x "${XDG_DATA_HOME:-$HOME/.local/share}/sh.voicebox.app/backends/cuda/voicebox-server-cuda"
 
+# Build CUDA server binary and place in app data dir for local testing
 [windows]
 build-server-cuda: _ensure-venv
     $ErrorActionPreference = "Stop"; \
