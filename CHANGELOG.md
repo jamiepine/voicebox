@@ -7,73 +7,89 @@
 
 ## [Unreleased]
 
-### Changed
+**The stability release.** 0.5 made Voicebox a dictation and agent-voice studio; 0.6 makes it hold up. Sixty-plus contributor pull requests landed since 0.5 and most of them fix something that used to go wrong in daily use: MLX crashed with `There is no Stream(gpu, 1) in current thread` when a model was loaded on one thread and used on another, memory grew with every generation and never came back on unload, a fully-cached model retried HuggingFace five times per file before it would load offline, the Docker image could not write its own data volume, dictation refused to arm without an LLM it was never going to call, and the backend test suite would not even collect. All of that is fixed. The headline features ride on top: native AMD ROCm on Windows and in Docker, five new interface languages, and Chatterbox multilingual running on Apple Silicon through MLX.
 
-- **Voicebox Cloud is hidden until it ships.** The "Log in with browser" section in
-  Settings → General only renders when the backend reports `cloud_enabled`, and the
-  `/cloud/*` routes answer 404 unless the backend runs with
-  `VOICEBOX_CLOUD_ENABLED=1`, so a default build never calls out to voicebox.sh.
-  The flag is read at runtime, so it can be turned on for a shipped build without a
-  rebuild.
+One change is breaking for existing MCP configs: the four MCP tools are renamed from dotted to underscore names (`voicebox.speak` → `voicebox_speak`, and so on) because Claude Desktop rejects dots in tool names. See the MCP section below.
 
-### Developer Experience
+### Stability and reliability
 
-- **`just setup` now pins the Python venv to 3.12.** Setup preferred `python3.12` when
-  it found one but silently fell back to 3.13 or bare `python3`, so a machine on
-  3.13/3.14 built a venv that then failed to install dependencies capped below 3.13
-  (kokoro, misaki, numpy, numba) with `Could not find a version that satisfies the
-  requirement`. Setup now requires 3.12, and recreates a venv that is on the wrong
-  version or whose pip doesn't run, so a stale or half-built one heals on the next
-  `just setup` rather than needing a manual `rm -rf backend/venv`. Reporting 3.12
-  isn't enough for an interpreter to be chosen — it has to actually build a working
-  venv, so setup falls through to the next candidate when one can't (Debian packages
-  `ensurepip` separately as `python3.12-venv`; current Homebrew `python@3.12` bottles
-  carry a `pyexpat` that won't load on macOS 26). If none work it exits with the
-  install command for your platform instead of failing deep inside pip. Windows
-  resolves it through the `py -3.12` launcher, since Windows installers don't create
-  a `python3.12` command.
-- **The 3.12 requirement is now machine-readable.** `backend/pyproject.toml`
-  declares `requires-python = ">=3.12,<3.13"` rather than an open-ended `>=3.12`,
-  so the constraint the docs describe is the one tooling resolves against.
+- **Every MLX op runs on one worker thread.** MLX's Metal stream registry is thread-local and `asyncio.to_thread` hands successive calls to different pool threads, so loading a model on one thread and generating on another raised `There is no Stream(gpu, 1) in current thread` and killed the request. All MLX load, generate, transcribe and Qwen3 LLM calls (TTS, STT, personality compose and rewrite, dictation refinement) now go through a single-worker executor, reload and inference are folded into one submission so an unload cannot land between them, and `unload_model()` stays off the worker so `/models/unload` cannot stall the event loop behind an in-flight generation. Reproduced and verified on an M2 Ultra; a regression test locks the single-thread guarantee without needing `mlx` installed. — @Rdbi-The-Ai, @shsunmoonlee, @davidstrouk ([#1154](https://github.com/jamiepine/voicebox/pull/1154), from [#989](https://github.com/jamiepine/voicebox/pull/989), [#909](https://github.com/jamiepine/voicebox/pull/909), [#789](https://github.com/jamiepine/voicebox/pull/789); fixes [#699](https://github.com/jamiepine/voicebox/issues/699))
+- **MLX models release their memory on unload.** Unloading an MLX model dropped the Python reference but left the Metal allocator holding the weights, so switching models on Apple Silicon only ever grew. Unload now clears the prompt cache and the allocator, and a failing op's traceback can no longer pin the model binding alive. — @byevanli ([#1161](https://github.com/jamiepine/voicebox/pull/1161), from [#1074](https://github.com/jamiepine/voicebox/pull/1074))
+- **No more memory growth across generations.** Consecutive TTS generations accumulated tensors and cache that were never freed. Post-generation cleanup now runs after every generation, including `/generate/stream`, and is best-effort so a cleanup failure cannot fail the request that just succeeded. — @devangkantharia ([#1149](https://github.com/jamiepine/voicebox/pull/1149), from [#1032](https://github.com/jamiepine/voicebox/pull/1032); fixes [#923](https://github.com/jamiepine/voicebox/issues/923))
+- **TADA voice-prompt encode runs under `torch.inference_mode`**, so cloning no longer builds autograd graphs it never uses. — @fooSynaptic ([#955](https://github.com/jamiepine/voicebox/pull/955))
+- **Runaway MLX Qwen generations are caught and retried.** A generation that keeps emitting audio chunks past its text is detected and retried instead of producing minutes of noise; when a retry cannot split the text further, the trimmed clip is kept rather than failing. — @AirHua-byte ([#964](https://github.com/jamiepine/voicebox/pull/964))
+- **Kokoro trims trailing silence and run-on noise** on short prompts, trimming only the clip edges so inter-segment gaps are preserved. — @devangkantharia ([#1150](https://github.com/jamiepine/voicebox/pull/1150), from [#1030](https://github.com/jamiepine/voicebox/pull/1030); fixes [#960](https://github.com/jamiepine/voicebox/issues/960))
+- **Cached models load offline without retrying HuggingFace.** Loading a fully-downloaded model now forces offline mode for the duration of the load, so it skips the network HEAD request (and its 5-retry backoff) for every config file instead of retrying each one in sequence before the app becomes ready. This reinstates the load-time `force_offline_if_cached` guard that 0.4.5 ([#530](https://github.com/jamiepine/voicebox/pull/530)) removed as a hotfix for the `_patch_mistral_regex` crash ([#526](https://github.com/jamiepine/voicebox/issues/526)); the wrapper installed in that release catches the crash at the source, so the guard no longer trips it. Because a load now fails hard offline when any file is missing, the Chatterbox, Chatterbox Turbo and TADA cache checks were extended to the small files their loaders also read (tokenizer files, `conds.pt`, TADA's Llama tokenizer mirror) so a snapshot missing one of them reports "not cached" and downloads online instead. — @alter ([#1130](https://github.com/jamiepine/voicebox/pull/1130), from [#1112](https://github.com/jamiepine/voicebox/pull/1112); fixes [#434](https://github.com/jamiepine/voicebox/issues/434))
+- **Qwen3 LLM loads no longer flip the whole process offline.** The refinement model's loader set a process-global offline guard that then broke every other engine's downloads. — @dknoodle ([#924](https://github.com/jamiepine/voicebox/pull/924))
+- **Download state is honest.** `/models/status` no longer reports an errored download as still in progress, and an orphaned `.incomplete` blob left by a killed download no longer counts as one either. — @dknoodle, @alealv ([#926](https://github.com/jamiepine/voicebox/pull/926), [#1133](https://github.com/jamiepine/voicebox/pull/1133) from [#967](https://github.com/jamiepine/voicebox/pull/967))
+- **The server keeps serving after the app's stdout pipe closes.** When the desktop app's log pipe went away, every log write raised and took the request down with it; writes now go through a pipe-safe path. — @suardim ([#1141](https://github.com/jamiepine/voicebox/pull/1141), from [#1124](https://github.com/jamiepine/voicebox/pull/1124))
+- **Deleting a voice deletes its generations instead of orphaning them**, the whole delete cascade commits once, a locked version file no longer aborts it, and the delete dialog says what goes. — @SEPURI-SAI-KRISHNA ([#1148](https://github.com/jamiepine/voicebox/pull/1148), from [#984](https://github.com/jamiepine/voicebox/pull/984))
+- **SQLite runs in WAL mode with a 5 s busy timeout**, set from a connect hook so every connection gets it, and hot foreign keys and sort columns are indexed. — @neuron-tech-ai ([#1136](https://github.com/jamiepine/voicebox/pull/1136) from [#667](https://github.com/jamiepine/voicebox/pull/667), [#1139](https://github.com/jamiepine/voicebox/pull/1139) from [#666](https://github.com/jamiepine/voicebox/pull/666))
+- **N+1 queries removed** from the history listing and from story item counts. — @youtsuhodev, @neuron-tech-ai ([#1143](https://github.com/jamiepine/voicebox/pull/1143) from [#1087](https://github.com/jamiepine/voicebox/pull/1087), [#663](https://github.com/jamiepine/voicebox/pull/663))
+- **Requests honour what you asked for.** `VOICEBOX_FORCE_CPU` is respected in device selection and logged when it applies; `/models/load` and `/models/unload` act on the `model_name` you pass instead of always loading Qwen; a generation request that omits `engine` uses the profile's configured engine instead of silently defaulting to Qwen. — @ousamabenyounes, @SEPURI-SAI-KRISHNA, @nikhiljangid120 ([#1145](https://github.com/jamiepine/voicebox/pull/1145) from [#1064](https://github.com/jamiepine/voicebox/pull/1064), [#1138](https://github.com/jamiepine/voicebox/pull/1138) from [#988](https://github.com/jamiepine/voicebox/pull/988) fixing [#977](https://github.com/jamiepine/voicebox/issues/977), [#1140](https://github.com/jamiepine/voicebox/pull/1140) from [#1129](https://github.com/jamiepine/voicebox/pull/1129))
+- **Smaller fixes**: audio for a failed generation returns 404 instead of 500 (@flowbrix, [#893](https://github.com/jamiepine/voicebox/pull/893)); avatar upload guards against a missing filename (@joj0hq, [#954](https://github.com/jamiepine/voicebox/pull/954)); CUDA library download is refused on platforms that have no CUDA assets instead of failing mid-way (@Bortlesboat, [#770](https://github.com/jamiepine/voicebox/pull/770)); the web API URL works for remote access (@vi-sch, [#550](https://github.com/jamiepine/voicebox/pull/550)); `datetime.utcnow()` is gone throughout (@neuron-tech-ai, [#1146](https://github.com/jamiepine/voicebox/pull/1146) from [#659](https://github.com/jamiepine/voicebox/pull/659)).
 
-### Fixed
+### Security
 
-- Voice generation requests that omit `engine` now honor the selected profile's
-  configured engine instead of silently defaulting to Qwen.
+- **seroval upgraded to 1.5.3** (CVE-2026-59940), forced through bun overrides so `@tanstack/router-core` picks it up. — @anupamme ([#1132](https://github.com/jamiepine/voicebox/pull/1132), from [#985](https://github.com/jamiepine/voicebox/pull/985))
 
-### Reliability
+### Dictation and transcription
 
-- **Cached models no longer retry HuggingFace when offline.** Loading a fully-downloaded
-  model now forces offline mode for the duration of the load, so it skips the network HEAD
-  request (and its 5-retry backoff) for every config file — `config.json`,
-  `generation_config.json`, and the rest — instead of retrying each one in sequence before the
-  app becomes ready. This reinstates the load-time `force_offline_if_cached` guard that 0.4.5
-  ([#530](https://github.com/jamiepine/voicebox/pull/530)) removed: that removal was a hotfix
-  for the `_patch_mistral_regex` crash ([#526](https://github.com/jamiepine/voicebox/issues/526)),
-  which the wrapper installed in the same release now catches at the source, so the guard no
-  longer trips it. The per-file HEAD retries from
-  [#434](https://github.com/jamiepine/voicebox/issues/434) were never covered by that wrapper.
-  Because a load now fails hard offline when any file is missing, the Chatterbox, Chatterbox
-  Turbo, and TADA cache checks were extended to the small files their loaders also read
-  (tokenizer files, `conds.pt`, TADA's Llama tokenizer mirror) so a snapshot missing one of
-  them reports "not cached" and downloads online instead. The other engines still gate on
-  their weight files (plus `config.json` for Kokoro); transformers-based loaders fetch config
-  before weights, so a weights-present cache normally holds the rest, but that is an
-  assumption, not a check.
+- **Dictation works without an LLM when auto-refine is off.** The readiness gate required the Qwen3 refinement model to be cached before the hotkey would arm, even when refinement was disabled and the model would never be called. The gate, the Captures checklist and the readiness polling now only consider the LLM when auto-refine is on, and toggling it updates the state immediately. — @devangkantharia ([#1147](https://github.com/jamiepine/voicebox/pull/1147), from [#1013](https://github.com/jamiepine/voicebox/pull/1013); fixes [#753](https://github.com/jamiepine/voicebox/issues/753))
+- **Long-form Whisper transcription on the PyTorch path.** Clips over 30 s were truncated; language and task are now passed straight to Whisper's generate, long clips go through the long-form path, and clips under 30 s keep the pad-to-30s path. — @NoxDecima ([#1151](https://github.com/jamiepine/voicebox/pull/1151), from [#616](https://github.com/jamiepine/voicebox/pull/616))
+- **Uploads are transcoded to WAV before STT**, which fixes WebM dictation in web mode, and the uploaded file's extension is kept so the decoder picks the right container. — @ivancorsetti, @e3o8o ([#957](https://github.com/jamiepine/voicebox/pull/957), [#903](https://github.com/jamiepine/voicebox/pull/903))
+- **macOS paste lands in Electron apps.** The synthetic Cmd-V now sets the Command flag on the key-down event, so Slack, VS Code and other Electron apps accept the paste. — @kylebuxton ([#952](https://github.com/jamiepine/voicebox/pull/952))
+- **The fn key can be part of a chord on macOS.** — @sridhar-3009 ([#950](https://github.com/jamiepine/voicebox/pull/950))
+- **Linux**: the dictate pill no longer crashes at startup (the click-through toggle aborted on an unrealized GTK window), and system-audio capture selects the monitor device by name instead of setting `PULSE_SOURCE`. — @jboero, @sridhar-3009 ([#906](https://github.com/jamiepine/voicebox/pull/906), [#949](https://github.com/jamiepine/voicebox/pull/949))
 
-### Linux
+### AMD ROCm
 
-- **The Docker image now runs on Python 3.12.** The `Dockerfile` based both build
-  stages on `python:3.11-slim` while the backend declares `>=3.12,<3.13`, so the
-  container ran an interpreter the desktop builds and `just setup` never use. Both
-  stages now use `python:3.12-slim`, matching the release workflow and the venv
-  pin above.
-- **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch
-  on the ROCm wheel index during dependency installation, so later installs do
-  not replace it with CUDA wheels. The ROCm compose overlay no longer assumes
-  Ubuntu render/video group IDs; the container joins the groups that own the GPU
-  device nodes at startup. Native Linux setup now picks ROCm wheels for AMD GPUs
-  and CUDA wheels for NVIDIA GPUs before installing backend dependencies.
+- **Native AMD GPU acceleration on Windows.** A ROCm backend with its own downloader, packaging (`scripts/package_rocm.py`) and Tauri launcher, shipped as release assets alongside the CUDA ones. — @JuanCMPDev ([#538](https://github.com/jamiepine/voicebox/pull/538); resolves [#531](https://github.com/jamiepine/voicebox/issues/531))
+- **ROCm in Docker** via a compose overlay, with MIOpen stability env vars. — @JustInCache, @Xarianne ([#630](https://github.com/jamiepine/voicebox/pull/630), [#865](https://github.com/jamiepine/voicebox/pull/865))
+- **ROCm setup on Linux.** Docker ROCm builds keep PyTorch on the ROCm wheel index during dependency installation so later installs do not replace it with CUDA wheels; the compose overlay joins the groups that own the GPU device nodes at startup instead of assuming Ubuntu render/video IDs; native Linux setup picks ROCm wheels for AMD GPUs and CUDA wheels for NVIDIA GPUs before installing. — @1337hero ([#817](https://github.com/jamiepine/voicebox/pull/817))
+- **GPU architecture is detected before `HSA_OVERRIDE_GFX_VERSION` is set**, and an empty override is unset before torch loads instead of breaking it. — @singlaamitesh, @Xarianne ([#785](https://github.com/jamiepine/voicebox/pull/785), [#864](https://github.com/jamiepine/voicebox/pull/864))
+- **Windows GPU detection** works again: the justfile recipe that read GPU information had a syntax error. — @xorss ([#669](https://github.com/jamiepine/voicebox/pull/669))
+
+### Languages
+
+- **Five new interface languages**: Spanish (@kmikodev, [#798](https://github.com/jamiepine/voicebox/pull/798)), French (@youtsuhodev, [#802](https://github.com/jamiepine/voicebox/pull/802)), Brazilian Portuguese (@Pedro31051, [#810](https://github.com/jamiepine/voicebox/pull/810)), Korean (@TedChang-Lim, [#814](https://github.com/jamiepine/voicebox/pull/814)) and Italian (@albanobattistella, [#904](https://github.com/jamiepine/voicebox/pull/904)). With English, Japanese, Simplified and Traditional Chinese, the app now ships in nine.
+- **`voicebox_speak` speaks the profile's language** instead of forcing English. — @Zeptoniator ([#1137](https://github.com/jamiepine/voicebox/pull/1137), from [#1054](https://github.com/jamiepine/voicebox/pull/1054))
+- **Four male Mandarin Kokoro voices** that were missing from the voice list. — @sidc124 ([#788](https://github.com/jamiepine/voicebox/pull/788))
+
+### Chatterbox multilingual on Apple Silicon
+
+- **The `chatterbox` engine runs on MLX on Apple Silicon.** It loads `mlx-community/chatterbox-multilingual-v3` through `mlx_audio` instead of the CPU-pinned PyTorch path, keeping zero-shot cloning and all 23 languages, on the shared MLX worker so it cannot hit the cross-thread Stream crash. Measured on an M2 Ultra: a 3.7 s English clip in 2.1 s (RTF 0.56) against 15 s on the PyTorch path, a 3.6 s French clip in 1.4 s against 16.2 s. The runaway-chunk retry covers it, and the S3 tokenizer repo it needs is tracked in model status and removed on delete. — @hassekf ([#1162](https://github.com/jamiepine/voicebox/pull/1162), from [#1039](https://github.com/jamiepine/voicebox/pull/1039))
+
+### MCP
+
+- **Breaking: tool names use underscores.** Claude Desktop rejects tool names containing dots, so the four tools are renamed: `voicebox.speak` → `voicebox_speak`, `voicebox.transcribe` → `voicebox_transcribe`, `voicebox.list_captures` → `voicebox_list_captures`, `voicebox.list_profiles` → `voicebox_list_profiles`. Agents and configs that call the dotted names must be updated; the HTTP endpoint, the stdio shim and the `X-Voicebox-Client-Id` binding are unchanged. — @jashwanth-reddy-g ([#1135](https://github.com/jamiepine/voicebox/pull/1135), from [#808](https://github.com/jamiepine/voicebox/pull/808); fixes [#790](https://github.com/jamiepine/voicebox/issues/790))
+- **`voicebox_speak` takes a `model_size` parameter** to pick the Qwen model size per call. — @AhmedIrfan7 ([#895](https://github.com/jamiepine/voicebox/pull/895))
+- **Ten missing paralinguistic delivery tags** added to `ParalinguisticInput`, with the active tag row kept in view and the full tag set documented. — @Margalit111 ([#1142](https://github.com/jamiepine/voicebox/pull/1142), from [#1113](https://github.com/jamiepine/voicebox/pull/1113))
+
+### Docker
+
+- **The runtime image works non-root under a mounted data volume.** The default compose left the `voicebox` user unable to write: the `./output` bind mount came up root-owned and the HuggingFace cache mount point did not exist in the image, so startup logged `Permission denied` and downloads and generation both failed. The image now pre-creates the cache and generations directories with the right owner, the entrypoint adopts the uid/gid of a host-owned bind mount instead of chowning host directories and fails fast with a clear message if a required directory is still unwritable, and `sox` is installed because qwen-tts's X-vector extractor shells out to it. — @LaurinceG4N0, @virtuallyunknown, @thiagomargatho, @boessu ([#1152](https://github.com/jamiepine/voicebox/pull/1152), from [#1084](https://github.com/jamiepine/voicebox/pull/1084), [#1017](https://github.com/jamiepine/voicebox/pull/1017), [#945](https://github.com/jamiepine/voicebox/pull/945))
+- **No more SIGILL on CPUs without AVX-512.** `pedalboard` is pinned below 0.9.21, whose Linux wheels contain AVX-512 instructions that crash the import on older CPUs. `gcc`/`g++` are in the runtime image so Triton can compile its driver shim on NVIDIA hosts, and the `rocminfo` probe only runs when `/dev/kfd` exists, so CPU and NVIDIA containers stop logging a missing-AMD-GPU warning on every start. — @harryqt ([#1160](https://github.com/jamiepine/voicebox/pull/1160), from [#1114](https://github.com/jamiepine/voicebox/pull/1114))
+- **The Docker image runs on Python 3.12.** Both build stages were on `python:3.11-slim` while the backend declares `>=3.12,<3.13`; they now use `python:3.12-slim`, matching the release workflow and the venv pin. ([#1166](https://github.com/jamiepine/voicebox/pull/1166))
+- **Windows checkouts build**: CRLF line endings are normalised in the Dockerfile, and `.dockerignore` keeps the ROCm entrypoint. — @sridhar-3009, @shabeervpk ([#951](https://github.com/jamiepine/voicebox/pull/951), [#861](https://github.com/jamiepine/voicebox/pull/861))
+
+### Interface
+
+- **Long error toasts are readable and copyable.** The first line that fits is shown whole, the full original error text is preserved behind a copy button, and clipboard failures are handled. — @hakimio ([#1134](https://github.com/jamiepine/voicebox/pull/1134), from [#1058](https://github.com/jamiepine/voicebox/pull/1058))
+- **Selects in the floating generate box open upward** so they are not clipped at the bottom of the window. — @andreolf ([#936](https://github.com/jamiepine/voicebox/pull/936); fixes [#928](https://github.com/jamiepine/voicebox/issues/928))
+- **Naive-UTC timestamps are parsed consistently** in absolute dates. — @joj0hq ([#953](https://github.com/jamiepine/voicebox/pull/953))
+- **Export filenames carry the generation id**, so two exports of the same text no longer overwrite each other. — @ivancorsetti ([#956](https://github.com/jamiepine/voicebox/pull/956))
+
+### Developer experience
+
+- **The backend test suite collects and runs again.** An `app` ↔ `routes` import cycle aborted collection, and `test_profile_duplicate_names` could not import; both are fixed. — @Zeptoniator, @Lvigentini ([#1131](https://github.com/jamiepine/voicebox/pull/1131), from [#1055](https://github.com/jamiepine/voicebox/pull/1055) and [#1011](https://github.com/jamiepine/voicebox/pull/1011))
+- **`just setup` pins the Python venv to 3.12.** Setup preferred `python3.12` when it found one but silently fell back to 3.13 or bare `python3`, which then failed to install dependencies capped below 3.13 (kokoro, misaki, numpy, numba). Setup now requires 3.12, recreates a venv that is on the wrong version or whose pip doesn't run, falls through to the next candidate when one cannot build a working venv (Debian's separate `python3.12-venv`, Homebrew's `pyexpat` on macOS 26), and exits with the install command for your platform if none work. Windows resolves it through the `py -3.12` launcher with a uv fallback. `backend/pyproject.toml` now declares `requires-python = ">=3.12,<3.13"`. — @dhananjaypai08 ([#1144](https://github.com/jamiepine/voicebox/pull/1144), from [#1031](https://github.com/jamiepine/voicebox/pull/1031))
+- **Python 3.13**: voice sample validation uses `audioop-lts` where the stdlib module is gone. — @maskedsyntax ([#853](https://github.com/jamiepine/voicebox/pull/853); fixes [#852](https://github.com/jamiepine/voicebox/issues/852))
+- **`just setup` installs `mlx-lm` and `mlx-audio` on Apple Silicon** so a dev venv matches the release build. — @flowbrix ([#892](https://github.com/jamiepine/voicebox/pull/892))
+- **The `voicebox-mcp` shim sidecar builds on Windows.** — @namuda ([#794](https://github.com/jamiepine/voicebox/pull/794))
+- **Dev builds without full Xcode**: an `actool` failure is non-fatal for dev builds and stays fatal, with its full output, for release builds. — @neuron-tech-ai ([#1156](https://github.com/jamiepine/voicebox/pull/1156), from [#664](https://github.com/jamiepine/voicebox/pull/664))
+- **macOS-only keyboard-layout symbols are gated behind `cfg`**, clearing dead-code warnings on Linux and Windows. — @youtsuhodev ([#831](https://github.com/jamiepine/voicebox/pull/831))
+- **Docs**: the quick-start guide uses the current voice-profile terminology, and CONTRIBUTING names the right app identifier. — @alexgsummer, @jitendra205saini ([#963](https://github.com/jamiepine/voicebox/pull/963), [#863](https://github.com/jamiepine/voicebox/pull/863))
 
 ## [0.5.0] - 2026-04-22
 
