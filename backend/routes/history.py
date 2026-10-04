@@ -179,7 +179,7 @@ async def export_generation_audio(
     """Export only the audio file from a generation.
 
     ``format=wav`` (default) returns the stored file unchanged; ``format=mp3``
-    transcodes it with ffmpeg (192 kbps) and returns 503 when ffmpeg is missing.
+    transcodes it with ffmpeg (160 kbps) and returns 503 when ffmpeg is missing.
     """
     fmt = (format_ or "wav").lower()
     if fmt not in _EXPORT_MIME:

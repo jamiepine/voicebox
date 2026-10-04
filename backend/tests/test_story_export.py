@@ -28,6 +28,10 @@ class TestChapterTitleFromText:
     def test_returns_first_sentence(self):
         assert _chapter_title_from_text("Hello world. Second sentence.") == "Hello world."
 
+    def test_collapses_internal_whitespace(self):
+        assert _chapter_title_from_text("Chapter One\nIt was a dark night.") == "Chapter One It was a dark night."
+        assert _chapter_title_from_text("Hello\tthere.\n\nMore.") == "Hello there."
+
     def test_truncates_long_sentence(self):
         long = "a" * 200
         title = _chapter_title_from_text(long, max_len=80)

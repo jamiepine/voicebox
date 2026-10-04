@@ -859,7 +859,7 @@ def _chapter_title_from_text(text: Optional[str], max_len: int = 80) -> str:
 
     Takes the first sentence (or the leading slice if the sentence is long).
     """
-    cleaned = (text or "").strip()
+    cleaned = re.sub(r"\s+", " ", text or "").strip()
     if not cleaned:
         return "Chapter"
     first = _SENTENCE_BREAK.split(cleaned, maxsplit=1)[0].strip()

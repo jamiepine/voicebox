@@ -34,7 +34,9 @@ MISSING_MESSAGE = (
 ENCODERS = {
     # The 'ipod' muxer is ffmpeg's name for the .m4b container.
     "m4b": ["-c:a", "aac", "-b:a", "128k", "-f", "ipod"],
-    "mp3": ["-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3"],
+    # 160k is the MPEG-2 LSF ceiling, so LAME keeps the 24 kHz source rate
+    # instead of resampling to 44.1 kHz to satisfy a higher bitrate.
+    "mp3": ["-c:a", "libmp3lame", "-b:a", "160k", "-f", "mp3"],
 }
 
 
