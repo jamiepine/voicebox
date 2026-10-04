@@ -2,6 +2,11 @@ name: Release
 
 on:
   workflow_dispatch:
+    inputs:
+      linux:
+        description: "Also run the experimental Linux job (AppImage + deb, CPU sidecar)"
+        type: boolean
+        default: false
   push:
     tags:
       - "v*"
@@ -268,6 +273,149 @@ jobs:
               --repo "${GITHUB_REPOSITORY}"
             echo "::endgroup::"
           done
+
+  # Experimental Linux desktop build: AppImage + deb with the CPU torch sidecar.
+  # Linux was dropped from the release matrix in April 2026 (commit 6787f65)
+  # because the bundler hung on the linuxdeploy download. This job is gated on
+  # a manual workflow_dispatch toggle so it can be tried without a tag and
+  # never blocks a tagged release. Promote it into the `release` matrix once a
+  # run has produced installable artifacts.
+  release-linux:
+    if: github.event_name == 'workflow_dispatch' && inputs.linux
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ubuntu runners ship with ~14 GB free; pip + PyInstaller + torch can
+      # peak well above that. Same flags as the `release` matrix job.
+      - name: Free up disk space
+        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          swap-storage: true
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf llvm-dev libasound2-dev libxdo-dev libssl-dev file
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install CPU-only PyTorch
+        run: pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          pip install -r backend/requirements.txt
+          pip install --no-deps chatterbox-tts
+          pip install --no-deps hume-tada
+
+      - name: Build Python server
+        run: |
+          chmod +x scripts/build-server.sh
+          ./scripts/build-server.sh
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./tauri/src-tauri -> target"
+
+      - name: Install dependencies
+        run: bun install
+
+      # The Tauri bundler downloads linuxdeploy, AppRun and its plugins into
+      # ~/.cache/tauri on first use with no timeout; that download is where the
+      # April 2026 Linux runs hung. Fetch the same files up front with curl so a
+      # stall fails fast and visibly here instead of inside the bundler.
+      - name: Prefetch linuxdeploy tools for the AppImage bundler
+        run: |
+          set -euo pipefail
+          TOOLS="$HOME/.cache/tauri"
+          mkdir -p "$TOOLS"
+          fetch() { curl -fsSL --retry 3 --connect-timeout 20 --max-time 300 -o "$TOOLS/$1" "$2"; chmod +x "$TOOLS/$1"; }
+          fetch AppRun-x86_64 https://github.com/tauri-apps/binary-releases/releases/download/apprun-old/AppRun-x86_64
+          fetch linuxdeploy-x86_64.AppImage https://github.com/tauri-apps/binary-releases/releases/download/linuxdeploy/linuxdeploy-x86_64.AppImage
+          fetch linuxdeploy-plugin-gtk.sh https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gtk/master/linuxdeploy-plugin-gtk.sh
+          fetch linuxdeploy-plugin-gstreamer.sh https://raw.githubusercontent.com/tauri-apps/linuxdeploy-plugin-gstreamer/master/linuxdeploy-plugin-gstreamer.sh
+          fetch linuxdeploy-plugin-appimage.AppImage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage
+          ls -la "$TOOLS"
+
+      - name: Disk / environment snapshot (pre-bundle debug)
+        run: |
+          df -h
+          free -h
+          rustc --version
+          cargo --version
+          bun --version
+          cd tauri && bun run tauri --version
+
+      - name: Extract release notes from CHANGELOG.md
+        id: changelog
+        shell: bash
+        run: |
+          VERSION="$(jq -r '.version' tauri/src-tauri/tauri.conf.json)"
+          NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/{/^## \[${VERSION}\]/d;/^## \[/d;p;}" CHANGELOG.md)
+          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+            NOTES="See the assets below to download and install this version."
+          fi
+          {
+            echo "notes<<CHANGELOG_EOF"
+            echo "$NOTES"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # createUpdaterArtifacts is forced off: on Linux it synthesizes an
+      # .AppImage.tar.gz + .sig for the in-app updater, and we do not ship the
+      # updater on Linux yet. includeUpdaterJson is off for the same reason, so
+      # this job never rewrites the latest.json the other platforms publish.
+      - uses: tauri-apps/tauri-action@v0.6
+        timeout-minutes: 45
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_TERM_VERBOSE: "true"
+          RUST_BACKTRACE: "1"
+        with:
+          projectPath: tauri
+          tagName: v__VERSION__
+          releaseName: "voicebox v__VERSION__"
+          releaseBody: ${{ steps.changelog.outputs.notes }}
+          releaseDraft: true
+          prerelease: false
+          args: '--target x86_64-unknown-linux-gnu --bundles appimage,deb --verbose --config {"bundle":{"createUpdaterArtifacts":false}}'
+          includeUpdaterJson: false
+
+      - name: Upload bundles as workflow artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicebox-linux-x86_64
+          path: |
+            tauri/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+            tauri/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+          if-no-files-found: warn
+          retention-days: 7
 
   build-cuda-windows:
     runs-on: windows-latest
