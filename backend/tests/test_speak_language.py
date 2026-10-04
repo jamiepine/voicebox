@@ -117,12 +117,12 @@ async def test_rest_speak_defaults_to_en_without_profile_language(captured_reque
     assert captured_request["req"].language == "en"
 
 
-# ─── MCP: voicebox.speak ──────────────────────────────────────────────────
+# ─── MCP: voicebox_speak ──────────────────────────────────────────────────
 
 
 async def _call_mcp(monkeypatch, profile_language, requested_language=None):
     # Build the server from the same ``fastmcp`` package production imports so
-    # the registered ``voicebox.speak`` wrapper — where the profile fallback
+    # the registered ``voicebox_speak`` wrapper — where the profile fallback
     # lives — is the code under test.
     from fastmcp import FastMCP
 
@@ -138,7 +138,7 @@ async def _call_mcp(monkeypatch, profile_language, requested_language=None):
     args = {"text": "Bonjour"}
     if requested_language is not None:
         args["language"] = requested_language
-    await mcp.call_tool("voicebox.speak", args)
+    await mcp.call_tool("voicebox_speak", args)
 
 
 async def test_mcp_speak_falls_back_to_profile_language(captured_request, monkeypatch):
