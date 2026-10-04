@@ -54,6 +54,11 @@
 
 ### Linux
 
+- **The Docker image now runs on Python 3.12.** The `Dockerfile` based both build
+  stages on `python:3.11-slim` while the backend declares `>=3.12,<3.13`, so the
+  container ran an interpreter the desktop builds and `just setup` never use. Both
+  stages now use `python:3.12-slim`, matching the release workflow and the venv
+  pin above.
 - **ROCm setup works on Linux AMD systems.** Docker ROCm builds now keep PyTorch
   on the ROCm wheel index during dependency installation, so later installs do
   not replace it with CUDA wheels. The ROCm compose overlay no longer assumes

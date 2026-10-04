@@ -32,7 +32,7 @@ RUN cd web && bunx --bun vite build
 
 
 # === Stage 2: Build Python dependencies ===
-FROM python:3.11-slim AS backend-builder
+FROM python:3.12-slim AS backend-builder
 
 # Re-declare ARG inside the stage (Docker scoping requirement).
 ARG PYTORCH_VARIANT=cpu
@@ -68,7 +68,7 @@ RUN pip install --no-cache-dir --prefix=/install \
 
 
 # === Stage 3: Runtime ===
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 # Create non-root user; the entrypoint joins GPU device groups at runtime.
 RUN groupadd -r voicebox && \
