@@ -295,14 +295,19 @@ async def delete_generation(
     if not generation:
         return False
 
-    # Delete all version files and records
-    _delete_generation_children(generation_id, db)
+    # Delete all version files and records; commit together with the
+    # generation row below so an unlink failure rolls everything back.
+    _delete_generation_children(generation_id, db, commit=False)
 
     # Delete main audio file (if not already removed by version cleanup)
     if generation.audio_path:
         audio_path = config.resolve_storage_path(generation.audio_path)
         if audio_path is not None and audio_path.exists():
-            audio_path.unlink()
+            try:
+                audio_path.unlink()
+            except OSError:
+                db.rollback()
+                raise
 
     # Delete from database
     db.delete(generation)
@@ -325,8 +330,8 @@ async def delete_failed_generations(db: Session) -> int:
     failed = db.query(DBGeneration).filter(DBGeneration.status == "failed").all()
     count = 0
     for generation in failed:
-        # Clean up version files/rows first.
-        _delete_generation_children(generation.id, db)
+        # Clean up version files/rows first; one commit at the end.
+        _delete_generation_children(generation.id, db, commit=False)
 
         # Remove the main audio file if it somehow made it to disk.
         if generation.audio_path:
