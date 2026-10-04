@@ -8,8 +8,6 @@ from datetime import UTC, datetime
 import asyncio
 import os
 import re
-import shutil
-import subprocess
 import uuid
 import tempfile
 from pathlib import Path
@@ -17,6 +15,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from .. import config
+from ..utils.ffmpeg import encode_audio
 from ..models import (
     StoryCreate,
     StoryResponse,
@@ -939,38 +938,12 @@ def _ffmpeg_encode(
 
     Raises RuntimeError on missing ffmpeg or non-zero exit.
     """
-    if shutil.which("ffmpeg") is None:
-        raise RuntimeError(
-            "ffmpeg is required for m4b/mp3 story export — install it or request format=wav"
-        )
-
-    cmd: List[str] = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav_path)]
     meta_path: Optional[Path] = None
     try:
         if chapters:
             meta_path = wav_path.with_suffix(".chapters.txt")
             _write_ffmetadata(chapters, meta_path)
-            cmd.extend(["-i", str(meta_path), "-map_metadata", "1", "-map_chapters", "1"])
-
-        if fmt == "m4b":
-            # The 'ipod' muxer is ffmpeg's name for the .m4b container.
-            cmd.extend(["-map", "0:a", "-c:a", "aac", "-b:a", "128k", "-f", "ipod"])
-        elif fmt == "mp3":
-            cmd.extend(["-map", "0:a", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3"])
-        else:
-            raise ValueError(f"Unsupported export format: {fmt}")
-
-        cmd.append(str(out_path))
-        try:
-            # Hard ceiling — a stuck ffmpeg must not pin server resources
-            # indefinitely. 10 minutes is generous enough for a multi-hour
-            # audiobook on slow hardware but still bounded.
-            result = subprocess.run(cmd, capture_output=True, check=False, timeout=600)
-        except subprocess.TimeoutExpired as exc:
-            raise RuntimeError("ffmpeg timed out during story export") from exc
-        if result.returncode != 0:
-            stderr = result.stderr.decode("utf-8", errors="replace").strip()
-            raise RuntimeError(f"ffmpeg exited {result.returncode}: {stderr}")
+        encode_audio(wav_path, out_path, fmt, metadata_path=meta_path)
     finally:
         if meta_path is not None:
             meta_path.unlink(missing_ok=True)
