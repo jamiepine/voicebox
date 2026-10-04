@@ -1379,7 +1379,6 @@ async fn debug_clipboard_roundtrip(
     }))
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// Final step of the main-window close flow, after the frontend has had its
 /// chance to stop the server.
 ///
@@ -1397,6 +1396,7 @@ fn finish_main_window_close(window: &tauri::Window) {
     }
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
