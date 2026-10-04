@@ -38,7 +38,12 @@ def _patch_torch_from_numpy():
     for _ in range(7200):  # poll up to 360 s at 50 ms intervals
         time.sleep(0.05)
         torch = sys.modules.get("torch")
-        if torch is None or not hasattr(torch, "from_numpy"):
+        # torch.from_numpy exists as soon as _C is initialised, but
+        # torch/__init__.py still has torch._torch_docs to run, which calls
+        # add_docstr(torch.from_numpy, ...) and raises "don't know how to add
+        # docstring to type 'function'" if we have already wrapped it.
+        # torch.compile is defined after that point, so gate on it.
+        if torch is None or not hasattr(torch, "from_numpy") or not hasattr(torch, "compile"):
             continue
         if getattr(torch, "_vb_from_numpy_patched", False):
             return
