@@ -305,21 +305,27 @@ class MLXQwenLLMBackend:
         from mlx_lm.sample_utils import make_sampler
 
         model, tokenizer = self.model, self.tokenizer
-        messages = _build_messages(prompt, system, examples)
-        chat_prompt = tokenizer.apply_chat_template(
-            messages,
-            tokenize=False,
-            add_generation_prompt=True,
-            enable_thinking=False,
-        )
+        try:
+            messages = _build_messages(prompt, system, examples)
+            chat_prompt = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True,
+                enable_thinking=False,
+            )
 
-        sampler = make_sampler(temp=temperature, top_p=0.9) if temperature > 0 else None
-        text = mlx_generate(
-            model,
-            tokenizer,
-            prompt=chat_prompt,
-            max_tokens=max_tokens,
-            sampler=sampler,
-            verbose=False,
-        )
-        return text.strip()
+            sampler = make_sampler(temp=temperature, top_p=0.9) if temperature > 0 else None
+            text = mlx_generate(
+                model,
+                tokenizer,
+                prompt=chat_prompt,
+                max_tokens=max_tokens,
+                sampler=sampler,
+                verbose=False,
+            )
+            return text.strip()
+        finally:
+            # Drop the local binding here, inside the frame a propagating
+            # traceback would keep alive, so the caller's drain can
+            # actually return the model's buffers to MLX.
+            del model, tokenizer
