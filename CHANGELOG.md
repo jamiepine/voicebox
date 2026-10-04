@@ -10,6 +10,9 @@
 ### Dictation and agents
 
 - **Bring your own LLM for refinement and personalities.** Settings → Captures → Refinement gains a *Custom LLM endpoint (advanced)* section: point it at any server that speaks OpenAI's `/v1/chat/completions` (llama.cpp, vLLM, LM Studio, LocalAI, Ollama's OpenAI shim, OpenRouter, or OpenAI itself) with a model name and an optional API key, and dictation refinement and personality compose/rewrite go there instead of the bundled Qwen3. Leave the endpoint blank and nothing changes. The key is write-only: the settings API reports only whether one is stored. The dictation readiness checklist treats a configured endpoint as ready, the Models page keeps managing the on-device Qwen regardless, and a failing endpoint surfaces as a clear error naming the URL and status. — @ext-sakamoro ([#947](https://github.com/jamiepine/voicebox/pull/947))
+### API
+
+- **OpenAI-compatible text-to-speech API.** `POST /v1/audio/speech` and `GET /v1/models` accept OpenAI's request shape, so the official `openai` SDKs, Open WebUI, Home Assistant and any other OpenAI TTS client become a local, offline TTS by changing only the base URL. `voice` is a Voicebox profile (name or id, falling back to the per-client binding and default voice like `/speak`); `model` is a Voicebox engine or model variant, with `tts-1`, `tts-1-hd` and `gpt-4o-mini-tts` accepted as aliases for the profile's configured engine; `response_format` supports `wav`, `mp3`, `flac`, `opus`, `pcm` and (with ffmpeg) `aac`; `speed` is a pitch-preserving time stretch; `instructions` feeds the engine's instruct prompt. Errors use OpenAI's `{"error": {...}}` body, and the endpoint is documented on the MCP Server page. — @neuron-tech-ai (from [#656](https://github.com/jamiepine/voicebox/pull/656); fixes [#10](https://github.com/jamiepine/voicebox/issues/10))
 
 ## [0.6.0] - 2026-10-04
 
