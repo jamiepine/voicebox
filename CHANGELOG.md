@@ -13,6 +13,9 @@
 ### API
 
 - **OpenAI-compatible text-to-speech API.** `POST /v1/audio/speech` and `GET /v1/models` accept OpenAI's request shape, so the official `openai` SDKs, Open WebUI, Home Assistant and any other OpenAI TTS client become a local, offline TTS by changing only the base URL. `voice` is a Voicebox profile (name or id, falling back to the per-client binding and default voice like `/speak`); `model` is a Voicebox engine or model variant, with `tts-1`, `tts-1-hd` and `gpt-4o-mini-tts` accepted as aliases for the profile's configured engine; `response_format` supports `wav`, `mp3`, `flac`, `opus`, `pcm` and (with ffmpeg) `aac`; `speed` is a pitch-preserving time stretch; `instructions` feeds the engine's instruct prompt. Errors use OpenAI's `{"error": {...}}` body, and the endpoint is documented on the MCP Server page. — @neuron-tech-ai ([#1170](https://github.com/jamiepine/voicebox/pull/1170), from [#656](https://github.com/jamiepine/voicebox/pull/656); fixes [#10](https://github.com/jamiepine/voicebox/issues/10))
+### Linux
+
+- **Installing the CUDA or ROCm backend on Linux downloads a native Linux binary.** The GPU server release assets are now platform-qualified (`voicebox-server-{cuda,rocm}-<platform>.tar.gz`, `{cuda,rocm}-libs-<platform>-<version>.tar.gz`) and a `build-gpu-linux` release job builds the Linux CUDA and ROCm bundles alongside the Windows ones, so Linux no longer fetches a Windows `.exe` and silently falls back to CPU. The ROCm download is offered on Linux hosts with an AMD ROCm driver (`/dev/kfd`), and the CUDA download gate from 0.6 now refuses only platforms without a published asset (macOS, Linux arm64). — @1337hero, @smendola ([#851](https://github.com/jamiepine/voicebox/pull/851), [#561](https://github.com/jamiepine/voicebox/pull/561); fixes [#767](https://github.com/jamiepine/voicebox/issues/767))
 
 ## [0.6.0] - 2026-10-04
 

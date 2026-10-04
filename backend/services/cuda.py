@@ -32,7 +32,11 @@ GITHUB_RELEASES_URL = "https://github.com/jamiepine/voicebox/releases/download"
 
 PROGRESS_KEY = "cuda-backend"
 
-CUDA_DOWNLOAD_UNSUPPORTED_REASON = "Downloadable CUDA backend releases are currently only published for Windows."
+CUDA_DOWNLOAD_UNSUPPORTED_REASON = (
+    "Downloadable CUDA backend releases are only published for "
+    + " and ".join(SUPPORTED_GPU_ASSET_PLATFORMS)
+    + "."
+)
 
 # The current expected CUDA libs version.  Bump this when we change the
 # CUDA toolkit version or torch's CUDA dependency changes (e.g. cu126 -> cu128).
@@ -68,7 +72,7 @@ def get_cuda_exe_name() -> str:
 
 def is_cuda_download_supported() -> bool:
     """Return whether this platform has a matching CUDA release asset."""
-    return sys.platform == "win32"
+    return server_asset_platform() in SUPPORTED_GPU_ASSET_PLATFORMS
 
 
 def get_cuda_download_unsupported_reason() -> str | None:
@@ -314,11 +318,6 @@ async def _download_cuda_binary_locked(version: Optional[str] = None):
 
     base_url = f"{GITHUB_RELEASES_URL}/{version}"
     plat = server_asset_platform()
-    if plat not in SUPPORTED_GPU_ASSET_PLATFORMS:
-        raise RuntimeError(
-            f"CUDA backend not available for platform '{plat}'. "
-            f"Supported platforms: {', '.join(SUPPORTED_GPU_ASSET_PLATFORMS)}"
-        )
     server_archive = f"voicebox-server-cuda-{plat}.tar.gz"
     libs_archive = f"cuda-libs-{plat}-{CUDA_LIBS_VERSION}.tar.gz"
 

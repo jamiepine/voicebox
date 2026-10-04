@@ -185,6 +185,7 @@ def package(
     # Write rocm-libs.json manifest.
     manifest = {
         "version": rocm_libs_version,
+        "platform": plat,
         "torch_compat": torch_compat,
         "archive": rocm_libs_archive.name,
         "sha256": rocm_sha,

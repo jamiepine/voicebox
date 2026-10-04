@@ -178,6 +178,7 @@ def package(
     # Write cuda-libs.json manifest
     manifest = {
         "version": cuda_libs_version,
+        "platform": plat,
         "torch_compat": torch_compat,
         "archive": cuda_libs_archive.name,
         "sha256": cuda_sha,

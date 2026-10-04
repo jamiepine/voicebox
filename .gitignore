@@ -52,6 +52,7 @@ tauri/src-tauri/binaries/*
 tauri/src-tauri/gen/Assets.car
 tauri/src-tauri/gen/voicebox.icns
 tauri/src-tauri/gen/partial.plist
+tauri/src-tauri/gen/schemas/linux-schema.json
 
 # PyInstaller
 *.spec
