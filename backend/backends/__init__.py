@@ -603,7 +603,7 @@ async def ensure_model_cached_or_raise(engine: str, model_size: str = "default")
 def unload_model_by_config(config: ModelConfig) -> bool:
     """Unload a model given its config. Returns True if it was loaded, False otherwise."""
     from . import get_tts_backend_for_engine
-    from ..services import tts, transcribe, llm as llm_service
+    from ..services import tts, transcribe
     from ..utils.cache import clear_voice_prompt_memory_cache
 
     if config.engine == "whisper":
@@ -614,7 +614,11 @@ def unload_model_by_config(config: ModelConfig) -> bool:
         return False
 
     if config.engine == "qwen_llm":
-        backend = llm_service.get_llm_model()
+        # Always address the local Qwen backend here: when a custom
+        # OpenAI-compatible endpoint is active, ``get_llm_model()`` returns
+        # the remote backend, and the Models page must still manage the
+        # on-device model.
+        backend = get_llm_backend_for_engine("qwen_llm")
         loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
         if backend.is_loaded() and loaded_size == config.model_size:
             backend.unload_model()
@@ -650,7 +654,7 @@ def unload_model_by_config(config: ModelConfig) -> bool:
 def check_model_loaded(config: ModelConfig) -> bool:
     """Check if a model is currently loaded."""
     from . import get_tts_backend_for_engine
-    from ..services import tts, transcribe, llm as llm_service
+    from ..services import tts, transcribe
 
     try:
         if config.engine == "whisper":
@@ -658,7 +662,7 @@ def check_model_loaded(config: ModelConfig) -> bool:
             return whisper_model.is_loaded() and getattr(whisper_model, "model_size", None) == config.model_size
 
         if config.engine == "qwen_llm":
-            backend = llm_service.get_llm_model()
+            backend = get_llm_backend_for_engine("qwen_llm")
             loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
             return backend.is_loaded() and loaded_size == config.model_size
 
@@ -681,7 +685,7 @@ def check_model_loaded(config: ModelConfig) -> bool:
 def get_model_load_func(config: ModelConfig):
     """Return a callable that loads/downloads the model."""
     from . import get_tts_backend_for_engine
-    from ..services import tts, transcribe, llm as llm_service
+    from ..services import tts, transcribe
 
     if config.engine == "whisper":
         return lambda: transcribe.get_whisper_model().load_model(config.model_size)
@@ -693,7 +697,7 @@ def get_model_load_func(config: ModelConfig):
         return lambda: get_tts_backend_for_engine(config.engine).load_model(config.model_size)
 
     if config.engine == "qwen_llm":
-        return lambda: llm_service.get_llm_model().load_model(config.model_size)
+        return lambda: get_llm_backend_for_engine("qwen_llm").load_model(config.model_size)
 
     return lambda: get_tts_backend_for_engine(config.engine).load_model()
 

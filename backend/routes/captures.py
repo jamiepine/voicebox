@@ -190,13 +190,31 @@ async def capture_readiness_endpoint(db: Session = Depends(get_db)):
             size=stt_cfg.model_size,
             size_mb=stt_cfg.size_mb or None,
         ),
-        llm=models.ModelReadiness(
-            ready=is_model_cached(llm_cfg.hf_repo_id),
+        llm=_llm_readiness(saved, llm_cfg),
+    )
+
+
+def _llm_readiness(saved, llm_cfg) -> models.ModelReadiness:
+    """LLM row of the readiness checklist.
+
+    A configured custom OpenAI-compatible endpoint owns the model, so there
+    is nothing to download locally and the gate is green regardless of the
+    Qwen cache; the row names the remote model instead.
+    """
+    if saved.custom_llm_endpoint and saved.custom_llm_model:
+        return models.ModelReadiness(
+            ready=True,
             model_name=llm_cfg.model_name,
-            display_name=llm_cfg.display_name,
-            size=llm_cfg.model_size,
-            size_mb=llm_cfg.size_mb or None,
-        ),
+            display_name=saved.custom_llm_model,
+            size=saved.custom_llm_model,
+            size_mb=None,
+        )
+    return models.ModelReadiness(
+        ready=is_model_cached(llm_cfg.hf_repo_id),
+        model_name=llm_cfg.model_name,
+        display_name=llm_cfg.display_name,
+        size=llm_cfg.model_size,
+        size_mb=llm_cfg.size_mb or None,
     )
 
 

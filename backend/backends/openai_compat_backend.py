@@ -97,9 +97,11 @@ class OpenAICompatLLMBackend:
         remote model selection is pinned at construction time.
 
         Raises:
-            httpx.HTTPStatusError: The remote returned a non-2xx status.
-            httpx.RequestError: Transport failure (timeout, DNS, TLS).
-            ValueError: The response was well-formed HTTP but carried no
+            RuntimeError: The remote returned a non-2xx status, could not be
+                reached (timeout, DNS, TLS), or sent a non-JSON body. The
+                message names the endpoint so the settings UI and the
+                dictation pill show something actionable.
+            ValueError: The response was well-formed JSON but carried no
                 content in either the chat or legacy completion shapes.
         """
         messages = _build_messages(prompt, system, examples)
@@ -129,12 +131,22 @@ class OpenAICompatLLMBackend:
                     exc.response.status_code,
                     body_preview,
                 )
-                raise
+                raise RuntimeError(
+                    f"Custom LLM endpoint {url} returned HTTP {exc.response.status_code}: "
+                    f"{body_preview[:200] or exc.response.reason_phrase}"
+                ) from exc
             except httpx.RequestError as exc:
                 logger.error("OpenAI-compat endpoint %s request failed: %s", url, exc)
-                raise
+                raise RuntimeError(
+                    f"Custom LLM endpoint {url} is unreachable: {exc.__class__.__name__}: {exc}"
+                ) from exc
 
-            data = response.json()
+            try:
+                data = response.json()
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"Custom LLM endpoint {url} returned a non-JSON body: {response.text[:200]}"
+                ) from exc
 
         return _extract_content(data, url)
 

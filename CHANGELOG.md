@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+### Dictation and agents
+
+- **Bring your own LLM for refinement and personalities.** Settings → Captures → Refinement gains a *Custom LLM endpoint (advanced)* section: point it at any server that speaks OpenAI's `/v1/chat/completions` (llama.cpp, vLLM, LM Studio, LocalAI, Ollama's OpenAI shim, OpenRouter, or OpenAI itself) with a model name and an optional API key, and dictation refinement and personality compose/rewrite go there instead of the bundled Qwen3. Leave the endpoint blank and nothing changes. The key is write-only: the settings API reports only whether one is stored. The dictation readiness checklist treats a configured endpoint as ready, the Models page keeps managing the on-device Qwen regardless, and a failing endpoint surfaces as a clear error naming the URL and status. — @ext-sakamoro ([#947](https://github.com/jamiepine/voicebox/pull/947))
+
 ## [0.6.0] - 2026-10-04
 
 **The stability release.** 0.5 made Voicebox a dictation and agent-voice studio; 0.6 makes it hold up. Sixty-plus contributor pull requests landed since 0.5 and most of them fix something that used to go wrong in daily use: MLX crashed with `There is no Stream(gpu, 1) in current thread` when a model was loaded on one thread and used on another, memory grew with every generation and never came back on unload, a fully-cached model retried HuggingFace five times per file before it would load offline, the Docker image could not write its own data volume, dictation refused to arm without an LLM it was never going to call, and the backend test suite would not even collect. All of that is fixed. The headline features ride on top: native AMD ROCm on Windows and in Docker, five new interface languages, and Chatterbox multilingual running on Apple Silicon through MLX.

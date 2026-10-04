@@ -87,6 +87,15 @@ async def llm_generate(request: models.LLMGenerateRequest):
             examples=examples,
         )
         return models.LLMGenerateResponse(text=text, model_size=model_size)
+    except RuntimeError as e:
+        if isinstance(backend, OpenAICompatLLMBackend):
+            # The remote backend raises a deliberately short message naming
+            # the endpoint and status (no local paths), so the UI can show
+            # the user what to fix.
+            logger.error("Custom LLM endpoint failed: %s", e)
+            raise HTTPException(status_code=502, detail=str(e)) from e
+        logger.exception("LLM generate failed")
+        raise HTTPException(status_code=500, detail="LLM generation failed") from e
     except Exception as e:
         # The backend exception text can include filesystem paths and stack
         # frames — log it server-side and hand the client a generic message.
