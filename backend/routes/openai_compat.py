@@ -20,7 +20,7 @@ Request field mapping
     The text to speak, in the profile's language.
 ``response_format``
     ``wav`` (default), ``mp3``, ``flac``, ``opus``, ``pcm`` (raw 16-bit
-    little-endian mono at the engine's sample rate), ``aac`` (needs ffmpeg).
+    little-endian mono at 24 kHz, as OpenAI defines it), ``aac`` (needs ffmpeg).
 ``speed``
     0.25-4.0, applied as a pitch-preserving time stretch after synthesis.
 ``instructions``
@@ -66,6 +66,7 @@ _FFMPEG_FORMATS: dict[str, tuple[list[str], str]] = {
     "aac": (["-c:a", "aac", "-b:a", "128k", "-f", "adts"], "audio/aac"),
 }
 RESPONSE_FORMATS = (*_SOUNDFILE_FORMATS, "pcm", *_FFMPEG_FORMATS)
+PCM_SAMPLE_RATE = 24000
 
 # Voicebox launched long after the OpenAI `created` epoch convention; a fixed
 # value keeps the field deterministic for clients that display it.
@@ -115,7 +116,9 @@ class SpeechRequest(BaseModel):
 
 
 def _available_formats() -> list[str]:
-    formats = [f for f in RESPONSE_FORMATS if f not in _FFMPEG_FORMATS]
+    """Formats this server can actually produce, given its libsndfile build and PATH."""
+    formats = ["pcm"]
+    formats.extend(f for f, (fmt, _, _) in _SOUNDFILE_FORMATS.items() if fmt in sf.available_formats())
     if shutil.which("ffmpeg"):
         formats.extend(_FFMPEG_FORMATS)
     return formats
@@ -195,6 +198,12 @@ def encode_audio(audio: np.ndarray, sample_rate: int, response_format: str) -> t
     import io
 
     if response_format == "pcm":
+        # OpenAI defines pcm as headerless 16-bit mono at 24 kHz; the body
+        # carries no rate, so engines at another rate (LuxTTS: 48 kHz) must be resampled.
+        if sample_rate != PCM_SAMPLE_RATE:
+            import librosa
+
+            audio = librosa.resample(audio.astype(np.float32), orig_sr=sample_rate, target_sr=PCM_SAMPLE_RATE)
         pcm = np.clip(audio, -1.0, 1.0)
         return (pcm * 32767).astype("<i2").tobytes(), "audio/pcm"
 
@@ -300,10 +309,11 @@ async def _create_speech(request: Request, db: Session) -> Response:
         param = ".".join(str(p) for p in first.get("loc", ())) or None
         raise OpenAIError(400, f"Invalid value for '{param}': {first['msg']}", param=param) from exc
 
-    if data.response_format not in RESPONSE_FORMATS:
+    if data.response_format not in _available_formats():
         raise OpenAIError(
             400,
-            f"Invalid response_format '{data.response_format}'. Supported: {', '.join(RESPONSE_FORMATS)}.",
+            f"Invalid response_format '{data.response_format}'. Supported on this server: "
+            f"{', '.join(_available_formats())}.",
             param="response_format",
             code="unsupported_format",
         )

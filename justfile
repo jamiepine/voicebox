@@ -134,7 +134,7 @@ setup-python:
         "{{ python }}" -m pip install --no-deps mlx-audio==0.4.1
     fi
     "{{ python }}" -m pip install git+https://github.com/QwenLM/Qwen3-TTS.git
-    "{{ python }}" -m pip install pyinstaller ruff pytest pytest-asyncio -q
+    "{{ python }}" -m pip install pyinstaller ruff pytest pytest-asyncio openai -q
     echo "Python environment ready."
 
 [windows]
@@ -208,7 +208,7 @@ setup-python:
     Invoke-Pip install --no-deps chatterbox-tts; \
     Invoke-Pip install --no-deps hume-tada; \
     Invoke-Pip install git+https://github.com/QwenLM/Qwen3-TTS.git; \
-    Invoke-Pip install pyinstaller ruff pytest pytest-asyncio -q; \
+    Invoke-Pip install pyinstaller ruff pytest pytest-asyncio openai -q; \
     Write-Host "Python environment ready."
 
 # Install JavaScript dependencies

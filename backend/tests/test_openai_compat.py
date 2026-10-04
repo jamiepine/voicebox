@@ -15,7 +15,6 @@ import numpy as np
 import pytest
 import soundfile as sf
 from fastapi import FastAPI
-from openai import AsyncOpenAI, BadRequestError, NotFoundError
 
 import backend.backends as backends
 import backend.mcp_server.resolve as resolve_mod
@@ -24,6 +23,9 @@ import backend.services.profiles as profiles_svc
 import backend.utils.chunked_tts as chunked_tts
 from backend.database import get_db
 from backend.routes import openai_compat
+
+openai = pytest.importorskip("openai", reason="the openai SDK is a test-only dependency (installed by `just setup`)")
+AsyncOpenAI, BadRequestError, NotFoundError = openai.AsyncOpenAI, openai.BadRequestError, openai.NotFoundError
 
 SAMPLE_RATE = 24000
 DURATION_S = 1.0
@@ -296,6 +298,23 @@ async def test_preset_profile_rejects_other_engine(raw_client, monkeypatch):
 
 
 # ─── encoder unit coverage ────────────────────────────────────────────────
+
+
+def test_encode_audio_pcm_resamples_to_24k():
+    content, media_type = openai_compat.encode_audio(np.zeros(48000, dtype=np.float32), 48000, "pcm")
+    assert media_type == "audio/pcm"
+    assert len(content) == 24000 * 2
+
+
+async def test_aac_without_ffmpeg_is_rejected_before_synthesis(raw_client, app, monkeypatch):
+    monkeypatch.setattr(openai_compat.shutil, "which", lambda name: None)
+    response = await raw_client.post(
+        "/v1/audio/speech",
+        json={"model": "tts-1", "voice": "Morgan", "input": "Hi", "response_format": "aac"},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "unsupported_format"
+    assert "text" not in app.state.calls
 
 
 def test_encode_audio_wav_roundtrip():

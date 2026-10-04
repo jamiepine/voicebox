@@ -267,7 +267,7 @@ How the OpenAI fields map onto Voicebox:
 | `voice` | A voice profile, by name (case-insensitive) or id. Omit it and the [voice resolution](#voice-resolution) chain applies: the `X-Voicebox-Client-Id` binding, then the default playback voice. There are no built-in `alloy`/`nova` voices — create a profile (a Kokoro preset profile named "Alloy" works fine). |
 | `model` | A TTS engine (`qwen`, `qwen_custom_voice`, `luxtts`, `chatterbox`, `chatterbox_turbo`, `tada`, `kokoro`) or a model variant such as `qwen-tts-0.6B`. OpenAI's own ids `tts-1`, `tts-1-hd` and `gpt-4o-mini-tts` are accepted as aliases for "the engine configured on the profile", so unchanged client code works. `GET /v1/models` lists every accepted id. The model must already be downloaded (Voicebox → Models). |
 | `input` | The text to speak, up to 10,000 characters, in the profile's language. Long text is chunked at sentence boundaries like the rest of Voicebox. |
-| `response_format` | `wav` (default), `mp3`, `flac`, `opus`, `pcm` (raw 16-bit little-endian mono at the engine's sample rate, 24 kHz for most engines) and `aac` (requires `ffmpeg` on the server's PATH). |
+| `response_format` | `wav` (default), `mp3`, `flac`, `opus`, `pcm` (raw 16-bit little-endian mono at 24 kHz, as OpenAI defines it; engines running at another rate are resampled) and `aac` (requires `ffmpeg` on the server's PATH). |
 | `speed` | `0.25`–`4.0`. Applied as a pitch-preserving time stretch after synthesis. |
 | `instructions` | Forwarded as the engine's instruct prompt where supported (Qwen). |
 
