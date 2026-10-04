@@ -306,8 +306,10 @@ async def delete_generation(
             try:
                 audio_path.unlink()
             except OSError:
-                db.rollback()
-                raise
+                # Version files are already gone by now, so rolling back would
+                # leave rows pointing at missing audio. Mirror the sweep below:
+                # keep going and leave the locked file as an orphan instead.
+                logger.warning("Could not delete generation audio %s", audio_path)
 
     # Delete from database
     db.delete(generation)
