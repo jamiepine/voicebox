@@ -20,6 +20,7 @@ from typing import ClassVar
 
 import numpy as np
 
+from . import CHATTERBOX_MLX_S3_TOKENIZER_REPO
 from .base import (
     combine_voice_prompts as _combine_voice_prompts,
     is_model_cached,
@@ -32,7 +33,7 @@ logger = logging.getLogger(__name__)
 CHATTERBOX_MLX_HF_REPO = "mlx-community/chatterbox-multilingual-v3"
 # mlx-audio's Model.from_pretrained fetches the S3 speech tokenizer from this
 # second repo (~470 MB), so the engine is only "downloaded" once both are cached.
-S3_TOKENIZER_HF_REPO = "mlx-community/S3TokenizerV2"
+S3_TOKENIZER_HF_REPO = CHATTERBOX_MLX_S3_TOKENIZER_REPO
 
 # Files that must be present for the MLX multilingual model
 _MLX_WEIGHT_FILES = ["model.safetensors", "config.json", "tokenizer.json"]

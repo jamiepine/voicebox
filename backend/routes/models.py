@@ -306,7 +306,7 @@ async def get_model_status():
         use_scan_cache = False
 
     from ..backends import get_all_model_configs, check_model_loaded
-    from ..backends.base import has_in_progress_download
+    from ..backends.base import has_in_progress_download, is_model_cached
 
     registry_configs = get_all_model_configs()
     model_configs = [
@@ -314,6 +314,7 @@ async def get_model_status():
             "model_name": cfg.model_name,
             "display_name": cfg.display_name,
             "hf_repo_id": cfg.hf_repo_id,
+            "aux_hf_repo_ids": cfg.aux_hf_repo_ids,
             "model_size": cfg.model_size,
             "check_loaded": lambda c=cfg: check_model_loaded(c),
         }
@@ -404,6 +405,12 @@ async def get_model_status():
                 except Exception:
                     pass
 
+            # A model whose backend also pulls auxiliary repos at load time
+            # (e.g. Chatterbox MLX's S3 tokenizer) is only downloaded once
+            # those are present too, matching the backend's own cache check.
+            if downloaded and not all(is_model_cached(repo) for repo in config["aux_hf_repo_ids"]):
+                downloaded = False
+
             try:
                 loaded = config["check_loaded"]()
             except Exception:
@@ -427,6 +434,12 @@ async def get_model_status():
                 )
             )
         except Exception:
+            # A model whose backend also pulls auxiliary repos at load time
+            # (e.g. Chatterbox MLX's S3 tokenizer) is only downloaded once
+            # those are present too, matching the backend's own cache check.
+            if downloaded and not all(is_model_cached(repo) for repo in config["aux_hf_repo_ids"]):
+                downloaded = False
+
             try:
                 loaded = config["check_loaded"]()
             except Exception:
@@ -529,6 +542,10 @@ async def delete_model(model_name: str):
 
         try:
             shutil.rmtree(repo_cache_dir)
+            for aux_repo_id in config.aux_hf_repo_ids:
+                aux_cache_dir = Path(cache_dir) / ("models--" + aux_repo_id.replace("/", "--"))
+                if aux_cache_dir.exists():
+                    shutil.rmtree(aux_cache_dir)
         except OSError as e:
             raise HTTPException(status_code=500, detail=f"Failed to delete model cache directory: {str(e)}")
 

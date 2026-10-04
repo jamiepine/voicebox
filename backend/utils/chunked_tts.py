@@ -265,6 +265,15 @@ async def generate_chunked(
 
         if runaway_detector is not None and runaway_detector(chunk_audio, chunk_sr):
             if retry_depth >= MAX_RUNAWAY_RETRIES or len(chunk_text) <= MIN_RUNAWAY_RETRY_CHARS:
+                if trim_fn is not None:
+                    # Engines with a trim step (Chatterbox) already cut the
+                    # silence-then-noise tail; prefer the trimmed clip over
+                    # failing the whole generation when we cannot split further.
+                    logger.warning(
+                        "Unstable TTS output for %d chars could not be retried further; keeping trimmed output",
+                        len(chunk_text),
+                    )
+                    return np.asarray(trim_fn(chunk_audio, chunk_sr), dtype=np.float32), chunk_sr
                 raise RuntimeError(
                     "TTS output remained unstable after retrying smaller text chunks"
                 )

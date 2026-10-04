@@ -45,6 +45,11 @@ WHISPER_HF_REPOS = {
 }
 
 
+# mlx-audio's Chatterbox loader fetches the S3 speech tokenizer from this
+# second repo; see chatterbox_mlx_backend.
+CHATTERBOX_MLX_S3_TOKENIZER_REPO = "mlx-community/S3TokenizerV2"
+
+
 @dataclass
 class ModelConfig:
     """Declarative config for a downloadable model variant."""
@@ -53,6 +58,9 @@ class ModelConfig:
     display_name: str  # e.g. "LuxTTS (Fast, CPU-friendly)"
     engine: str  # e.g. "luxtts", "chatterbox"
     hf_repo_id: str  # e.g. "YatharthS/LuxTTS"
+    # Extra HF repos the backend fetches at load time (e.g. a shared
+    # tokenizer); download status and delete must account for them too.
+    aux_hf_repo_ids: tuple[str, ...] = ()
     model_size: str = "default"
     size_mb: int = 0
     needs_trim: bool = False
@@ -299,9 +307,11 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
         chatterbox_repo = "mlx-community/chatterbox-multilingual-v3"
         # 2.5 GB of weights plus the separately fetched S3TokenizerV2 (~470 MB)
         chatterbox_size_mb = 3000
+        chatterbox_aux_repos = (CHATTERBOX_MLX_S3_TOKENIZER_REPO,)
     else:
         chatterbox_repo = "ResembleAI/chatterbox"
         chatterbox_size_mb = 3200
+        chatterbox_aux_repos = ()
 
     return [
         ModelConfig(
@@ -317,6 +327,7 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
             display_name="Chatterbox TTS (Multilingual)",
             engine="chatterbox",
             hf_repo_id=chatterbox_repo,
+            aux_hf_repo_ids=chatterbox_aux_repos,
             size_mb=chatterbox_size_mb,
             needs_trim=True,
             # Same EOS miss the qwen configs guard against: on mlx-audio the decoder can run past
