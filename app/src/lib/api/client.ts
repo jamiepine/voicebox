@@ -837,7 +837,7 @@ class ApiClient {
 
   async exportStoryAudio(storyId: string, format: StoryExportFormat = 'wav'): Promise<Blob> {
     const params = new URLSearchParams({ format });
-    if (format === 'm4b') params.set('chapters', 'auto');
+    if (format !== 'wav') params.set('chapters', 'auto');
     const url = `${this.getBaseUrl()}/stories/${storyId}/export-audio?${params}`;
     const response = await fetch(url);
 
