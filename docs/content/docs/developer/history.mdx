@@ -206,7 +206,7 @@ The import process:
 | GET | `/history/{id}` | Get generation by ID |
 | DELETE | `/history/{id}` | Delete generation |
 | GET | `/history/{id}/export` | Export as ZIP |
-| GET | `/history/{id}/export-audio` | Export audio only |
+| GET | `/history/{id}/export-audio` | Export audio only (`?format=wav\|mp3`; mp3 needs ffmpeg, else 503) |
 | POST | `/history/import` | Import from ZIP |
 
 ### Query Parameters

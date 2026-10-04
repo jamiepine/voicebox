@@ -265,7 +265,7 @@ async def export_story_audio(story_id: str, db: Session) -> bytes:
 | POST | `/stories/{id}/items/{item_id}/duplicate` | Duplicate item |
 | PUT | `/stories/{id}/items/times` | Batch update times |
 | PUT | `/stories/{id}/items/reorder` | Reorder items |
-| GET | `/stories/{id}/export-audio` | Export mixed audio |
+| GET | `/stories/{id}/export-audio` | Export mixed audio (`?format=wav\|m4b\|mp3&chapters=none\|auto`; m4b/mp3 need ffmpeg, else 503) |
 
 ## Response Schemas
 
