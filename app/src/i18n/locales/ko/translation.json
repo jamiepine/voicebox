@@ -623,6 +623,12 @@
     "searchNoMatches": "일치하는 생성물이 없습니다",
     "searchNoAvailable": "사용 가능한 생성물이 없습니다",
     "exportAudio": "오디오 내보내기",
+    "exportDropdownLabel": "스토리 내보내기 형식",
+    "exportFormats": {
+      "wav": "오디오 (WAV)",
+      "mp3": "오디오 (MP3)",
+      "m4b": "오디오북 (M4B, 챕터 포함)"
+    },
     "empty": {
       "title": "이 스토리에 항목이 없습니다",
       "hint": "아래 상자를 사용하여 음성을 생성하고 항목을 추가하세요"
@@ -650,6 +656,7 @@
       "menu": "작업",
       "play": "재생",
       "exportAudio": "오디오 내보내기",
+      "exportAudioMp3": "오디오 내보내기 (MP3)",
       "exportPackage": "패키지 내보내기",
       "applyEffects": "효과 적용",
       "regenerate": "다시 생성"
@@ -760,8 +767,13 @@
       }
     },
     "general": {
-      "docs": { "title": "문서 읽기" },
-      "discord": { "title": "Discord 참여하기", "subtitle": "도움말 & 음성 공유" },
+      "docs": {
+        "title": "문서 읽기"
+      },
+      "discord": {
+        "title": "Discord 참여하기",
+        "subtitle": "도움말 & 음성 공유"
+      },
       "serverUrl": {
         "title": "서버 URL",
         "description": "voicebox 백엔드 서버 주소입니다.",

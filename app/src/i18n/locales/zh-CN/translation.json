@@ -623,6 +623,12 @@
     "searchNoMatches": "未找到匹配的生成",
     "searchNoAvailable": "暂无可用的生成",
     "exportAudio": "导出音频",
+    "exportDropdownLabel": "导出故事为",
+    "exportFormats": {
+      "wav": "音频 (WAV)",
+      "mp3": "音频 (MP3)",
+      "m4b": "有声书 (M4B，含章节)"
+    },
     "empty": {
       "title": "此故事暂无项目",
       "hint": "使用下方输入框生成语音以添加项目"
@@ -650,6 +656,7 @@
       "menu": "操作",
       "play": "播放",
       "exportAudio": "导出音频",
+      "exportAudioMp3": "导出音频 (MP3)",
       "exportPackage": "导出包",
       "applyEffects": "应用效果",
       "regenerate": "重新生成"
@@ -760,8 +767,13 @@
       }
     },
     "general": {
-      "docs": { "title": "阅读文档" },
-      "discord": { "title": "加入 Discord", "subtitle": "获取帮助 & 分享声音" },
+      "docs": {
+        "title": "阅读文档"
+      },
+      "discord": {
+        "title": "加入 Discord",
+        "subtitle": "获取帮助 & 分享声音"
+      },
       "serverUrl": {
         "title": "服务器 URL",
         "description": "Voicebox 后端服务器的地址。",

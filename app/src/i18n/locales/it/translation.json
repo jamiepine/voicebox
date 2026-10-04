@@ -379,7 +379,7 @@
       "play": "Riproduci campione",
       "pause": "Pausa campione",
       "stop": "Interrompi",
-            "stopAria": "Interrompi riproduzione",
+      "stopAria": "Interrompi riproduzione",
       "position": "Posizione riproduzione campione",
       "positionValue": "{{current}} di {{total}}"
     },
@@ -623,6 +623,12 @@
     "searchNoMatches": "Nessuna generazione corrispondente trovata",
     "searchNoAvailable": "Nessuna generazione disponibile",
     "exportAudio": "Esporta audio",
+    "exportDropdownLabel": "Esporta storia come",
+    "exportFormats": {
+      "wav": "Audio (WAV)",
+      "mp3": "Audio (MP3)",
+      "m4b": "Audiolibro (M4B, capitoli)"
+    },
     "empty": {
       "title": "Nessun elemento in questa storia",
       "hint": "Genera del testo parlato utilizzando la casella sottostante per aggiungere elementi"
@@ -650,6 +656,7 @@
       "menu": "Azioni",
       "play": "Riproduci",
       "exportAudio": "Esporta audio",
+      "exportAudioMp3": "Esporta audio (MP3)",
       "exportPackage": "Esporta pacchetto",
       "applyEffects": "Applica effetti",
       "regenerate": "Rigenera"
@@ -1124,7 +1131,8 @@
         "title": "Passa al backend CPU",
         "description": "Disabilita l'accelerazione GPU. Potrai scaricare nuovamente il backend GPU in un secondo momento.",
         "button": "Passa a CPU"
-      },      "remove": {
+      },
+      "remove": {
         "title": "Rimuovi il backend CUDA",
         "description": "Elimina il file binario CUDA scaricato per liberare spazio sul disco.",
         "button": "Rimuovi"

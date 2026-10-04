@@ -419,6 +419,9 @@ export interface StoryResponse {
   item_count: number;
 }
 
+export type GenerationExportFormat = 'wav' | 'mp3';
+export type StoryExportFormat = 'wav' | 'mp3' | 'm4b';
+
 export interface StoryItemDetail {
   id: string;
   story_id: string;

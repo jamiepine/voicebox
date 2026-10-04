@@ -623,6 +623,12 @@
     "searchNoMatches": "一致する生成が見つかりません",
     "searchNoAvailable": "利用可能な生成がありません",
     "exportAudio": "オーディオをエクスポート",
+    "exportDropdownLabel": "ストーリーをエクスポート",
+    "exportFormats": {
+      "wav": "音声 (WAV)",
+      "mp3": "音声 (MP3)",
+      "m4b": "オーディオブック (M4B、チャプター付き)"
+    },
     "empty": {
       "title": "このストーリーには項目がありません",
       "hint": "下のボックスで音声を生成して項目を追加します"
@@ -650,6 +656,7 @@
       "menu": "操作",
       "play": "再生",
       "exportAudio": "オーディオをエクスポート",
+      "exportAudioMp3": "オーディオをエクスポート (MP3)",
       "exportPackage": "パッケージをエクスポート",
       "applyEffects": "エフェクトを適用",
       "regenerate": "再生成"
@@ -760,8 +767,13 @@
       }
     },
     "general": {
-      "docs": { "title": "ドキュメントを読む" },
-      "discord": { "title": "Discord に参加", "subtitle": "ヘルプやボイスの共有" },
+      "docs": {
+        "title": "ドキュメントを読む"
+      },
+      "discord": {
+        "title": "Discord に参加",
+        "subtitle": "ヘルプやボイスの共有"
+      },
       "serverUrl": {
         "title": "サーバー URL",
         "description": "Voicebox バックエンドサーバーのアドレス。",

@@ -43,7 +43,12 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
-import type { EffectConfig, GenerationVersionResponse, HistoryResponse } from '@/lib/api/types';
+import type {
+  EffectConfig,
+  GenerationExportFormat,
+  GenerationVersionResponse,
+  HistoryResponse,
+} from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import {
   useClearFailedGenerations,
@@ -214,9 +219,13 @@ export function HistoryTable() {
     }
   };
 
-  const handleDownloadAudio = (generationId: string, text: string) => {
+  const handleDownloadAudio = (
+    generationId: string,
+    text: string,
+    format: GenerationExportFormat = 'wav',
+  ) => {
     exportGenerationAudio.mutate(
-      { generationId, text },
+      { generationId, text, format },
       {
         onError: (error) => {
           toast({
@@ -662,6 +671,13 @@ export function HistoryTable() {
                             >
                               <Download className="mr-2 h-4 w-4" />
                               {t('history.actions.exportAudio')}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDownloadAudio(gen.id, gen.text, 'mp3')}
+                              disabled={exportGenerationAudio.isPending}
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              {t('history.actions.exportAudioMp3')}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleExportPackage(gen.id, gen.text)}

@@ -623,6 +623,12 @@
     "searchNoMatches": "No se encontraron generaciones coincidentes",
     "searchNoAvailable": "No hay generaciones disponibles",
     "exportAudio": "Exportar audio",
+    "exportDropdownLabel": "Exportar historia como",
+    "exportFormats": {
+      "wav": "Audio (WAV)",
+      "mp3": "Audio (MP3)",
+      "m4b": "Audiolibro (M4B, capítulos)"
+    },
     "empty": {
       "title": "No hay elementos en esta historia",
       "hint": "Genera voz con el cuadro de abajo para añadir elementos"
@@ -650,6 +656,7 @@
       "menu": "Acciones",
       "play": "Reproducir",
       "exportAudio": "Exportar audio",
+      "exportAudioMp3": "Exportar audio (MP3)",
       "exportPackage": "Exportar paquete",
       "applyEffects": "Aplicar efectos",
       "regenerate": "Regenerar"

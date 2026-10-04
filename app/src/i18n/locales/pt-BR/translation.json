@@ -623,6 +623,12 @@
     "searchNoMatches": "Nenhuma geração correspondente encontrada",
     "searchNoAvailable": "Nenhuma geração disponível",
     "exportAudio": "Exportar Áudio",
+    "exportDropdownLabel": "Exportar história como",
+    "exportFormats": {
+      "wav": "Áudio (WAV)",
+      "mp3": "Áudio (MP3)",
+      "m4b": "Audiolivro (M4B, capítulos)"
+    },
     "empty": {
       "title": "Nenhum item nesta história",
       "hint": "Gere fala usando a caixa abaixo para adicionar itens"
@@ -650,6 +656,7 @@
       "menu": "Ações",
       "play": "Reproduzir",
       "exportAudio": "Exportar Áudio",
+      "exportAudioMp3": "Exportar Áudio (MP3)",
       "exportPackage": "Exportar Pacote",
       "applyEffects": "Aplicar Efeitos",
       "regenerate": "Regenerar"
@@ -760,8 +767,13 @@
       }
     },
     "general": {
-      "docs": { "title": "Ler a Documentação" },
-      "discord": { "title": "Entrar no Discord", "subtitle": "Tire dúvidas e compartilhe vozes" },
+      "docs": {
+        "title": "Ler a Documentação"
+      },
+      "discord": {
+        "title": "Entrar no Discord",
+        "subtitle": "Tire dúvidas e compartilhe vozes"
+      },
       "serverUrl": {
         "title": "URL do Servidor",
         "description": "O endereço do seu servidor backend do Voicebox.",

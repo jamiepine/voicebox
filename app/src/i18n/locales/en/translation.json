@@ -623,6 +623,12 @@
     "searchNoMatches": "No matching generations found",
     "searchNoAvailable": "No available generations",
     "exportAudio": "Export Audio",
+    "exportDropdownLabel": "Export story as",
+    "exportFormats": {
+      "wav": "Audio (WAV)",
+      "mp3": "Audio (MP3)",
+      "m4b": "Audiobook (M4B, chapters)"
+    },
     "empty": {
       "title": "No items in this story",
       "hint": "Generate speech using the box below to add items"
@@ -650,6 +656,7 @@
       "menu": "Actions",
       "play": "Play",
       "exportAudio": "Export Audio",
+      "exportAudioMp3": "Export Audio (MP3)",
       "exportPackage": "Export Package",
       "applyEffects": "Apply Effects",
       "regenerate": "Regenerate"
@@ -1143,7 +1150,8 @@
         "title": "Switch to CPU backend",
         "description": "Disable GPU acceleration. You can re-download the GPU backend later.",
         "button": "Switch"
-      },      "remove": {
+      },
+      "remove": {
         "title": "Remove CUDA backend",
         "description": "Delete the downloaded CUDA binary to free disk space.",
         "button": "Remove"

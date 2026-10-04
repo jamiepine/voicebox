@@ -8,6 +8,7 @@ import type {
   EffectConfig,
   EffectPresetCreate,
   EffectPresetResponse,
+  GenerationExportFormat,
   GenerationRequest,
   GenerationResponse,
   GenerationVersionResponse,
@@ -25,6 +26,7 @@ import type {
   StoryDetailResponse,
   StoryItemBatchUpdate,
   StoryItemCreate,
+  StoryExportFormat,
   StoryItemDetail,
   StoryItemMove,
   StoryItemReorder,
@@ -340,8 +342,11 @@ class ApiClient {
     return response.blob();
   }
 
-  async exportGenerationAudio(generationId: string): Promise<Blob> {
-    const url = `${this.getBaseUrl()}/history/${generationId}/export-audio`;
+  async exportGenerationAudio(
+    generationId: string,
+    format: GenerationExportFormat = 'wav',
+  ): Promise<Blob> {
+    const url = `${this.getBaseUrl()}/history/${generationId}/export-audio?format=${format}`;
     const response = await fetch(url);
 
     if (!response.ok) {
@@ -830,8 +835,10 @@ class ApiClient {
     });
   }
 
-  async exportStoryAudio(storyId: string): Promise<Blob> {
-    const url = `${this.getBaseUrl()}/stories/${storyId}/export-audio`;
+  async exportStoryAudio(storyId: string, format: StoryExportFormat = 'wav'): Promise<Blob> {
+    const params = new URLSearchParams({ format });
+    if (format === 'm4b') params.set('chapters', 'auto');
+    const url = `${this.getBaseUrl()}/stories/${storyId}/export-audio?${params}`;
     const response = await fetch(url);
 
     if (!response.ok) {

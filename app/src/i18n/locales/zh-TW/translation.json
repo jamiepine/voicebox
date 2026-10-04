@@ -623,6 +623,12 @@
     "searchNoMatches": "找不到相符的生成",
     "searchNoAvailable": "尚無可用的生成",
     "exportAudio": "匯出音訊",
+    "exportDropdownLabel": "匯出故事為",
+    "exportFormats": {
+      "wav": "音訊 (WAV)",
+      "mp3": "音訊 (MP3)",
+      "m4b": "有聲書 (M4B，含章節)"
+    },
     "empty": {
       "title": "此故事尚無項目",
       "hint": "使用下方輸入框生成語音以新增項目"
@@ -650,6 +656,7 @@
       "menu": "操作",
       "play": "播放",
       "exportAudio": "匯出音訊",
+      "exportAudioMp3": "匯出音訊 (MP3)",
       "exportPackage": "匯出套件",
       "applyEffects": "套用效果",
       "regenerate": "重新生成"
@@ -760,8 +767,13 @@
       }
     },
     "general": {
-      "docs": { "title": "閱讀文件" },
-      "discord": { "title": "加入 Discord", "subtitle": "取得協助與分享聲音" },
+      "docs": {
+        "title": "閱讀文件"
+      },
+      "discord": {
+        "title": "加入 Discord",
+        "subtitle": "取得協助與分享聲音"
+      },
       "serverUrl": {
         "title": "伺服器 URL",
         "description": "Voicebox 後端伺服器的位址。",

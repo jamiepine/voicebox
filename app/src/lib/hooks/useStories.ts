@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type {
   StoryCreate,
+  StoryExportFormat,
   StoryItemBatchUpdate,
   StoryItemCreate,
   StoryItemMove,
@@ -232,20 +233,28 @@ export function useExportStoryAudio() {
   const platform = usePlatform();
 
   return useMutation({
-    mutationFn: async ({ storyId, storyName }: { storyId: string; storyName: string }) => {
-      const blob = await apiClient.exportStoryAudio(storyId);
+    mutationFn: async ({
+      storyId,
+      storyName,
+      format = 'wav',
+    }: {
+      storyId: string;
+      storyName: string;
+      format?: StoryExportFormat;
+    }) => {
+      const blob = await apiClient.exportStoryAudio(storyId, format);
 
       // Create safe filename
       const safeName = storyName
         .substring(0, 50)
         .replace(/[^a-z0-9]/gi, '-')
         .toLowerCase();
-      const filename = `${safeName || 'story'}.wav`;
+      const filename = `${safeName || 'story'}.${format}`;
 
       await platform.filesystem.saveFile(filename, blob, [
         {
           name: 'Audio File',
-          extensions: ['wav'],
+          extensions: [format],
         },
       ]);
 
