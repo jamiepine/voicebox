@@ -319,15 +319,16 @@ class MLXTTSBackend:
             """
             if self.model is None or self._current_model_size != self.model_size:
                 self._reload_sync(self.model_size)
-            result = _generate_sync()
-            # An unload_model() that landed while we were generating only
-            # dropped the backend's reference; the model's buffers were kept
-            # alive by _generate_sync's local and have just been returned to
-            # MLX's pool. Drain it now, or they stay resident until the next
-            # load/unload cycle.
-            if self.model is None:
-                empty_mlx_cache()
-            return result
+            try:
+                return _generate_sync()
+            finally:
+                # An unload_model() that landed while we were generating only
+                # dropped the backend's reference; the model's buffers were
+                # kept alive by _generate_sync's local and have just been
+                # returned to MLX's pool (on success or failure). Drain it now,
+                # or they stay resident until the next load/unload cycle.
+                if self.model is None:
+                    empty_mlx_cache()
 
         async with self._op_lock:
             audio, sample_rate = await _run_on_mlx_thread(_reload_and_generate_sync)
@@ -449,12 +450,13 @@ class MLXSTTBackend:
             """
             if self.model is None or self.model_size != resolved_size:
                 self._load_model_sync(resolved_size)
-            result = _transcribe_sync()
-            # See MLXTTSBackend._reload_and_generate_sync: drain the pool if an
-            # unload landed mid-transcription.
-            if self.model is None:
-                empty_mlx_cache()
-            return result
+            try:
+                return _transcribe_sync()
+            finally:
+                # See MLXTTSBackend._reload_and_generate_sync: drain the pool
+                # if an unload landed mid-transcription.
+                if self.model is None:
+                    empty_mlx_cache()
 
         async with self._op_lock:
             return await _run_on_mlx_thread(_reload_and_transcribe_sync)

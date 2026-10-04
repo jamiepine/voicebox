@@ -282,12 +282,13 @@ class MLXQwenLLMBackend:
             # unload can swap or null out self.model / self.tokenizer.
             if self.model is None or self._current_model_size != resolved_size:
                 self._reload_sync(resolved_size)
-            result = self._generate_sync(prompt, system, max_tokens, temperature, examples)
-            # Drain the MLX pool if an unload landed mid-generation (see
-            # MLXTTSBackend._reload_and_generate_sync).
-            if self.model is None:
-                empty_mlx_cache()
-            return result
+            try:
+                return self._generate_sync(prompt, system, max_tokens, temperature, examples)
+            finally:
+                # Drain the MLX pool if an unload landed mid-generation (see
+                # MLXTTSBackend._reload_and_generate_sync).
+                if self.model is None:
+                    empty_mlx_cache()
 
         async with self._op_lock:
             return await _run_on_mlx_thread(_reload_and_generate_sync)
