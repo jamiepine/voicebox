@@ -1128,7 +1128,7 @@
         "switchCpu": "Falha ao mudar para CPU",
         "deleteCuda": "Falha ao excluir o backend CUDA"
       },
-      "footer": "O Voicebox detecta e usa automaticamente a melhor GPU disponível no seu sistema. Em Macs com Apple Silicon, o backend MLX roda nativamente no Neural Engine e na GPU via Metal Performance Shaders (MPS), sem configuração adicional. No Windows e no Linux com GPUs NVIDIA, você pode baixar um backend CUDA opcional para inferência acelerada por hardware. AMD ROCm, Intel XPU e DirectML também são suportados quando disponíveis através do PyTorch. Quando nenhuma GPU é detectada, o Voicebox recorre à CPU — todos os motores ainda funcionam, só que mais devagar."
+      "footer": "O Voicebox detecta e usa automaticamente a melhor GPU disponível no seu sistema. Em Macs com Apple Silicon, o backend MLX roda nativamente no Neural Engine e na GPU via Metal Performance Shaders (MPS), sem configuração adicional. No Windows e no Linux, você pode baixar backends opcionais CUDA (NVIDIA) ou ROCm (AMD) para inferência acelerada por hardware. Intel XPU e DirectML também são suportados quando disponíveis através do PyTorch. Quando nenhuma GPU é detectada, o Voicebox recorre à CPU — todos os motores ainda funcionam, só que mais devagar."
     },
     "logs": {
       "title": "Logs do Servidor",

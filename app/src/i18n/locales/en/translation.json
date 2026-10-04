@@ -1156,7 +1156,7 @@
         "deleteCuda": "Failed to delete CUDA backend",
         "deleteRocm": "Failed to delete ROCm backend"
       },
-      "footer": "Voicebox automatically detects and uses the best available GPU on your system. On Apple Silicon Macs, the MLX backend runs natively on the Neural Engine and GPU via Metal Performance Shaders (MPS), with no additional setup required. On Windows, you can download optional CUDA (NVIDIA) or ROCm (AMD) backends for hardware-accelerated inference. Intel XPU and DirectML are also supported where available through PyTorch. When no GPU is detected, Voicebox falls back to CPU — all engines still work, just slower.",
+      "footer": "Voicebox automatically detects and uses the best available GPU on your system. On Apple Silicon Macs, the MLX backend runs natively on the Neural Engine and GPU via Metal Performance Shaders (MPS), with no additional setup required. On Windows and Linux, you can download optional CUDA (NVIDIA) or ROCm (AMD) backends for hardware-accelerated inference. Intel XPU and DirectML are also supported where available through PyTorch. When no GPU is detected, Voicebox falls back to CPU — all engines still work, just slower.",
       "rocm": {
         "title": "AMD ROCm Backend",
         "activeTitle": "ROCm Backend Active",

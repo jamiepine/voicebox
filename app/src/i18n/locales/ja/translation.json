@@ -1147,7 +1147,7 @@
         "switchCpu": "CPU への切り替えに失敗しました",
         "deleteCuda": "CUDA バックエンドの削除に失敗しました"
       },
-      "footer": "Voicebox はシステムで利用可能な最適な GPU を自動で検出し使用します。Apple Silicon Mac では、MLX バックエンドが Metal Performance Shaders(MPS)を介して Neural Engine と GPU 上でネイティブに動作し、追加のセットアップは不要です。NVIDIA GPU 搭載の Windows および Linux では、オプションの CUDA バックエンドをダウンロードしてハードウェアアクセラレーションによる推論が可能です。AMD ROCm、Intel XPU、DirectML も PyTorch を通じて利用可能な環境でサポートされます。GPU が検出されない場合、Voicebox は CPU にフォールバックし、すべてのエンジンはそのまま動作しますが速度は低下します。"
+      "footer": "Voicebox はシステムで利用可能な最適な GPU を自動で検出し使用します。Apple Silicon Mac では、MLX バックエンドが Metal Performance Shaders(MPS)を介して Neural Engine と GPU 上でネイティブに動作し、追加のセットアップは不要です。Windows および Linux では、オプションの CUDA(NVIDIA)または ROCm(AMD)バックエンドをダウンロードしてハードウェアアクセラレーションによる推論が可能です。Intel XPU、DirectML も PyTorch を通じて利用可能な環境でサポートされます。GPU が検出されない場合、Voicebox は CPU にフォールバックし、すべてのエンジンはそのまま動作しますが速度は低下します。"
     },
     "logs": {
       "title": "サーバーログ",

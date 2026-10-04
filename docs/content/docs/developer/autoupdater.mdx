@@ -156,8 +156,8 @@ The CUDA-enabled backend is distributed separately from the main app because bun
 
 Since v0.4, the CUDA binary is packaged as **two archives** instead of one:
 
-- **Server core** (`voicebox-server-cuda.tar.gz`) — the Python server + PyTorch code, changes every release.
-- **CUDA libs** (`cuda-libs-cu128-v1.tar.gz`) — the heavy NVIDIA CUDA/cuDNN DLLs, only re-downloaded when the CUDA toolkit major version changes.
+- **Server core** (`voicebox-server-cuda-<platform>.tar.gz`, where `<platform>` is `windows-x86_64` or `linux-x86_64`) — the Python server + PyTorch code, changes every release.
+- **CUDA libs** (`cuda-libs-<platform>-cu128-v1.tar.gz`) — the heavy NVIDIA CUDA/cuDNN DLLs, only re-downloaded when the CUDA toolkit major version changes.
 
 This means most Voicebox upgrades only re-download the ~945 MB server core, not the full ~2.5 GB bundle.
 
@@ -203,7 +203,7 @@ Downloads report progress via Server-Sent Events (SSE):
 GET /backend/cuda-progress
 
 event: progress
-data: {"current": 52428800, "total": 945000000, "filename": "voicebox-server-cuda.tar.gz", "status": "downloading"}
+data: {"current": 52428800, "total": 945000000, "filename": "voicebox-server-cuda-windows-x86_64.tar.gz", "status": "downloading"}
 ```
 
 The frontend subscribes to this endpoint to show real-time progress, including which archive (server core vs libs) is currently downloading.
@@ -212,7 +212,9 @@ The frontend subscribes to this endpoint to show real-time progress, including w
 
 For each CUDA-capable release, these files are uploaded to GitHub:
 
-- `voicebox-server-cuda.tar.gz` — server-core archive
-- `voicebox-server-cuda.tar.gz.sha256` — checksum
-- `cuda-libs-cu128-v1.tar.gz` — CUDA runtime libs (only when the libs version bumps)
-- `cuda-libs-cu128-v1.tar.gz.sha256` — checksum
+- `voicebox-server-cuda-<platform>.tar.gz` — server-core archive
+- `voicebox-server-cuda-<platform>.tar.gz.sha256` — checksum
+- `cuda-libs-<platform>-cu128-v1.tar.gz` — CUDA runtime libs (only when the libs version bumps)
+- `cuda-libs-<platform>-cu128-v1.tar.gz.sha256` — checksum
+
+`<platform>` is `windows-x86_64` (built by `build-cuda-windows`) or `linux-x86_64` (built by the `build-gpu-linux` matrix job, which also publishes `voicebox-server-rocm-linux-x86_64.tar.gz` and `rocm-libs-linux-x86_64-rocm7.2-v1.tar.gz`). The client picks the token with `server_asset_platform()` in `backend/utils/platform_detect.py`; macOS and Linux arm64 have no GPU assets and are refused before any download starts.

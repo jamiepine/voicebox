@@ -1128,7 +1128,7 @@
         "switchCpu": "切换到 CPU 失败",
         "deleteCuda": "删除 CUDA 后端失败"
       },
-      "footer": "Voicebox 会自动检测并使用系统上可用的最佳 GPU。在 Apple Silicon Mac 上,MLX 后端通过 Metal Performance Shaders (MPS) 在神经引擎和 GPU 上原生运行,无需额外设置。在配备 NVIDIA GPU 的 Windows 和 Linux 上,您可以下载可选的 CUDA 后端以获得硬件加速推理。AMD ROCm、Intel XPU 和 DirectML 也通过 PyTorch 获得支持。未检测到 GPU 时,Voicebox 会退回到 CPU——所有引擎仍可工作,只是速度较慢。"
+      "footer": "Voicebox 会自动检测并使用系统上可用的最佳 GPU。在 Apple Silicon Mac 上,MLX 后端通过 Metal Performance Shaders (MPS) 在神经引擎和 GPU 上原生运行,无需额外设置。在 Windows 和 Linux 上,您可以下载可选的 CUDA (NVIDIA) 或 ROCm (AMD) 后端以获得硬件加速推理。Intel XPU 和 DirectML 也通过 PyTorch 获得支持。未检测到 GPU 时,Voicebox 会退回到 CPU——所有引擎仍可工作,只是速度较慢。"
     },
     "logs": {
       "title": "服务器日志",

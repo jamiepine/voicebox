@@ -162,9 +162,11 @@ The `build-cuda-windows` job runs separately:
 1. Install PyTorch with CUDA 12.8
 2. Build with `build_binary.py --cuda` (produces `--onedir` output)
 3. Package with `scripts/package_cuda.py` into two archives:
-   - `voicebox-server-cuda.tar.gz` — server core (~945 MB)
-   - `cuda-libs-cu128-v1.tar.gz` — NVIDIA runtime libraries (~1.7 GB, cached independently)
+   - `voicebox-server-cuda-windows-x86_64.tar.gz` — server core (~945 MB)
+   - `cuda-libs-windows-x86_64-cu128-v1.tar.gz` — NVIDIA runtime libraries (~1.7 GB, cached independently)
 4. Upload archives as release artifacts
+
+The `build-gpu-linux` matrix job does the same on `ubuntu-latest` for CUDA (cu128) and ROCm (PyTorch rocm7.2 index), producing `voicebox-server-{cuda,rocm}-linux-x86_64.tar.gz` and `{cuda,rocm}-libs-linux-x86_64-<version>.tar.gz`.
 
 This binary is downloaded on-demand by users who enable CUDA in settings. The CUDA libs archive is only re-downloaded when the CUDA toolkit version changes, not on every app update.
 
