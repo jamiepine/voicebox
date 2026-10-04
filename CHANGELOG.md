@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **Voicebox Cloud is hidden until it ships.** The "Log in with browser" section in
+  Settings → General only renders when the backend reports `cloud_enabled`, and the
+  `/cloud/*` routes answer 404 unless the backend runs with
+  `VOICEBOX_CLOUD_ENABLED=1`, so a default build never calls out to voicebox.sh.
+  The flag is read at runtime, so it can be turned on for a shipped build without a
+  rebuild.
+
 ### Developer Experience
 
 - **`just setup` now pins the Python venv to 3.12.** Setup preferred `python3.12` when

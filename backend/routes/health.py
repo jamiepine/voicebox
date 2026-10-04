@@ -188,6 +188,7 @@ async def health():
         backend_variant=os.environ.get("VOICEBOX_BACKEND_VARIANT", default_variant),
         supports_rocm=is_amd_gpu_windows(),
         gpu_compatibility_warning=gpu_compat_warning,
+        cloud_enabled=config.is_cloud_enabled(),
     )
 
 

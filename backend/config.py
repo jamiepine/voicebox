@@ -157,3 +157,13 @@ def get_cloud_web_url() -> str:
 def get_cloud_api_url() -> str:
     """Base URL of the Voicebox Cloud API (bearer-authenticated sync/account)."""
     return os.environ.get("VOICEBOX_CLOUD_API_URL", "https://api.voicebox.sh").rstrip("/")
+
+
+# Cloud is off by default until the service is deployed. VOICEBOX_CLOUD_ENABLED=1
+# (or true/yes/on) turns on the /cloud routes and the Settings → General section;
+# the desktop sidecar inherits the launcher's environment, so the same variable
+# works for a shipped build without a rebuild. Read per request, not at import,
+# so a test or a long-lived process sees the current value.
+def is_cloud_enabled() -> bool:
+    """Whether Voicebox Cloud login/sync is enabled for this backend."""
+    return os.environ.get("VOICEBOX_CLOUD_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")

@@ -445,6 +445,7 @@ class HealthResponse(BaseModel):
     backend_variant: Optional[str] = None  # Binary variant (cpu, cuda, or rocm)
     supports_rocm: bool = False  # AMD GPU on Windows — the ROCm backend is applicable
     gpu_compatibility_warning: Optional[str] = None  # Warning if GPU arch unsupported
+    cloud_enabled: bool = False  # VOICEBOX_CLOUD_ENABLED — the app shows the Cloud section only when true
 
 
 class DirectoryCheck(BaseModel):

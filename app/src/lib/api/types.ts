@@ -271,6 +271,7 @@ export interface HealthResponse {
   backend_type?: string;
   backend_variant?: string; // "cpu", "cuda", or "rocm"
   supports_rocm?: boolean; // AMD GPU on Windows — the ROCm backend is applicable
+  cloud_enabled?: boolean; // VOICEBOX_CLOUD_ENABLED on the backend — show the Cloud section
 }
 
 export interface CudaDownloadProgress {

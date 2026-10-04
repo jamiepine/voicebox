@@ -208,7 +208,7 @@ export function GeneralPage() {
         />
       </SettingSection>
 
-      <CloudSection />
+      {health?.cloud_enabled && <CloudSection />}
 
       <ApiReferenceCard serverUrl={serverUrl} />
 

@@ -6,19 +6,31 @@ The browser-based pairing flow:
                                 the backend exchanges it for an API key.
   3. GET  /cloud/status       — the UI polls this to learn when it connected.
   4. POST /cloud/disconnect   — forget the local credential.
+
+Every route is mounted but answers 404 unless VOICEBOX_CLOUD_ENABLED is set
+(see ``config.is_cloud_enabled``), so a build with cloud off never reaches out
+to voicebox.sh.
 """
 
 import socket
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
-from .. import models
+from .. import config, models
 from ..database import get_db
 from ..services import cloud as cloud_service
 
-router = APIRouter(prefix="/cloud", tags=["cloud"])
+CLOUD_DISABLED_DETAIL = "Voicebox Cloud is disabled. Set VOICEBOX_CLOUD_ENABLED=1 to enable it."
+
+
+def require_cloud_enabled() -> None:
+    if not config.is_cloud_enabled():
+        raise HTTPException(status_code=404, detail=CLOUD_DISABLED_DETAIL)
+
+
+router = APIRouter(prefix="/cloud", tags=["cloud"], dependencies=[Depends(require_cloud_enabled)])
 
 
 def _callback_url(request: Request) -> str:
