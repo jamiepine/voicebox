@@ -295,8 +295,8 @@ async def delete_generation(
     if not generation:
         return False
 
-    # Delete all version files and records; commit together with the
-    # generation row below so an unlink failure rolls everything back.
+    # Delete all version files and records; the rows are committed together
+    # with the generation row below (one commit for the whole delete).
     _delete_generation_children(generation_id, db, commit=False)
 
     # Delete main audio file (if not already removed by version cleanup)
