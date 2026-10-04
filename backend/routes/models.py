@@ -434,12 +434,6 @@ async def get_model_status():
                 )
             )
         except Exception:
-            # A model whose backend also pulls auxiliary repos at load time
-            # (e.g. Chatterbox MLX's S3 tokenizer) is only downloaded once
-            # those are present too, matching the backend's own cache check.
-            if downloaded and not all(is_model_cached(repo) for repo in config["aux_hf_repo_ids"]):
-                downloaded = False
-
             try:
                 loaded = config["check_loaded"]()
             except Exception:
