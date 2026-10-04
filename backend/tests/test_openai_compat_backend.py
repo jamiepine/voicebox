@@ -50,6 +50,9 @@ class FakeOpenAIServer:
                 status, payload = server.script(self.path, self.headers, body)
                 data = payload if isinstance(payload, bytes) else json.dumps(payload).encode()
                 self.send_response(status)
+                if status in (301, 302, 307, 308):
+                    self.send_header("Location", payload["location"])
+                    data = b""
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
@@ -318,3 +321,30 @@ def test_routes_round_trip_through_fake_server(tmp_path):
     assert not isinstance(get_llm_backend(), OpenAICompatLLMBackend)
     readiness = client.get("/capture/readiness").json()
     assert readiness["llm"]["display_name"] != "remote-model"
+
+
+@pytest.mark.asyncio
+async def test_generate_follows_redirects():
+    def script(path, _headers, _body):
+        if path == "/v1/chat/completions":
+            return 307, {"location": "/v2/chat/completions"}
+        return _chat_reply("moved")
+
+    with FakeOpenAIServer(script) as server:
+        backend = OpenAICompatLLMBackend(endpoint=server.base_url, model="m")
+        assert await backend.generate(prompt="x") == "moved"
+    assert [r["path"] for r in server.requests] == ["/v1/chat/completions", "/v2/chat/completions"]
+
+
+@pytest.mark.asyncio
+async def test_refinement_and_personality_record_remote_model_label():
+    from backend.services import personality, refinement
+
+    with FakeOpenAIServer(lambda *_: _chat_reply("Refined.")) as server:
+        set_llm_config(server.base_url, "remote-model", None)
+        text, size = await refinement.refine_transcript(
+            "um hello", refinement.RefinementFlags(), model_size="0.6B"
+        )
+        assert (text, size) == ("Refined.", "remote-model")
+        result = await personality.rewrite_as_profile("A pirate.", "hello", model_size="0.6B")
+        assert result.model_size == "remote-model"

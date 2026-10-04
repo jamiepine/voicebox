@@ -520,7 +520,6 @@ export function CapturesPage() {
               value={customLlmEndpointDraft}
               onChange={(e) => setCustomLlmEndpointDraft(e.target.value)}
               onBlur={commitCustomLlmEndpoint}
-              disabled={!autoRefine}
               autoComplete="off"
               spellCheck={false}
               aria-label={t('settings.captures.refinement.customEndpoint.endpointLabel')}
@@ -535,7 +534,7 @@ export function CapturesPage() {
               value={customLlmModelDraft}
               onChange={(e) => setCustomLlmModelDraft(e.target.value)}
               onBlur={commitCustomLlmModel}
-              disabled={!autoRefine || !customLlmEndpointDraft}
+              disabled={!customLlmEndpointDraft}
               autoComplete="off"
               spellCheck={false}
               aria-label={t('settings.captures.refinement.customEndpoint.modelLabel')}
@@ -560,7 +559,7 @@ export function CapturesPage() {
                 value={customLlmApiKeyDraft}
                 onChange={(e) => setCustomLlmApiKeyDraft(e.target.value)}
                 onBlur={commitCustomLlmApiKey}
-                disabled={!autoRefine || !customLlmEndpointDraft}
+                disabled={!customLlmEndpointDraft}
                 autoComplete="new-password"
                 spellCheck={false}
                 aria-label={t('settings.captures.refinement.customEndpoint.apiKeyLabel')}

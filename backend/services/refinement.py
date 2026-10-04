@@ -277,7 +277,7 @@ async def refine_transcript(
         produced the refinement.
     """
     backend = llm_service.get_llm_model()
-    resolved_size = model_size or backend.model_size
+    resolved_size = llm_service.resolve_model_size(backend, model_size)
 
     # Pre-process before the LLM sees the text — the model shouldn't have
     # to reason about obvious STT garbage (see ``collapse_repetitive_artifacts``).

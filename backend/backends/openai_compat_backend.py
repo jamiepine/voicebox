@@ -117,7 +117,7 @@ class OpenAICompatLLMBackend:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         url = f"{self.endpoint}/chat/completions"
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             try:
                 response = await client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
