@@ -179,8 +179,11 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          # Get the version from the tag (strip leading 'v')
-          VERSION="${GITHUB_REF_NAME#v}"
+          # Use the version tauri-action resolves (tauri.conf.json). On a tag
+          # push it equals the tag minus 'v'; under workflow_dispatch
+          # GITHUB_REF_NAME is a branch name (e.g. release/0.6) whose slash
+          # breaks the sed address below.
+          VERSION="$(jq -r '.version' tauri/src-tauri/tauri.conf.json)"
 
           # Extract the section for this version from CHANGELOG.md
           # Matches from "## [X.Y.Z]" until the next "## [" heading
