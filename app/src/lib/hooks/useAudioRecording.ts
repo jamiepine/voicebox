@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePlatform } from '@/platform/PlatformContext';
 import { convertToWav } from '@/lib/utils/audio';
+import { useCaptureSettings } from '@/lib/hooks/useSettings';
 
 interface UseAudioRecordingOptions {
   maxDurationSeconds?: number;
+  deviceId?: string | null;
   onRecordingComplete?: (blob: Blob, duration?: number) => void;
 }
 
 export function useAudioRecording({
   maxDurationSeconds,
+  deviceId,
   onRecordingComplete,
 }: UseAudioRecordingOptions = {}) {
   const platform = usePlatform();
+  const { settings: captureSettings } = useCaptureSettings();
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -58,14 +62,37 @@ export function useAudioRecording({
         }
       }
 
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        },
-      });
+      // Request microphone access with device constraint and fallback
+      const targetDeviceId = deviceId !== undefined ? deviceId : captureSettings?.input_device_id;
+      const baseAudioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+
+      let stream: MediaStream;
+      if (targetDeviceId) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              ...baseAudioConstraints,
+              deviceId: { exact: targetDeviceId },
+            },
+          });
+        } catch (deviceErr) {
+          console.warn(
+            `Failed to open configured audio input device "${targetDeviceId}", falling back to default device:`,
+            deviceErr,
+          );
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: baseAudioConstraints,
+          });
+        }
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: baseAudioConstraints,
+        });
+      }
 
       streamRef.current = stream;
 
@@ -162,7 +189,13 @@ export function useAudioRecording({
       setError(errorMessage);
       setIsRecording(false);
     }
-  }, [maxDurationSeconds, onRecordingComplete]);
+  }, [
+    deviceId,
+    captureSettings?.input_device_id,
+    maxDurationSeconds,
+    onRecordingComplete,
+    platform.metadata.isTauri,
+  ]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
