@@ -832,6 +832,47 @@
           "profiles": "Listar voces",
           "history": "Generaciones anteriores"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "Copia de seguridad y sincronización cifradas de extremo a extremo en todos tus dispositivos.",
+        "connectedToast": {
+          "title": "Conectado a Voicebox Cloud",
+          "description": "Vinculado como {{name}}."
+        },
+        "signInTimedOut": {
+          "title": "Tiempo de inicio de sesión agotado",
+          "description": "No se completó el inicio de sesión en el navegador. Inténtalo de nuevo."
+        },
+        "continueInBrowser": {
+          "title": "Continúa en tu navegador",
+          "description": "Autoriza este dispositivo y luego vuelve aquí."
+        },
+        "signInFailedTitle": "No se pudo iniciar el inicio de sesión",
+        "disconnectedToast": {
+          "title": "Desconectado",
+          "description": "Este dispositivo ya no está vinculado. La clave sigue siendo válida hasta que la revoques en tu cuenta."
+        },
+        "disconnectFailedTitle": "No se pudo desconectar",
+        "account": {
+          "connected": "Conectado",
+          "account": "Cuenta",
+          "linkedAs": "Vinculado como {{name}}{{keyPrefix}}",
+          "thisDevice": "este dispositivo",
+          "logInHint": "Inicia sesión para hacer copia de seguridad y sincronizar tus capturas y generaciones."
+        },
+        "actions": {
+          "disconnecting": "Desconectando…",
+          "disconnect": "Desconectar",
+          "waitingForBrowser": "Esperando al navegador…",
+          "opening": "Abriendo…",
+          "logInWithBrowser": "Iniciar sesión con el navegador"
+        },
+        "manage": {
+          "title": "Gestionar",
+          "description": "Revoca este dispositivo, añade claves de API o gestiona la facturación desde tu cuenta.",
+          "openDashboard": "Abrir panel de la cuenta ↗"
+        }
       }
     },
     "generation": {

@@ -827,6 +827,47 @@
           "profiles": "음성 목록",
           "history": "과거 생성물"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "모든 기기에서 종단 간 암호화된 백업 및 동기화.",
+        "connectedToast": {
+          "title": "Voicebox Cloud에 연결됨",
+          "description": "{{name}}(으)로 연결됨."
+        },
+        "signInTimedOut": {
+          "title": "로그인 시간 초과",
+          "description": "브라우저 로그인이 완료되지 않았습니다. 다시 시도하세요."
+        },
+        "continueInBrowser": {
+          "title": "브라우저에서 계속하기",
+          "description": "이 기기를 승인한 후 돌아오세요."
+        },
+        "signInFailedTitle": "로그인을 시작할 수 없습니다",
+        "disconnectedToast": {
+          "title": "연결 해제됨",
+          "description": "이 기기의 연결이 해제되었습니다. 계정에서 취소하기 전까지 키는 계속 유효합니다."
+        },
+        "disconnectFailedTitle": "연결을 해제할 수 없습니다",
+        "account": {
+          "connected": "연결됨",
+          "account": "계정",
+          "linkedAs": "{{name}}{{keyPrefix}}(으)로 연결됨",
+          "thisDevice": "이 기기",
+          "logInHint": "캡처 및 생성물을 백업하고 동기화하려면 로그인하세요."
+        },
+        "actions": {
+          "disconnecting": "연결 해제 중…",
+          "disconnect": "연결 해제",
+          "waitingForBrowser": "브라우저 대기 중…",
+          "opening": "여는 중…",
+          "logInWithBrowser": "브라우저로 로그인"
+        },
+        "manage": {
+          "title": "관리",
+          "description": "계정에서 이 기기를 취소하거나, API 키를 추가하거나, 결제를 관리하세요.",
+          "openDashboard": "계정 대시보드 열기 ↗"
+        }
       }
     },
     "generation": {

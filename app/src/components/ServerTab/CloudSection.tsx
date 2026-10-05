@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Cloud, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
@@ -10,6 +11,7 @@ import { SettingRow, SettingSection } from './SettingRow';
 // and completes the code exchange; here we just kick it off and poll status
 // until the link goes live. The API key never touches the frontend.
 export function CloudSection() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [polling, setPolling] = useState(false);
@@ -27,11 +29,13 @@ export function CloudSection() {
     if (connected && polling) {
       setPolling(false);
       toast({
-        title: 'Connected to Voicebox Cloud',
-        description: `Linked as ${status?.device_name ?? 'this device'}.`,
+        title: t('settings.general.cloud.connectedToast.title'),
+        description: t('settings.general.cloud.connectedToast.description', {
+          name: status?.device_name ?? t('settings.general.cloud.account.thisDevice'),
+        }),
       });
     }
-  }, [connected, polling, status?.device_name, toast]);
+  }, [connected, polling, status?.device_name, toast, t]);
 
   // Give up after two minutes so an abandoned browser flow doesn't leave the
   // button stuck on "Waiting for browser…". The backend state stays valid for
@@ -41,26 +45,26 @@ export function CloudSection() {
     const timeoutId = window.setTimeout(() => {
       setPolling(false);
       toast({
-        title: 'Sign-in timed out',
-        description: 'The browser sign-in was not completed. Try again.',
+        title: t('settings.general.cloud.signInTimedOut.title'),
+        description: t('settings.general.cloud.signInTimedOut.description'),
         variant: 'destructive',
       });
     }, 120_000);
     return () => window.clearTimeout(timeoutId);
-  }, [polling, toast]);
+  }, [polling, toast, t]);
 
   const startLogin = useMutation({
     mutationFn: () => apiClient.startCloudLogin(),
     onSuccess: () => {
       setPolling(true);
       toast({
-        title: 'Continue in your browser',
-        description: 'Authorize this device, then return here.',
+        title: t('settings.general.cloud.continueInBrowser.title'),
+        description: t('settings.general.cloud.continueInBrowser.description'),
       });
     },
     onError: (error: Error) =>
       toast({
-        title: 'Could not start sign-in',
+        title: t('settings.general.cloud.signInFailedTitle'),
         description: error.message,
         variant: 'destructive',
       }),
@@ -71,30 +75,38 @@ export function CloudSection() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cloud-status'] });
       toast({
-        title: 'Disconnected',
-        description:
-          'This device is no longer linked. The key stays valid until revoked in your account.',
+        title: t('settings.general.cloud.disconnectedToast.title'),
+        description: t('settings.general.cloud.disconnectedToast.description'),
       });
     },
     onError: (error: Error) =>
-      toast({ title: 'Could not disconnect', description: error.message, variant: 'destructive' }),
+      toast({
+        title: t('settings.general.cloud.disconnectFailedTitle'),
+        description: error.message,
+        variant: 'destructive',
+      }),
   });
 
   const busy = startLogin.isPending || polling;
 
   return (
     <SettingSection
-      title="Voicebox Cloud"
-      description="End-to-end encrypted backup & sync across your devices."
+      title={t('settings.general.cloud.title')}
+      description={t('settings.general.cloud.description')}
     >
       <SettingRow
-        title={connected ? 'Connected' : 'Account'}
+        title={
+          connected
+            ? t('settings.general.cloud.account.connected')
+            : t('settings.general.cloud.account.account')
+        }
         description={
           connected
-            ? `Linked as ${status?.device_name ?? 'this device'}${
-                status?.key_prefix ? ` · ${status.key_prefix}…` : ''
-              }`
-            : 'Log in to back up and sync your captures and generations.'
+            ? t('settings.general.cloud.account.linkedAs', {
+                name: status?.device_name ?? t('settings.general.cloud.account.thisDevice'),
+                keyPrefix: status?.key_prefix ? ` · ${status.key_prefix}…` : '',
+              })
+            : t('settings.general.cloud.account.logInHint')
         }
         action={
           connected ? (
@@ -107,10 +119,10 @@ export function CloudSection() {
               {disconnect.isPending ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  Disconnecting…
+                  {t('settings.general.cloud.actions.disconnecting')}
                 </>
               ) : (
-                'Disconnect'
+                t('settings.general.cloud.actions.disconnect')
               )}
             </Button>
           ) : (
@@ -118,12 +130,14 @@ export function CloudSection() {
               {busy ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                  {polling ? 'Waiting for browser…' : 'Opening…'}
+                  {polling
+                    ? t('settings.general.cloud.actions.waitingForBrowser')
+                    : t('settings.general.cloud.actions.opening')}
                 </>
               ) : (
                 <>
                   <Cloud className="h-3.5 w-3.5 mr-1.5" />
-                  Log in with browser
+                  {t('settings.general.cloud.actions.logInWithBrowser')}
                 </>
               )}
             </Button>
@@ -133,8 +147,8 @@ export function CloudSection() {
 
       {connected && (
         <SettingRow
-          title="Manage"
-          description="Revoke this device, add API keys, or manage billing from your account."
+          title={t('settings.general.cloud.manage.title')}
+          description={t('settings.general.cloud.manage.description')}
         >
           <a
             className="text-sm text-accent hover:underline"
@@ -142,7 +156,7 @@ export function CloudSection() {
             rel="noopener noreferrer"
             target="_blank"
           >
-            Open account dashboard ↗
+            {t('settings.general.cloud.manage.openDashboard')}
           </a>
         </SettingRow>
       )}

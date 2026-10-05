@@ -832,6 +832,47 @@
           "profiles": "List voices",
           "history": "Past generations"
         }
+      },
+      "cloud": {
+        "title": "Voicebox Cloud",
+        "description": "End-to-end encrypted backup & sync across your devices.",
+        "connectedToast": {
+          "title": "Connected to Voicebox Cloud",
+          "description": "Linked as {{name}}."
+        },
+        "signInTimedOut": {
+          "title": "Sign-in timed out",
+          "description": "The browser sign-in was not completed. Try again."
+        },
+        "continueInBrowser": {
+          "title": "Continue in your browser",
+          "description": "Authorize this device, then return here."
+        },
+        "signInFailedTitle": "Could not start sign-in",
+        "disconnectedToast": {
+          "title": "Disconnected",
+          "description": "This device is no longer linked. The key stays valid until revoked in your account."
+        },
+        "disconnectFailedTitle": "Could not disconnect",
+        "account": {
+          "connected": "Connected",
+          "account": "Account",
+          "linkedAs": "Linked as {{name}}{{keyPrefix}}",
+          "thisDevice": "this device",
+          "logInHint": "Log in to back up and sync your captures and generations."
+        },
+        "actions": {
+          "disconnecting": "Disconnecting…",
+          "disconnect": "Disconnect",
+          "waitingForBrowser": "Waiting for browser…",
+          "opening": "Opening…",
+          "logInWithBrowser": "Log in with browser"
+        },
+        "manage": {
+          "title": "Manage",
+          "description": "Revoke this device, add API keys, or manage billing from your account.",
+          "openDashboard": "Open account dashboard ↗"
+        }
       }
     },
     "generation": {
