@@ -10,11 +10,12 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "@vercel/speed-insights": "^2.0.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "@tanstack/react-query": "^5.0.0",
-    "zustand": "^4.5.0",
-    "wavesurfer.js": "^7.0.0"
+    "wavesurfer.js": "^7.0.0",
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.0",
