@@ -89,9 +89,12 @@ export function ProfileCard({ profile, disabled }: ProfileCardProps) {
     <>
       <Card
         className={cn(
-          'cursor-pointer transition-all flex flex-col h-[162px]',
-          disabled ? 'opacity-40 hover:opacity-60' : 'hover:shadow-md',
-          isSelected && !disabled && 'ring-2 border-transparent ring-accent shadow-md',
+          'cursor-pointer transition-all flex flex-col h-[162px] border-2',
+          disabled
+            ? 'opacity-40 hover:opacity-60 border-border/40'
+            : isSelected
+              ? 'border-accent shadow-md bg-accent/5'
+              : 'border-border/40 hover:border-border hover:shadow-sm',
         )}
         onClick={handleSelect}
         tabIndex={0}

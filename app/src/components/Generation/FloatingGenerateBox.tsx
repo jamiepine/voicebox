@@ -153,10 +153,7 @@ export function FloatingGenerateBox({
     | 'kokoro'
     | 'qwen_custom_voice';
   useEffect(() => {
-    if (selectedProfile?.language) {
-      form.setValue('language', selectedProfile.language as LanguageCode);
-    }
-    // Auto-switch engine to match the profile
+    // 1. Auto-switch engine to match the profile FIRST
     const engine = selectedProfile?.default_engine ?? selectedProfile?.preset_engine;
     if (engine) {
       form.setValue('engine', engine as EngineValue);
@@ -167,6 +164,11 @@ export function FloatingGenerateBox({
       if (currentEngine && presetEngines.has(currentEngine)) {
         form.setValue('engine', 'qwen');
       }
+    }
+
+    // 2. Set language AFTER engine has been switched so language dropdown receives valid options
+    if (selectedProfile?.language) {
+      form.setValue('language', selectedProfile.language as LanguageCode);
     }
     // Pre-fill effects from profile defaults
     if (
