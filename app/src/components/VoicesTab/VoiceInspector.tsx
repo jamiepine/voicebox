@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Edit2, Mic, X } from 'lucide-react';
+import { Edit2, MessageSquare, Mic, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import * as z from 'zod';
+import { ConversationPanel } from '@/components/Conversation/ConversationPanel';
 import { EffectsChainEditor } from '@/components/Effects/EffectsChainEditor';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,9 +36,12 @@ import {
   useUpdateProfile,
   useUploadAvatar,
 } from '@/lib/hooks/useProfiles';
+import { useConversationSettings } from '@/lib/hooks/useSettings';
 import { cn } from '@/lib/utils/cn';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useServerStore } from '@/stores/serverStore';
+
+type InspectorTab = 'profile' | 'chat';
 
 function makeProfileSchema(t: (key: string) => string) {
   return z.object({
@@ -67,6 +71,8 @@ export function VoiceInspector({ profileId }: VoiceInspectorProps) {
   const deleteAvatar = useDeleteAvatar();
   const serverUrl = useServerStore((state) => state.serverUrl);
   const { toast } = useToast();
+  const { settings: convSettings } = useConversationSettings();
+  const [activeTab, setActiveTab] = useState<InspectorTab>('profile');
 
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState(false);
@@ -215,8 +221,54 @@ export function VoiceInspector({ profileId }: VoiceInspectorProps) {
 
   const isDirty = form.formState.isDirty || effectsDirty;
 
+  const isConversationEnabled = convSettings?.enabled ?? false;
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
+      {/* Tab navigation — only shown when conversation mode is active */}
+      {isConversationEnabled && (
+        <div className="flex shrink-0 border-b px-2 pt-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t border-b-2 -mb-px transition-colors',
+              activeTab === 'profile'
+                ? 'border-accent text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Mic className="h-3.5 w-3.5" />
+            Profile
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('chat')}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t border-b-2 -mb-px transition-colors',
+              activeTab === 'chat'
+                ? 'border-accent text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <MessageSquare className="h-3.5 w-3.5" />
+            Voice Chat
+          </button>
+        </div>
+      )}
+
+      {/* Voice Chat panel */}
+      {isConversationEnabled && activeTab === 'chat' && (
+        <div className={cn('flex-1 min-h-0 overflow-hidden', isPlayerVisible && BOTTOM_SAFE_AREA_PADDING)}>
+          <ConversationPanel
+            profileId={profileId}
+            language={profile?.language ?? 'en'}
+          />
+        </div>
+      )}
+
+      {/* Profile form */}
+      {activeTab === 'profile' && (
       <div className={cn('flex-1 overflow-y-auto', isPlayerVisible && BOTTOM_SAFE_AREA_PADDING)}>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-0">
@@ -354,6 +406,7 @@ export function VoiceInspector({ profileId }: VoiceInspectorProps) {
           </form>
         </Form>
       </div>
+      )}
     </div>
   );
 }
