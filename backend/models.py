@@ -188,6 +188,7 @@ class RefinementFlagsModel(BaseModel):
     smart_cleanup: bool = True
     self_correction: bool = True
     preserve_technical: bool = True
+    system_prompt: Optional[str] = None
 
 
 class CaptureResponse(BaseModel):
@@ -255,6 +256,7 @@ class CaptureSettingsResponse(BaseModel):
     smart_cleanup: bool = True
     self_correction: bool = True
     preserve_technical: bool = True
+    system_prompt: Optional[str] = None
     allow_auto_paste: bool = True
     default_playback_voice_id: Optional[str] = None
     hotkey_enabled: bool = False
@@ -279,6 +281,7 @@ class CaptureSettingsUpdate(BaseModel):
     smart_cleanup: Optional[bool] = None
     self_correction: Optional[bool] = None
     preserve_technical: Optional[bool] = None
+    system_prompt: Optional[str] = None
     allow_auto_paste: Optional[bool] = None
     default_playback_voice_id: Optional[str] = None
     hotkey_enabled: Optional[bool] = None

@@ -157,6 +157,7 @@ export interface RefinementFlags {
   smart_cleanup: boolean;
   self_correction: boolean;
   preserve_technical: boolean;
+  system_prompt?: string | null;
 }
 
 export interface CaptureResponse {
@@ -208,6 +209,7 @@ export interface CaptureSettings {
   smart_cleanup: boolean;
   self_correction: boolean;
   preserve_technical: boolean;
+  system_prompt: string | null;
   allow_auto_paste: boolean;
   default_playback_voice_id: string | null;
   /** Whether the global keyboard hotkey is armed. Off by default — turning

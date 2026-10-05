@@ -210,6 +210,7 @@ class CaptureSettings(Base):
     # "Voicebox would like to receive keystrokes from any application" dialog
     # before they've even opened the Captures tab.
     hotkey_enabled = Column(Boolean, nullable=False, default=False)
+    system_prompt = Column(Text, nullable=True, default=None)
     # Lists of keytap key names (e.g. "MetaRight", "ControlRight"). Right-hand
     # modifiers by default so they don't collide with left-hand shortcuts.
     chord_push_to_talk_keys = Column(

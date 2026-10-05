@@ -982,6 +982,11 @@
         "preserveTechnical": {
           "title": "Preserve technical terms",
           "description": "Keep code identifiers, command names, and acronyms exactly as spoken. Turn on when you dictate into a code prompt."
+        },
+        "customPrompt": {
+          "title": "Custom system prompt",
+          "description": "Replace the built-in instruction with your own. Leave empty to use the default prompt with the toggles above.",
+          "placeholder": "You are a text filter. Transform raw speech-to-text transcripts into clean, readable text..."
         }
       },
       "playback": {
