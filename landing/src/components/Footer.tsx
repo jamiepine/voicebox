@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { CopyAddress } from '@/components/CopyAddress';
 import {
+  capyUrl,
   DONATE_URL,
   GITHUB_REPO,
   TOKEN_CONTRACT_ADDRESS,
@@ -138,8 +139,8 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="/sponsors" className="hover:text-foreground transition-colors">
-                  VIP Sponsor
+                <a href="/built-with-capy" className="hover:text-foreground transition-colors">
+                  How Voicebox is built
                 </a>
               </li>
             </ul>
@@ -193,10 +194,25 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-border pt-6">
-          <p className="text-center text-sm text-muted-foreground">
+        <div className="flex flex-col items-center justify-between gap-3 border-t border-border pt-6 sm:flex-row">
+          <p className="text-sm text-muted-foreground">
             &copy; {new Date().getFullYear()} Voicebox. Open source under MIT license.
           </p>
+          <a
+            href={capyUrl('site-footer')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <span>Funded by</span>
+            <Image
+              src="/capy/capy-wordmark-dark.svg"
+              alt="Capy"
+              width={64}
+              height={18}
+              className="h-[18px] w-auto opacity-80 transition-opacity group-hover:opacity-100"
+            />
+          </a>
         </div>
       </div>
     </footer>

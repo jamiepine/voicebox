@@ -8,6 +8,7 @@ import {CaptureSection} from "@/components/CaptureSection";
 import {ControlUI} from "@/components/ControlUI";
 import {Features} from "@/components/Features";
 import {Footer} from "@/components/Footer";
+import {FundedByCapy} from "@/components/FundedByCapy";
 import {Navbar} from "@/components/Navbar";
 import {Personalities} from "@/components/Personalities";
 import {AppleIcon, LinuxIcon, WindowsIcon} from "@/components/PlatformIcons";
@@ -131,6 +132,9 @@ export default function Home() {
 					<ControlUI />
 				</div>
 			</section>
+
+			{/* ── Funded by Capy ───────────────────────────────────────── */}
+			<FundedByCapy />
 
 			{/* ── Features ─────────────────────────────────────────────── */}
 			<Features />
