@@ -79,7 +79,7 @@ export function AboutPage() {
               <div className="flex items-center gap-1.5">
                 <span>{t('settings.about.builtWith')}</span>
                 <a
-                  href="https://capy.ai?utm_source=voicebox&utm_medium=app-about&utm_campaign=funded-by-capy"
+                  href="https://capy.ai?utm_source=voicebox&utm_medium=app-about&utm_campaign=built-with-capy"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-accent hover:underline"

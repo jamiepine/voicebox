@@ -1179,7 +1179,7 @@
     "about": {
       "tagline": "The open-source voice synthesis studio. Clone voices, generate speech, apply effects, and build voice-powered apps — all running locally on your machine.",
       "createdBy": "Created by",
-      "builtWith": "Funded by and built with",
+      "builtWith": "Built with",
       "buyCoffee": "Buy me a coffee",
       "license": "Licensed under <link>MIT</link>"
     }
