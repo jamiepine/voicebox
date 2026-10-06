@@ -198,6 +198,17 @@ pub fn capture_focus() -> Result<FocusSnapshot, String> {
             &mut focused as *mut _,
         );
         if err != AX_ERROR_SUCCESS || focused.is_null() {
+            // Some apps (terminals, some Electron windows) expose no
+            // system-wide focused element. Rather than drop the dictation,
+            // fall back to the frontmost app so the transcript still injects
+            // there via activate + ⌘V.
+            if let Some(fp) = frontmost_pid() {
+                return Ok(FocusSnapshot {
+                    pid: fp,
+                    bundle_id: bundle_id_for_pid(fp),
+                    role: None,
+                });
+            }
             return Err(format!(
                 "No focused element (AXError {}). Verify Accessibility permission is granted and a focused text field exists.",
                 err
@@ -211,6 +222,26 @@ pub fn capture_focus() -> Result<FocusSnapshot, String> {
         let err = AXUIElementGetPid(focused_elem, &mut pid);
         if err != AX_ERROR_SUCCESS {
             return Err(format!("AXUIElementGetPid failed (AXError {})", err));
+        }
+
+        // If the focused element belongs to our OWN process, the dictate pill
+        // has transiently taken key focus for its WebKit mic capture — the
+        // system-wide AXFocusedUIElement then resolves to the pill instead of
+        // the user's real target, which would make us paste into ourselves (a
+        // no-op) or drop the text entirely. The pill is a non-activating panel
+        // so it never becomes the frontmost application; remap to the
+        // frontmost app, which is always the real dictation target.
+        let our_pid = std::process::id() as Pid;
+        if pid == our_pid {
+            if let Some(fp) = frontmost_pid() {
+                if fp != our_pid {
+                    return Ok(FocusSnapshot {
+                        pid: fp,
+                        bundle_id: bundle_id_for_pid(fp),
+                        role: None,
+                    });
+                }
+            }
         }
 
         let role = {
@@ -298,6 +329,28 @@ pub fn activate_pid(pid: i32) -> Result<(), String> {
             ));
         }
         Ok(())
+    }
+}
+
+/// PID of the app the user is currently in (NSWorkspace frontmost). Used to
+/// skip re-activation when the paste target never lost frontmost status —
+/// activating an already-frontmost app is a no-op at best, and on
+/// fullscreen Spaces macOS 26's cooperative activation returns NO for it,
+/// which previously aborted the whole paste.
+#[cfg(target_os = "macos")]
+pub fn frontmost_pid() -> Option<i32> {
+    unsafe {
+        let _pool = AutoreleasePool::new();
+        let ws: Id = msg_send![class!(NSWorkspace), sharedWorkspace];
+        if ws.is_null() {
+            return None;
+        }
+        let app: Id = msg_send![ws, frontmostApplication];
+        if app.is_null() {
+            return None;
+        }
+        let pid: i32 = msg_send![app, processIdentifier];
+        Some(pid)
     }
 }
 
