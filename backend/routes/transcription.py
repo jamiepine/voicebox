@@ -37,11 +37,20 @@ async def transcribe_audio(
 
     stt_path = tmp_path
     try:
-        from ..utils.audio import load_audio, save_audio
         from ..backends import WHISPER_HF_REPOS
+        from ..utils.audio import load_audio, save_audio
 
         audio, sr = await asyncio.to_thread(load_audio, tmp_path)
         duration = len(audio) / sr
+
+        if model == "orukeet":
+            try:
+                text = await transcribe.get_orukeet_model().transcribe(audio, sr, language)
+            except ImportError as e:
+                raise HTTPException(status_code=503, detail=str(e)) from e
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=str(e)) from e
+            return models.TranscriptionResponse(text=text, duration=duration)
 
         # The STT backend (mlx_audio.stt -> miniaudio) only decodes
         # WAV/FLAC/MP3/Vorbis, so browser recordings uploaded as WebM/Opus
@@ -98,7 +107,7 @@ async def transcribe_audio(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     finally:
         Path(tmp_path).unlink(missing_ok=True)
         if stt_path != tmp_path:

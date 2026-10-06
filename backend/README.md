@@ -84,7 +84,7 @@ Detection is handled by `utils/platform_detect.py`. Both backends implement the 
 | Channels | `/channels` | Audio channel management and voice assignment |
 | Generation | `/generate` | TTS generation, retry, regenerate, status SSE |
 | History | `/history` | Generation history, search, favorites, export |
-| Transcription | `/transcribe` | Whisper-based audio-to-text |
+| Transcription | `/transcribe` | Whisper audio-to-text; optional local Orukeet with `model=orukeet` |
 | Stories | `/stories` | Multi-track timeline editor, audio export |
 | Effects | `/effects` | Effect presets, preview, version management |
 | Audio | `/audio`, `/samples` | Audio file serving |
@@ -93,6 +93,8 @@ Detection is handled by `utils/platform_detect.py`. Both backends implement the 
 | CUDA | `/backend/cuda-*` | CUDA binary download and management |
 
 ### Quick examples
+
+Source/server installations can add [Orukeet transcription](../docs/orukeet.md) with the optional CPU dependencies. Whisper remains the default, and the response schema is unchanged.
 
 ```bash
 # Generate speech
