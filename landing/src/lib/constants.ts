@@ -5,14 +5,8 @@ export const LATEST_VERSION = 'v0.1.0';
 export const GITHUB_REPO = 'https://github.com/jamiepine/voicebox';
 export const GITHUB_RELEASES_PAGE = `${GITHUB_REPO}/releases`;
 export const DONATE_URL = 'https://buymeacoffee.com/jamiepine';
-
-// Capy (capy.ai) funds Voicebox and is the only sponsor credited on the site.
-// Every link to Capy goes through capyUrl() so the UTM tags stay consistent.
-export const CAPY_URL = 'https://capy.ai';
-export type CapyLinkMedium = 'site-strip' | 'site-footer' | 'site-page';
-export function capyUrl(medium: CapyLinkMedium): string {
-  return `${CAPY_URL}?utm_source=voicebox&utm_medium=${medium}&utm_campaign=funded-by-capy`;
-}
+export const SPONSOR_CHECKOUT_URL = 'https://buy.stripe.com/eVqdRad3n16ubcqf201Jm00';
+export const SPONSOR_CONTACT_EMAIL = 'jamie@spacedrive.com';
 
 // $VOICEBOX — the official community token on Solana
 export const TOKEN_TICKER = '$VOICEBOX';
