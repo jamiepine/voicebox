@@ -10,13 +10,15 @@ import uvicorn
 from .app import app  # noqa: F401 -- re-export for uvicorn "backend.main:app"
 from . import config, database
 
+import os
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="voicebox backend server")
     parser.add_argument(
         "--host",
         type=str,
-        default="127.0.0.1",
-        help="Host to bind to (use 0.0.0.0 for remote access)",
+        default=os.environ.get("VOICEBOX_HOST", "127.0.0.1"),
+        help="Host to bind to (use 0.0.0.0 for remote access or set VOICEBOX_HOST)",
     )
     parser.add_argument(
         "--port",

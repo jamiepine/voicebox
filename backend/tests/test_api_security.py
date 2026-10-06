@@ -1,0 +1,163 @@
+import os
+import pytest
+from unittest.mock import patch
+from fastapi import FastAPI, Request
+from starlette.testclient import TestClient
+from starlette.responses import JSONResponse
+
+from backend.utils.security import SecurityMiddleware, is_loopback, get_client_ip
+
+
+from fastapi.middleware.cors import CORSMiddleware
+
+def _build_app() -> FastAPI:
+    app = FastAPI()
+    app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.add_middleware(SecurityMiddleware)
+
+    @app.get("/health")
+    async def health():
+        return {"status": "ok"}
+
+    @app.post("/shutdown")
+    async def shutdown():
+        return {"message": "shutting down"}
+
+    @app.post("/models/unload")
+    async def unload_model():
+        return {"message": "unloaded"}
+
+    @app.delete("/profiles/{profile_id}")
+    async def delete_profile(profile_id: str):
+        return {"message": f"deleted {profile_id}"}
+
+    @app.get("/profiles")
+    async def list_profiles():
+        return {"profiles": []}
+
+    return app
+
+
+@pytest.fixture()
+def client():
+    return TestClient(_build_app())
+
+
+def test_is_loopback_helper():
+    assert is_loopback("127.0.0.1") is True
+    assert is_loopback("::1") is True
+    assert is_loopback("localhost") is True
+    assert is_loopback("testclient") is True
+    
+    # Fail closed for None and external IPs
+    assert is_loopback(None) is False
+    assert is_loopback("192.168.1.1") is False
+    assert is_loopback("10.0.0.5") is False
+    assert is_loopback("8.8.8.8") is False
+
+
+def test_x_forwarded_for_remote_client_detection(client):
+    # Even if connection peer is 127.0.0.1 (reverse proxy),
+    # X-Forwarded-For carrying a remote IP should enforce security
+    with patch.dict(os.environ, {}, clear=True):
+        headers = {"X-Forwarded-For": "192.168.1.100, 127.0.0.1"}
+        res = client.post("/shutdown", headers=headers)
+        assert res.status_code == 403
+        assert "restricted to loopback callers" in res.json()["detail"]
+
+
+def test_loopback_caller_unrestricted(client):
+    # Loopback callers should bypass all security gates
+    with patch("backend.utils.security.is_loopback", return_value=True):
+        # Admin / Destructive endpoints
+        assert client.post("/shutdown").status_code == 200
+        assert client.post("/models/unload").status_code == 200
+        assert client.delete("/profiles/123").status_code == 200
+        # Safe endpoints
+        assert client.get("/health").status_code == 200
+
+
+def test_remote_caller_no_api_key_blocks_destructive(client):
+    # Remote callers with no VOICEBOX_API_KEY environment variable set
+    with patch("backend.utils.security.is_loopback", return_value=False):
+        with patch.dict(os.environ, {}, clear=True):
+            # Safe endpoints should be allowed
+            assert client.get("/health").status_code == 200
+            
+            # Administrative POST endpoints should be blocked (403)
+            res_shutdown = client.post("/shutdown")
+            assert res_shutdown.status_code == 403
+            assert "restricted to loopback callers" in res_shutdown.json()["detail"]
+            
+            res_unload = client.post("/models/unload")
+            assert res_unload.status_code == 403
+            assert "restricted to loopback callers" in res_unload.json()["detail"]
+            
+            # Destructive DELETE endpoints should be blocked (403)
+            res_delete = client.delete("/profiles/123")
+            assert res_delete.status_code == 403
+            assert "restricted to loopback callers" in res_delete.json()["detail"]
+
+
+def test_remote_caller_with_api_key_requires_auth(client):
+    # Remote callers with VOICEBOX_API_KEY environment variable set
+    with patch("backend.utils.security.is_loopback", return_value=False):
+        with patch.dict(os.environ, {"VOICEBOX_API_KEY": "secret_token"}):
+            # Accessing any endpoint without credentials should fail (401)
+            assert client.get("/health").status_code == 401
+            assert client.post("/shutdown").status_code == 401
+            assert client.delete("/profiles/123").status_code == 401
+            
+            # Accessing with invalid token should fail (401)
+            headers = {"Authorization": "Bearer wrong_token"}
+            assert client.get("/health", headers=headers).status_code == 401
+            
+            # Accessing with valid token should succeed (200)
+            headers_valid = {"Authorization": "Bearer secret_token"}
+            assert client.get("/health", headers=headers_valid).status_code == 200
+            assert client.post("/shutdown", headers=headers_valid).status_code == 200
+            assert client.delete("/profiles/123", headers=headers_valid).status_code == 200
+
+
+def test_forged_forwarded_header_from_real_remote_peer_is_ignored():
+    # A genuinely remote peer cannot spoof loopback trust by forging
+    # X-Forwarded-For: 127.0.0.1 -- the header is only honoured when the
+    # direct TCP peer is itself loopback (a trusted local proxy).
+    fake_client = type("Client", (), {"host": "203.0.113.5"})()
+    fake_request = type(
+        "Req",
+        (),
+        {"client": fake_client, "headers": {"X-Forwarded-For": "127.0.0.1"}},
+    )()
+    assert get_client_ip(fake_request) == "203.0.113.5"
+    assert is_loopback(get_client_ip(fake_request)) is False
+
+
+def test_no_api_key_only_allows_explicit_safe_get_paths(client):
+    # Endpoints not on the explicit allowlist are blocked for remote callers
+    # even though they are plain GET requests, since the middleware is an
+    # allowlist (not a denylist of destructive methods/paths).
+    with patch("backend.utils.security.is_loopback", return_value=False):
+        with patch.dict(os.environ, {}, clear=True):
+            res = client.get("/profiles")
+            assert res.status_code == 403
+            assert "restricted to loopback callers" in res.json()["detail"]
+
+
+def test_bearer_scheme_is_case_insensitive(client):
+    with patch("backend.utils.security.is_loopback", return_value=False):
+        with patch.dict(os.environ, {"VOICEBOX_API_KEY": "secret_token"}):
+            headers = {"Authorization": "bearer secret_token"}
+            assert client.get("/health", headers=headers).status_code == 200
+
+
+def test_options_preflight_is_always_allowed(client):
+    # OPTIONS requests (CORS preflight) must bypass authentication check
+    with patch("backend.utils.security.is_loopback", return_value=False):
+        with patch.dict(os.environ, {"VOICEBOX_API_KEY": "secret_token"}):
+            headers = {
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": "GET",
+            }
+            assert client.options("/health", headers=headers).status_code == 200
+            assert client.options("/shutdown", headers=headers).status_code == 200
