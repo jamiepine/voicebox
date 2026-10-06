@@ -23,6 +23,9 @@
   <a href="https://github.com/jamiepine/voicebox/blob/main/LICENSE">
     <img src="https://img.shields.io/github/license/jamiepine/voicebox?style=flat" alt="License" />
   </a>
+  <a href="https://capy.ai?utm_source=voicebox&utm_medium=readme&utm_campaign=funded-by-capy">
+    <img src="https://img.shields.io/badge/funded%20by-Capy-63C8C1?style=flat" alt="Funded by Capy" />
+  </a>
   <a href="https://deepwiki.com/jamiepine/voicebox">
     <img src="https://img.shields.io/static/v1?label=Ask&message=DeepWiki&color=5B6EF7" alt="Ask DeepWiki" />
   </a>
@@ -64,6 +67,23 @@
 </p>
 
 <br/>
+
+## Built with Capy
+
+<p align="center">
+  <a href="https://capy.ai?utm_source=voicebox&utm_medium=readme&utm_campaign=funded-by-capy">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset=".github/assets/capy-wordmark-dark.svg" />
+      <img src=".github/assets/capy-wordmark-light.svg" alt="Capy" width="160" />
+    </picture>
+  </a>
+</p>
+
+Voicebox is funded by [Capy](https://capy.ai?utm_source=voicebox&utm_medium=readme&utm_campaign=funded-by-capy), and it is built with Capy too. A Capy Captain thread directs the project day to day, and its crew threads test, rebase, and review each contributor pull request on Linux and on a Mac Studio before Jamie merges it. Capy's funding keeps Voicebox free and open source under the MIT license, with no splash screens, banners, or sponsored interruptions in the app.
+
+**[Try Capy →](https://capy.ai?utm_source=voicebox&utm_medium=readme&utm_campaign=funded-by-capy)** · [How Voicebox is built](https://voicebox.sh/built-with-capy)
+
+---
 
 ## What is Voicebox?
 

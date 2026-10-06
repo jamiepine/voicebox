@@ -72,6 +72,8 @@ Tie it to concrete shipped changes. No vague hype.>
 
 ### Bug Fixes
 - ...
+
+_Voicebox is free and open source, funded by and built with [Capy](https://capy.ai?utm_source=voicebox&utm_medium=changelog&utm_campaign=funded-by-capy)._
 ```
 
 ### Style Guidelines
@@ -81,6 +83,7 @@ Tie it to concrete shipped changes. No vague hype.>
 - **Group by theme, not by commit.** Cluster related changes under descriptive headings.
 - **Reference PRs** where they exist, but don't fabricate them.
 - **Skip trivial chores** (typo fixes, CI tweaks) unless they're the bulk of the release.
+- **Close with the Capy line.** Every release section ends with the italic "funded by and built with Capy" line from the template, unchanged. It is a credit, not a place for claims about Capy or about unshipped work.
 - **Match the voice of existing releases** — look at the v0.2.1 and v0.2.3 entries in CHANGELOG.md for tone reference.
 
 ## When There Are No Changes
