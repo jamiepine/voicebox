@@ -1381,7 +1381,20 @@ async fn debug_clipboard_roundtrip(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+
+    // Register this before every other plugin so a second launch exits before
+    // it can create another dictate window or global hotkey monitor.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        if let Some(window) = app.get_webview_window("main") {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+    }));
+
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
@@ -1535,49 +1548,67 @@ pub fn run() {
         .on_window_event({
             let closing = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
             move |window, event| {
-            if let WindowEvent::CloseRequested { api, .. } = event {
-                // If we're already in the close flow, let it proceed
-                if closing.load(std::sync::atomic::Ordering::SeqCst) {
-                    return;
-                }
-                closing.store(true, std::sync::atomic::Ordering::SeqCst);
-
-                // Prevent automatic close so frontend can clean up
-                api.prevent_close();
-
-                // Emit event to frontend to check setting and stop server if needed
-                let app_handle = window.app_handle();
-
-                if let Err(e) = app_handle.emit("window-close-requested", ()) {
-                    eprintln!("Failed to emit window-close-requested event: {}", e);
-                    window.close().ok();
-                    return;
-                }
-
-                // Set up listener for frontend response
-                let window_for_close = window.clone();
-                let closing_for_timeout = closing.clone();
-                let (tx, mut rx) = mpsc::unbounded_channel::<()>();
-
-                let listener_id = window.listen("window-close-allowed", move |_| {
-                    let _ = tx.send(());
-                });
-
-                tauri::async_runtime::spawn(async move {
-                    tokio::select! {
-                        _ = rx.recv() => {
-                            window_for_close.close().ok();
-                        }
-                        _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
-                            eprintln!("Window close timeout, closing anyway");
-                            window_for_close.close().ok();
-                        }
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    // Closing the overlay should never begin the application-wide
+                    // shutdown flow. Only the main window represents app close.
+                    if window.label() != "main" {
+                        return;
                     }
-                    window_for_close.unlisten(listener_id);
-                    closing_for_timeout.store(false, std::sync::atomic::Ordering::SeqCst);
-                });
+
+                    // If we're already in the close flow, let it proceed
+                    if closing.load(std::sync::atomic::Ordering::SeqCst) {
+                        return;
+                    }
+                    closing.store(true, std::sync::atomic::Ordering::SeqCst);
+
+                    // Prevent automatic close so frontend can clean up
+                    api.prevent_close();
+
+                    // Emit event to frontend to check setting and stop server if needed
+                    let app_handle = window.app_handle().clone();
+
+                    // Release the OS-level listener immediately. Frontend/backend
+                    // cleanup may take several seconds, but F8/F9 must become inert
+                    // as soon as the user closes the app.
+                    #[cfg(desktop)]
+                    if let Err(e) = disable_hotkey(app_handle.state::<HotkeyState>()) {
+                        eprintln!("Failed to disable hotkey during close: {e}");
+                    }
+
+                    if let Err(e) = app_handle.emit("window-close-requested", ()) {
+                        eprintln!("Failed to emit window-close-requested event: {}", e);
+                        app_handle.exit(0);
+                        return;
+                    }
+
+                    // Set up listener for frontend response
+                    let window_for_close = window.clone();
+                    let app_for_exit = app_handle.clone();
+                    let (tx, mut rx) = mpsc::unbounded_channel::<()>();
+
+                    let listener_id = window.listen("window-close-allowed", move |_| {
+                        let _ = tx.send(());
+                    });
+
+                    tauri::async_runtime::spawn(async move {
+                        let timed_out = tokio::select! {
+                            _ = rx.recv() => false,
+                            _ = tokio::time::sleep(tokio::time::Duration::from_secs(5)) => {
+                                true
+                            }
+                        };
+                        if timed_out {
+                            eprintln!("Window close timeout, exiting anyway");
+                        }
+                        window_for_close.unlisten(listener_id);
+                        // Closing only the main webview strands the hidden dictate
+                        // window and its hotkey thread. Exit the whole Tauri app so
+                        // every window and listener is torn down together.
+                        app_for_exit.exit(0);
+                    });
+                }
             }
-        }})
+        })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app, event| {
