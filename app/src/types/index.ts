@@ -1,24 +1,13 @@
-// Shared TypeScript types for the voicebox application
+// Shared app-level type aliases.
+// Keep these aliases in sync with the generated API contract types.
+import type {
+  GenerationResponse,
+  VoiceProfileResponse,
+} from '@/lib/api/types';
 
-export interface VoiceProfile {
-  id: string;
-  name: string;
-  description?: string;
-  language: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type VoiceProfile = VoiceProfileResponse;
 
-export interface Generation {
-  id: string;
-  profileId: string;
-  text: string;
-  language: string;
-  audioPath: string;
-  duration: number;
-  seed?: number;
-  createdAt: string;
-}
+export type Generation = GenerationResponse;
 
 export interface ServerConfig {
   url: string;
