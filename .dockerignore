@@ -5,7 +5,6 @@
 
 # Desktop-only (not needed in web container)
 tauri/
-landing/
 docs/
 mlx-test/
 scripts/*

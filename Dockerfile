@@ -24,7 +24,7 @@ COPY web/ ./web/
 # defeat the `-z 's/,\n  ]/…/'` match below, since it's LF-anchored), then
 # strip workspaces not needed for web build, and fix trailing comma
 RUN sed -i 's/\r$//' package.json && \
-    sed -i '/"tauri"/d; /"landing"/d' package.json && \
+    sed -i '/"tauri"/d' package.json && \
     sed -i -z 's/,\n  ]/\n  ]/' package.json
 RUN bun install --no-save
 # Build frontend (skip tsc — upstream has pre-existing type errors)
