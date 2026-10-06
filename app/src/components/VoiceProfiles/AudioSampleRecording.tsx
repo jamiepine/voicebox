@@ -2,6 +2,7 @@ import { Mic, Pause, Play, Square } from 'lucide-react';
 import { memo, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Visualizer } from 'react-sound-visualizer';
+import { MicrophonePermissionNotice } from '@/components/MicrophoneGate/MicrophoneGate';
 import { Button } from '@/components/ui/button';
 import { FormControl, FormItem, FormMessage } from '@/components/ui/form';
 import { formatAudioDuration } from '@/lib/utils/audio';
@@ -34,8 +35,19 @@ interface AudioSampleRecordingProps {
   isPlaying: boolean;
   isTranscribing?: boolean;
   showWaveform?: boolean;
+  /** The parent's last recording attempt failed with a denied microphone. */
+  permissionDenied?: boolean;
 }
 
+/**
+ * The record-a-sample surface shared by the Create Voice and Add Sample
+ * dialogs: a mic button that becomes a live waveform, then playback and
+ * transcribe controls once a clip exists.
+ *
+ * When the microphone is denied it swaps the record button for
+ * {@link MicrophonePermissionNotice}, which is the only affordance the user
+ * gets: macOS does not re-prompt once a denial is on record.
+ */
 export function AudioSampleRecording({
   file,
   isRecording,
@@ -48,9 +60,18 @@ export function AudioSampleRecording({
   isPlaying,
   isTranscribing = false,
   showWaveform = true,
+  permissionDenied = false,
 }: AudioSampleRecordingProps) {
   const { t } = useTranslation();
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
+  // The visualizer's own mic request is the first thing to hit the denial —
+  // catching it here means the notice is up before the user clicks Record,
+  // rather than after a failed attempt.
+  const [visualizerDenied, setVisualizerDenied] = useState(false);
+  // Retrying clears the denial flags, so the notice unmounts and remounts on
+  // every attempt. Remember here, where the state survives, that an attempt
+  // has already been made and come back denied.
+  const [retriedWhileDenied, setRetriedWhileDenied] = useState(false);
 
   // Request microphone access when component mounts
   useEffect(() => {
@@ -65,8 +86,12 @@ export function AudioSampleRecording({
         stream = s;
         setAudioStream(s);
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         console.warn('Could not access microphone for visualization:', err);
+        const name = err instanceof Error ? err.name : '';
+        if (name === 'NotAllowedError' || name === 'SecurityError') {
+          setVisualizerDenied(true);
+        }
       });
 
     return () => {
@@ -78,25 +103,40 @@ export function AudioSampleRecording({
     };
   }, [showWaveform]);
 
+  const micDenied = permissionDenied || visualizerDenied;
+
   return (
     <FormItem>
       <FormControl>
         <div className="space-y-4">
           {!isRecording && !file && (
             <div className="relative flex flex-col items-center justify-center gap-4 p-4 border-2 border-dashed rounded-lg min-h-[180px] overflow-hidden">
-              {showWaveform && audioStream && <MemoizedWaveform audioStream={audioStream} />}
-              <Button
-                type="button"
-                onClick={onStart}
-                size="lg"
-                className="relative z-10 flex items-center gap-2"
-              >
-                <Mic className="h-5 w-5" />
-                {t('audioSample.startRecording')}
-              </Button>
-              <p className="relative z-10 text-sm text-muted-foreground text-center">
-                {t('audioSample.recordHint')}
-              </p>
+              {micDenied ? (
+                <MicrophonePermissionNotice
+                  showRestartHint={retriedWhileDenied}
+                  onRetry={() => {
+                    setRetriedWhileDenied(true);
+                    setVisualizerDenied(false);
+                    onStart();
+                  }}
+                />
+              ) : (
+                <>
+                  {showWaveform && audioStream && <MemoizedWaveform audioStream={audioStream} />}
+                  <Button
+                    type="button"
+                    onClick={onStart}
+                    size="lg"
+                    className="relative z-10 flex items-center gap-2"
+                  >
+                    <Mic className="h-5 w-5" />
+                    {t('audioSample.startRecording')}
+                  </Button>
+                  <p className="relative z-10 text-sm text-muted-foreground text-center">
+                    {t('audioSample.recordHint')}
+                  </p>
+                </>
+              )}
             </div>
           )}
 

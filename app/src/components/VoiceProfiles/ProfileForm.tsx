@@ -226,6 +226,7 @@ export function ProfileForm() {
     isRecording,
     duration,
     error: recordingError,
+    errorKind: recordingErrorKind,
     startRecording,
     stopRecording,
     cancelRecording,
@@ -293,16 +294,18 @@ export function ProfileForm() {
     (option) => !isSampleBasedProfile || !PRESET_ONLY_ENGINES.has(option.value),
   );
 
-  // Show recording errors
+  // Show recording errors. A denied microphone is handled inline by
+  // AudioSampleRecording instead — a toast would scroll away the one control
+  // that can actually fix it.
   useEffect(() => {
-    if (recordingError) {
+    if (recordingError && recordingErrorKind !== 'permission-denied') {
       toast({
         title: t('profileForm.toast.recordingError'),
         description: recordingError,
         variant: 'destructive',
       });
     }
-  }, [recordingError, toast, t]);
+  }, [recordingError, recordingErrorKind, toast, t]);
 
   useEffect(() => {
     if (systemRecordingError) {
@@ -1012,6 +1015,7 @@ export function ProfileForm() {
                                     onPlayPause={handlePlayPause}
                                     isPlaying={isPlaying}
                                     isTranscribing={transcribe.isPending}
+                                    permissionDenied={recordingErrorKind === 'permission-denied'}
                                   />
                                 )}
                               />

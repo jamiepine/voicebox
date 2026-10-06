@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Mic, Monitor, Upload } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,6 +50,7 @@ interface SampleUploadProps {
 }
 
 export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProps) {
+  const { t } = useTranslation();
   const platform = usePlatform();
   const addSample = useAddSample();
   const transcribe = useTranscription();
@@ -70,6 +72,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
     isRecording,
     duration,
     error: recordingError,
+    errorKind: recordingErrorKind,
     startRecording,
     stopRecording,
     cancelRecording,
@@ -119,16 +122,18 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
     },
   });
 
-  // Show recording errors
+  // Show recording errors. A denied microphone is handled inline by
+  // AudioSampleRecording instead — a toast would scroll away the one control
+  // that can actually fix it.
   useEffect(() => {
-    if (recordingError) {
+    if (recordingError && recordingErrorKind !== 'permission-denied') {
       toast({
-        title: 'Recording error',
+        title: t('profileForm.toast.recordingError'),
         description: recordingError,
         variant: 'destructive',
       });
     }
-  }, [recordingError, toast]);
+  }, [recordingError, recordingErrorKind, toast, t]);
 
   // Show system audio recording errors
   useEffect(() => {
@@ -285,6 +290,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
                       onPlayPause={handlePlayPause}
                       isPlaying={isPlaying}
                       isTranscribing={transcribe.isPending}
+                      permissionDenied={recordingErrorKind === 'permission-denied'}
                     />
                   )}
                 />
