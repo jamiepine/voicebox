@@ -64,16 +64,29 @@ export function AboutPage() {
           </FadeIn>
 
           <FadeIn delay={240}>
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <span>{t('settings.about.createdBy')}</span>
-              <a
-                href="https://github.com/jamiepine"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent hover:underline"
-              >
-                Jamie Pine
-              </a>
+            <div className="flex flex-col items-center gap-1 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <span>{t('settings.about.createdBy')}</span>
+                <a
+                  href="https://github.com/jamiepine"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:underline"
+                >
+                  Jamie Pine
+                </a>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span>{t('settings.about.builtWith')}</span>
+                <a
+                  href="https://capy.ai?utm_source=voicebox&utm_medium=app-about&utm_campaign=funded-by-capy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:underline"
+                >
+                  Capy
+                </a>
+              </div>
             </div>
           </FadeIn>
 
