@@ -1,0 +1,113 @@
+---
+title: "Введение"
+description: "Voicebox — open-source, local-first AI voice studio: клонирование голоса, диктовка и голосовые ответы AI-агентов на одной машине."
+---
+
+## Что такое Voicebox?
+
+Voicebox — это **open-source, local-first AI voice studio**. Приложение
+замыкает голосовой I/O-цикл в обе стороны на одной машине, без облака и
+без аккаунтов:
+
+- **Человек говорит** — вы зажимаете chord в любой точке системы, и диктовка
+  превращается в чистый текст в том поле, где у вас был фокус
+- **Агенты отвечают голосом** — любой MCP-aware агент может вызвать Voicebox
+  и заговорить одним из ваших клонированных голосов
+- **Голоса получают характер** — каждому voice profile можно задать
+  personality, чтобы он сочинял новые реплики или переписывал текст перед
+  озвучкой
+
+Voicebox — это бесплатная локальная альтернатива одновременно ElevenLabs
+(voice cloning и TTS) и WisprFlow (voice dictation для power users и
+агентов). Вместо двух отдельных инструментов вы получаете один стек с
+общей директорией моделей и одной локальной LLM, разделённой между входом
+и выходом.
+
+## Что есть в приложении
+
+- **Dictation** — глобальный хоткей, режим hold-to-talk и toggle, auto-paste
+  в активное поле на macOS и Windows
+- **Вкладка Captures** — архив из аудио и расшифровки: retranscribe, refine,
+  play-as-voice, promote-to-sample
+- **Voice cloning** — 5 cloning engines для 23 языков, zero-shot cloning по
+  опорному сэмплу
+- **Preset voices** — 50+ готовых голосов через Kokoro и Qwen CustomVoice
+- **Voice personalities** — свободное описание характера, compose-кнопка и
+  persona-rewrite toggle на локальной LLM
+- **Постобработка аудио** — pitch shift, reverb, delay, chorus,
+  compression, filters
+- **Выразительная речь** — paralinguistic tags вроде `[laugh]` и `[sigh]`
+  через Chatterbox Turbo, а также natural-language delivery control через
+  Qwen CustomVoice
+- **Unlimited length** — авторазбиение текста на фрагменты и бесшовный
+  crossfade для длинных сценариев
+- **Stories editor** — многодорожечный timeline для диалогов, подкастов и
+  нарративов
+- **API-first** — REST + WebSocket API и MCP server для агентных интеграций
+- **Работает везде** — macOS (MLX/Metal), Windows (CUDA / DirectML), Linux
+  (ROCm / CPU), Intel Arc, Docker
+
+## TTS-движки
+
+В Voicebox семь движков с разными сильными сторонами, и их можно
+переключать для каждой генерации отдельно.
+
+| Движок | Тип профиля | Языки | Сильные стороны |
+|--------|-------------|-------|-----------------|
+| **Qwen3-TTS** (0.6B / 1.7B) | Клон | 10 | Качественное многоязычное клонирование |
+| **Qwen CustomVoice** (0.6B / 1.7B) | Preset (9 голосов) | 10 | Управление подачей естественным языком |
+| **LuxTTS** | Клон | Английский | Лёгкий (~1GB VRAM), 48kHz, до 150x realtime на CPU |
+| **Chatterbox Multilingual** | Клон | 23 | Самое широкое языковое покрытие |
+| **Chatterbox Turbo** | Клон | Английский | Быстрая 350M-модель с paralinguistic tags |
+| **TADA** (1B / 3B) | Клон | 10 | Speech-language model от HumeAI, 700s+ связного аудио |
+| **Kokoro** | Preset (50 голосов) | 9 | 82M параметров, realtime на CPU, минимальный VRAM |
+
+## STT и локальная LLM
+
+Помимо TTS, Voicebox запускает у себя speech recognition и локальную LLM,
+которые используются в диктовке, вкладке Captures и personality-режимах:
+
+| Слой | Модели |
+|---|---|
+| **STT** | Whisper Base / Small / Medium / Large / Turbo (PyTorch или MLX) |
+| **LLM** | Qwen3 0.6B / 1.7B / 4B (refinement + compose / persona-rewrite) |
+
+Никакого cloud fallback и никаких "вставьте свой API key". Локальный запуск
+здесь не опция, а основа продукта.
+
+## Поддержка GPU
+
+| Платформа | Backend | Что важно знать |
+|-----------|---------|-----------------|
+| macOS (Apple Silicon) | MLX (Metal) | Ускорение через Neural Engine и Metal |
+| Windows / Linux (NVIDIA) | PyTorch (CUDA) | CUDA-бинарь можно скачать прямо из приложения |
+| Linux (AMD) | PyTorch (ROCm) | Автонастройка `HSA_OVERRIDE_GFX_VERSION` |
+| Windows (любая GPU) | DirectML | Универсальный GPU-backend для Windows |
+| Intel Arc | IPEX/XPU | Ускорение на дискретных Intel GPU |
+| Любая платформа | CPU | Работает везде, но заметно медленнее |
+
+## Где это полезно
+
+- **Dictation для людей и агентов** — говорить вместо набора текста в любом приложении
+- **Голосовой вывод агентов** — MCP-aware агент может отвечать клонированным голосом
+- **Game development** — динамические реплики персонажей
+- **Контент-продакшн** — подкасты, voiceover, аудиокниги
+- **Accessibility** — speech-to-text в любые поля и TTS вашим собственным голосом
+- **Voice assistants** — собственные голосовые интерфейсы без облачного счёта
+- **Production pipelines** — автоматизация голосовых сценариев через REST API
+
+## Технологический стек
+
+| Слой | Технология |
+|------|------------|
+| Desktop App | Tauri (Rust) |
+| Frontend | React, TypeScript, Tailwind CSS |
+| State | Zustand, React Query |
+| Backend | FastAPI (Python) |
+| TTS | Qwen3-TTS, Qwen CustomVoice, LuxTTS, Chatterbox, Chatterbox Turbo, TADA, Kokoro |
+| STT | Whisper / Whisper Turbo (PyTorch или MLX) |
+| Локальная LLM | Qwen3 0.6B / 1.7B / 4B (MLX или PyTorch) |
+| Эффекты | Pedalboard (Spotify) |
+| Inference | MLX (Apple Silicon) / PyTorch (CUDA/ROCm/XPU/CPU) |
+| База данных | SQLite |
+| Аудио | WaveSurfer.js, librosa |
