@@ -93,7 +93,10 @@ def test_encode_audio_rejects_unknown_format(tmp_path):
 
 
 def test_find_ffmpeg_honours_override_dir(tmp_path, monkeypatch):
-    fake = tmp_path / "ffmpeg"
+    # find_ffmpeg looks for ffmpeg.exe on Windows, so the fake has to carry the
+    # platform's name; otherwise the override is skipped and whatever ffmpeg is
+    # on PATH wins, which is what made this fail on Windows machines.
+    fake = tmp_path / ("ffmpeg.exe" if sys.platform == "win32" else "ffmpeg")
     fake.write_text("#!/bin/sh\n")
     monkeypatch.setenv("VOICEBOX_FFMPEG_DIR", str(tmp_path))
     assert ffmpeg_util.find_ffmpeg() == str(fake)
