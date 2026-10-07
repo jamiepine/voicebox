@@ -1,0 +1,189 @@
+---
+title: "Capturas"
+description: "El archivo emparejado de audio + transcripción — cada dictado, grabación y archivo de audio subido aparece aquí, reproducible y retranscribible."
+---
+
+## Resumen
+
+Una **captura** es un clip de audio emparejado con su transcripción. La pestaña Capturas
+es donde aterrizan todos los dictados, grabaciones manuales y archivos de audio subidos,
+con el audio original guardado junto al texto para que puedas reproducir, volver a ejecutar
+la transcripción con un modelo distinto, refinar la transcripción o enviar el
+contenido a otro sitio — incluso volver a generarlo como voz en cualquiera de
+tus perfiles de voz.
+
+<Callout type="info">
+  La pestaña Capturas llegó en la **0.5.0**, junto con el dictado global y los
+  modos de personalidad por perfil. Si has usado versiones anteriores, ten en cuenta que
+  la pestaña Audio se trasladó a **Ajustes → Canales de Audio** para hacer sitio a
+  esta.
+</Callout>
+
+## De dónde vienen las capturas
+
+| Origen | Cómo aparece | Insignia |
+|---|---|---|
+| **Dictado** | Activado por el atajo global (ver [Dictado](./dictation.mdx)). Refinado automáticamente por defecto. | `dictation` |
+| **Grabación en la app** | Grabada directamente en la pestaña Capturas usando el micrófono integrado. | `recording` |
+| **Subida de archivo** | Cualquier archivo de audio arrastrado a la pestaña Capturas — `.wav`, `.mp3`, `.m4a`, `.webm`, `.opus`, `.flac`. | `file` |
+
+Las tres vías comparten la misma tubería de backend, el mismo selector de modelo y
+los mismos indicadores de refinamiento. La insignia de origen está ahí para que puedas
+recorrer visualmente una lista larga.
+
+## Vista de lista
+
+La vista principal de Capturas es una lista cronológica. Cada fila muestra:
+
+- La transcripción (en bruto o refinada — la versión refinada gana si existe)
+- Duración + marca de tiempo
+- Insignia de origen
+- Un botón de reproducción para el audio original
+- Un menú de tres puntos con acciones por fila
+
+El filtrado y la búsqueda son una petición de Nivel 2 — avísanos si los necesitas.
+
+## Vista de detalle
+
+Al hacer clic en una captura se abre la vista de detalle:
+
+- **Reproductor con forma de onda** para el audio original
+- **Editor de transcripción** — haz clic dentro y edita. Los cambios se guardan al perder el foco.
+- **Alternancia entre refinada y en bruto** si se ejecutó el refinamiento en esta captura
+- **Barra de acciones por captura** — retranscribir, refinar, reproducir como voz, eliminar
+- **Instantánea de ajustes** — modelo STT usado, indicadores de refinamiento en el momento
+  en que se procesó esta captura, y el modelo de voz si se reprodujo alguno
+
+## Retranscribir
+
+Pasa el audio original de la captura por un modelo de Whisper distinto sin
+volver a subir ni refinar nada. Útil cuando:
+
+- El modelo por defecto malinterpretó algo y quieres probar un modelo más grande
+- Usaste Base para un clip con ruido y quieres reejecutarlo con Turbo
+- Un clip que no está en inglés necesita una pista de idioma explícita
+
+**Ajustes → Capturas → Transcripción** controla el modelo por defecto y
+el bloqueo de idioma para las capturas nuevas. Retranscribir usa esos valores por defecto a menos que los
+sobrescribas por captura.
+
+## Refinar
+
+Pasa la transcripción en bruto por el LLM local para producir una versión
+limpia. Los indicadores de la captura se capturan en una instantánea cuando el refinamiento se
+ejecuta por primera vez, de modo que puedes volver a refinar más tarde con indicadores distintos sin perder la transcripción
+en bruto:
+
+| Indicador | Efecto |
+|---|---|
+| **Limpieza inteligente** | Elimina muletillas (`um`, `uh`, `like`), ordena la puntuación y las mayúsculas. |
+| **Eliminar autocorrecciones** | Conserva la versión final cuando el hablante se desdice ("en realidad, no, el martes"). |
+| **Preservar términos técnicos** | Deja los identificadores (`handleSubmit`, `npm install`) intactos. |
+
+Consulta la sección de Refinamiento de [Dictado](./dictation.mdx#refinement) para saber
+cómo Voicebox elimina las alucinaciones de bucle de Whisper *antes* de que el LLM vea la
+transcripción — una captura se puede volver a refinar cualquier número de veces sin
+reintroducir ecos de "thanks for watching thanks for watching".
+
+El selector del modelo de refinamiento (tres tamaños de Qwen3 incluidos) vive en
+**Ajustes → Capturas → Refinamiento**.
+
+## Reproducir como voz
+
+Esta es la capacidad que nadie más en la categoría de dictado ofrece: toma cualquier
+captura y reprodúcela como voz en cualquiera de tus perfiles de voz. Un
+desplegable sobre cada perfil, un clic, y el texto de la captura pasa por
+`/generate` con la voz seleccionada.
+
+Casos de uso:
+
+- Escuchar tu propio dictado en una voz clonada de alguien que te gusta
+- Enviar un mensaje que dictaste como respuesta de audio en un personaje concreto
+- Prototipar rápidamente una frase para una historia sin reescribir
+
+La reproducción usa el motor al que esté vinculado el perfil seleccionado — las mismas
+reglas que la pestaña Generar. No hay LLM en esta vía; la transcripción pasa
+sin cambios. Si quieres el flujo estilo agente de "transforma el contenido antes
+de hablar", eso es lo que hacen los
+[modos de personalidad](./voice-personalities.mdx) — y la misma
+primitiva se expone a los agentes compatibles con MCP a través del
+[Servidor MCP](./mcp-server.mdx) para que Claude Code, Cursor o Cline puedan hablar
+con una de tus voces por su cuenta.
+
+<Callout type="info">
+  La voz por defecto para la acción Reproducir como de la pestaña Capturas se configura en
+  **Ajustes → Capturas → Reproducción → Voz por defecto**. Aún puedes sobrescribirla
+  por captura.
+</Callout>
+
+## Menú Enviar a
+
+Cada captura tiene un menú Enviar a para mover su contenido a otras partes de
+Voicebox:
+
+- **Copiar transcripción** — al portapapeles
+- **Usar como muestra de voz…** — promueve esta captura a una muestra en un perfil de voz
+  de tu elección. Abre un selector de perfiles (con "+ Nueva voz" para
+  empezar desde cero) y un diálogo de confirmación de texto de referencia, porque clonar necesita
+  que el `reference_text` coincida con el audio palabra por palabra. Edítalo según sea necesario y
+  guarda — la captura permanece intacta en la pestaña Capturas; la muestra es una
+  copia, no un movimiento.
+
+## Almacenamiento
+
+El audio original se guarda junto a la transcripción en tu directorio de datos
+de Voicebox. **Ajustes → Capturas → Almacenamiento** muestra la carpeta de capturas y puede
+abrirla directamente en tu gestor de archivos.
+
+El archivo de audio y la fila de metadatos de cada captura se pueden reprocesar (retranscribir,
+refinar, Reproducir como) mientras el archivo de audio siga existiendo.
+
+## Protección de grabaciones cortas
+
+Los clips de audio de menos de **300 ms** se cortocircuitan en el lado del cliente y nunca
+se suben. Esto evita que un toque torpe del acorde acabe en una captura vacía.
+El umbral está ajustado para filtrar accidentes sin recortar dictados cortos
+intencionados.
+
+## Atajos de teclado
+
+Dentro de la pestaña Capturas:
+
+| Teclas | Acción |
+|---|---|
+| `Space` | Reproducir / pausar la captura seleccionada |
+| `↑` / `↓` | Captura anterior / siguiente en la lista |
+| `Enter` | Abrir la captura seleccionada en la vista de detalle |
+| `⌘ / Ctrl` + `C` (en la vista de detalle) | Copiar la transcripción |
+
+## Superficie de API
+
+La pestaña Capturas está respaldada por un pequeño conjunto de endpoints REST:
+
+| Método | Endpoint | Uso |
+|---|---|---|
+| `POST` | `/captures` | Sube audio + inicia la tubería (STT, refinamiento opcional, archivado). |
+| `GET` | `/captures` | Lista las capturas. |
+| `GET` | `/captures/{id}` | Obtiene una captura. |
+| `POST` | `/captures/{id}/retranscribe` | Reejecuta STT con un modelo elegido. |
+| `POST` | `/captures/{id}/refine` | Reejecuta el refinamiento con los indicadores elegidos. |
+| `POST` | `/profiles/{id}/samples/from-capture/{capture_id}` | Promueve una captura a una muestra de perfil de voz. |
+
+Estos endpoints son estables y utilizables desde tus propios scripts — consulta
+[Modo Remoto](./remote-mode.mdx) para ejecutar Voicebox como un servidor con el que pueda hablar el resto
+de tu máquina.
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Dictado" href="/overview/dictation">
+    El flujo del atajo global que alimenta la mayoría de las capturas.
+  </Card>
+  <Card title="Personalidades de Voz" href="/overview/voice-personalities">
+    Botón de redactar por perfil y alternancia de reescritura de persona para las capturas que
+    quieras transformar, no solo transcribir.
+  </Card>
+  <Card title="Crear Perfiles de Voz" href="/overview/creating-voice-profiles">
+    Promueve una captura a una muestra de voz en un perfil.
+  </Card>
+</Cards>
