@@ -4,6 +4,7 @@ Test script to debug model download progress tracking.
 
 import asyncio
 import json
+import threading
 import time
 from typing import List, Dict
 import logging
@@ -163,6 +164,83 @@ def test_hf_progress_tracker():
             return None
 
 
+def test_concurrent_downloads_dont_cross_contaminate():
+    """Test 5: Two simultaneous downloads (two threads) must not corrupt
+    each other's progress. Regression test for the tqdm monkey-patch race
+    where the tracker most recently patched onto the global tqdm class
+    silently absorbed every other in-flight download's updates."""
+    print("\n" + "=" * 60)
+    print("Test 5: Concurrent HFProgressTracker Downloads Stay Isolated")
+    print("=" * 60)
+
+    import tqdm as tqdm_module
+
+    original_tqdm_class = tqdm_module.tqdm
+
+    results_a: List[tuple] = []
+    results_b: List[tuple] = []
+
+    tracker_a = HFProgressTracker(lambda d, t, f: results_a.append((d, t, f)))
+    tracker_b = HFProgressTracker(lambda d, t, f: results_b.append((d, t, f)))
+
+    start_barrier = threading.Barrier(2)
+    errors: List[Exception] = []
+
+    def run_download(tracker, filename, size, chunk):
+        start_barrier.wait()  # force real overlap between the two threads
+        try:
+            with tracker.patch_download():
+                # Import (and thus resolve the currently-patched class) only
+                # after the patch is installed — importing earlier would bind
+                # to the pre-patch tqdm and silently skip tracking.
+                from tqdm import tqdm
+
+                with tqdm(total=size, desc=filename, unit="B") as pbar:
+                    for _ in range(0, size, chunk):
+                        pbar.update(chunk)
+                        time.sleep(0.005)
+        except Exception as e:  # pragma: no cover - surfaced via `errors`
+            errors.append(e)
+
+    # HFProgressTracker only reports progress once a file's total crosses
+    # MIN_TOTAL_BYTES (1MB) — use real-sized files so this test exercises
+    # the same path a real download does.
+    SIZE_A = 2_000_000
+    SIZE_B = 3_000_000
+    thread_a = threading.Thread(target=run_download, args=(tracker_a, "model-a.safetensors", SIZE_A, 200_000))
+    thread_b = threading.Thread(target=run_download, args=(tracker_b, "model-b.safetensors", SIZE_B, 200_000))
+
+    thread_a.start()
+    thread_b.start()
+    thread_a.join(timeout=10)
+    thread_b.join(timeout=10)
+
+    assert not errors, f"Concurrent downloads raised: {errors}"
+    assert results_a, "Tracker A should have captured progress"
+    assert results_b, "Tracker B should have captured progress"
+
+    # Every update tracker A saw must be for A's file/size, never B's, and vice versa.
+    for downloaded, total, filename in results_a:
+        assert filename == "model-a.safetensors", f"Tracker A leaked filename: {filename}"
+        assert total == SIZE_A, f"Tracker A leaked total from tracker B: {total}"
+    for downloaded, total, filename in results_b:
+        assert filename == "model-b.safetensors", f"Tracker B leaked filename: {filename}"
+        assert total == SIZE_B, f"Tracker B leaked total from tracker A: {total}"
+
+    # Final byte counts should match each tracker's own file size exactly.
+    assert results_a[-1][0] == SIZE_A, "Tracker A should finish at its own file size"
+    assert results_b[-1][0] == SIZE_B, "Tracker B should finish at its own file size"
+
+    # The monkey-patch must be fully torn down once both downloads finish,
+    # not just when whichever one finished first exits.
+    assert tqdm_module.tqdm is original_tqdm_class, "tqdm patch should be restored once both downloads finish"
+    assert HFProgressTracker._refcount == 0
+
+    print(f"  Tracker A: {len(results_a)} updates, tracker B: {len(results_b)} updates — no cross-talk")
+    print("✓ Test 5 PASSED\n")
+    return True
+
+
 async def test_full_integration():
     """Test 4: Full integration test."""
     print("\n" + "=" * 60)
@@ -284,6 +362,13 @@ async def main():
     except Exception as e:
         print(f"✗ Test 4 FAILED: {e}\n")
         results.append(("Full Integration", False))
+
+    # Test 5: Concurrent downloads stay isolated
+    try:
+        results.append(("Concurrent Downloads", test_concurrent_downloads_dont_cross_contaminate()))
+    except Exception as e:
+        print(f"✗ Test 5 FAILED: {e}\n")
+        results.append(("Concurrent Downloads", False))
 
     # Summary
     print("\n" + "=" * 60)
