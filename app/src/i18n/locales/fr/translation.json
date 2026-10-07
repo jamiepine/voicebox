@@ -344,7 +344,8 @@
       "sampleFailed": "Échec de l'ajout de l'échantillon",
       "sampleFailedDescription": "Échec de l'ajout de l'échantillon.",
       "sampleFailedRolledBack": "Échec de l'ajout de l'échantillon. Le profil a été annulé.",
-      "saveFailed": "Échec de l'enregistrement du profil"
+      "saveFailed": "Échec de l'enregistrement du profil",
+      "transcriptCoverage": "Vérifiez la transcription de l'échantillon"
     }
   },
   "audioSample": {

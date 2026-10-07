@@ -344,7 +344,8 @@
       "sampleFailed": "サンプルの追加に失敗しました",
       "sampleFailedDescription": "サンプルの追加に失敗しました。",
       "sampleFailedRolledBack": "サンプルの追加に失敗しました。プロファイルはロールバックされました。",
-      "saveFailed": "プロファイルの保存に失敗しました"
+      "saveFailed": "プロファイルの保存に失敗しました",
+      "transcriptCoverage": "サンプルの文字起こしを確認してください"
     }
   },
   "audioSample": {

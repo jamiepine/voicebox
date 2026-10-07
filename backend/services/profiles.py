@@ -1,5 +1,6 @@
 """Voice profile management module."""
 
+import asyncio
 import json as _json
 import logging
 import shutil
@@ -7,6 +8,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+import soundfile as sf
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -25,7 +27,11 @@ from ..models import (
     VoiceProfileCreate,
     VoiceProfileResponse,
 )
-from ..utils.audio import save_audio, validate_and_load_reference_audio
+from ..utils.audio import (
+    save_audio,
+    transcript_coverage_warning,
+    validate_and_load_reference_audio,
+)
 from ..utils.cache import _get_cache_dir, clear_profile_cache
 from ..utils.images import process_avatar, validate_image
 from . import history
@@ -248,8 +254,6 @@ async def add_profile_sample(
     Returns:
         Created sample
     """
-    import asyncio
-
     profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
     if not profile:
         raise ValueError(f"Profile {profile_id} not found")
@@ -260,6 +264,7 @@ async def add_profile_sample(
     )
     if not is_valid:
         raise ValueError(f"Invalid reference audio: {error_msg}")
+    duration_s = len(audio) / sr if sr else 0.0
 
     sample_id = str(uuid.uuid4())
     profile_dir = config.get_profiles_dir() / profile_id
@@ -286,7 +291,9 @@ async def add_profile_sample(
     # Since a new sample was added, any cached combined audio is now stale
     clear_profile_cache(profile_id)
 
-    return ProfileSampleResponse.model_validate(db_sample)
+    response = ProfileSampleResponse.model_validate(db_sample)
+    response.warning = transcript_coverage_warning(reference_text, duration_s)
+    return response
 
 
 async def get_profile(
@@ -565,7 +572,21 @@ async def update_profile_sample(
     # Since the reference text changed, cache keys and combined text are now stale
     clear_profile_cache(profile_id)
 
-    return ProfileSampleResponse.model_validate(sample)
+    response = ProfileSampleResponse.model_validate(sample)
+    duration_s = await asyncio.to_thread(_sample_duration_seconds, sample.audio_path)
+    response.warning = transcript_coverage_warning(reference_text, duration_s)
+    return response
+
+
+def _sample_duration_seconds(storage_path: str) -> float:
+    """Duration of a stored sample in seconds, or 0.0 when it cannot be read."""
+    path = config.resolve_storage_path(storage_path)
+    if path is None or not path.is_file():
+        return 0.0
+    try:
+        return float(sf.info(str(path)).duration)
+    except Exception:  # noqa: BLE001 - a broken file must not block the text edit
+        return 0.0
 
 
 async def create_voice_prompt_for_profile(

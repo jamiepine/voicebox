@@ -71,6 +71,10 @@ class ProfileSampleResponse(BaseModel):
     profile_id: str
     audio_path: str
     reference_text: str
+    # Set when the transcript cannot describe a clip of this length (see
+    # utils.audio.transcript_coverage_warning). The sample is stored anyway;
+    # the client should show this and let the user fix the text.
+    warning: Optional[str] = None
 
     class Config:
         from_attributes = True

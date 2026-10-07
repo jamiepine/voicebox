@@ -344,7 +344,8 @@
       "sampleFailed": "샘플 추가 실패",
       "sampleFailedDescription": "샘플 추가에 실패했습니다.",
       "sampleFailedRolledBack": "샘플 추가에 실패했습니다. 프로필이 롤백되었습니다.",
-      "saveFailed": "프로필 저장에 실패했습니다"
+      "saveFailed": "프로필 저장에 실패했습니다",
+      "transcriptCoverage": "샘플 전사 텍스트를 확인하세요"
     }
   },
   "audioSample": {

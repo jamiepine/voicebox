@@ -344,7 +344,8 @@
       "sampleFailed": "Impossibile aggiungere il campione",
       "sampleFailedDescription": "Impossibile aggiungere il campione.",
       "sampleFailedRolledBack": "Impossibile aggiungere il campione. Il profilo è stato ripristinato.",
-      "saveFailed": "Impossibile salvare il profilo"
+      "saveFailed": "Impossibile salvare il profilo",
+      "transcriptCoverage": "Controlla la trascrizione del campione"
     }
   },
   "audioSample": {
