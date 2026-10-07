@@ -15,7 +15,16 @@ import {
 } from '@dnd-kit/sortable';
 import { Link } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BookAudio, ChevronDown, Download, FileAudio, Music, Plus, Upload } from 'lucide-react';
+import {
+  BookAudio,
+  ChevronDown,
+  Download,
+  FileAudio,
+  type LucideIcon,
+  Music,
+  Plus,
+  Upload,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Loader from 'react-loaders';
@@ -34,6 +43,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import type { StoryExportFormat } from '@/lib/api/types';
 import { useHistory } from '@/lib/hooks/useHistory';
+import { useServerHealth } from '@/lib/hooks/useServer';
 import {
   useAddStoryItem,
   useExportStoryAudio,
@@ -46,6 +56,21 @@ import { useGenerationStore } from '@/stores/generationStore';
 import { useStoryStore } from '@/stores/storyStore';
 import { SortableStoryChatItem } from './StoryChatItem';
 
+/**
+ * Export containers in menu order. wav/flac/ogg/opus come from the bundled
+ * libsndfile. mp3 and m4b are transcoded by ffmpeg, which is what embeds the
+ * chapter markers; without ffmpeg the backend still writes mp3 through
+ * libsndfile (no chapters), but m4b is unavailable.
+ */
+const EXPORT_FORMATS: { value: StoryExportFormat; icon: LucideIcon }[] = [
+  { value: 'wav', icon: FileAudio },
+  { value: 'flac', icon: FileAudio },
+  { value: 'ogg', icon: FileAudio },
+  { value: 'opus', icon: FileAudio },
+  { value: 'mp3', icon: FileAudio },
+  { value: 'm4b', icon: BookAudio },
+];
+
 export function StoryContent() {
   const { t } = useTranslation();
   const selectedStoryId = useStoryStore((state) => state.selectedStoryId);
@@ -54,6 +79,7 @@ export function StoryContent() {
   const reorderItems = useReorderStoryItems();
   const exportAudio = useExportStoryAudio();
   const addStoryItem = useAddStoryItem();
+  const { data: health } = useServerHealth();
   const { toast } = useToast();
   const scrollRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -222,7 +248,7 @@ export function StoryContent() {
     );
   };
 
-  const handleExportAudio = (format: StoryExportFormat) => {
+  const handleExportAudio = (format: StoryExportFormat = 'wav', normalizeLoudness = false) => {
     if (!story) return;
 
     exportAudio.mutate(
@@ -230,6 +256,7 @@ export function StoryContent() {
         storyId: story.id,
         storyName: story.name,
         format,
+        normalizeLoudness,
       },
       {
         onError: (error) => {
@@ -469,17 +496,36 @@ export function StoryContent() {
                   {t('storyContent.exportDropdownLabel')}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => handleExportAudio('wav')}>
+                {EXPORT_FORMATS.map(({ value, icon: Icon }) => {
+                  // Only the m4b container has no libsndfile fallback.
+                  const needsFfmpeg = value === 'm4b' && !health?.ffmpeg_available;
+                  return (
+                    <DropdownMenuItem
+                      key={value}
+                      disabled={needsFfmpeg}
+                      onClick={() => handleExportAudio(value)}
+                    >
+                      <Icon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                      {needsFfmpeg
+                        ? t('storyContent.exportFormats.m4bUnavailable')
+                        : t(`storyContent.exportFormats.${value}`)}
+                    </DropdownMenuItem>
+                  );
+                })}
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                  {t('storyContent.export.mastering')}
+                </DropdownMenuLabel>
+                <DropdownMenuItem
+                  // Loudness normalisation needs ffmpeg (the mp3 itself no
+                  // longer does); disable rather than silently ignoring it.
+                  disabled={!health?.ffmpeg_available}
+                  onClick={() => handleExportAudio('mp3', true)}
+                >
                   <FileAudio className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                  {t('storyContent.exportFormats.wav')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportAudio('mp3')}>
-                  <FileAudio className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                  {t('storyContent.exportFormats.mp3')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExportAudio('m4b')}>
-                  <BookAudio className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-                  {t('storyContent.exportFormats.m4b')}
+                  {health?.ffmpeg_available
+                    ? t('storyContent.export.normalized')
+                    : t('storyContent.export.normalizedUnavailable')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

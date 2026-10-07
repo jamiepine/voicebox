@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "取消",
+    "clearSearch": "清除搜尋",
     "save": "儲存",
     "delete": "刪除",
     "edit": "編輯",
@@ -418,6 +419,7 @@
       "errorLoading": "載入聲音檔案時出錯:{{message}}",
       "empty": "尚無聲音檔案。建立您的第一個檔案以開始使用。",
       "createVoice": "建立聲音",
+      "noVoicesMatch": "沒有與「{{query}}」相符的設定檔",
       "unsupportedNote": "目前模型僅可選擇支援的聲音檔案。"
     },
     "deleteDialog": {
@@ -638,8 +640,11 @@
     "exportDropdownLabel": "匯出故事為",
     "exportFormats": {
       "wav": "音訊 (WAV)",
+      "flac": "音訊 (FLAC)",
+      "ogg": "音訊 (OGG Vorbis)",
+      "opus": "音訊 (Opus)",
       "mp3": "音訊 (MP3)",
-      "m4b": "有聲書 (M4B，含章節)"
+      "m4b": "有聲書 (M4B，含章節)",      "m4bUnavailable": "有聲書（M4B）需要 ffmpeg"
     },
     "empty": {
       "title": "此故事尚無項目",
@@ -663,7 +668,10 @@
     }
   },
   "history": {
+    "dragHandle": "拖曳到資料夾",
     "empty": "尚無語音生成…",
+      "searchPlaceholder": "搜尋片段…",
+      "emptySearch": "沒有符合該搜尋的片段。",
     "actions": {
       "menu": "操作",
       "play": "播放",

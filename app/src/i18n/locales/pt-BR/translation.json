@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "Cancelar",
+    "clearSearch": "Limpar busca",
     "save": "Salvar",
     "delete": "Excluir",
     "edit": "Editar",
@@ -418,6 +419,7 @@
       "errorLoading": "Erro ao carregar perfis: {{message}}",
       "empty": "Nenhum perfil de voz ainda. Crie seu primeiro perfil para começar.",
       "createVoice": "Criar Voz",
+      "noVoicesMatch": "Nenhum perfil corresponde a \"{{query}}\"",
       "unsupportedNote": "Apenas perfis de voz suportados podem ser selecionados para o modelo atual."
     },
     "deleteDialog": {
@@ -638,8 +640,11 @@
     "exportDropdownLabel": "Exportar história como",
     "exportFormats": {
       "wav": "Áudio (WAV)",
+      "flac": "Áudio (FLAC)",
+      "ogg": "Áudio (OGG Vorbis)",
+      "opus": "Áudio (Opus)",
       "mp3": "Áudio (MP3)",
-      "m4b": "Audiolivro (M4B, capítulos)"
+      "m4b": "Audiolivro (M4B, capítulos)",      "m4bUnavailable": "Audiolivro (M4B) requer ffmpeg"
     },
     "empty": {
       "title": "Nenhum item nesta história",
@@ -663,7 +668,10 @@
     }
   },
   "history": {
+    "dragHandle": "Arrastar para uma pasta",
     "empty": "Nenhuma geração de voz ainda…",
+      "searchPlaceholder": "Buscar clipes…",
+      "emptySearch": "Nenhum clipe corresponde a essa busca.",
     "actions": {
       "menu": "Ações",
       "play": "Reproduzir",

@@ -5,12 +5,15 @@ import type {
   StoryExportFormat,
   StoryItemBatchUpdate,
   StoryItemCreate,
+  StoryItemFadeUpdate,
   StoryItemMove,
   StoryItemReorder,
+  StoryItemSpeedUpdate,
   StoryItemSplit,
   StoryItemTrim,
   StoryItemVersionUpdate,
   StoryItemVolumeUpdate,
+  StoryTrackUpsert,
 } from '@/lib/api/types';
 import { usePlatform } from '@/platform/PlatformContext';
 
@@ -176,6 +179,87 @@ export function useUpdateStoryItemVolume() {
   });
 }
 
+export function useUpdateStoryItemFades() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemFadeUpdate;
+    }) => apiClient.updateStoryItemFades(storyId, itemId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
+    },
+  });
+}
+
+export function useUpdateStoryItemSpeed() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      itemId,
+      data,
+    }: {
+      storyId: string;
+      itemId: string;
+      data: StoryItemSpeedUpdate;
+    }) => apiClient.updateStoryItemSpeed(storyId, itemId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories'] });
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId] });
+    },
+  });
+}
+
+// ── Track mixer settings ─────────────────────────────────────────────
+
+export function useStoryTracks(storyId: string | null) {
+  return useQuery({
+    queryKey: ['stories', storyId, 'tracks'],
+    queryFn: () => apiClient.listStoryTracks(storyId as string),
+    enabled: !!storyId,
+  });
+}
+
+export function useUpsertStoryTrack() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      storyId,
+      index,
+      data,
+    }: {
+      storyId: string;
+      index: number;
+      data: StoryTrackUpsert;
+    }) => apiClient.upsertStoryTrack(storyId, index, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId, 'tracks'] });
+    },
+  });
+}
+
+export function useDeleteStoryTrack() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ storyId, index }: { storyId: string; index: number }) =>
+      apiClient.deleteStoryTrack(storyId, index),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['stories', variables.storyId, 'tracks'] });
+    },
+  });
+}
+
 export function useSplitStoryItem() {
   const queryClient = useQueryClient();
 
@@ -237,12 +321,20 @@ export function useExportStoryAudio() {
       storyId,
       storyName,
       format = 'wav',
+      chapters,
+      normalizeLoudness = false,
     }: {
       storyId: string;
       storyName: string;
       format?: StoryExportFormat;
+      chapters?: 'none' | 'auto';
+      normalizeLoudness?: boolean;
     }) => {
-      const blob = await apiClient.exportStoryAudio(storyId, format);
+      const blob = await apiClient.exportStoryAudio(storyId, {
+        format,
+        chapters,
+        normalizeLoudness,
+      });
 
       // Create safe filename
       const safeName = storyName

@@ -18,8 +18,10 @@ if _custom_models_dir:
     os.environ["HF_HUB_CACHE"] = _custom_models_dir
     logger.info("Model download path set to: %s", _custom_models_dir)
 
-# Default data directory (used in development)
-_data_dir = Path("data").resolve()
+# Default data directory (used in development). VOICEBOX_DATA_DIR lets a bare
+# `uvicorn backend.main:app` point at the packaged app's data dir without a CLI
+# flag. The --data-dir argument still wins: it calls set_data_dir() after import.
+_data_dir = Path(os.environ.get("VOICEBOX_DATA_DIR") or "data").resolve()
 
 
 def _path_relative_to_any_data_dir(path: Path) -> Path | None:

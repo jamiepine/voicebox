@@ -2,6 +2,8 @@
 Audio processing utilities.
 """
 
+import io
+
 import numpy as np
 import soundfile as sf
 import librosa
@@ -51,17 +53,175 @@ def load_audio(
 ) -> Tuple[np.ndarray, int]:
     """
     Load audio file with normalization.
-    
+
     Args:
         path: Path to audio file
         sample_rate: Target sample rate
         mono: Convert to mono
-        
+
     Returns:
         Tuple of (audio_array, sample_rate)
     """
     audio, sr = librosa.load(path, sr=sample_rate, mono=mono)
     return audio, sr
+
+
+# Container -> (soundfile format, default subtype, MIME type, file extension).
+# Every one of these is compiled into the libsndfile shipped with the app
+# (1.2.2, with LAME, mpg123, Vorbis, Opus and FLAC), so none of them needs
+# ffmpeg.
+EXPORT_FORMATS: dict[str, dict[str, str]] = {
+    "wav": {"format": "WAV", "subtype": "PCM_16", "mime": "audio/wav", "ext": ".wav"},
+    "mp3": {"format": "MP3", "subtype": "MPEG_LAYER_III", "mime": "audio/mpeg", "ext": ".mp3"},
+    "ogg": {"format": "OGG", "subtype": "VORBIS", "mime": "audio/ogg", "ext": ".ogg"},
+    "opus": {"format": "OGG", "subtype": "OPUS", "mime": "audio/ogg", "ext": ".opus"},
+    "flac": {"format": "FLAC", "subtype": "PCM_16", "mime": "audio/flac", "ext": ".flac"},
+}
+
+# Opus only ever encodes at 48 kHz; libsndfile errors on anything else.
+_OPUS_SAMPLE_RATE = 48000
+
+
+def encode_audio(audio: np.ndarray, sample_rate: int, fmt: str = "wav") -> bytes:
+    """Encode audio to a container's bytes.
+
+    Args:
+        audio: ``(samples,)`` mono or ``(channels, samples)`` multi-channel.
+        sample_rate: Sample rate in Hz.
+        fmt: A key of :data:`EXPORT_FORMATS`.
+
+    Returns:
+        Encoded file contents.
+
+    Raises:
+        ValueError: If ``fmt`` is not a supported container.
+    """
+    spec = EXPORT_FORMATS.get(fmt.lower())
+    if spec is None:
+        raise ValueError(f"Unsupported export format '{fmt}'. Supported: {sorted(EXPORT_FORMATS)}")
+
+    # soundfile wants (samples, channels); the mixer works in (channels, samples).
+    data = audio.T if audio.ndim > 1 else audio
+
+    if fmt.lower() == "opus" and sample_rate != _OPUS_SAMPLE_RATE:
+        data = librosa.resample(
+            data.T if data.ndim > 1 else data,
+            orig_sr=sample_rate,
+            target_sr=_OPUS_SAMPLE_RATE,
+        )
+        data = data.T if data.ndim > 1 else data
+        sample_rate = _OPUS_SAMPLE_RATE
+
+    buffer = io.BytesIO()
+    sf.write(
+        buffer,
+        data.astype(np.float32),
+        sample_rate,
+        format=spec["format"],
+        subtype=spec["subtype"],
+    )
+    return buffer.getvalue()
+
+
+# WSOLA windowing. 30ms frames are long enough to hold a pitch period at any
+# adult speaking F0 and short enough that a splice lands inside one phoneme.
+_WSOLA_FRAME_MS = 30
+_WSOLA_SEARCH_MS = 10
+
+
+def _wsola_splices(reference: np.ndarray, rate: float, sr: int) -> tuple[list[int], int, int]:
+    """Plan the splice points for a WSOLA stretch of *reference*.
+
+    Returns ``(offsets, frame, synthesis_hop)``. Planning separately from
+    applying is what lets every channel of a multi-channel clip use the *same*
+    splices: the search is content-dependent, so planning per channel would
+    choose different points for left and right and tear the stereo image.
+    """
+    frame = max(2, int(sr * _WSOLA_FRAME_MS / 1000))
+    search = max(1, int(sr * _WSOLA_SEARCH_MS / 1000))
+    synthesis_hop = frame // 2
+    analysis_hop = round(synthesis_hop * rate)
+    if analysis_hop < 1:
+        return [], frame, synthesis_hop
+
+    offsets: list[int] = []
+    read = 0
+    expected = reference[:frame].astype(np.float32)
+
+    while read + frame + search < len(reference):
+        lo = max(0, read - search)
+        hi = min(len(reference) - frame, read + search)
+        if hi <= lo:
+            offset = read
+        else:
+            candidates = np.arange(lo, hi + 1)
+            scores = [float(np.dot(reference[c : c + frame], expected)) for c in candidates]
+            offset = int(candidates[int(np.argmax(scores))])
+
+        offsets.append(offset)
+        nxt = reference[offset + synthesis_hop : offset + synthesis_hop + frame]
+        if len(nxt) < frame:
+            break
+        expected = nxt
+        # The nominal pointer advances by analysis_hop regardless of where the
+        # search landed. Folding the offset back in would let a run of
+        # forward-biased matches accelerate the read and cut the output short.
+        read += analysis_hop
+
+    return offsets, frame, synthesis_hop
+
+
+def _wsola_apply(channel: np.ndarray, offsets: list[int], frame: int, hop: int) -> np.ndarray:
+    """Overlap-add *channel* at the planned splice points."""
+    if not offsets:
+        return channel
+    window = np.hanning(frame).astype(np.float32)
+    length = hop * len(offsets) + frame
+    out = np.zeros(length, dtype=np.float32)
+    weights = np.zeros(length, dtype=np.float32)
+
+    for i, offset in enumerate(offsets):
+        segment = channel[offset : offset + frame]
+        if len(segment) < frame:
+            break
+        write = i * hop
+        out[write : write + frame] += segment * window
+        weights[write : write + frame] += window
+
+    nonzero = weights > 1e-6
+    out[nonzero] /= weights[nonzero]
+    return out
+
+
+def time_stretch_speech(audio, rate: float, sr: int):
+    """Change tempo without changing pitch, tuned for speech.
+
+    A phase vocoder (``librosa.effects.time_stretch``) reconstructs from
+    magnitudes and re-estimated phase; on speech that smears consonants and
+    leaves a phasey ring, audible enough to be rejected in listening tests.
+    WSOLA stays in the time domain and overlap-adds real waveform segments, so
+    nothing is resynthesised.
+
+    Resampling would transpose the voice, which is not what a speed control
+    means, so it is not an option either.
+
+    Accepts mono ``(samples,)`` or multi-channel ``(channels, samples)`` and
+    returns the same shape. Multi-channel input is planned once from the
+    downmix, so every channel is spliced identically and the stereo image
+    survives -- and every channel comes out the same length, which stacking
+    requires.
+    """
+    audio = np.asarray(audio, dtype=np.float32)
+    if rate == 1.0 or audio.size == 0:
+        return audio
+
+    if audio.ndim > 1:
+        reference = audio.mean(axis=0)
+        offsets, frame, hop = _wsola_splices(reference, rate, sr)
+        return np.stack([_wsola_apply(ch, offsets, frame, hop) for ch in audio])
+
+    offsets, frame, hop = _wsola_splices(audio, rate, sr)
+    return _wsola_apply(audio, offsets, frame, hop)
 
 
 def save_audio(

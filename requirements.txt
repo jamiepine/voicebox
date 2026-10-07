@@ -3,7 +3,7 @@ fastapi
 sqlalchemy
 torch
 torchvision
-soundfile
+soundfile>=0.13.0  # libsndfile 1.2.2, for MP3/Opus export
 librosa
 python-multipart
 huggingface_hub

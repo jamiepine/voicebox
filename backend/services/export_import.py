@@ -14,32 +14,14 @@ from sqlalchemy.orm import Session
 
 from ..models import VoiceProfileResponse
 from ..database import VoiceProfile as DBVoiceProfile, ProfileSample as DBProfileSample, Generation as DBGeneration, GenerationVersion as DBGenerationVersion
-from .profiles import create_profile, add_profile_sample
+from .profiles import create_profile, add_profile_sample, get_unique_profile_name
 from ..models import VoiceProfileCreate
 from .. import config
 
-
-def _get_unique_profile_name(name: str, db: Session) -> str:
-    """
-    Get a unique profile name by appending a number if needed.
-    
-    Args:
-        name: Original profile name
-        db: Database session
-        
-    Returns:
-        Unique profile name
-    """
-    base_name = name
-    counter = 1
-    
-    while True:
-        existing = db.query(DBVoiceProfile).filter_by(name=name).first()
-        if not existing:
-            return name
-        
-        name = f"{base_name} ({counter})"
-        counter += 1
+# Kept as a module-level alias: this helper started life here, and moved to
+# services.profiles so profile duplication could reuse it without importing
+# the export/import layer.
+_get_unique_profile_name = get_unique_profile_name
 
 
 def export_profile_to_zip(profile_id: str, db: Session) -> bytes:

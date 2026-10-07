@@ -10,6 +10,7 @@ from .. import database, models
 from ..services import stories
 from ..utils.http import safe_content_disposition
 from ..database import get_db
+from ..utils import ffmpeg
 
 router = APIRouter()
 
@@ -165,6 +166,70 @@ async def update_story_item_volume(
     return item
 
 
+@router.put("/stories/{story_id}/items/{item_id}/fades", response_model=models.StoryItemDetail)
+async def update_story_item_fades(
+    story_id: str,
+    item_id: str,
+    data: models.StoryItemFadeUpdate,
+    db: Session = Depends(get_db),
+):
+    """Set a story item's fade in/out lengths (ms)."""
+    item = await stories.update_story_item_fades(story_id, item_id, data, db)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Story item not found")
+    return item
+
+
+@router.put("/stories/{story_id}/items/{item_id}/speed", response_model=models.StoryItemDetail)
+async def update_story_item_speed(
+    story_id: str,
+    item_id: str,
+    data: models.StoryItemSpeedUpdate,
+    db: Session = Depends(get_db),
+):
+    """Set a story item's playback rate (pitch-preserving)."""
+    item = await stories.update_story_item_speed(story_id, item_id, data, db)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Story item not found")
+    return item
+
+
+# ── Track mixer settings ─────────────────────────────────────────────
+
+
+@router.get("/stories/{story_id}/tracks", response_model=list[models.StoryTrackResponse])
+async def list_story_tracks(story_id: str, db: Session = Depends(get_db)):
+    """Mixer settings for lanes that have them; others render at unity gain."""
+    return await stories.list_story_tracks(story_id, db)
+
+
+@router.put("/stories/{story_id}/tracks/{index}", response_model=models.StoryTrackResponse)
+async def upsert_story_track(
+    story_id: str,
+    index: int,
+    data: models.StoryTrackUpsert,
+    db: Session = Depends(get_db),
+):
+    """Create or update one lane's mixer settings."""
+    # A lane ducking under itself would attenuate by its own envelope — quieter
+    # wherever it is loudest, which is never what anyone means.
+    if data.duck_under_track is not None and data.duck_under_track == index:
+        raise HTTPException(status_code=400, detail="A track cannot duck under itself")
+    track = await stories.upsert_story_track(story_id, index, data, db)
+    if track is None:
+        raise HTTPException(status_code=404, detail="Story not found")
+    return track
+
+
+@router.delete("/stories/{story_id}/tracks/{index}")
+async def delete_story_track(story_id: str, index: int, db: Session = Depends(get_db)):
+    """Reset a lane to defaults. Clips on the lane are kept."""
+    ok = await stories.delete_story_track(story_id, index, db)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Track settings not found")
+    return {"deleted": index}
+
+
 @router.post("/stories/{story_id}/items/{item_id}/split", response_model=list[models.StoryItemDetail])
 async def split_story_item(
     story_id: str,
@@ -206,13 +271,6 @@ async def set_story_item_version(
     return item
 
 
-_EXPORT_MIME = {
-    "wav": "audio/wav",
-    "m4b": "audio/mp4",
-    "mp3": "audio/mpeg",
-}
-
-
 @router.get("/stories/{story_id}/export-audio")
 async def export_story_audio(
     story_id: str,
@@ -221,18 +279,32 @@ async def export_story_audio(
     # name stays ``format`` via the Query alias.
     format_: str = Query("wav", alias="format"),
     chapters: str = "none",
+    normalize_loudness: bool = False,
     db: Session = Depends(get_db),
 ):
     """Export story as a single mixed audio file.
 
     Query params:
-        format: ``wav`` (default), ``m4b``, or ``mp3``.
+        format: ``wav`` (default), ``flac``, ``ogg`` and ``opus`` come straight
+            from the bundled libsndfile, no ffmpeg. ``mp3`` and ``m4b`` are
+            transcoded by ffmpeg when it is installed. Without it, ``mp3``
+            still succeeds through libsndfile but carries no chapters, and
+            ``m4b`` answers 503 with an install hint.
         chapters: ``none`` (default) or ``auto``. ``auto`` emits one chapter
-            per story item, titled from its generation text. WAV ignores this.
+            per story item, titled from its generation text. Only mp3 and m4b
+            can carry chapters; the other containers ignore this, as does an
+            mp3 written without ffmpeg.
+        normalize_loudness: apply EBU R128 loudness normalisation. Needs
+            ffmpeg, but is a no-op without it rather than an error — the
+            export still succeeds with the mixer's own peak normalisation.
     """
     fmt = (format_ or "wav").lower()
-    if fmt not in _EXPORT_MIME:
-        raise HTTPException(status_code=400, detail=f"Unsupported format: {format_}")
+    spec = stories.STORY_EXPORT_FORMATS.get(fmt)
+    if spec is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported export format '{format_}'. Supported: {sorted(stories.STORY_EXPORT_FORMATS)}",
+        )
     chapters_mode = (chapters or "none").lower()
     if chapters_mode not in ("none", "auto"):
         raise HTTPException(status_code=400, detail=f"Unsupported chapters mode: {chapters}")
@@ -253,14 +325,19 @@ async def export_story_audio(
         if not audio_bytes:
             raise HTTPException(status_code=400, detail="Story has no audio items")
 
+        if normalize_loudness:
+            normalized = ffmpeg.normalize_loudness(audio_bytes, suffix=spec["ext"])
+            if normalized is not None:
+                audio_bytes = normalized
+
         safe_name = "".join(c for c in story.name if c.isalnum() or c in (" ", "-", "_")).strip()
         if not safe_name:
             safe_name = "story"
-        filename = f"{safe_name}.{fmt}"
+        filename = f"{safe_name}{spec['ext']}"
 
         return StreamingResponse(
             io.BytesIO(audio_bytes),
-            media_type=_EXPORT_MIME[fmt],
+            media_type=spec["mime"],
             headers={"Content-Disposition": safe_content_disposition("attachment", filename)},
         )
     except HTTPException:

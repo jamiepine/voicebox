@@ -1,6 +1,7 @@
 {
   "common": {
     "cancel": "キャンセル",
+    "clearSearch": "検索をクリア",
     "save": "保存",
     "delete": "削除",
     "edit": "編集",
@@ -418,6 +419,7 @@
       "errorLoading": "プロファイルの読み込みエラー:{{message}}",
       "empty": "ボイスプロファイルがまだありません。最初のプロファイルを作成して始めましょう。",
       "createVoice": "ボイスを作成",
+      "noVoicesMatch": "\"{{query}}\" に一致するプロファイルはありません",
       "unsupportedNote": "現在のモデルでは、対応しているボイスプロファイルのみ選択できます。"
     },
     "deleteDialog": {
@@ -638,8 +640,11 @@
     "exportDropdownLabel": "ストーリーをエクスポート",
     "exportFormats": {
       "wav": "音声 (WAV)",
+      "flac": "音声 (FLAC)",
+      "ogg": "音声 (OGG Vorbis)",
+      "opus": "音声 (Opus)",
       "mp3": "音声 (MP3)",
-      "m4b": "オーディオブック (M4B、チャプター付き)"
+      "m4b": "オーディオブック (M4B、チャプター付き)",      "m4bUnavailable": "オーディオブック（M4B）には ffmpeg が必要です"
     },
     "empty": {
       "title": "このストーリーには項目がありません",
@@ -663,7 +668,10 @@
     }
   },
   "history": {
+    "dragHandle": "フォルダーにドラッグ",
     "empty": "音声生成はまだありません…",
+      "searchPlaceholder": "クリップを検索…",
+      "emptySearch": "その検索に一致するクリップはありません。",
     "actions": {
       "menu": "操作",
       "play": "再生",

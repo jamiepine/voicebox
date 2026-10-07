@@ -49,6 +49,7 @@
         "resizable": true,
         "fullscreen": false,
         "devtools": true,
+        "dragDropEnabled": false,
         "userAgent": null,
         "titleBarStyle": "Overlay"
       }
