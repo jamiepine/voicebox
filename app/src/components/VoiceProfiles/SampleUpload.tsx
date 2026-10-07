@@ -70,11 +70,16 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
     isRecording,
     duration,
     error: recordingError,
+    stream: recordingStream,
     startRecording,
     stopRecording,
     cancelRecording,
   } = useAudioRecording({
     maxDurationSeconds: 29,
+    // Reference samples for cloning must be raw/high-fidelity — the browser
+    // voice DSP (AEC/NS/AGC) stutters and degrades quality with external
+    // audio interfaces such as the RodeCaster.
+    audioProcessing: false,
     onRecordingComplete: (blob, recordedDuration) => {
       // Convert blob to File object
       const file = new File([blob], `recording-${Date.now()}.webm`, {
@@ -278,6 +283,7 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
                       file={selectedFile}
                       isRecording={isRecording}
                       duration={duration}
+                      recordingStream={recordingStream}
                       onStart={startRecording}
                       onStop={stopRecording}
                       onCancel={handleCancelRecording}

@@ -5,16 +5,32 @@ import { convertToWav } from '@/lib/utils/audio';
 interface UseAudioRecordingOptions {
   maxDurationSeconds?: number;
   onRecordingComplete?: (blob: Blob, duration?: number) => void;
+  /**
+   * Enable the browser's voice-processing DSP (echo cancellation, noise
+   * suppression, auto gain). Defaults to true, which is fine for dictation
+   * against a laptop's built-in mic. Pass false for high-fidelity capture
+   * (e.g. voice-clone reference samples) or when using an external audio
+   * interface: on macOS these flags route through the OS VoiceProcessingIO
+   * path, which is tuned for built-in mics and causes stutter/dropouts with
+   * pro interfaces (clock drift vs. the echo reference) plus quality loss
+   * from NS/AGC.
+   */
+  audioProcessing?: boolean;
 }
 
 export function useAudioRecording({
   maxDurationSeconds,
   onRecordingComplete,
+  audioProcessing = true,
 }: UseAudioRecordingOptions = {}) {
   const platform = usePlatform();
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Exposed so callers can drive a waveform visualizer from the SAME capture
+  // stream instead of opening a second getUserMedia — two concurrent opens of
+  // one input device leave the visualizer's stream silent on macOS.
+  const [stream, setStream] = useState<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -58,16 +74,20 @@ export function useAudioRecording({
         }
       }
 
-      // Request microphone access
+      // Request microphone access. For high-fidelity capture we disable the
+      // browser voice-processing DSP: on macOS those flags force the OS
+      // VoiceProcessingIO path, which stutters/drops with external interfaces
+      // (RodeCaster et al.) and degrades quality via NS/AGC.
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
+          echoCancellation: audioProcessing,
+          noiseSuppression: audioProcessing,
+          autoGainControl: audioProcessing,
         },
       });
 
       streamRef.current = stream;
+      setStream(stream);
 
       // Create MediaRecorder with preferred MIME type
       const options: MediaRecorderOptions = {
@@ -104,6 +124,7 @@ export function useAudioRecording({
           track.stop();
         });
         streamRef.current = null;
+        setStream(null);
 
         // Don't fire completion callback if the recording was cancelled
         if (wasCancelled) return;
@@ -162,7 +183,7 @@ export function useAudioRecording({
       setError(errorMessage);
       setIsRecording(false);
     }
-  }, [maxDurationSeconds, onRecordingComplete]);
+  }, [maxDurationSeconds, onRecordingComplete, audioProcessing]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
@@ -190,6 +211,7 @@ export function useAudioRecording({
       track.stop();
     });
     streamRef.current = null;
+    setStream(null);
 
     if (timerRef.current !== null) {
       clearInterval(timerRef.current);
@@ -213,6 +235,7 @@ export function useAudioRecording({
     isRecording,
     duration,
     error,
+    stream,
     startRecording,
     stopRecording,
     cancelRecording,

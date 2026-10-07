@@ -250,6 +250,10 @@ export function useCaptureRecordingSession(
     stopRecording,
     error: recordError,
   } = useAudioRecording({
+    // Capture raw audio: the browser voice DSP (AEC/NS/AGC) stutters and drops
+    // with external audio interfaces on macOS, and Whisper handles clean input
+    // fine, so we disable it here too.
+    audioProcessing: false,
     onRecordingComplete: (blob, recordedDuration) => {
       // Trigger-happy tap — MediaRecorder hasn't emitted a usable chunk yet
       // so the blob is empty or unparseable. Surface it as a transient pill
