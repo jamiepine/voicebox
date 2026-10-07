@@ -11,6 +11,33 @@
     "unknown": "Unknown",
     "unknownError": "Unknown error"
   },
+  "startup": {
+    "serverFailed": "Server startup failed",
+    "retry": "Retry",
+    "connectTimeout": "Could not connect to a Voicebox server within 2 minutes. Please check that the server is running and try again.",
+    "loadingMessages": [
+      "Warming up tensors...",
+      "Calibrating synthesizer engine...",
+      "Initializing voice models...",
+      "Loading neural networks...",
+      "Preparing audio pipelines...",
+      "Optimizing waveform generators...",
+      "Tuning frequency analyzers...",
+      "Building voice embeddings...",
+      "Configuring text-to-speech cores...",
+      "Syncing audio buffers...",
+      "Establishing model connections...",
+      "Preprocessing training data...",
+      "Validating voice samples...",
+      "Compiling inference engines...",
+      "Mapping phoneme sequences...",
+      "Aligning prosody parameters...",
+      "Activating speech synthesis...",
+      "Fine-tuning acoustic models...",
+      "Preparing voice cloning matrices...",
+      "Initializing Qwen TTS framework..."
+    ]
+  },
   "nav": {
     "generate": "Generate",
     "stories": "Stories",

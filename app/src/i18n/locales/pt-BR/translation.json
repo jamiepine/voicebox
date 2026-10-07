@@ -11,6 +11,33 @@
     "unknown": "Desconhecido",
     "unknownError": "Erro desconhecido"
   },
+  "startup": {
+    "serverFailed": "Falha ao iniciar o servidor",
+    "retry": "Tentar de novo",
+    "connectTimeout": "Não foi possível conectar a um servidor Voicebox em 2 minutos. Verifique se o servidor está rodando e tente de novo.",
+    "loadingMessages": [
+      "Aquecendo os tensores...",
+      "Calibrando o motor de síntese...",
+      "Inicializando os modelos de voz...",
+      "Carregando as redes neurais...",
+      "Preparando os pipelines de áudio...",
+      "Otimizando os geradores de forma de onda...",
+      "Ajustando os analisadores de frequência...",
+      "Construindo os embeddings de voz...",
+      "Configurando os núcleos de fala...",
+      "Sincronizando os buffers de áudio...",
+      "Estabelecendo as conexões dos modelos...",
+      "Pré-processando os dados de treinamento...",
+      "Validando as amostras de voz...",
+      "Compilando os motores de inferência...",
+      "Mapeando as sequências de fonemas...",
+      "Alinhando os parâmetros de prosódia...",
+      "Ativando a síntese de fala...",
+      "Refinando os modelos acústicos...",
+      "Preparando as matrizes de clonagem de voz...",
+      "Inicializando o framework Qwen TTS..."
+    ]
+  },
   "nav": {
     "generate": "Gerar",
     "stories": "Histórias",
