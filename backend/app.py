@@ -154,7 +154,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    from .utils.security import SecurityMiddleware
+
     _configure_cors(application)
+    application.add_middleware(SecurityMiddleware)
     application.add_middleware(ClientIdMiddleware)
     register_routers(application)
     application.mount("/mcp", mcp_app)
