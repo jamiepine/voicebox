@@ -62,6 +62,17 @@ def _resolve_model_config(model_name: str):
             detail=f"Unknown model: {model_name!r}. Available: {known}",
         )
     return config
+@router.get("/engines", response_model=models.EngineCapabilitiesListResponse)
+async def list_engine_capabilities():
+    """What each TTS engine supports, derived from the model registry.
+
+    Clients should gate features on these flags rather than matching engine
+    names — the registry is where support is declared, so a new engine that
+    honours ``instruct`` becomes usable without a client change.
+    """
+    from ..backends import get_engine_capabilities
+
+    return {"engines": get_engine_capabilities()}
 
 
 @router.post("/models/load")

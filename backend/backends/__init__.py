@@ -306,7 +306,15 @@ def _get_qwen_custom_voice_configs() -> list[ModelConfig]:
             hf_repo_id="Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
             model_size="0.6B",
             size_mb=1200,
-            supports_instruct=True,
+            # qwen_tts throws instruct away for this checkpoint --
+            # `if self.model.tts_model_size in "0b6": instruct = None` in
+            # inference/qwen3_tts_model.py, generate_custom_voice(). Claiming
+            # support made the prosody compiler realise <emphasis> into a kwarg
+            # the library then discarded, so the tag did nothing and said
+            # nothing about it.
+            #
+            # Found by @hakimio on #1036.
+            supports_instruct=False,
             languages=["zh", "en", "ja", "ko", "de", "fr", "ru", "pt", "es", "it"],
         ),
     ]
@@ -628,6 +636,59 @@ def engine_has_model_sizes(engine: str) -> bool:
     """Whether this engine supports multiple model sizes (only Qwen currently)."""
     configs = [c for c in get_tts_model_configs() if c.engine == engine]
     return len(configs) > 1
+
+
+def engine_supports_instruct(engine: str) -> bool:
+    """Whether this engine honours the ``instruct`` kwarg.
+
+    Base Qwen3-TTS accepts the argument and ignores it, so passing delivery
+    instructions there is silently ineffective — hence the flag rather than
+    inferring support from the signature.
+
+    An engine whose variants disagree is treated as unsupported: a request
+    carries one engine but the model size can change under it, so the
+    conservative answer is the only one that stays true for every variant.
+    """
+    configs = [c for c in get_tts_model_configs() if c.engine == engine]
+    return bool(configs) and all(c.supports_instruct for c in configs)
+
+
+def engine_languages(engine: str) -> list[str]:
+    """Language codes this engine can generate.
+
+    Union across the engine's variants — a language available on only one
+    model size is still reachable, just not on every size.
+    """
+    langs: list[str] = []
+    for cfg in get_tts_model_configs():
+        if cfg.engine == engine:
+            langs.extend(lang for lang in cfg.languages if lang not in langs)
+    return langs
+
+
+def engine_model_sizes(engine: str) -> list[str]:
+    """Model sizes registered for this engine, in registry order."""
+    return [c.model_size for c in get_tts_model_configs() if c.engine == engine]
+
+
+def get_engine_capabilities() -> list[dict]:
+    """Per-engine capability summary, derived from the model registry.
+
+    The registry is the single source of truth: clients read this instead of
+    keeping their own list of which engines honour what, which is how the two
+    drift apart.
+    """
+    return [
+        {
+            "engine": engine,
+            "display_name": display_name,
+            "supports_instruct": engine_supports_instruct(engine),
+            "languages": engine_languages(engine),
+            "model_sizes": engine_model_sizes(engine),
+            "has_model_sizes": engine_has_model_sizes(engine),
+        }
+        for engine, display_name in TTS_ENGINES.items()
+    ]
 
 
 async def load_engine_model(engine: str, model_size: str = "default") -> None:
