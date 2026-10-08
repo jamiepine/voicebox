@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+Voicebox is expanding how people create and use speech: voices can be designed from text, OpenAI-compatible clients can generate audio locally, and dictation can use a custom LLM for refinement and personalities. Linux installations gain native CUDA/ROCm backend assets and more predictable app shutdown, while stories can be exported as chaptered audiobooks or MP3.
+
+The backend adds an opt-in, non-commercial OmniVoice engine. TTS trimming now checks for enough speech after a long pause before treating it as a hallucinated tail, preserving expressive pauses while still removing short noise tails.
+
 ### Text-to-speech
 
 - **Design a voice from a written description.** The profile form gains a third source, "Describe a voice", next to clone-from-audio and built-in voice: write the voice you want ("a warm, gravelly older man with a slow Scottish lilt") and the profile is created as a `designed` voice backed by the new `qwen_voice_design` engine (Qwen3-TTS-12Hz-1.7B-VoiceDesign, 10 languages, local, Apache-2.0 weights). Designed profiles work everywhere a profile does: `/generate`, `/speak`, MCP `voicebox_speak`, stories, and dictation TTS. A per-generation instruct layers onto the description instead of replacing it. — @Lvigentini ([#1012](https://github.com/jamiepine/voicebox/pull/1012))
@@ -20,8 +24,6 @@
 ### Linux
 
 - **Installing the CUDA or ROCm backend on Linux downloads a native Linux binary.** The GPU server release assets are now platform-qualified (`voicebox-server-{cuda,rocm}-<platform>.tar.gz`, `{cuda,rocm}-libs-<platform>-<version>.tar.gz`) and a `build-gpu-linux` release job builds the Linux CUDA and ROCm bundles alongside the Windows ones, so Linux no longer fetches a Windows `.exe` and silently falls back to CPU. The ROCm download is offered on Linux hosts with an AMD ROCm driver (`/dev/kfd`), and the CUDA download gate from 0.6 now refuses only platforms without a published asset (macOS, Linux arm64). — @1337hero, @smendola ([#851](https://github.com/jamiepine/voicebox/pull/851), [#561](https://github.com/jamiepine/voicebox/pull/561); fixes [#767](https://github.com/jamiepine/voicebox/issues/767))
-### Linux
-
 - **Closing the window quits the app.** With "Keep server running" off, closing the main window on Linux left the Tauri process alive after the backend had stopped (the hidden dictation pill window kept it running), and its speak monitor retried `/events/speak` every 30 seconds forever. On Linux the close flow now exits the application once the frontend finishes its cleanup, or after the 5-second timeout; macOS and Windows keep their existing close behaviour. — @Fulminao ([#1040](https://github.com/jamiepine/voicebox/pull/1040))
 - **`just build-server-cuda` works on Linux.** The recipe builds the CUDA backend with `build_binary.py --cuda` and installs it into `$XDG_DATA_HOME/sh.voicebox.app/backends/cuda` (default `~/.local/share`), matching the Windows recipe. — @Fulminao ([#1044](https://github.com/jamiepine/voicebox/pull/1044))
 ### Export
@@ -31,6 +33,12 @@
 ### Engines
 
 - **OmniVoice TTS engine (non-commercial).** Adds k2-fsa/OmniVoice as an opt-in eighth engine: zero-shot cloning and attribute-based voice design (gender, age, pitch, accent) across the 23 languages Voicebox already lists, 24 kHz output. Its `HiggsAudioV2` codec only exists in transformers 5.x, so the modelling code is vendored under `backend/vendor/` and grafted onto the pinned 4.57 at load time; `omnivoice` installs `--no-deps` like Chatterbox and TADA. The weights are CC-BY-NC, so the engine is labelled non-commercial in the engine picker and model manager and is never a default. — @pippo73 ([#1062](https://github.com/jamiepine/voicebox/pull/1062); fixes [#380](https://github.com/jamiepine/voicebox/issues/380), [#517](https://github.com/jamiepine/voicebox/issues/517), [#791](https://github.com/jamiepine/voicebox/issues/791))
+
+### Bug Fixes
+
+- **Long pauses no longer truncate substantial TTS continuations.** `trim_tts_output()` keeps audio after a long internal pause when at least 1.5 seconds of speech remains, while still cutting short noise tails. — fixes [#1108](https://github.com/jamiepine/voicebox/issues/1108)
+
+_Voicebox is free and open source, built with [Capy](https://capy.ai?utm_source=voicebox&utm_medium=changelog&utm_campaign=built-with-capy)._
 
 ## [0.6.0] - 2026-10-04
 
