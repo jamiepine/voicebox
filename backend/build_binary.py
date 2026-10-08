@@ -392,6 +392,25 @@ def build_server(cuda=False, rocm=False):
                     "torch.backends.cudnn",
                 ]
             )
+            # NVRTC dlopen()s its builtins library at runtime, so PyInstaller's
+            # dependency scan never sees it. Without it, any torch JIT kernel
+            # (e.g. complex abs) fails with "failed to open libnvrtc-builtins".
+            # Bundle it next to libnvrtc so NVRTC finds it in its own directory.
+            import importlib.util
+
+            nvrtc_spec = importlib.util.find_spec("nvidia.cuda_nvrtc")
+            if nvrtc_spec is None or not nvrtc_spec.submodule_search_locations:
+                raise RuntimeError("CUDA build requires the nvidia-cuda-nvrtc package")
+            nvrtc_dir = Path(list(nvrtc_spec.submodule_search_locations)[0])
+            builtins_libs = [
+                *nvrtc_dir.glob("lib/libnvrtc-builtins*.so*"),
+                *nvrtc_dir.glob("bin/nvrtc-builtins*.dll"),
+            ]
+            if not builtins_libs:
+                raise RuntimeError(f"No NVRTC builtins library found under {nvrtc_dir}")
+            for lib in builtins_libs:
+                dest = f"nvidia/cuda_nvrtc/{lib.parent.name}"
+                gpu_hidden.extend(["--add-binary", f"{lib}{os.pathsep}{dest}"])
         args.extend(gpu_hidden)
 
     if rocm and platform.system() == "Windows":
