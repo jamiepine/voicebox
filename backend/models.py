@@ -171,7 +171,7 @@ class HistoryListResponse(BaseModel):
 class TranscriptionRequest(BaseModel):
     """Request model for audio transcription."""
 
-    language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
+    language: Optional[str] = Field(None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$")
     model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
 
 
@@ -242,7 +242,7 @@ class CaptureRetranscribeRequest(BaseModel):
     """Request to re-run STT on a capture's audio with a different model."""
 
     model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
-    language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
+    language: Optional[str] = Field(None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$")
 
 
 class CaptureSettingsResponse(BaseModel):
