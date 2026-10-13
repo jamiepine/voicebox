@@ -170,15 +170,25 @@ class LuxTTSBackend:
             import torch
 
             with torch.inference_mode():
-                wav = self.model.generate_speech(
-                    text=text,
-                    encode_dict=voice_prompt,
-                    num_steps=4,
-                    guidance_scale=3.0,
-                    t_shift=0.5,
-                    speed=1.0,
-                    return_smooth=False,  # 48kHz output
-                )
+                try:
+                    wav = self.model.generate_speech(
+                        text=text,
+                        encode_dict=voice_prompt,
+                        num_steps=4,
+                        guidance_scale=3.0,
+                        t_shift=0.5,
+                        speed=1.0,
+                        return_smooth=False,  # 48kHz output
+                    )
+                except RuntimeError as e:
+                    # Very short text yields fewer feature frames than the
+                    # vocoder's Conv1d kernel, which torch reports as a raw
+                    # padding error (#1046).
+                    if "Kernel size can't be greater than actual input size" not in str(e):
+                        raise
+                    raise ValueError(
+                        "Text is too short for LuxTTS. Try a longer sentence or another engine."
+                    ) from e
 
                 # LuxTTS returns a tensor (may be on GPU/MPS), move to CPU first
                 audio = wav.detach().cpu().numpy().squeeze()
