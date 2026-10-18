@@ -14,6 +14,14 @@ export const queryClient = new QueryClient({
       gcTime: 1000 * 60 * 10, // 10 minutes (formerly cacheTime)
       retry: 1,
       refetchOnWindowFocus: false,
+      // The backend is a local sidecar (127.0.0.1), reachable without a
+      // network. TanStack Query's default 'online' mode pauses fetches and
+      // mutations while navigator.onLine is false, which left Generate
+      // spinning forever with Wi-Fi off (#1085).
+      networkMode: 'always',
+    },
+    mutations: {
+      networkMode: 'always',
     },
   },
 });
