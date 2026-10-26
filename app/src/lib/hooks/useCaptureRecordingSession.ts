@@ -9,6 +9,7 @@ import type {
   CaptureSource,
 } from '@/lib/api/types';
 import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
+import { isShortDictationError } from '@/lib/utils/captureErrors';
 
 /**
  * Broadcast to sibling Tauri webviews that the captures list has changed.
@@ -229,13 +230,11 @@ export function useCaptureRecordingSession(
         }
       }
     },
-    onError: (err: Error) => {
-      // Backend's librosa-audioread fallback returns a 400 with this shape
-      // for tiny/corrupt webm blobs that slip past the client guard —
-      // translate it to the same friendly message so the user sees one
-      // consistent cause, not an opaque decode error.
+    onError: (err: Error, variables) => {
+      // Keep the brief notice for dictation blobs that slip past the client
+      // guard, but preserve decode diagnostics for uploaded audio files.
       const msg = err.message || '';
-      if (/could not decode/i.test(msg) || /empty or corrupt/i.test(msg)) {
+      if (isShortDictationError(msg, variables.source)) {
         showError(SHORT_RECORDING_MESSAGE, BRIEF_NOTICE_MS);
       } else {
         showError(msg || 'Upload failed');
