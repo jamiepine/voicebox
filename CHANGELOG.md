@@ -32,6 +32,10 @@
 
 - **OmniVoice TTS engine (non-commercial).** Adds k2-fsa/OmniVoice as an opt-in eighth engine: zero-shot cloning and attribute-based voice design (gender, age, pitch, accent) across the 23 languages Voicebox already lists, 24 kHz output. Its `HiggsAudioV2` codec only exists in transformers 5.x, so the modelling code is vendored under `backend/vendor/` and grafted onto the pinned 4.57 at load time; `omnivoice` installs `--no-deps` like Chatterbox and TADA. The weights are CC-BY-NC, so the engine is labelled non-commercial in the engine picker and model manager and is never a default. — @pippo73 ([#1062](https://github.com/jamiepine/voicebox/pull/1062); fixes [#380](https://github.com/jamiepine/voicebox/issues/380), [#517](https://github.com/jamiepine/voicebox/issues/517), [#791](https://github.com/jamiepine/voicebox/issues/791))
 
+### MCP
+
+- **MCP stdio preserves UTF-8 text on Windows.** The proxy configures stdin and stdout as UTF-8 before reading or writing JSON-RPC messages, so non-ASCII text is not decoded through the Windows ANSI code page.
+
 ## [0.6.0] - 2026-10-04
 
 **The stability release.** 0.5 made Voicebox a dictation and agent-voice studio; 0.6 makes it hold up. Sixty-plus contributor pull requests landed since 0.5 and most of them fix something that used to go wrong in daily use: MLX crashed with `There is no Stream(gpu, 1) in current thread` when a model was loaded on one thread and used on another, memory grew with every generation and never came back on unload, a fully-cached model retried HuggingFace five times per file before it would load offline, the Docker image could not write its own data volume, dictation refused to arm without an LLM it was never going to call, and the backend test suite would not even collect. All of that is fixed. The headline features ride on top: native AMD ROCm on Windows and in Docker, five new interface languages, and Chatterbox multilingual running on Apple Silicon through MLX.

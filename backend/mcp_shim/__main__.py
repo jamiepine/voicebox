@@ -187,6 +187,9 @@ async def _run() -> int:
 
 
 def main() -> int:
+    # MCP stdio frames are UTF-8 regardless of the Windows ANSI code page.
+    sys.stdin.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8")
     try:
         return asyncio.run(_run())
     except KeyboardInterrupt:
