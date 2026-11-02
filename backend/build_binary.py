@@ -346,6 +346,8 @@ def build_server(cuda=False, rocm=False):
             # must be collected or Japanese Kokoro voices crash at runtime.
             "--collect-all",
             "unidic_lite",
+            "--collect-all",
+            "pykakasi",
             "--hidden-import",
             "loguru",
             # MCP server — Streamable-HTTP endpoint and the 4 voicebox.* tools.
