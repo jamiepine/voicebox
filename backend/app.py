@@ -187,7 +187,7 @@ def _configure_cors(application: FastAPI) -> None:
     )
 
 
-def _mount_frontend(application: FastAPI) -> None:
+def _mount_frontend(application: FastAPI, frontend_dir: Path | None = None) -> None:
     """Serve the built web frontend when present (Docker / web deployment).
 
     The Dockerfile copies the Vite build output to ``/app/frontend/``.  When
@@ -195,10 +195,11 @@ def _mount_frontend(application: FastAPI) -> None:
     the React SPA handles client-side routing.  In dev or API-only mode the
     directory is absent and this function is a no-op.
     """
-    frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+    frontend_dir = frontend_dir or Path(__file__).resolve().parent.parent / "frontend"
     if not frontend_dir.is_dir():
         return
 
+    from fastapi import HTTPException, Request
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
 
@@ -214,11 +215,15 @@ def _mount_frontend(application: FastAPI) -> None:
     # SPA catch-all: serve files if they exist, otherwise index.html for
     # client-side routes like /voices, /stories, /models, etc.
     @application.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
+    async def serve_spa(full_path: str, request: Request):
         file_path = (frontend_dir / full_path).resolve()
         # Guard against path traversal — only serve files inside frontend_dir
         if full_path and file_path.is_file() and file_path.is_relative_to(frontend_dir):
             return FileResponse(file_path)
+        # Only a browser opening a page asks for HTML. An API client calling a
+        # path that isn't a route gets a 404, not the app's HTML with a 200.
+        if "text/html" not in request.headers.get("accept", ""):
+            raise HTTPException(status_code=404, detail="Not Found")
         return FileResponse(frontend_dir / "index.html", media_type="text/html")
 
     logger.info("Frontend: serving SPA from %s", frontend_dir)
