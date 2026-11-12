@@ -156,6 +156,8 @@ class HistoryResponse(BaseModel):
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
+    # Jobs ahead of this one in the generation queue; 0 while running.
+    queue_position: Optional[int] = None
 
     class Config:
         from_attributes = True

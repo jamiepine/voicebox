@@ -476,6 +476,7 @@ export function HistoryTable() {
               const isCurrentlyPlaying = currentAudioId === gen.id && isPlaying;
               const isInProgress = gen.status === 'loading_model' || gen.status === 'generating';
               const isGenerating = isInProgress;
+              const isQueued = isInProgress && (gen.queue_position ?? 0) > 0;
               const isFailed = gen.status === 'failed';
               const isPlayable = !isGenerating && !isFailed;
               const hasVersions = gen.versions && gen.versions.length > 1;
@@ -529,7 +530,13 @@ export function HistoryTable() {
                     {/* Status icon */}
                     <div className="flex items-center shrink-0 w-10 justify-center overflow-hidden">
                       <AudioBars
-                        mode={isGenerating ? 'generating' : isCurrentlyPlaying ? 'playing' : 'idle'}
+                        mode={
+                          isGenerating && !isQueued
+                            ? 'generating'
+                            : isCurrentlyPlaying
+                              ? 'playing'
+                              : 'idle'
+                        }
                       />
                     </div>
 
@@ -554,7 +561,11 @@ export function HistoryTable() {
                       <div className="text-xs text-muted-foreground">
                         {isInProgress ? (
                           <span className="text-accent">
-                            {gen.status === 'loading_model' ? 'Loading model...' : 'Generating...'}
+                            {gen.status === 'loading_model'
+                              ? 'Loading model...'
+                              : isQueued
+                                ? t('history.queued', { count: gen.queue_position ?? 0 })
+                                : 'Generating...'}
                           </span>
                         ) : (
                           formatDate(gen.created_at)
