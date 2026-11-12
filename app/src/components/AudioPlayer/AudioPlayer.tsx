@@ -67,6 +67,8 @@ export function AudioPlayer() {
   const waveformRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const loadingRef = useRef(false);
+  // Counts load() calls so a load that a newer one replaced can be ignored.
+  const loadIdRef = useRef(0);
   const previousAudioIdRef = useRef<string | null>(null);
   const hasInitializedRef = useRef(false);
   const isUsingNativePlaybackRef = useRef(false);
@@ -298,13 +300,22 @@ export function AudioPlayer() {
     setCurrentTime(0);
     setDuration(0);
 
+    const loadId = ++loadIdRef.current;
     wavesurfer
       .load(audioUrl)
       .then(() => {
+        if (loadId !== loadIdRef.current) return;
         debug.log('Audio loaded into WaveSurfer');
         loadingRef.current = false;
       })
       .catch((err) => {
+        // Starting a new load aborts the previous one. That abort is expected,
+        // and reporting it would cover up the clip that is now loading.
+        const aborted = err instanceof Error && err.name === 'AbortError';
+        if (loadId !== loadIdRef.current || aborted) {
+          debug.log('Superseded audio load cancelled');
+          return;
+        }
         debug.error('Failed to load audio:', err);
         loadingRef.current = false;
         setIsLoading(false);
