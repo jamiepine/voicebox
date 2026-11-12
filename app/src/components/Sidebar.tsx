@@ -45,10 +45,10 @@ export function Sidebar({ isMacOS }: SidebarProps) {
         isMacOS && 'pt-14',
       )}
     >
-      {/* Logo */}
-      <div className="mb-2">
+      {/* Logo: goes to the home (generate) page */}
+      <Link to="/" className="mb-2 rounded-full" aria-label={t('nav.generate')}>
         <img src={voiceboxLogo} alt="Voicebox" className="sidebar-logo w-12 h-12 object-contain" />
-      </div>
+      </Link>
 
       {/* Navigation Buttons */}
       <div className="flex flex-col gap-3">
