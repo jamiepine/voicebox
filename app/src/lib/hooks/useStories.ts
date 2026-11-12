@@ -12,6 +12,7 @@ import type {
   StoryItemVersionUpdate,
   StoryItemVolumeUpdate,
 } from '@/lib/api/types';
+import { toFileNameSlug } from '@/lib/utils/fileName';
 import { usePlatform } from '@/platform/PlatformContext';
 
 export function useStories() {
@@ -245,10 +246,7 @@ export function useExportStoryAudio() {
       const blob = await apiClient.exportStoryAudio(storyId, format);
 
       // Create safe filename
-      const safeName = storyName
-        .substring(0, 50)
-        .replace(/[^a-z0-9]/gi, '-')
-        .toLowerCase();
+      const safeName = toFileNameSlug(storyName, 50);
       const filename = `${safeName || 'story'}.${format}`;
 
       await platform.filesystem.saveFile(filename, blob, [
