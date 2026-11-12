@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type { GenerationExportFormat, HistoryQuery } from '@/lib/api/types';
+import { toFileNameSlug } from '@/lib/utils/fileName';
 import { usePlatform } from '@/platform/PlatformContext';
 
 export function useHistory(query?: HistoryQuery) {
@@ -50,10 +51,7 @@ export function useExportGeneration() {
       // Create safe filename from text. Append a short id so exports of
       // similarly-worded generations don't collide on the same filename
       // (the first 30 chars are frequently identical).
-      const safeText = text
-        .substring(0, 30)
-        .replace(/[^a-z0-9]/gi, '-')
-        .toLowerCase();
+      const safeText = toFileNameSlug(text, 30);
       const filename = `generation-${safeText}-${generationId.substring(0, 8)}.voicebox.zip`;
 
       await platform.filesystem.saveFile(filename, blob, [
@@ -86,10 +84,7 @@ export function useExportGenerationAudio() {
       // Create safe filename from text. Append a short id so exports of
       // similarly-worded generations don't collide on the same filename
       // (the first 30 chars are frequently identical).
-      const safeText = text
-        .substring(0, 30)
-        .replace(/[^a-z0-9]/gi, '-')
-        .toLowerCase();
+      const safeText = toFileNameSlug(text, 30);
       const filename = `${safeText}-${generationId.substring(0, 8)}.${format}`;
 
       await platform.filesystem.saveFile(filename, blob, [
