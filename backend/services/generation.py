@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 import traceback
 from typing import Literal, Optional
 
@@ -77,6 +78,7 @@ async def run_generation(
     task_manager = get_task_manager()
     bg_db = next(get_db())
     tts_model = None
+    started = time.monotonic()
 
     try:
         tts_model = get_tts_backend_for_engine(engine)
@@ -151,6 +153,7 @@ async def run_generation(
             audio_path=final_path,
             duration=duration,
         )
+        _record_generation_time(generation_id, time.monotonic() - started, bg_db)
 
     except asyncio.CancelledError:
         await history.update_generation_status(
@@ -175,6 +178,20 @@ async def run_generation(
         task_manager.complete_generation(generation_id)
         bg_db.close()
         release_generation_memory(tts_model)
+
+
+def _record_generation_time(generation_id: str, seconds: float, db) -> None:
+    """Store how long the run took. Timing is informational, so failures are only logged."""
+    from ..database import Generation as DBGeneration
+
+    try:
+        gen = db.query(DBGeneration).filter_by(id=generation_id).first()
+        if gen is not None:
+            gen.generation_seconds = round(seconds, 1)
+            db.commit()
+    except Exception:
+        db.rollback()
+        logging.getLogger(__name__).warning("Could not record generation time", exc_info=True)
 
 
 def _notify_speak_end(generation_id: str, *, status: str) -> None:

@@ -156,6 +156,8 @@ class HistoryResponse(BaseModel):
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
+    # How long the last successful run took, in seconds.
+    generation_seconds: Optional[float] = None
 
     class Config:
         from_attributes = True

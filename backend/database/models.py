@@ -82,6 +82,9 @@ class Generation(Base):
     # profile's personality LLM before TTS. Future sources (bulk import,
     # agent replies, etc.) can extend this.
     source = Column(String, nullable=False, default="manual")
+    # Seconds the last successful run took, from leaving the queue to saved
+    # audio (includes loading the model when it had to be loaded).
+    generation_seconds = Column(Float, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(UTC), index=True)
 
 
