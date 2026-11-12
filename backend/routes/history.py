@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from .. import config, models
 from ..services import export_import, history
+from ..services.task_queue import get_queue_position
 from ..utils.ffmpeg import encode_audio
 from ..utils.http import safe_content_disposition
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
@@ -34,7 +35,10 @@ async def list_history(
         limit=limit,
         offset=offset,
     )
-    return await history.list_generations(query, db)
+    result = await history.list_generations(query, db)
+    for item in result.items:
+        item.queue_position = get_queue_position(item.id)
+    return result
 
 
 @router.get("/history/stats")
@@ -107,6 +111,7 @@ async def get_generation(
         error=gen.error,
         is_favorited=bool(gen.is_favorited),
         created_at=gen.created_at,
+        queue_position=get_queue_position(gen.id),
     )
 
 

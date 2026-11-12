@@ -664,6 +664,8 @@
   },
   "history": {
     "empty": "No voice generations, yet…",
+    "queued_one": "Queued, {{count}} ahead",
+    "queued_other": "Queued, {{count}} ahead",
     "actions": {
       "menu": "Actions",
       "play": "Play",
