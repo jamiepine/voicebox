@@ -74,6 +74,15 @@ export function formatEngineName(engine?: string, modelSize?: string): string {
   return name;
 }
 
+/** How long a generation took, e.g. "45s" or "1m 23s". */
+export function formatElapsed(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  if (total < 60) return `${total}s`;
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return secs ? `${mins}m ${secs}s` : `${mins}m`;
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes';
   const k = 1024;

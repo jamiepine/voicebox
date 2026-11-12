@@ -107,6 +107,7 @@ async def get_generation(
         error=gen.error,
         is_favorited=bool(gen.is_favorited),
         created_at=gen.created_at,
+        generation_seconds=gen.generation_seconds,
     )
 
 

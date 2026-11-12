@@ -59,7 +59,12 @@ import {
   useImportGeneration,
 } from '@/lib/hooks/useHistory';
 import { cn } from '@/lib/utils/cn';
-import { formatDate, formatDuration, formatEngineName } from '@/lib/utils/format';
+import {
+  formatDate,
+  formatDuration,
+  formatElapsed,
+  formatEngineName,
+} from '@/lib/utils/format';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
 
@@ -557,7 +562,15 @@ export function HistoryTable() {
                             {gen.status === 'loading_model' ? 'Loading model...' : 'Generating...'}
                           </span>
                         ) : (
-                          formatDate(gen.created_at)
+                          <>
+                            {formatDate(gen.created_at)}
+                            {gen.generation_seconds != null && (
+                              <span title={t('history.tookHint')}>
+                                {' · '}
+                                {t('history.took', { time: formatElapsed(gen.generation_seconds) })}
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
