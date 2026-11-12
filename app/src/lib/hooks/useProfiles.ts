@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type { VoiceProfileCreate } from '@/lib/api/types';
+import { toFileNameSlug } from '@/lib/utils/fileName';
 import { usePlatform } from '@/platform/PlatformContext';
 
 export function useProfiles() {
@@ -129,7 +130,7 @@ export function useExportProfile() {
 
       // Get profile name for filename
       const profile = await apiClient.getProfile(profileId);
-      const safeName = profile.name.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const safeName = toFileNameSlug(profile.name);
       const filename = `profile-${safeName}.voicebox.zip`;
 
       await platform.filesystem.saveFile(filename, blob, [
