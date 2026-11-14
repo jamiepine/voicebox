@@ -711,7 +711,8 @@
     "button": {
       "generate": "生成語音",
       "generating": "生成中…",
-      "selectFirst": "請先選擇聲音檔案"
+      "selectFirst": "請先選擇聲音檔案",
+      "unsupportedProfile": "此語音設定檔無法用於所選模型"
     },
     "instruct": {
       "show": "顯示傳達指示",

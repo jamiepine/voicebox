@@ -711,7 +711,8 @@
     "button": {
       "generate": "音声を生成",
       "generating": "生成中…",
-      "selectFirst": "まずボイスプロファイルを選択してください"
+      "selectFirst": "まずボイスプロファイルを選択してください",
+      "unsupportedProfile": "この音声プロファイルは選択中のモデルでは使用できません"
     },
     "instruct": {
       "show": "デリバリー指示を表示",

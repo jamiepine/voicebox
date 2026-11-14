@@ -711,7 +711,8 @@
     "button": {
       "generate": "Genera testo parlato",
       "generating": "Generazione in corso…",
-      "selectFirst": "Seleziona prima un profilo vocale"
+      "selectFirst": "Seleziona prima un profilo vocale",
+      "unsupportedProfile": "Questo profilo vocale non può essere usato con il modello selezionato"
     },
     "instruct": {
       "show": "Mostra istruzioni di pronuncia",
