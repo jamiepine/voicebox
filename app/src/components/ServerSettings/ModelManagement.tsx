@@ -1009,15 +1009,25 @@ export function ModelManagement() {
                   // Start the migration (background task)
                   const migrationResult = await apiClient.migrateModels(newDir);
 
-                  // If no models to migrate, warn user and skip the change
+                  // Nothing to move (e.g. fresh install): still adopt the new
+                  // location so future downloads land there. Bailing out here
+                  // used to silently discard the user's choice, so every model
+                  // kept downloading to the default HuggingFace cache.
                   if (migrationResult.moved === 0) {
-                    setMigrating(false);
-                    setMigrationProgress(null);
-                    toast({
-                      title: t('models.toast.noModelsToMigrate'),
-                      description: t('models.toast.noModelsToMigrateDescription'),
+                    setCustomModelsDir(newDir);
+                    setMigrationProgress({
+                      current: 1,
+                      total: 1,
+                      progress: 100,
+                      status: 'complete',
+                      filename: t('models.migrateDialog.restartingServer'),
                     });
-                    setPendingMigrateDir(null);
+                    await platform.lifecycle.restartServer(newDir);
+                    queryClient.invalidateQueries();
+                    toast({
+                      title: t('models.toast.locationChanged'),
+                      description: t('models.toast.locationChangedDescription'),
+                    });
                     return;
                   }
 
