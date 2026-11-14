@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { AppFolder, FileFilter, PlatformFilesystem } from '@/platform/types';
 
 export const tauriFilesystem: PlatformFilesystem = {
-  async saveFile(filename: string, blob: Blob, filters?: FileFilter[]) {
+  async saveFile(filename, contents, filters?: FileFilter[]) {
     const { save } = await import('@tauri-apps/plugin-dialog');
     const { writeFile } = await import('@tauri-apps/plugin-fs');
 
@@ -11,7 +11,7 @@ export const tauriFilesystem: PlatformFilesystem = {
       filters: filters || [],
     });
 
-    if (!filePath) return; // User cancelled the dialog
+    if (!filePath) return null; // User cancelled the dialog
 
     const resolvedPath =
       typeof filePath === 'string' ? filePath : (filePath as { path: string }).path;
@@ -20,8 +20,10 @@ export const tauriFilesystem: PlatformFilesystem = {
       throw new Error('Failed to resolve save path from dialog');
     }
 
+    const blob = typeof contents === 'function' ? await contents() : contents;
     const arrayBuffer = await blob.arrayBuffer();
     await writeFile(resolvedPath, new Uint8Array(arrayBuffer));
+    return resolvedPath;
   },
 
   async openAppFolder(folder: AppFolder) {
