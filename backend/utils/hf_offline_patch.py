@@ -51,6 +51,28 @@ _saved_transformers_const: Optional[bool] = None
 _thread_modes = threading.local()
 
 
+def _reset_hf_sessions() -> None:
+    """Drop huggingface_hub's cached HTTP sessions after flipping offline mode.
+
+    huggingface_hub (0.x) caches one ``requests.Session`` per thread, and a
+    session built while ``HF_HUB_OFFLINE`` is set has an adapter mounted that
+    refuses every request -- for good. Model loads run on reused worker
+    threads, so once a cached load had opened the offline window on a thread,
+    a later *download* that landed on the same thread failed with "outgoing
+    traffic has been disabled" although offline mode was long over. Clearing
+    the cache whenever the window opens or closes makes every thread build a
+    session that matches the current mode.
+    """
+    try:
+        from huggingface_hub.utils import reset_sessions
+    except ImportError:
+        return
+    try:
+        reset_sessions()
+    except Exception:
+        logger.debug("could not reset huggingface_hub sessions", exc_info=True)
+
+
 def _mode_stack() -> list:
     try:
         return _thread_modes.stack
@@ -168,6 +190,7 @@ def force_offline_if_cached(is_cached: bool, model_label: str = ""):
                 _saved_env = prev_env
                 _saved_hf_const = prev_hf
                 _saved_transformers_const = prev_tf
+                _reset_hf_sessions()
                 logger.info(
                     "[offline-guard] %s is cached — forcing offline mode",
                     model_label or "model",
@@ -201,6 +224,7 @@ def force_offline_if_cached(is_cached: bool, model_label: str = ""):
                     _saved_env = None
                     _saved_hf_const = None
                     _saved_transformers_const = None
+                    _reset_hf_sessions()
                 _offline_cv.notify_all()
     finally:
         stack.pop()

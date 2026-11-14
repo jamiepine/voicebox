@@ -1,6 +1,8 @@
 """Model management endpoints."""
 
 import asyncio
+import logging
+import os
 import shutil
 from pathlib import Path
 
@@ -14,36 +16,112 @@ from ..services.task_queue import create_background_task
 from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
 
 def _get_dir_size(path: Path) -> int:
-    """Get total size of a directory in bytes."""
+    """Get the on-disk size of a directory in bytes.
+
+    Symlinks are skipped: in a HuggingFace cache every ``snapshots/<rev>/<file>``
+    is a link to ``blobs/<hash>``, so following them counts each model twice.
+    """
     total = 0
     for f in path.rglob("*"):
-        if f.is_file():
+        if not f.is_symlink() and f.is_file():
             total += f.stat().st_size
     return total
 
 
+def _internal_link_target(link: Path, root: Path) -> str | None:
+    """Return *link*'s target relative to its own directory if it stays inside *root*.
+
+    HuggingFace writes relative links (``../../blobs/<hash>``), but resolve
+    absolute ones too so a cache that was linked absolutely still relocates.
+    Returns ``None`` for links that point outside the tree being copied.
+    """
+    raw = os.readlink(link)
+    # Windows may hand back extended-length paths for absolute links.
+    if raw.startswith("\\\\?\\"):
+        raw = raw[4:]
+    target = Path(raw)
+    absolute = target if target.is_absolute() else link.parent / target
+    root_abs = Path(os.path.abspath(root))
+    absolute = Path(os.path.abspath(absolute))
+    if not absolute.is_relative_to(root_abs):
+        return None
+    return os.path.relpath(absolute, os.path.abspath(link.parent))
+
+
+def _recreate_link(src_link: Path, dest_link: Path, rel_target: str) -> None:
+    """Recreate a cache-internal symlink at the destination.
+
+    Order of preference:
+      1. A symlink with the same relative target (keeps the HF layout intact).
+      2. A hard link to the already-copied target. Creating symlinks on Windows
+         needs Developer Mode or admin rights and is often refused on network
+         shares, but NTFS hard links need neither and cost no extra space.
+      3. A plain copy of the target's contents (what huggingface_hub itself
+         does when symlinks are unavailable).
+    """
+    try:
+        os.symlink(rel_target, dest_link)
+        return
+    except OSError:
+        pass
+
+    dest_target = Path(os.path.normpath(dest_link.parent / rel_target))
+    if dest_target.is_file():
+        try:
+            os.link(dest_target, dest_link)
+            return
+        except OSError:
+            pass
+        shutil.copy2(dest_target, dest_link)
+    else:
+        shutil.copy2(src_link, dest_link)
+
+
 def _copy_with_progress(src: Path, dst: Path, progress_manager, copied_so_far: int, total_bytes: int) -> int:
-    """Copy a directory tree with byte-level progress tracking."""
-    dst.mkdir(parents=True, exist_ok=True)
-    for item in src.iterdir():
-        dest_item = dst / item.name
-        if item.is_dir():
-            copied_so_far = _copy_with_progress(item, dest_item, progress_manager, copied_so_far, total_bytes)
-        else:
+    """Copy a model cache tree with byte-level progress tracking.
+
+    Regular files are copied first; symlinks that point inside the tree (the
+    HuggingFace ``snapshots`` -> ``blobs`` links) are recreated afterwards
+    instead of being dereferenced, so a migrated model takes the same space it
+    did before rather than double.
+    """
+    root = src
+    pending_links: list[tuple[Path, Path, str]] = []
+
+    def _walk(cur_src: Path, cur_dst: Path) -> None:
+        nonlocal copied_so_far
+        cur_dst.mkdir(parents=True, exist_ok=True)
+        for item in cur_src.iterdir():
+            dest_item = cur_dst / item.name
+            if item.is_symlink():
+                rel_target = _internal_link_target(item, root)
+                if rel_target is not None:
+                    pending_links.append((item, dest_item, rel_target))
+                    continue
+                # Link out of the tree: fall through and copy its contents.
+            if item.is_dir():
+                _walk(item, dest_item)
+                continue
             size = item.stat().st_size
             shutil.copy2(str(item), str(dest_item))
             copied_so_far += size
             progress_manager.update_progress(
                 "migration",
-                copied_so_far,
+                min(copied_so_far, total_bytes) if total_bytes else copied_so_far,
                 total_bytes,
                 filename=item.name,
                 status="downloading",
             )
+
+    _walk(src, dst)
+    for src_link, dest_link, rel_target in pending_links:
+        _recreate_link(src_link, dest_link, rel_target)
     return copied_so_far
 
 
@@ -459,7 +537,7 @@ async def get_model_status():
 @router.post("/models/download")
 async def trigger_model_download(request: models.ModelDownloadRequest):
     """Trigger download of a specific model."""
-    from ..backends import get_model_config, get_model_load_func
+    from ..backends import check_model_loaded, get_model_config, get_model_load_func, unload_model_by_config
 
     task_manager = get_task_manager()
     progress_manager = get_progress_manager()
@@ -470,11 +548,34 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
 
     load_func = get_model_load_func(config)
 
+    try:
+        was_loaded = check_model_loaded(config)
+    except Exception:
+        was_loaded = False
+
     async def download_in_background():
         try:
             result = load_func()
             if asyncio.iscoroutine(result):
                 await result
+            # Downloading works by loading the model, which leaves it resident
+            # on the GPU. Queue a few downloads and VRAM fills up until later
+            # ones fail with "CUDA out of memory". A download should leave
+            # memory as it found it, so drop models it loaded only to fetch
+            # their weights -- unless a generation may be using one by now.
+            if not was_loaded and not task_manager.get_active_generations():
+                try:
+                    unload_model_by_config(config)
+                except Exception as unload_error:
+                    logger.warning(
+                        "Could not unload %s after download: %s", request.model_name, unload_error
+                    )
+            # Close out the "Connecting to HuggingFace..." entry created below.
+            # The load reports progress itself, but if it never touches this
+            # entry (already cached, or reported under another name) it would
+            # otherwise linger in /tasks/active as a download that never ends.
+            if progress_manager.get_progress(request.model_name):
+                progress_manager.mark_complete(request.model_name)
             task_manager.complete_download(request.model_name)
         except Exception as e:
             task_manager.error_download(request.model_name, str(e))

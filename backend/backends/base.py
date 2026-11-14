@@ -8,6 +8,7 @@ voice prompt combination, and model loading progress tracking.
 import logging
 import os
 import platform
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
@@ -291,6 +292,27 @@ async def combine_voice_prompts(
     return mixed, combined_text
 
 
+# Serializes model loads (and the downloads that happen inside them) across
+# the whole process. Loading a model mutates process-global state that is not
+# safe to share between threads:
+#
+# * transformers/accelerate build models inside ``init_empty_weights()``, which
+#   replaces ``torch.nn.Module.register_parameter`` for *every* thread, so
+#   layers another backend constructs at the same moment come out on the
+#   ``meta`` device ("Cannot copy out of meta tensor; no data!").
+# * ``no_init_weights()`` turns torch's init functions into no-ops and
+#   ``from_pretrained`` switches torch's default dtype, both globally.
+# * ``HFProgressTracker`` patches the shared tqdm classes, so two concurrent
+#   downloads report each other's bytes and the progress bars jump between
+#   models; whichever finishes first also restores tqdm under the other one.
+#
+# Every backend loads through ``model_load_progress``, so one lock here covers
+# all engines. Re-entrant so a backend may nest a load on the same thread.
+_MODEL_LOAD_LOCK = threading.RLock()
+
+WAITING_FOR_LOAD_MESSAGE = "Waiting for another model to finish loading..."
+
+
 @contextmanager
 def model_load_progress(
     model_name: str,
@@ -301,7 +323,9 @@ def model_load_progress(
     Context manager for model loading with HF download progress tracking.
 
     Handles the tqdm patching, progress_manager/task_manager lifecycle,
-    and error reporting that every backend duplicates.
+    and error reporting that every backend duplicates. Loads are serialized
+    process-wide (see ``_MODEL_LOAD_LOCK``); a load that has to wait shows a
+    "waiting" status instead of appearing stuck.
 
     Args:
         model_name: Progress tracking key (e.g. "qwen-tts-1.7B", "whisper-base").
@@ -317,6 +341,32 @@ def model_load_progress(
         with model_load_progress("qwen-tts-1.7B", is_cached) as ctx:
             self.model = SomeModel.from_pretrained(...)
     """
+    if not _MODEL_LOAD_LOCK.acquire(blocking=False):
+        if not is_cached:
+            get_task_manager().start_download(model_name)
+            get_progress_manager().update_progress(
+                model_name=model_name,
+                current=0,
+                total=0,
+                filename=WAITING_FOR_LOAD_MESSAGE,
+                status="downloading",
+            )
+        logger.info("Model load for %s waiting for another load to finish", model_name)
+        _MODEL_LOAD_LOCK.acquire()
+    try:
+        with _model_load_progress_locked(model_name, is_cached, filter_non_downloads) as ctx:
+            yield ctx
+    finally:
+        _MODEL_LOAD_LOCK.release()
+
+
+@contextmanager
+def _model_load_progress_locked(
+    model_name: str,
+    is_cached: bool,
+    filter_non_downloads: Optional[bool],
+):
+    """Body of ``model_load_progress``; caller must hold ``_MODEL_LOAD_LOCK``."""
     if filter_non_downloads is None:
         filter_non_downloads = is_cached
 

@@ -46,9 +46,12 @@ TADA_MODEL_REPOS = {
     "3B": TADA_3B_ML_REPO,
 }
 
-# Key weight files for cache detection
+# Key files for cache detection. TADA 1B ships one model.safetensors but
+# TADA 3B is sharded (model-0000N-of-0000M.safetensors), so require the config
+# and let is_model_cached look for any weight file. Requiring
+# model.safetensors made TADA 3B count as never downloaded.
 _TADA_MODEL_WEIGHT_FILES = [
-    "model.safetensors",
+    "config.json",
 ]
 
 _TADA_CODEC_WEIGHT_FILES = [
@@ -87,7 +90,7 @@ class HumeTadaBackend:
 
     def _is_model_cached(self, model_size: str = "1B") -> bool:
         repo = TADA_MODEL_REPOS.get(model_size, TADA_1B_REPO)
-        model_cached = is_model_cached(repo, required_files=_TADA_MODEL_WEIGHT_FILES)
+        model_cached = is_model_cached(repo, required_files=_TADA_MODEL_WEIGHT_FILES) and is_model_cached(repo)
         codec_cached = is_model_cached(TADA_CODEC_REPO, required_files=_TADA_CODEC_WEIGHT_FILES)
         tokenizer_cached = is_model_cached(TADA_TOKENIZER_REPO, required_files=_TADA_TOKENIZER_FILES)
         return model_cached and codec_cached and tokenizer_cached

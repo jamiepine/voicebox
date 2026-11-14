@@ -709,6 +709,15 @@ def unload_model_by_config(config: ModelConfig) -> bool:
             return True
         return False
 
+    if config.engine == "tada":
+        # tada-1b and tada-3b-ml share one backend: only unload the size asked for.
+        backend = get_tts_backend_for_engine(config.engine)
+        if backend.is_loaded() and backend.model_size == config.model_size:
+            clear_voice_prompt_memory_cache()
+            backend.unload_model()
+            return True
+        return False
+
     # All other TTS engines
     backend = get_tts_backend_for_engine(config.engine)
     if backend.is_loaded():
@@ -743,6 +752,10 @@ def check_model_loaded(config: ModelConfig) -> bool:
             loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
             return backend.is_loaded() and loaded_size == config.model_size
 
+        if config.engine == "tada":
+            backend = get_tts_backend_for_engine(config.engine)
+            return backend.is_loaded() and backend.model_size == config.model_size
+
         backend = get_tts_backend_for_engine(config.engine)
         return backend.is_loaded()
     except Exception:
@@ -765,6 +778,11 @@ def get_model_load_func(config: ModelConfig):
 
     if config.engine == "qwen_llm":
         return lambda: get_llm_backend_for_engine("qwen_llm").load_model(config.model_size)
+
+    if config.engine == "tada":
+        # Without the size, TADA loads its 1B default: "downloading" TADA 3B
+        # then loaded the cached 1B model and reported success.
+        return lambda: get_tts_backend_for_engine(config.engine).load_model(config.model_size)
 
     return lambda: get_tts_backend_for_engine(config.engine).load_model()
 
