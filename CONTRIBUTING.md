@@ -381,7 +381,7 @@ See [docs/content/docs/overview/troubleshooting.mdx](docs/content/docs/overview/
 - [README.md](README.md) - Project overview
 - [backend/README.md](backend/README.md) - API documentation
 - [docs/PROJECT_STATUS.md](docs/PROJECT_STATUS.md) - Living engineering roadmap: architecture, shipped vs in-flight work, prioritized open issues, candidate TTS engines under evaluation, architectural bottlenecks. Keep this updated when you ship significant features, close or backlog a model integration, or identify new bottlenecks.
-- [docs/AUTOUPDATER_QUICKSTART.md](docs/AUTOUPDATER_QUICKSTART.md) - Auto-updater setup
+- [docs/content/docs/developer/autoupdater.mdx](docs/content/docs/developer/autoupdater.mdx) - Auto-updater setup
 - [SECURITY.md](SECURITY.md) - Security policy
 - [CHANGELOG.md](CHANGELOG.md) - Version history
 
