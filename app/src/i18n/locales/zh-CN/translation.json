@@ -711,7 +711,8 @@
     "button": {
       "generate": "生成语音",
       "generating": "生成中…",
-      "selectFirst": "请先选择声音档案"
+      "selectFirst": "请先选择声音档案",
+      "unsupportedProfile": "此语音配置文件无法用于所选模型"
     },
     "instruct": {
       "show": "显示传达说明",

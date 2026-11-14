@@ -711,7 +711,8 @@
     "button": {
       "generate": "Generate speech",
       "generating": "Generating…",
-      "selectFirst": "Select a voice profile first"
+      "selectFirst": "Select a voice profile first",
+      "unsupportedProfile": "This voice profile can't be used with the selected model"
     },
     "instruct": {
       "show": "Show delivery instructions",

@@ -711,7 +711,8 @@
     "button": {
       "generate": "Gerar fala",
       "generating": "Gerando…",
-      "selectFirst": "Selecione um perfil de voz primeiro"
+      "selectFirst": "Selecione um perfil de voz primeiro",
+      "unsupportedProfile": "Este perfil de voz não pode ser usado com o modelo selecionado"
     },
     "instruct": {
       "show": "Mostrar instruções de entrega",

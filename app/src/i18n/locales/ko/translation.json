@@ -711,7 +711,8 @@
     "button": {
       "generate": "음성 생성",
       "generating": "생성 중…",
-      "selectFirst": "먼저 음성 프로필을 선택하세요"
+      "selectFirst": "먼저 음성 프로필을 선택하세요",
+      "unsupportedProfile": "이 음성 프로필은 선택한 모델에서 사용할 수 없습니다"
     },
     "instruct": {
       "show": "전달 지시사항 보기",
