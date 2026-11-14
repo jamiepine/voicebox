@@ -11,7 +11,11 @@ export interface FileFilter {
 export type AppFolder = 'generations' | 'captures' | 'models';
 
 export interface PlatformFilesystem {
-  saveFile(filename: string, blob: Blob, filters?: FileFilter[]): Promise<void>;
+  saveFile(
+    filename: string,
+    contents: Blob | (() => Promise<Blob>),
+    filters?: FileFilter[],
+  ): Promise<string | null>;
   openAppFolder(folder: AppFolder): Promise<void>;
   pickDirectory(title: string): Promise<string | null>;
 }

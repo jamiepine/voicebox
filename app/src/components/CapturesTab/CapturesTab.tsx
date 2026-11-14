@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { save } from '@tauri-apps/plugin-dialog';
-import { writeFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import {
   Captions,
   Check,
@@ -72,6 +70,7 @@ import { useCaptureSettings } from '@/lib/hooks/useSettings';
 import { cn } from '@/lib/utils/cn';
 import { formatAbsoluteDate, formatDate } from '@/lib/utils/format';
 import { displayLabelForKey, modifierSideHint } from '@/lib/utils/keyCodes';
+import { usePlatform } from '@/platform/PlatformContext';
 import { useGenerationStore } from '@/stores/generationStore';
 import { usePlayerStore } from '@/stores/playerStore';
 
@@ -133,6 +132,7 @@ type PlaybackState = 'idle' | 'generating' | 'playing';
 
 export function CapturesTab() {
   const { t } = useTranslation();
+  const { filesystem } = usePlatform();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -336,16 +336,16 @@ export function CapturesTab() {
   const handleExportAudio = async () => {
     if (!selected) return;
     try {
-      const dest = await save({
-        defaultPath: `capture_${selected.id.slice(0, 8)}.wav`,
-        filters: [{ name: 'Audio', extensions: ['wav'] }],
-      });
-      if (!dest) return;
-      const res = await fetch(apiClient.getCaptureAudioUrl(selected.id));
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const buf = new Uint8Array(await res.arrayBuffer());
-      await writeFile(dest, buf);
-      exportToastSuccess(dest);
+      const dest = await filesystem.saveFile(
+        `capture_${selected.id.slice(0, 8)}.wav`,
+        async () => {
+          const res = await fetch(apiClient.getCaptureAudioUrl(selected.id));
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.blob();
+        },
+        [{ name: 'Audio', extensions: ['wav'] }],
+      );
+      if (dest) exportToastSuccess(dest);
     } catch (err) {
       exportToastError(err);
     }
@@ -359,13 +359,12 @@ export function CapturesTab() {
       return;
     }
     try {
-      const dest = await save({
-        defaultPath: `capture_${selected.id.slice(0, 8)}.txt`,
-        filters: [{ name: 'Text', extensions: ['txt'] }],
-      });
-      if (!dest) return;
-      await writeTextFile(dest, text);
-      exportToastSuccess(dest);
+      const dest = await filesystem.saveFile(
+        `capture_${selected.id.slice(0, 8)}.txt`,
+        new Blob([text], { type: 'text/plain;charset=utf-8' }),
+        [{ name: 'Text', extensions: ['txt'] }],
+      );
+      if (dest) exportToastSuccess(dest);
     } catch (err) {
       exportToastError(err);
     }
@@ -398,13 +397,12 @@ export function CapturesTab() {
       return;
     }
     try {
-      const dest = await save({
-        defaultPath: `capture_${selected.id.slice(0, 8)}.md`,
-        filters: [{ name: 'Markdown', extensions: ['md'] }],
-      });
-      if (!dest) return;
-      await writeTextFile(dest, buildCaptureMarkdown(selected));
-      exportToastSuccess(dest);
+      const dest = await filesystem.saveFile(
+        `capture_${selected.id.slice(0, 8)}.md`,
+        new Blob([buildCaptureMarkdown(selected)], { type: 'text/markdown;charset=utf-8' }),
+        [{ name: 'Markdown', extensions: ['md'] }],
+      );
+      if (dest) exportToastSuccess(dest);
     } catch (err) {
       exportToastError(err);
     }
