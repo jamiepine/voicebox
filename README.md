@@ -336,9 +336,8 @@ Voicebox ships a built-in **Model Context Protocol** server so any MCP-aware age
 **Claude Code one-liner:**
 
 ```
-claude mcp add voicebox \
-  --transport http \
-  --url http://127.0.0.1:17493/mcp \
+claude mcp add --transport http voicebox \
+  http://127.0.0.1:17493/mcp \
   --header "X-Voicebox-Client-Id: claude-code"
 ```
 
