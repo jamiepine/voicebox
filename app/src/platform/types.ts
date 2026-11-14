@@ -9,7 +9,11 @@ export interface FileFilter {
 }
 
 export interface PlatformFilesystem {
-  saveFile(filename: string, blob: Blob, filters?: FileFilter[]): Promise<void>;
+  saveFile(
+    filename: string,
+    contents: Blob | (() => Promise<Blob>),
+    filters?: FileFilter[],
+  ): Promise<string | null>;
   openPath(path: string): Promise<void>;
   pickDirectory(title: string): Promise<string | null>;
 }
