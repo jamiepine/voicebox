@@ -198,6 +198,32 @@ volumes:
   - huggingface-cache:/home/voicebox/.cache/huggingface
 ```
 
+### Model downloads fail certificate verification
+
+If model downloads fail with `SSLCertVerificationError` on a corporate network
+or VPN that inspects HTTPS traffic, use an organization-approved PEM bundle
+containing the normal public roots and your organization's root CA. The bundle
+must be readable by the container's `voicebox` user.
+
+Add the following entries to the existing `volumes` and `environment` lists
+of the `voicebox` service in `docker-compose.yml`. Replace the example host
+path with your bundle's absolute path.
+
+```yaml
+services:
+  voicebox:
+    volumes:
+      - /path/to/approved-ca-bundle.pem:/app/approved-ca-bundle.pem:ro
+    environment:
+      - SSL_CERT_FILE=/app/approved-ca-bundle.pem
+      - REQUESTS_CA_BUNDLE=/app/approved-ca-bundle.pem
+```
+
+Run `docker compose up -d` to apply the changes, then retry the download.
+This configures trust for runtime requests from the container. If certificate
+errors occur during the image build itself, configure the build environment
+separately using the [Docker CA certificate guide](https://docs.docker.com/engine/network/ca-certs/).
+
 ### Out of memory
 
 TTS models are large. If the container is killed by the OOM killer, increase the memory limit:
