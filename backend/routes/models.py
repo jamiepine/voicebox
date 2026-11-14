@@ -1,6 +1,7 @@
 """Model management endpoints."""
 
 import asyncio
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -14,6 +15,8 @@ from ..utils.platform_detect import get_backend_type
 from ..services.task_queue import create_background_task
 from ..utils.progress import get_progress_manager
 from ..utils.tasks import get_task_manager
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -534,7 +537,7 @@ async def get_model_status():
 @router.post("/models/download")
 async def trigger_model_download(request: models.ModelDownloadRequest):
     """Trigger download of a specific model."""
-    from ..backends import get_model_config, get_model_load_func
+    from ..backends import check_model_loaded, get_model_config, get_model_load_func, unload_model_by_config
 
     task_manager = get_task_manager()
     progress_manager = get_progress_manager()
@@ -545,11 +548,28 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
 
     load_func = get_model_load_func(config)
 
+    try:
+        was_loaded = check_model_loaded(config)
+    except Exception:
+        was_loaded = False
+
     async def download_in_background():
         try:
             result = load_func()
             if asyncio.iscoroutine(result):
                 await result
+            # Downloading works by loading the model, which leaves it resident
+            # on the GPU. Queue a few downloads and VRAM fills up until later
+            # ones fail with "CUDA out of memory". A download should leave
+            # memory as it found it, so drop models it loaded only to fetch
+            # their weights -- unless a generation may be using one by now.
+            if not was_loaded and not task_manager.get_active_generations():
+                try:
+                    unload_model_by_config(config)
+                except Exception as unload_error:
+                    logger.warning(
+                        "Could not unload %s after download: %s", request.model_name, unload_error
+                    )
             task_manager.complete_download(request.model_name)
         except Exception as e:
             task_manager.error_download(request.model_name, str(e))
