@@ -570,6 +570,12 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
                     logger.warning(
                         "Could not unload %s after download: %s", request.model_name, unload_error
                     )
+            # Close out the "Connecting to HuggingFace..." entry created below.
+            # The load reports progress itself, but if it never touches this
+            # entry (already cached, or reported under another name) it would
+            # otherwise linger in /tasks/active as a download that never ends.
+            if progress_manager.get_progress(request.model_name):
+                progress_manager.mark_complete(request.model_name)
             task_manager.complete_download(request.model_name)
         except Exception as e:
             task_manager.error_download(request.model_name, str(e))

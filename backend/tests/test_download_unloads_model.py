@@ -78,3 +78,41 @@ def test_model_kept_while_a_generation_is_running(harness):
     _download(scheduled)
     assert state["unloaded"] == 0
     assert state["loaded"] is True
+
+
+def test_stale_connecting_entry_is_closed(harness):
+    """A load that never reports under this model's name must not leave the
+    initial "Connecting to HuggingFace..." entry in /tasks/active forever."""
+    from backend.utils.progress import get_progress_manager
+
+    _, scheduled, _ = harness
+    _download(scheduled)
+    active = {p["model_name"] for p in get_progress_manager().get_all_active()}
+    assert "fake-model" not in active
+
+
+def test_tada_download_loads_the_requested_size(monkeypatch):
+    """tada-1b and tada-3b-ml share a backend; the 3B download used to call
+    load_model() with no size and silently load the cached 1B instead."""
+    calls = []
+
+    class FakeTada:
+        model_size = "1B"
+
+        def is_loaded(self):
+            return True
+
+        def load_model(self, model_size="1B"):
+            calls.append(model_size)
+
+    fake = FakeTada()
+    monkeypatch.setattr(backends_pkg, "get_tts_backend_for_engine", lambda engine: fake)
+    cfg_3b = backends_pkg.get_model_config("tada-3b-ml")
+    cfg_1b = backends_pkg.get_model_config("tada-1b")
+
+    backends_pkg.get_model_load_func(cfg_3b)()
+    assert calls == ["3B"]
+    # With 1B resident, 3B is not "loaded" and unloading 3B leaves 1B alone.
+    assert backends_pkg.check_model_loaded(cfg_3b) is False
+    assert backends_pkg.check_model_loaded(cfg_1b) is True
+    assert backends_pkg.unload_model_by_config(cfg_3b) is False
