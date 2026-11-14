@@ -1,8 +1,9 @@
 import type { FileFilter, PlatformFilesystem } from '@/platform/types';
 
 export const webFilesystem: PlatformFilesystem = {
-  async saveFile(filename: string, blob: Blob, _filters?: FileFilter[]) {
+  async saveFile(filename, contents, _filters?: FileFilter[]) {
     // Browser: trigger download
+    const blob = typeof contents === 'function' ? await contents() : contents;
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -11,6 +12,7 @@ export const webFilesystem: PlatformFilesystem = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+    return filename;
   },
 
   async openPath(_path: string) {
