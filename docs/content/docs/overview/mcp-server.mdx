@@ -201,6 +201,38 @@ carries:
 `last_seen_at` is stamped automatically by middleware on every `/mcp/*`
 request — useful when you're not sure whether your config took.
 
+## Listen to a release brief
+
+Use an MCP client with both Voicebox and a web search tool to hear a short
+briefing on a public software release. The client looks up the release and
+shows its sources. Voicebox reads the text you approve.
+
+1. In Voicebox, save a [built-in voice profile](/overview/preset-voices)
+   and keep Voicebox running. Give the profile a name no other profile
+   uses, even with different capitalization. This example uses
+   `Release brief`. Note the engine you picked.
+2. Add a web search tool in the same client. For example, set up
+   [Parallel MCP](https://docs.parallel.ai/integrations/mcp/installation)
+   with `https://mcp.parallel.ai/mcp`. Its public search endpoint works
+   without an API key.
+3. Ask the client for a brief, then review the draft and open the source
+   links before asking it to speak.
+
+> Look up what Python 3.14 changed about template string literals. Use only
+> the public release topic in the web search. Show me a two-sentence brief
+> and the official Python documentation link in chat. If you can't find an
+> official source, stop and ask me for a public release-notes link. Wait
+> until I paste the exact text and ask you to read it aloud. Then call
+> `voicebox_speak` with that text, the `Release brief` profile, the
+> `engine` I picked for it, and `personality: false`.
+
+Replace the profile name if you used a different one, and give the client
+your preset's engine when you request playback. Keep the voice profile,
+audio, recordings, and private context out of search. Only the text you
+paste goes in the speech tool's `text` argument. The source links stay in
+the chat. If the client needs a link, use the official [Python 3.14 release
+notes](https://docs.python.org/3.14/whatsnew/3.14.html#pep-750-template-string-literals).
+
 ## The speaking pill
 
 Every agent-initiated speak surfaces the floating pill the same way
