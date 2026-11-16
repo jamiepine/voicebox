@@ -158,6 +158,8 @@ def _migrate_profiles(engine, inspector, tables: set[str]) -> None:
         _add_column(engine, "profiles", "design_prompt TEXT", "design_prompt")
     if "default_engine" not in columns:
         _add_column(engine, "profiles", "default_engine VARCHAR", "default_engine")
+    if "default_model_size" not in columns:
+        _add_column(engine, "profiles", "default_model_size VARCHAR", "default_model_size")
     if "personality" not in columns:
         _add_column(engine, "profiles", "personality TEXT", "personality")
 

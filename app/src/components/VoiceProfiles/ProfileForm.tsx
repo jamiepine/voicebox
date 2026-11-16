@@ -168,6 +168,37 @@ export function ProfileForm() {
   const [profileEffectsChain, setProfileEffectsChain] = useState<EffectConfig[]>([]);
   const [effectsDirty, setEffectsDirty] = useState(false);
   const [defaultEngine, setDefaultEngine] = useState<string>('');
+  const [defaultModelSize, setDefaultModelSize] = useState<string>('');
+
+  const { data: modelStatusData } = useQuery({
+    queryKey: ['modelStatus'],
+    queryFn: () => apiClient.getModelStatus(),
+    enabled: open,
+    staleTime: 10_000,
+  });
+
+  const ENGINE_MODEL_VARIANTS: Record<
+    string,
+    Array<{ value: string; modelName: string; label: string }>
+  > = {
+    qwen: [
+      { value: '0.6B', modelName: 'qwen-tts-0.6B', label: 'Qwen TTS 0.6B' },
+      { value: '1.7B', modelName: 'qwen-tts-1.7B', label: 'Qwen TTS 1.7B' },
+    ],
+    qwen_custom_voice: [
+      { value: '0.6B', modelName: 'qwen-custom-voice-0.6B', label: 'Qwen CustomVoice 0.6B' },
+      { value: '1.7B', modelName: 'qwen-custom-voice-1.7B', label: 'Qwen CustomVoice 1.7B' },
+    ],
+    tada: [
+      { value: '1B', modelName: 'tada-1b', label: 'TADA 1B' },
+      { value: '3B', modelName: 'tada-3b', label: 'TADA 3B Multilingual' },
+    ],
+  };
+
+  const activeVariants = defaultEngine ? ENGINE_MODEL_VARIANTS[defaultEngine] : undefined;
+  const modelDownloadedMap = new Map(
+    (modelStatusData?.models ?? []).map((m) => [m.model_name, m.downloaded]),
+  );
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(makeProfileSchema(t)),
@@ -349,6 +380,7 @@ export function ProfileForm() {
       setProfileEffectsChain(editingProfile.effects_chain ?? []);
       setEffectsDirty(false);
       setDefaultEngine(editingProfile.default_engine ?? '');
+      setDefaultModelSize(editingProfile.default_model_size ?? '');
     } else if (profileFormDraft && open) {
       // Restore from draft when opening in create mode
       form.reset({
@@ -509,7 +541,9 @@ export function ProfileForm() {
             name: data.name,
             description: data.description,
             language: data.language,
-            default_engine: defaultEngine || undefined,
+            default_engine: defaultEngine || '',
+            default_model_size:
+              defaultEngine && activeVariants ? defaultModelSize || '' : '',
             personality: data.personality?.trim() ? data.personality.trim() : undefined,
           },
         });
@@ -718,6 +752,8 @@ export function ProfileForm() {
           description: data.description,
           language: data.language,
           default_engine: defaultEngine || undefined,
+          default_model_size:
+            defaultEngine && activeVariants && defaultModelSize ? defaultModelSize : undefined,
           personality: data.personality?.trim() ? data.personality.trim() : undefined,
         });
 
@@ -1364,7 +1400,17 @@ export function ProfileForm() {
                     <Select
                       value={defaultEngine || '_none'}
                       onValueChange={(v) => {
-                        setDefaultEngine(v === '_none' ? '' : v);
+                        const nextEngine = v === '_none' ? '' : v;
+                        setDefaultEngine(nextEngine);
+                        const variants = nextEngine ? ENGINE_MODEL_VARIANTS[nextEngine] : undefined;
+                        if (!variants) {
+                          setDefaultModelSize('');
+                        } else {
+                          const downloaded = variants.find((opt) =>
+                            modelDownloadedMap.get(opt.modelName),
+                          );
+                          setDefaultModelSize(downloaded?.value ?? '');
+                        }
                       }}
                       disabled={
                         voiceSource === 'builtin' ||
@@ -1393,6 +1439,53 @@ export function ProfileForm() {
                       {t('profileForm.fields.defaultEngineHint')}
                     </p>
                   </FormItem>
+
+                  {activeVariants && (
+                    <FormItem>
+                      <FormLabel>{t('profileForm.fields.defaultModelSize')}</FormLabel>
+                      <Select
+                        value={defaultModelSize || '_none'}
+                        onValueChange={(v) => {
+                          setDefaultModelSize(v === '_none' ? '' : v);
+                        }}
+                        disabled={
+                          voiceSource === 'builtin' ||
+                          voiceSource === 'design' ||
+                          editingProfile?.voice_type === 'preset' ||
+                          editingProfile?.voice_type === 'designed'
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={t('profileForm.fields.noPreference')} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="_none">
+                            {t('profileForm.fields.noPreference')}
+                          </SelectItem>
+                          {activeVariants.map((variant) => {
+                            const isDownloaded = modelDownloadedMap.get(variant.modelName);
+                            const statusLabel =
+                              isDownloaded === undefined
+                                ? ''
+                                : isDownloaded
+                                  ? ` (${t('profileForm.fields.modelDownloaded')})`
+                                  : ` (${t('profileForm.fields.modelNotDownloaded')})`;
+                            return (
+                              <SelectItem key={variant.value} value={variant.value}>
+                                {variant.label}
+                                {statusLabel}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {t('profileForm.fields.defaultModelSizeHint')}
+                      </p>
+                    </FormItem>
+                  )}
 
                   {editingProfileId && (
                     <div className="space-y-2">

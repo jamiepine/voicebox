@@ -53,6 +53,20 @@ def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
     return data.engine or profiles.default_engine_for_profile(profile)
 
 
+def _resolve_generation_model_size(
+    data: models.GenerationRequest,
+    profile,
+    engine: str,
+) -> str | None:
+    from ..backends import engine_has_model_sizes
+
+    if not engine_has_model_sizes(engine):
+        return None
+    if "model_size" in data.model_fields_set and data.model_size:
+        return data.model_size
+    return getattr(profile, "default_model_size", None) or data.model_size or "1.7B"
+
+
 @router.post("/generate", response_model=models.GenerationResponse)
 async def generate_speech(
     data: models.GenerationRequest,
@@ -74,7 +88,7 @@ async def generate_speech(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
+    model_size = _resolve_generation_model_size(data, profile, engine)
 
     text = data.text
     source = "manual"
