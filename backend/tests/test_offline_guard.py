@@ -210,5 +210,33 @@ def test_nesting_opposite_mode_on_same_thread_raises_instead_of_deadlocking():
     assert exc_type == "RuntimeError", (kind, exc_type, exc_msg)
 
 
+def test_offline_session_does_not_leak_after_exit():
+    """Per-thread cached HF sessions must be cleared when exiting offline mode."""
+    from huggingface_hub.utils._http import OfflineAdapter, get_session
+
+    with force_offline_if_cached(True, "cached"):
+        offline_session = get_session()
+        assert isinstance(offline_session.adapters.get("https://"), OfflineAdapter)
+
+    with force_offline_if_cached(False, "uncached"):
+        online_session = get_session()
+        assert not isinstance(online_session.adapters.get("https://"), OfflineAdapter)
+        assert not isinstance(online_session.adapters.get("http://"), OfflineAdapter)
+
+
+def test_online_session_does_not_leak_into_offline_window():
+    """Pre-existing online sessions must be cleared when entering offline mode."""
+    from huggingface_hub.utils._http import OfflineAdapter, get_session
+
+    with force_offline_if_cached(False, "uncached"):
+        online_session = get_session()
+        assert not isinstance(online_session.adapters.get("https://"), OfflineAdapter)
+
+    with force_offline_if_cached(True, "cached"):
+        offline_session = get_session()
+        assert isinstance(offline_session.adapters.get("https://"), OfflineAdapter)
+        assert isinstance(offline_session.adapters.get("http://"), OfflineAdapter)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

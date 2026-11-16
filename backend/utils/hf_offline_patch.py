@@ -59,6 +59,24 @@ def _mode_stack() -> list:
         return _thread_modes.stack
 
 
+def _reset_hf_sessions() -> None:
+    """Clear huggingface_hub's per-thread cached HTTP sessions.
+
+    ``huggingface_hub.utils._http.get_session()`` caches one ``requests.Session``
+    per ``(pid, thread_id)`` via ``@lru_cache``. A session created while
+    ``HF_HUB_OFFLINE=True`` mounts ``OfflineAdapter`` for that thread; without
+    clearing the cache on offline-window transitions, pooled worker threads
+    (e.g. ``asyncio.to_thread``) reuse that offline session on subsequent
+    uncached downloads and fail with ``OfflineModeIsEnabled``.
+    """
+    try:
+        from huggingface_hub.utils._http import reset_sessions
+
+        reset_sessions()
+    except (ImportError, AttributeError):
+        pass
+
+
 @contextmanager
 def force_offline_if_cached(is_cached: bool, model_label: str = ""):
     """Force offline mode for the duration of a cached-model operation.
@@ -142,6 +160,7 @@ def force_offline_if_cached(is_cached: bool, model_label: str = ""):
                         prev_tf = None
 
                     os.environ["HF_HUB_OFFLINE"] = "1"
+                    _reset_hf_sessions()
                 except BaseException:
                     # Roll back whatever we already changed, then re-raise so
                     # the caller sees the real failure.
@@ -163,6 +182,7 @@ def force_offline_if_cached(is_cached: bool, model_label: str = ""):
                         os.environ["HF_HUB_OFFLINE"] = prev_env
                     else:
                         os.environ.pop("HF_HUB_OFFLINE", None)
+                    _reset_hf_sessions()
                     raise
 
                 _saved_env = prev_env
@@ -201,6 +221,7 @@ def force_offline_if_cached(is_cached: bool, model_label: str = ""):
                     _saved_env = None
                     _saved_hf_const = None
                     _saved_transformers_const = None
+                    _reset_hf_sessions()
                 _offline_cv.notify_all()
     finally:
         stack.pop()
