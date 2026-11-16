@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { UseFormReturn } from 'react-hook-form';
 import { FormControl } from '@/components/ui/form';
@@ -8,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { apiClient } from '@/lib/api/client';
 import type { VoiceProfileResponse } from '@/lib/api/types';
 import { getLanguageOptionsForEngine } from '@/lib/constants/languages';
 import type { GenerationFormValues } from '@/lib/hooks/useGenerationForm';
@@ -133,6 +135,12 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
   const selectValue = getSelectValue(engine, modelSize);
   const availableOptions = getAvailableOptions(selectedProfile);
 
+  const { data: modelStatusData } = useQuery({
+    queryKey: ['modelStatus'],
+    queryFn: () => apiClient.getModelStatus(),
+    staleTime: 10_000,
+  });
+
   const currentEngineAvailable = availableOptions.some((opt) => opt.value === selectValue);
 
   useEffect(() => {
@@ -140,6 +148,23 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
       applyEngineSelection(form, availableOptions[0].value);
     }
   }, [availableOptions, currentEngineAvailable, form]);
+
+  // If the profile doesn't pin a model_size and the default 1.7B isn't downloaded
+  // while 0.6B is downloaded, prefer the downloaded variant on initial render.
+  useEffect(() => {
+    if (
+      !selectedProfile?.default_model_size &&
+      engine === 'qwen' &&
+      modelSize === '1.7B' &&
+      modelStatusData?.models
+    ) {
+      const has17B = modelStatusData.models.some((m) => m.model_name === 'qwen-tts-1.7B' && m.downloaded);
+      const has06B = modelStatusData.models.some((m) => m.model_name === 'qwen-tts-0.6B' && m.downloaded);
+      if (!has17B && has06B) {
+        applyEngineSelection(form, 'qwen:0.6B');
+      }
+    }
+  }, [engine, modelSize, modelStatusData, selectedProfile?.default_model_size, form]);
 
   const itemClass = compact ? 'text-xs text-muted-foreground' : undefined;
   const triggerClass = compact

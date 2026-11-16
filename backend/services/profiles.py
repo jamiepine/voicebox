@@ -67,6 +67,7 @@ def _profile_to_response(
         preset_voice_id=getattr(profile, "preset_voice_id", None),
         design_prompt=getattr(profile, "design_prompt", None),
         default_engine=getattr(profile, "default_engine", None),
+        default_model_size=getattr(profile, "default_model_size", None),
         personality=getattr(profile, "personality", None),
         generation_count=generation_count,
         sample_count=sample_count,
@@ -215,6 +216,7 @@ async def create_profile(
         preset_voice_id=data.preset_voice_id,
         design_prompt=data.design_prompt,
         default_engine=default_engine,
+        default_model_size=data.default_model_size or None if default_engine else None,
         personality=data.personality,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
@@ -440,6 +442,10 @@ async def update_profile(
     profile.personality = data.personality
     if data.default_engine is not None:
         profile.default_engine = data.default_engine or None  # empty string → NULL
+    if data.default_model_size is not None:
+        profile.default_model_size = data.default_model_size or None
+    if not profile.default_engine:
+        profile.default_model_size = None
     if voice_type == "designed":
         profile.default_engine = default_engine
     profile.updated_at = datetime.now(UTC)

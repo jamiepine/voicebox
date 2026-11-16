@@ -12,6 +12,7 @@ export interface VoiceProfileCreate {
   preset_voice_id?: string;
   design_prompt?: string;
   default_engine?: string;
+  default_model_size?: string;
   /** Free-form character prompt used by compose and the `/generate` personality-rewrite path. */
   personality?: string;
 }
@@ -28,6 +29,7 @@ export interface VoiceProfileResponse {
   preset_voice_id?: string;
   design_prompt?: string;
   default_engine?: string;
+  default_model_size?: string;
   personality?: string | null;
   generation_count: number;
   sample_count: number;
