@@ -300,6 +300,22 @@ Use cases: agent dev loops (dictate a question, hear the answer in a cloned voic
 | Intel Arc                | IPEX/XPU       | Intel discrete GPU acceleration                |
 | Any                      | CPU            | Works everywhere, just slower                  |
 
+### Headless Mode (no GUI)
+
+The backend is a standalone FastAPI server, so you can run Voicebox without the desktop app. That suits always-on agent voice output, a home server, or a machine where you only call the API. Point it at the app's data directory and it uses the same profiles and samples. Models come from the Hugging Face cache; if the app uses a custom model location, set `VOICEBOX_MODELS_DIR` to match.
+
+On macOS, run the bundled server binary:
+
+```bash
+/Applications/Voicebox.app/Contents/MacOS/voicebox-server \
+  --data-dir "$HOME/Library/Application Support/sh.voicebox.app" \
+  --host 127.0.0.1 --port 17493
+```
+
+The app passes `--parent-pid` so the server stops when the desktop process exits (unless "Keep server running" is on). Without it, there is no parent watchdog and the server runs on its own. Quit the app first and check that port 17493 is free, so only one server uses the data directory.
+
+From source, use `python -m backend.main`; for servers, `docker-compose.yml`. To start the server at login with launchd, see [Running headless](backend/README.md#running-headless).
+
 ---
 
 ## API

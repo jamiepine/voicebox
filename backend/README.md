@@ -17,6 +17,42 @@ python -m backend.main --data-dir /path/to/data
 
 The server auto-initializes the SQLite database on first startup. Models are downloaded from HuggingFace on first use.
 
+### Running headless
+
+To keep the server running without the desktop app, for example as a macOS LaunchAgent that starts at login, save this as `~/Library/LaunchAgents/local.voicebox.headless.plist` and replace `YOU` with your username:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>local.voicebox.headless</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Applications/Voicebox.app/Contents/MacOS/voicebox-server</string>
+    <string>--data-dir</string><string>/Users/YOU/Library/Application Support/sh.voicebox.app</string>
+    <string>--host</string><string>127.0.0.1</string>
+    <string>--port</string><string>17493</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/voicebox-server.log</string>
+  <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/voicebox-server.log</string>
+</dict>
+</plist>
+```
+
+Quit the app and make sure nothing is listening on the port (`lsof -nP -iTCP:17493 -sTCP:LISTEN`), because `KeepAlive` keeps retrying a failed bind. Then:
+
+```bash
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/local.voicebox.headless.plist
+curl http://127.0.0.1:17493/health                               # check it is up
+launchctl kickstart -k gui/$(id -u)/local.voicebox.headless       # restart
+launchctl bootout gui/$(id -u)/local.voicebox.headless            # stop
+```
+
+Run one server per data directory: do not open the desktop app or start a second copy while this one is running.
+
 ## Architecture
 
 ```
