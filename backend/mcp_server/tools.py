@@ -298,13 +298,13 @@ def _speak_response(
 async def _transcribe_file(
     path: Path, language: str | None, model: str | None
 ) -> dict[str, Any]:
-    from ..backends import WHISPER_HF_REPOS, load_stt_model
+    from ..backends import WHISPER_HF_REPOS, fourier_stt, load_stt_model
     from ..services import transcribe as transcribe_service
     from ..utils.audio import load_audio
 
-    whisper = transcribe_service.get_whisper_model()
+    whisper = transcribe_service.get_transcription_model(model)
     model_size = model or whisper.model_size
-    valid = list(WHISPER_HF_REPOS.keys())
+    valid = [*WHISPER_HF_REPOS, fourier_stt.MODEL]
     if model_size not in valid:
         raise ValueError(
             f"Invalid STT model '{model_size}'. Must be one of: {', '.join(valid)}"
@@ -318,7 +318,7 @@ async def _transcribe_file(
         not whisper.is_loaded() or whisper.model_size != model_size
     ) and not whisper._is_model_cached(model_size):
         raise ValueError(
-            f"Whisper model '{model_size}' is not yet downloaded. Open "
+            f"Transcription model '{model_size}' is not yet downloaded. Open "
             "Voicebox → Settings → Models to download it first."
         )
 

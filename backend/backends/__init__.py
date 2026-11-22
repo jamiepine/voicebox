@@ -25,6 +25,7 @@ DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
 
 from ..utils.platform_detect import get_backend_type
+from . import fourier_stt
 
 logger = logging.getLogger(__name__)
 
@@ -577,7 +578,7 @@ def get_all_model_configs() -> list[ModelConfig]:
         + _get_qwen_custom_voice_configs()
         + _get_qwen_voice_design_configs()
         + _get_non_qwen_tts_configs()
-        + _get_whisper_configs()
+        + get_stt_model_configs()
         + _get_qwen_llm_configs()
     )
 
@@ -598,8 +599,14 @@ def get_llm_model_configs() -> list[ModelConfig]:
 
 
 def get_stt_model_configs() -> list[ModelConfig]:
-    """Return only STT (Whisper) model configs."""
-    return _get_whisper_configs()
+    """Return the available speech recognition models."""
+    return _get_whisper_configs() + [
+        ModelConfig(
+            model_name=fourier_stt.MODEL, model_size=fourier_stt.MODEL,
+            display_name="Oruk Fourier 2B (English, noncommercial)", engine="fourier",
+            hf_repo_id=fourier_stt.REPO, size_mb=2410, languages=["en"],
+        )
+    ]
 
 
 # Lookup helpers — these replace the if/elif chains in main.py
@@ -773,6 +780,13 @@ def unload_model_by_config(config: ModelConfig) -> bool:
     from ..services import tts, transcribe
     from ..utils.cache import clear_voice_prompt_memory_cache
 
+    if config.engine == "fourier":
+        model = transcribe.get_transcription_model(fourier_stt.MODEL)
+        if model.is_loaded():
+            model.unload_model()
+            return True
+        return False
+
     if config.engine == "whisper":
         whisper_model = transcribe.get_whisper_model()
         if whisper_model.is_loaded() and whisper_model.model_size == config.model_size:
@@ -824,6 +838,8 @@ def check_model_loaded(config: ModelConfig) -> bool:
     from ..services import tts, transcribe
 
     try:
+        if config.engine == "fourier":
+            return transcribe.get_transcription_model(fourier_stt.MODEL).is_loaded()
         if config.engine == "whisper":
             whisper_model = transcribe.get_whisper_model()
             return whisper_model.is_loaded() and getattr(whisper_model, "model_size", None) == config.model_size
@@ -854,8 +870,8 @@ def get_model_load_func(config: ModelConfig):
     from . import get_tts_backend_for_engine
     from ..services import tts, transcribe
 
-    if config.engine == "whisper":
-        return lambda: transcribe.get_whisper_model().load_model(config.model_size)
+    if config.engine in ("whisper", "fourier"):
+        return lambda: transcribe.get_transcription_model(config.model_size).load_model(config.model_size)
 
     if config.engine == "qwen":
         return lambda: tts.get_tts_model().load_model(config.model_size)

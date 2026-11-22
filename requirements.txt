@@ -9,3 +9,4 @@ soundfile
 librosa
 python-multipart
 huggingface_hub
+sherpa-onnx==2.0.2

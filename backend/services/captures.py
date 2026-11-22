@@ -23,7 +23,7 @@ from ..database import Capture as DBCapture
 from ..models import CaptureResponse, RefinementFlagsModel
 from ..utils.audio import load_audio
 from .refinement import RefinementFlags, refine_transcript
-from .transcribe import get_whisper_model
+from .transcribe import get_transcription_model
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +118,7 @@ async def create_capture(
                 raw_path.unlink()
                 written_files.remove(raw_path)
 
-        whisper = get_whisper_model()
+        whisper = get_transcription_model(stt_model)
         resolved_stt = stt_model or whisper.model_size
         await load_stt_model(whisper, resolved_stt)
         transcript = await whisper.transcribe(str(audio_path), language, resolved_stt)
@@ -221,7 +221,7 @@ async def retranscribe_capture(
     if not resolved or not resolved.exists():
         raise FileNotFoundError(f"Audio for capture {capture_id} is missing")
 
-    whisper = get_whisper_model()
+    whisper = get_transcription_model(stt_model)
     resolved_stt = stt_model or whisper.model_size
     await load_stt_model(whisper, resolved_stt)
     transcript = await whisper.transcribe(str(resolved), language, resolved_stt)

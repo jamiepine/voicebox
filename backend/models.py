@@ -172,7 +172,7 @@ class TranscriptionRequest(BaseModel):
     """Request model for audio transcription."""
 
     language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
-    model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
+    model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo|oruk-fourier-2b)$")
 
 
 class TranscriptionResponse(BaseModel):
@@ -241,14 +241,14 @@ class CaptureRefineRequest(BaseModel):
 class CaptureRetranscribeRequest(BaseModel):
     """Request to re-run STT on a capture's audio with a different model."""
 
-    model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
+    model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo|oruk-fourier-2b)$")
     language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
 
 
 class CaptureSettingsResponse(BaseModel):
     """Server-persisted defaults for the capture / refine flow."""
 
-    stt_model: str = Field(default="turbo", pattern="^(base|small|medium|large|turbo)$")
+    stt_model: str = Field(default="turbo", pattern="^(base|small|medium|large|turbo|oruk-fourier-2b)$")
     language: str = Field(default="auto")
     auto_refine: bool = True
     llm_model: str = Field(default="0.6B", pattern="^(0\\.6B|1\\.7B|4B)$")
@@ -304,7 +304,7 @@ class CaptureSettingsResponse(BaseModel):
 class CaptureSettingsUpdate(BaseModel):
     """Partial update for capture settings — every field is optional."""
 
-    stt_model: Optional[str] = Field(default=None, pattern="^(base|small|medium|large|turbo)$")
+    stt_model: Optional[str] = Field(default=None, pattern="^(base|small|medium|large|turbo|oruk-fourier-2b)$")
     language: Optional[str] = None
     auto_refine: Optional[bool] = None
     llm_model: Optional[str] = Field(default=None, pattern="^(0\\.6B|1\\.7B|4B)$")

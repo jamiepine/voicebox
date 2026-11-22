@@ -138,7 +138,7 @@ export interface HistoryListResponse {
   total: number;
 }
 
-export type WhisperModelSize = 'base' | 'small' | 'medium' | 'large' | 'turbo';
+export type WhisperModelSize = 'base' | 'small' | 'medium' | 'large' | 'turbo' | 'oruk-fourier-2b';
 
 export type Qwen3ModelSize = '0.6B' | '1.7B' | '4B';
 

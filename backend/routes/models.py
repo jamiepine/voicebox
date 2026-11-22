@@ -306,7 +306,7 @@ async def get_model_status():
     except ImportError:
         use_scan_cache = False
 
-    from ..backends import get_all_model_configs, check_model_loaded
+    from ..backends import get_all_model_configs, check_model_loaded, fourier_stt
     from ..backends.base import ANY_WEIGHT_EXTENSIONS, is_model_cached
     from ..utils.download_state import repo_cache_dir
 
@@ -340,31 +340,35 @@ async def get_model_status():
             size_mb = None
             loaded = False
 
-            # A model whose backend also pulls auxiliary repos at load time
-            # (e.g. Chatterbox MLX's S3 tokenizer) is only downloaded once
-            # those are present too, matching the backend's own cache check.
-            repo_id = config["hf_repo_id"]
-            downloaded = all(
-                is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS)
-                for repo in (repo_id, *config["aux_hf_repo_ids"])
-            )
+            if config["model_name"] == fourier_stt.MODEL:
+                downloaded = fourier_stt.is_cached()
+                size_mb = 2409908809 / (1024 * 1024) if downloaded else None
+            else:
+                # A model whose backend also pulls auxiliary repos at load time
+                # (e.g. Chatterbox MLX's S3 tokenizer) is only downloaded once
+                # those are present too, matching the backend's own cache check.
+                repo_id = config["hf_repo_id"]
+                downloaded = all(
+                    is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS)
+                    for repo in (repo_id, *config["aux_hf_repo_ids"])
+                )
 
-            if downloaded:
-                try:
-                    cached_repo = (
-                        next((r for r in cache_info.repos if r.repo_id == repo_id), None) if cache_info else None
-                    )
-                    if cached_repo:
-                        total_size = sum(revision.size_on_disk for revision in cached_repo.revisions)
-                    else:
-                        total_size = sum(
-                            f.stat().st_size
-                            for f in repo_cache_dir(repo_id).rglob("*")
-                            if f.is_file() and not f.name.endswith(".incomplete")
+                if downloaded:
+                    try:
+                        cached_repo = (
+                            next((r for r in cache_info.repos if r.repo_id == repo_id), None) if cache_info else None
                         )
-                    size_mb = total_size / (1024 * 1024)
-                except Exception:
-                    pass
+                        if cached_repo:
+                            total_size = sum(revision.size_on_disk for revision in cached_repo.revisions)
+                        else:
+                            total_size = sum(
+                                f.stat().st_size
+                                for f in repo_cache_dir(repo_id).rglob("*")
+                                if f.is_file() and not f.name.endswith(".incomplete")
+                            )
+                        size_mb = total_size / (1024 * 1024)
+                    except Exception:
+                        pass
 
             try:
                 loaded = config["check_loaded"]()
@@ -483,6 +487,10 @@ async def delete_model(model_name: str):
 
         cache_dir = hf_constants.HF_HUB_CACHE
         repo_cache_dir = Path(cache_dir) / ("models--" + hf_repo_id.replace("/", "--"))
+
+        if config.engine == "fourier":
+            from ..backends.fourier_stt import cached_directory
+            repo_cache_dir = cached_directory().parent.parent
 
         if not repo_cache_dir.exists():
             raise HTTPException(status_code=404, detail=f"Model {model_name} not found in cache")

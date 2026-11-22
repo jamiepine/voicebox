@@ -387,6 +387,7 @@ export function CapturesPage() {
                 <SelectItem value="large">
                   {t('settings.captures.transcription.model.large', { tail: t('settings.captures.transcription.model.tail.best') })}
                 </SelectItem>
+                <SelectItem value="oruk-fourier-2b">Oruk Fourier 2B (English, CC BY-NC 4.0)</SelectItem>
                 <SelectItem value="turbo">
                   {t('settings.captures.transcription.model.turbo', { tail: t('settings.captures.transcription.model.tail.nearBest') })}
                 </SelectItem>

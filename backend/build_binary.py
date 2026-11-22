@@ -183,6 +183,8 @@ def build_server(cuda=False, rocm=False):
             "lazy_loader",
             "--collect-all",
             "librosa",
+            "--collect-all",
+            "sherpa_onnx",
             "--hidden-import",
             "soundfile",
             "--hidden-import",

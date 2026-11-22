@@ -38,7 +38,7 @@ async def transcribe_audio(
     stt_path = tmp_path
     try:
         from ..utils.audio import load_audio, save_audio
-        from ..backends import WHISPER_HF_REPOS, load_stt_model
+        from ..backends import WHISPER_HF_REPOS, fourier_stt, load_stt_model
 
         audio, sr = await asyncio.to_thread(load_audio, tmp_path)
         duration = len(audio) / sr
@@ -54,19 +54,22 @@ async def transcribe_audio(
             stt_path = f"{tmp_path}.stt.wav"
             await asyncio.to_thread(save_audio, audio, stt_path, sr)
 
-        whisper_model = transcribe.get_whisper_model()
+        whisper_model = transcribe.get_transcription_model(model)
         model_size = model if model else whisper_model.model_size
 
-        valid_sizes = list(WHISPER_HF_REPOS.keys())
+        valid_sizes = [*WHISPER_HF_REPOS, fourier_stt.MODEL]
         if model_size not in valid_sizes:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid model size '{model_size}'. Must be one of: {', '.join(valid_sizes)}",
             )
 
+        if model_size == fourier_stt.MODEL and not fourier_stt.supports_language(language):
+            raise HTTPException(status_code=400, detail="Oruk Fourier 2B supports English only.")
+
         already_loaded = whisper_model.is_loaded() and whisper_model.model_size == model_size
         if not already_loaded and not whisper_model._is_model_cached(model_size):
-            progress_model_name = f"whisper-{model_size}"
+            progress_model_name = model_size if model_size == fourier_stt.MODEL else f"whisper-{model_size}"
             task_manager = get_task_manager()
 
             async def download_whisper_background():
@@ -82,7 +85,7 @@ async def transcribe_audio(
             raise HTTPException(
                 status_code=202,
                 detail={
-                    "message": f"Whisper model {model_size} is being downloaded. Please wait and try again.",
+                    "message": f"Transcription model {model_size} is being downloaded. Please wait and try again.",
                     "model_name": progress_model_name,
                     "downloading": True,
                 },

@@ -86,6 +86,8 @@ POST /generate
 
 ## Current State
 
+Captures can use Oruk Fourier 2B for offline English transcription. It downloads the 2.41 GB INT8 speech model on first use and runs on CPU. The [model weights](https://huggingface.co/oruk/oruk-fourier-2b#license) are CC BY-NC 4.0.
+
 ### Since v0.5.0 — Two-Month Pulse (2026-04-25 → 2026-06-27)
 
 **The repo went quiet while demand kept climbing.** 0.5.0 (the Capture release) shipped 2026-04-25. In the two months since, only **2 PRs merged** (#544 the release itself, #550 a remote-URL fix) while **150 new issues** were opened and the open-PR queue more than tripled to **88**. The community kept contributing — translations, new engines, GPU fixes — but nothing's been reviewed or merged. This is a review-and-merge backlog, not a build backlog.

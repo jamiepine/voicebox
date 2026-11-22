@@ -77,6 +77,8 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
     'Qwen3-TTS CustomVoice 0.6B by Alibaba. Lightweight version with the same 9 preset voices and instruct control. Faster inference for lower-end hardware.',
   'qwen-voice-design-1.7B':
     'Qwen3-TTS VoiceDesign 1.7B by Alibaba. Builds a voice from a written description instead of reference audio or a preset. Supports the same 10 languages.',
+  'oruk-fourier-2b':
+    'Offline English transcription on CPU. Downloads 2.41 GB from Oruk. Weights licensed CC BY-NC 4.0.',
   'whisper-base':
     'Smallest Whisper model (74M parameters). Fast transcription with moderate accuracy.',
   'whisper-small':
@@ -422,7 +424,7 @@ export function ModelManagement() {
         m.model_name.startsWith('kokoro') ||
         m.model_name.startsWith('omnivoice'),
     ) ?? [];
-  const whisperModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper')) ?? [];
+  const whisperModels = modelStatus?.models.filter((m) => m.model_name.startsWith('whisper') || m.model_name === 'oruk-fourier-2b') ?? [];
   const llmModels = modelStatus?.models.filter((m) => m.model_name.startsWith('qwen3-')) ?? [];
 
   // Build sections
