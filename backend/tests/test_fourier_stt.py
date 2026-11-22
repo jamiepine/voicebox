@@ -28,3 +28,9 @@ def test_cache_requires_tokenizer_and_external_graph_data(tmp_path, monkeypatch)
 def test_language_filter():
     assert all(fourier_stt.supports_language(lang) for lang in [None, "auto", "en", "English", "en-GB"])
     assert not fourier_stt.supports_language("de")
+
+
+def test_qwen_transcript_boundary():
+    assert fourier_stt.transcript_text("Algerian language<asr_text>And so, my fellow Americans.") == "And so, my fellow Americans."
+    assert fourier_stt.transcript_text(" I speak English. ") == "I speak English."
+    assert fourier_stt.transcript_text("language None<asr_text>") == ""

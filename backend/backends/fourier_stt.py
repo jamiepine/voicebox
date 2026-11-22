@@ -41,6 +41,12 @@ def supports_language(language):
     return not language or language.lower() in ("en", "english", "auto") or language.lower().startswith("en-")
 
 
+def transcript_text(raw):
+    """Qwen can return a language header before its transcript marker."""
+    head, marker, transcript = raw.partition("<asr_text>")
+    return (transcript if marker else head).strip()
+
+
 def audio_chunks(audio):
     """Use short windows, cutting long recordings at the quietest 20 ms near the end."""
     limit = 28 * SAMPLE_RATE
@@ -119,5 +125,7 @@ class FourierSTTBackend:
                 stream = self._recognizer.create_stream()
                 stream.accept_waveform(SAMPLE_RATE, chunk)
                 self._recognizer.decode_stream(stream)
-                words.append(stream.result.text.strip())
+                text = transcript_text(stream.result.text)
+                if text:
+                    words.append(text)
         return " ".join(filter(None, words))
