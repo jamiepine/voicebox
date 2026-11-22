@@ -30,7 +30,7 @@
     "noTranscriptError": "此次捕获尚无转录文本",
     "captureCardLabel": "捕获 · {{when}}",
     "header": {
-      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+      "modelSummary": "{{stt}} · Qwen3 · {{llm}}"
     },
     "source": {
       "dictation": "听写",
@@ -41,7 +41,7 @@
       "refined": "精修",
       "raw": "原始",
       "refinedHint": "由 Qwen3 · {{model}} 精修",
-      "rawHint": "由 Whisper {{model}} 转录"
+      "rawHint": "由 {{model}} 转录"
     },
     "actions": {
       "configure": "配置",

@@ -30,7 +30,7 @@
     "noTranscriptError": "A captura ainda não tem transcrição",
     "captureCardLabel": "Captura · {{when}}",
     "header": {
-      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+      "modelSummary": "{{stt}} · Qwen3 · {{llm}}"
     },
     "source": {
       "dictation": "Ditado",
@@ -41,7 +41,7 @@
       "refined": "Refinada",
       "raw": "Bruta",
       "refinedHint": "Refinada com Qwen3 · {{model}}",
-      "rawHint": "Transcrita com Whisper {{model}}"
+      "rawHint": "Transcrita com {{model}}"
     },
     "actions": {
       "configure": "Configurar",

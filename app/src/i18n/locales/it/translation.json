@@ -30,7 +30,7 @@
     "noTranscriptError": "L'acquisizione non ha ancora una trascrizione",
     "captureCardLabel": "Acquisizione · {{when}}",
     "header": {
-      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+      "modelSummary": "{{stt}} · Qwen3 · {{llm}}"
     },
     "source": {
       "dictation": "Dettatura",
@@ -41,7 +41,7 @@
       "refined": "Perfezionata",
       "raw": "Grezza",
       "refinedHint": "Perfezionata con Qwen3 · {{model}}",
-      "rawHint": "Trascritto con Whisper {{model}}"
+      "rawHint": "Trascritto con {{model}}"
     },
     "actions": {
       "configure": "Configura",

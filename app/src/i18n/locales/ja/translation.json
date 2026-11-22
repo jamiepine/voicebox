@@ -30,7 +30,7 @@
     "noTranscriptError": "このキャプチャにはまだ文字起こしがありません",
     "captureCardLabel": "キャプチャ · {{when}}",
     "header": {
-      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+      "modelSummary": "{{stt}} · Qwen3 · {{llm}}"
     },
     "source": {
       "dictation": "ディクテーション",
@@ -41,7 +41,7 @@
       "refined": "整形済み",
       "raw": "生テキスト",
       "refinedHint": "Qwen3 · {{model}} で整形",
-      "rawHint": "Whisper {{model}} で文字起こし"
+      "rawHint": "{{model}} で文字起こし"
     },
     "actions": {
       "configure": "設定",

@@ -30,7 +30,7 @@
     "noTranscriptError": "此擷取尚無轉錄文字",
     "captureCardLabel": "擷取 · {{when}}",
     "header": {
-      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+      "modelSummary": "{{stt}} · Qwen3 · {{llm}}"
     },
     "source": {
       "dictation": "口述",
@@ -41,7 +41,7 @@
       "refined": "精修",
       "raw": "原始",
       "refinedHint": "由 Qwen3 · {{model}} 精修",
-      "rawHint": "由 Whisper {{model}} 轉錄"
+      "rawHint": "由 {{model}} 轉錄"
     },
     "actions": {
       "configure": "設定",
