@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from backend.backends import fourier_stt
 
@@ -65,3 +66,37 @@ def test_qwen_transcript_boundary():
     assert fourier_stt.transcript_text("Algerian language<asr_text>And so, my fellow Americans.") == "And so, my fellow Americans."
     assert fourier_stt.transcript_text(" I speak English. ") == "I speak English."
     assert fourier_stt.transcript_text("language None<asr_text>") == ""
+
+
+@pytest.mark.parametrize("can_download", [True, False])
+def test_explicit_download_finishes_ui_progress(monkeypatch, can_download):
+    import asyncio
+
+    from backend import backends, models
+    from backend.routes import models as routes
+    from backend.utils.progress import ProgressManager
+    from backend.utils.tasks import TaskManager
+
+    progress, tasks = ProgressManager(), TaskManager()
+    pending = []
+    monkeypatch.setattr(routes, "get_progress_manager", lambda: progress)
+    monkeypatch.setattr(routes, "get_task_manager", lambda: tasks)
+    monkeypatch.setattr(routes, "create_background_task", pending.append)
+
+    async def load():
+        if not can_download:
+            raise RuntimeError("download interrupted")
+
+    monkeypatch.setattr(backends, "get_model_load_func", lambda config: load)
+
+    async def download():
+        await routes.trigger_model_download(models.ModelDownloadRequest(model_name=fourier_stt.MODEL))
+        await pending.pop()
+
+    asyncio.run(download())
+    state = progress.get_progress(fourier_stt.MODEL)
+    assert state["status"] == ("complete" if can_download else "error")
+    if can_download:
+        assert not progress.get_all_active()
+    else:
+        assert state["error"] == "download interrupted"

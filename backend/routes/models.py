@@ -432,8 +432,10 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     async def download_in_background():
         try:
             await track_model_download(config, load_func, force=True)
+            progress_manager.mark_complete(request.model_name)
             task_manager.complete_download(request.model_name)
         except Exception as e:
+            progress_manager.mark_error(request.model_name, str(e))
             task_manager.error_download(request.model_name, str(e))
 
     task_manager.start_download(request.model_name)
