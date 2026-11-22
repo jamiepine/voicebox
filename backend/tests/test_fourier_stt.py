@@ -30,6 +30,37 @@ def test_language_filter():
     assert not fourier_stt.supports_language("de")
 
 
+def test_capture_readiness_recognizes_complete_fourier_download(tmp_path, monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    from backend.routes import captures
+
+    model = fourier_stt.MODEL
+    settings = SimpleNamespace(
+        stt_model=model,
+        llm_model=captures.get_llm_model_configs()[0].model_size,
+        custom_llm_endpoint=None,
+        custom_llm_model=None,
+    )
+    monkeypatch.setattr(captures.settings_service, "get_capture_settings", lambda db: settings)
+    monkeypatch.setattr(captures, "is_model_cached", lambda repo: False)
+    monkeypatch.setattr(fourier_stt, "cached_directory", lambda: tmp_path)
+
+    def readiness():
+        return asyncio.run(captures.capture_readiness_endpoint(db=None)).stt
+
+    assert readiness().size == model
+    assert not readiness().ready
+    for name in fourier_stt.FILES:
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    assert readiness().ready
+    (tmp_path / "encoder.int8.onnx.data").unlink()
+    assert not readiness().ready
+
+
 def test_qwen_transcript_boundary():
     assert fourier_stt.transcript_text("Algerian language<asr_text>And so, my fellow Americans.") == "And so, my fellow Americans."
     assert fourier_stt.transcript_text(" I speak English. ") == "I speak English."
