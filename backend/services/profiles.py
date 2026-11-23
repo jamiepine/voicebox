@@ -423,7 +423,11 @@ async def update_profile(
     voice_type = getattr(profile, "voice_type", None) or "cloned"
     preset_engine = getattr(profile, "preset_engine", None)
     preset_voice_id = getattr(profile, "preset_voice_id", None)
-    design_prompt = getattr(profile, "design_prompt", None)
+    design_prompt = (
+        data.design_prompt
+        if "design_prompt" in data.model_fields_set
+        else getattr(profile, "design_prompt", None)
+    )
     default_engine = data.default_engine if data.default_engine is not None else getattr(profile, "default_engine", None)
     # Designed profiles created before the design engine existed could carry
     # any default_engine; coerce rather than make the profile uneditable.
@@ -447,6 +451,7 @@ async def update_profile(
     if data.default_engine is not None:
         profile.default_engine = data.default_engine or None  # empty string → NULL
     if voice_type == "designed":
+        profile.design_prompt = design_prompt
         profile.default_engine = default_engine
     profile.updated_at = datetime.now(UTC)
 
