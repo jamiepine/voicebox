@@ -3,18 +3,22 @@ VoiceDesign backend's instruct layering. None of this loads the model."""
 
 import shutil
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
 
+import httpx
 import pytest
+from fastapi import FastAPI
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
 
 from backend import models
 from backend.backends import TTS_ENGINES, get_tts_model_configs
 from backend.backends.qwen_voice_design_backend import QwenVoiceDesignBackend
-from backend.database import Base
+from backend.database import Base, get_db
 from backend.models import VoiceProfileCreate
+from backend.routes import profiles as profile_routes
 from backend.routes.generations import _resolve_generation_engine
 from backend.services.profiles import (
     DEFAULT_DESIGN_ENGINE,
@@ -70,6 +74,49 @@ async def test_designed_profile_gets_design_engine_by_default(test_db, mock_prof
 
     voice_prompt = await create_voice_prompt_for_profile(profile.id, test_db, engine=DEFAULT_DESIGN_ENGINE)
     assert voice_prompt == {"voice_type": "designed", "design_prompt": DESIGN}
+
+
+@pytest.mark.asyncio
+async def test_designed_profile_api_persists_updated_design_prompt(test_db, mock_profiles_dir):
+    app = FastAPI()
+    app.include_router(profile_routes.router)
+    sessions = sessionmaker(bind=test_db.get_bind())
+
+    def isolated_db() -> Iterator[Session]:
+        with sessions() as db:
+            yield db
+
+    app.dependency_overrides[get_db] = isolated_db
+    payload = {
+        "name": "Designed",
+        "language": "en",
+        "voice_type": "designed",
+        "design_prompt": DESIGN,
+    }
+    updated_prompt = "A measured voice that speaks clearly."
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://voicebox.test") as client:
+        created = await client.post("/profiles", json=payload)
+        assert created.status_code == 200, created.text
+        assert created.json()["design_prompt"] == DESIGN
+        path = f"/profiles/{created.json()['id']}"
+
+        updated = await client.put(path, json={**payload, "design_prompt": updated_prompt})
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["design_prompt"] == updated_prompt
+
+        loaded = await client.get(path)
+        assert loaded.status_code == 200, loaded.text
+        assert loaded.json()["design_prompt"] == updated_prompt
+
+        renamed = await client.put(path, json={"name": "Renamed", "language": "en"})
+        assert renamed.status_code == 200, renamed.text
+        assert renamed.json()["design_prompt"] == updated_prompt
+
+        invalid = await client.put(path, json={**payload, "design_prompt": " "})
+        assert invalid.status_code == 400, invalid.text
+        loaded = await client.get(path)
+        assert loaded.json()["design_prompt"] == updated_prompt
 
 
 @pytest.mark.asyncio
