@@ -1278,16 +1278,22 @@ fn reveal_app_folder(
     state: State<'_, ServerState>,
     folder: app_folders::AppFolder,
 ) -> Result<(), String> {
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("Failed to get app data dir: {e}"))?;
+    let mut data_dirs = Vec::new();
+    // `just dev` runs the backend from the repo root, where it keeps its
+    // data in ./data instead of the sidecar's --data-dir.
+    #[cfg(debug_assertions)]
+    data_dirs.push(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data"));
+    data_dirs.push(
+        app.path()
+            .app_data_dir()
+            .map_err(|e| format!("Failed to get app data dir: {e}"))?,
+    );
     let models_dir = app_folders::models_dir(
         state.models_dir.lock().unwrap().as_deref(),
         |key| std::env::var_os(key),
         app.path().home_dir().ok(),
     );
-    let path = app_folders::resolve(folder, &data_dir, models_dir.as_deref())?;
+    let path = app_folders::resolve(folder, &data_dirs, models_dir.as_deref())?;
     app.shell()
         .open(path.to_string_lossy(), None)
         .map_err(|e| format!("Failed to open {}: {e}", path.display()))
