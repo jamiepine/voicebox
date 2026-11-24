@@ -1,8 +1,10 @@
 uvicorn
 fastapi
 sqlalchemy
-torch
-torchvision
+torch>=2.10.0; sys_platform != "darwin" or platform_machine != "x86_64"
+torch>=2.2.0,<2.3; sys_platform == "darwin" and platform_machine == "x86_64"
+torchvision>=0.25.0; sys_platform != "darwin" or platform_machine != "x86_64"
+torchvision>=0.17.0,<0.18; sys_platform == "darwin" and platform_machine == "x86_64"
 soundfile
 librosa
 python-multipart
