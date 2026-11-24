@@ -1,4 +1,5 @@
-import type { FileFilter, PlatformFilesystem } from '@/platform/types';
+import { invoke } from '@tauri-apps/api/core';
+import type { AppFolder, FileFilter, PlatformFilesystem } from '@/platform/types';
 
 export const tauriFilesystem: PlatformFilesystem = {
   async saveFile(filename: string, blob: Blob, filters?: FileFilter[]) {
@@ -23,9 +24,8 @@ export const tauriFilesystem: PlatformFilesystem = {
     await writeFile(resolvedPath, new Uint8Array(arrayBuffer));
   },
 
-  async openPath(path: string) {
-    const { open } = await import('@tauri-apps/plugin-shell');
-    await open(path);
+  async openAppFolder(folder: AppFolder) {
+    await invoke('reveal_app_folder', { folder });
   },
 
   async pickDirectory(title: string) {

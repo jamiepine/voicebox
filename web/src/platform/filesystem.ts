@@ -1,4 +1,4 @@
-import type { FileFilter, PlatformFilesystem } from '@/platform/types';
+import type { AppFolder, FileFilter, PlatformFilesystem } from '@/platform/types';
 
 export const webFilesystem: PlatformFilesystem = {
   async saveFile(filename: string, blob: Blob, _filters?: FileFilter[]) {
@@ -13,7 +13,7 @@ export const webFilesystem: PlatformFilesystem = {
     document.body.removeChild(a);
   },
 
-  async openPath(_path: string) {
+  async openAppFolder(_folder: AppFolder) {
     // No filesystem access in browser
   },
 

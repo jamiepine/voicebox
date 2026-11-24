@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod accessibility;
+mod app_folders;
 mod audio_capture;
 mod audio_output;
 mod clipboard;
@@ -1267,6 +1268,31 @@ fn allow_app_microphone(window: &tauri::WebviewWindow) {
     });
 }
 
+/// Reveal one of the app's own folders in the OS file manager. The path is
+/// resolved and validated here so neither the webview nor the server can
+/// make the shell open an arbitrary location.
+#[command]
+#[allow(deprecated)]
+fn reveal_app_folder(
+    app: tauri::AppHandle,
+    state: State<'_, ServerState>,
+    folder: app_folders::AppFolder,
+) -> Result<(), String> {
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data dir: {e}"))?;
+    let models_dir = app_folders::models_dir(
+        state.models_dir.lock().unwrap().as_deref(),
+        |key| std::env::var_os(key),
+        app.path().home_dir().ok(),
+    );
+    let path = app_folders::resolve(folder, &data_dir, models_dir.as_deref())?;
+    app.shell()
+        .open(path.to_string_lossy(), None)
+        .map_err(|e| format!("Failed to open {}: {e}", path.display()))
+}
+
 /// Deliver `text` into the UI that had focus when the chord fired.
 ///
 /// Pipeline: activate the captured PID → settle → save the user's
@@ -1633,6 +1659,7 @@ pub fn run() {
             open_accessibility_settings,
             open_input_monitoring_settings,
             open_microphone_settings,
+            reveal_app_folder,
             paste_final_text,
             enable_hotkey,
             disable_hotkey,

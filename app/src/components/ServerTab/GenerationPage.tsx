@@ -44,7 +44,7 @@ export function GenerationPage() {
     if (!generationsPath) return;
     setOpening(true);
     try {
-      await platform.filesystem.openPath(generationsPath);
+      await platform.filesystem.openAppFolder('generations');
     } catch (e) {
       console.error('Failed to open generations folder:', e);
     } finally {
