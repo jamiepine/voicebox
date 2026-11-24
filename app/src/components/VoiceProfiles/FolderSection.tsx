@@ -1,0 +1,166 @@
+import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+
+interface FolderSectionProps {
+  /** Null renders the Uncategorised bucket, which has no menu and no id. */
+  folderId: string | null;
+  name: string;
+  count: number;
+  collapsed: boolean;
+  onToggle: () => void;
+  onRename?: (name: string) => void;
+  onDelete?: () => void;
+  children: React.ReactNode;
+}
+
+/**
+ * A collapsible group header with its members underneath.
+ *
+ * The delete copy is explicit that only the folder goes — the server
+ * releases members to Uncategorised rather than cascading, and a header
+ * that just says "Delete" over a group of voices reads far more alarming
+ * than what actually happens.
+ */
+export function FolderSection({
+  folderId,
+  name,
+  count,
+  collapsed,
+  onToggle,
+  onRename,
+  onDelete,
+  children,
+}: FolderSectionProps) {
+  const { t } = useTranslation();
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [draftName, setDraftName] = useState(name);
+
+  const Chevron = collapsed ? ChevronRight : ChevronDown;
+
+  const submitRename = () => {
+    const trimmed = draftName.trim();
+    if (trimmed && trimmed !== name) onRename?.(trimmed);
+    setRenameOpen(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="group/folder flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-accent/30"
+          aria-expanded={!collapsed}
+        >
+          <Chevron className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <span className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {name}
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground/70">{count}</span>
+        </button>
+
+        {folderId && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 opacity-0 transition-opacity focus-visible:opacity-100 group-hover/folder:opacity-100 data-[state=open]:opacity-100"
+                aria-label={t('folders.actions', { name })}
+              >
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setDraftName(name);
+                  setRenameOpen(true);
+                }}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                {t('folders.rename')}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t('folders.delete')}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+
+      {!collapsed && <div className="flex flex-col gap-1 pl-2">{children}</div>}
+
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('folders.renameDialog.title')}</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={draftName}
+            onChange={(e) => setDraftName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') submitRename();
+            }}
+            aria-label={t('folders.renameDialog.title')}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={submitRename} disabled={!draftName.trim()}>
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('folders.deleteDialog.title')}</DialogTitle>
+            <DialogDescription>{t('folders.deleteDialog.body', { name })}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                onDelete?.();
+                setDeleteOpen(false);
+              }}
+            >
+              {t('folders.deleteDialog.confirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

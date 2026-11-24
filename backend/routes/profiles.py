@@ -134,6 +134,26 @@ async def update_profile(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.post("/profiles/{profile_id}/duplicate", response_model=models.VoiceProfileResponse)
+async def duplicate_profile(
+    profile_id: str,
+    data: models.ProfileDuplicateRequest | None = None,
+    db: Session = Depends(get_db),
+):
+    """Duplicate a voice profile, including its samples, avatar and settings.
+
+    Unlike an export/import round-trip this preserves personality, effects
+    chain, default engine and preset/designed fields, and works for profiles
+    with no samples.  Defaults the new name to "<name> (copy)".
+    """
+    try:
+        return await profiles.duplicate_profile(
+            profile_id, db, name=data.name if data else None
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.delete("/profiles/{profile_id}")
 async def delete_profile(
     profile_id: str,
