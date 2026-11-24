@@ -183,9 +183,47 @@ When the speaker dictates a punctuation word inside a technical term, convert it
 For example, "run npm install then cd into src slash components and edit index dot tsx" yields "Run npm install then cd into src/components and edit index.tsx.\""""
 
 
-def build_refinement_prompt(flags: RefinementFlags) -> str:
-    """Assemble the system prompt for a given flag combination."""
+# Whisper reports the transcript language as an ISO-639-1 style code (or
+# None when detection ran on its own). The refinement prompt needs the
+# human-readable name so the constraint reads naturally to the model.
+_LANGUAGE_NAMES = {
+    "zh": "Chinese",
+    "en": "English",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "de": "German",
+    "fr": "French",
+    "ru": "Russian",
+    "pt": "Portuguese",
+    "es": "Spanish",
+    "it": "Italian",
+}
+
+_PRESERVE_LANGUAGE_KNOWN = """Output language — the transcript you are about to read is in {language}. Your entire output MUST be written in {language}.
+
+The instructions and few-shot examples in this prompt are in English; that is prompt plumbing, not the output language. Never translate the transcript. A {language} transcript stays {language}, the speaker's word choices included."""
+
+_PRESERVE_LANGUAGE_UNKNOWN = """Output language — your entire output MUST be written in the same language as the transcript itself.
+
+The instructions and few-shot examples in this prompt are in English; that is prompt plumbing, not the output language. Never translate the transcript, no matter which language it arrives in."""
+
+
+def build_refinement_prompt(flags: RefinementFlags, language: str | None = None) -> str:
+    """Assemble the system prompt for a given flag combination.
+
+    ``language`` is the Whisper language code of the transcript (e.g. "zh")
+    when known, else None. Either way the prompt pins the output to the
+    transcript's own language: without an explicit constraint, the English
+    instructions and English few-shot examples below train small refinement
+    models to silently translate non-English transcripts into English (#603).
+    """
     sections = [_BASE_INSTRUCTIONS]
+
+    if language:
+        language_name = _LANGUAGE_NAMES.get(language.lower(), language)
+        sections.append(_PRESERVE_LANGUAGE_KNOWN.format(language=language_name))
+    else:
+        sections.append(_PRESERVE_LANGUAGE_UNKNOWN)
 
     if flags.smart_cleanup:
         sections.append(_SMART_CLEANUP)
@@ -269,8 +307,16 @@ async def refine_transcript(
     transcript: str,
     flags: RefinementFlags,
     model_size: str | None = None,
+    language: str | None = None,
 ) -> tuple[str, str]:
     """Run the transcript through the LLM with the built system prompt.
+
+    Args:
+        transcript: Raw STT output to clean up.
+        flags: Refinement behaviour toggles.
+        model_size: Optional refinement model override.
+        language: Whisper language code of the transcript (e.g. "zh"), when
+            known. Pins the refined output to the transcript's language.
 
     Returns:
         (refined_text, llm_model_size) — so callers can persist which model
@@ -283,7 +329,7 @@ async def refine_transcript(
     # to reason about obvious STT garbage (see ``collapse_repetitive_artifacts``).
     cleaned_input = collapse_repetitive_artifacts(transcript)
 
-    system_prompt = build_refinement_prompt(flags)
+    system_prompt = build_refinement_prompt(flags, language)
     text = await backend.generate(
         prompt=cleaned_input,
         system=system_prompt,
