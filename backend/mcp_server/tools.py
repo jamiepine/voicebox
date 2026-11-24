@@ -298,7 +298,7 @@ def _speak_response(
 async def _transcribe_file(
     path: Path, language: str | None, model: str | None
 ) -> dict[str, Any]:
-    from ..backends import WHISPER_HF_REPOS
+    from ..backends import WHISPER_HF_REPOS, load_stt_model
     from ..services import transcribe as transcribe_service
     from ..utils.audio import load_audio
 
@@ -322,6 +322,7 @@ async def _transcribe_file(
             "Voicebox → Settings → Models to download it first."
         )
 
+    await load_stt_model(whisper, model_size)
     text = await whisper.transcribe(str(path), language, model_size)
     return {
         "text": text,

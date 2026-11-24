@@ -563,7 +563,10 @@ async def track_model_download(config: ModelConfig, load, *, force: bool = False
     skip its forced-offline mode and fetch whatever is missing). Only a
     successful load records the snapshot as verified and clears the marker.
     A model that is already resident is left alone: its loader returns
-    without touching the disk, so it can't verify the snapshot.
+    without touching the disk, so it can't verify the snapshot. The
+    exception is a forced download of a resident model that is still marked
+    in progress, which is unloaded first so the snapshot is reloaded from
+    disk and verified.
 
     A model that looked cached but has no verified record (downloaded by an
     older Voicebox, possibly partially) gets one online retry if the load
@@ -571,18 +574,25 @@ async def track_model_download(config: ModelConfig, load, *, force: bool = False
     so missing files are fetched instead of failing offline forever.
     """
     from .base import ANY_WEIGHT_EXTENSIONS, is_model_cached
-    from ..utils.download_state import mark_download_started, mark_download_verified, verified_snapshot_complete
+    from ..utils.download_state import (
+        is_download_in_progress,
+        mark_download_started,
+        mark_download_verified,
+        verified_snapshot_complete,
+    )
 
     async def run_load():
         result = load()
         if asyncio.iscoroutine(result):
             await result
 
-    if check_model_loaded(config):
-        await run_load()
-        return
-
     repos = (config.hf_repo_id, *config.aux_hf_repo_ids)
+    if check_model_loaded(config):
+        if not (force and any(is_download_in_progress(repo) for repo in repos)):
+            await run_load()
+            return
+        unload_model_by_config(config)
+
     marked = force or not all(is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS) for repo in repos)
     if marked:
         for repo in repos:
@@ -616,12 +626,35 @@ async def load_engine_model(engine: str, model_size: str = "default") -> None:
     else:
         load = backend.load_model
 
-    configs = [c for c in get_tts_model_configs() if c.engine == engine]
-    config = next((c for c in configs if c.model_size == model_size), configs[0] if len(configs) == 1 else None)
+    config = find_model_config(get_tts_model_configs(), engine, model_size)
     if config is None:
         await load()
         return
     await track_model_download(config, load)
+
+
+async def load_stt_model(backend: STTBackend, model_size: str) -> None:
+    """Load a Whisper size through download tracking."""
+    config = find_model_config(get_stt_model_configs(), "whisper", model_size)
+    if config is None:
+        await backend.load_model(model_size)
+        return
+    await track_model_download(config, partial(backend.load_model, model_size))
+
+
+async def load_llm_model(backend: LLMBackend, model_size: str) -> None:
+    """Load a local Qwen LLM size through download tracking."""
+    config = find_model_config(get_llm_model_configs(), "qwen_llm", model_size)
+    if config is None:
+        await backend.load_model(model_size)
+        return
+    await track_model_download(config, partial(backend.load_model, model_size))
+
+
+def find_model_config(configs: list[ModelConfig], engine: str, model_size: str) -> ModelConfig | None:
+    """The config for *engine* at *model_size*, or the engine's only config."""
+    matches = [c for c in configs if c.engine == engine]
+    return next((c for c in matches if c.model_size == model_size), matches[0] if len(matches) == 1 else None)
 
 
 async def ensure_model_cached_or_raise(engine: str, model_size: str = "default") -> None:

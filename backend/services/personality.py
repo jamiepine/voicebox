@@ -21,6 +21,7 @@ ideas.
 
 from dataclasses import dataclass
 
+from ..backends import load_llm_model
 from . import llm as llm_service
 from .refinement import collapse_repetitive_artifacts
 
@@ -85,6 +86,7 @@ async def compose_as_profile(
     resolved_size = model_size or backend.model_size
 
     system_prompt = _build_system_prompt(text, _COMPOSE_TASK)
+    await load_llm_model(backend, resolved_size)
     output = await backend.generate(
         prompt="Speak.",
         system=system_prompt,
@@ -110,6 +112,7 @@ async def rewrite_as_profile(
     resolved_size = model_size or backend.model_size
 
     system_prompt = _build_system_prompt(character, _REWRITE_TASK)
+    await load_llm_model(backend, resolved_size)
     output = await backend.generate(
         prompt=cleaned,
         system=system_prompt,

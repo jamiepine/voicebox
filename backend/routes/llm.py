@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from .. import models
-from ..backends import get_llm_model_configs
+from ..backends import get_llm_model_configs, load_llm_model
 from ..services import llm
 from ..services.task_queue import create_background_task
 from ..utils.tasks import get_task_manager
@@ -36,7 +36,7 @@ async def llm_generate(request: models.LLMGenerateRequest):
 
         async def download_llm_background():
             try:
-                await backend.load_model(model_size)
+                await load_llm_model(backend, model_size)
                 task_manager.complete_download(progress_model_name)
             except Exception as e:
                 task_manager.error_download(progress_model_name, str(e))
@@ -64,6 +64,7 @@ async def llm_generate(request: models.LLMGenerateRequest):
         examples = [(pair[0], pair[1]) for pair in request.examples]
 
     try:
+        await load_llm_model(backend, model_size)
         text = await backend.generate(
             prompt=request.prompt,
             system=request.system,
