@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import i18n from '@/i18n';
+import { isMicrophoneDenied, reportMicrophoneBlocked } from '@/lib/hooks/useMicrophonePermission';
 import { usePlatform } from '@/platform/PlatformContext';
 import { convertToWav } from '@/lib/utils/audio';
 
@@ -155,14 +157,19 @@ export function useAudioRecording({
         }
       }, 100);
     } catch (err) {
+      setIsRecording(false);
+      if (await isMicrophoneDenied(err)) {
+        reportMicrophoneBlocked(platform.metadata.isTauri);
+        setError(i18n.t('microphonePermission.blockedError'));
+        return;
+      }
       const errorMessage =
         err instanceof Error
           ? err.message
           : 'Failed to access microphone. Please check permissions.';
       setError(errorMessage);
-      setIsRecording(false);
     }
-  }, [maxDurationSeconds, onRecordingComplete]);
+  }, [maxDurationSeconds, onRecordingComplete, platform.metadata.isTauri]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {

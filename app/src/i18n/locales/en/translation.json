@@ -1269,5 +1269,22 @@
       "migrationFailedGeneric": "Failed to migrate models",
       "migrationConnectionLost": "Lost connection during migration"
     }
+  },
+  "microphonePermission": {
+    "title": "Microphone access is blocked",
+    "blockedError": "Microphone access is blocked.",
+    "body": {
+      "windows": "Voicebox can't use your microphone because access was denied. If Windows is blocking it, choose Open privacy settings, turn on Microphone access and Let desktop apps access your microphone, then choose Try again.",
+      "macos": "Voicebox can't use your microphone because access was denied. Choose Open privacy settings and turn on Voicebox under Privacy & Security → Microphone. macOS applies the change after you quit and reopen Voicebox.",
+      "linux": "Voicebox can't use your microphone because access was denied. Check that a microphone is connected and that your desktop's sound or privacy settings allow Voicebox to use it, then choose Try again.",
+      "browser": "Your browser blocked microphone access for this page. Click the site settings icon next to the address bar, allow the microphone, then choose Try again."
+    },
+    "stillBlocked": {
+      "default": "Microphone access is still blocked. Check the settings above, then try again.",
+      "macos": "Microphone access is still blocked. If you just turned it on, quit and reopen Voicebox."
+    },
+    "retry": "Try again",
+    "retrying": "Trying…",
+    "openSettings": "Open privacy settings"
   }
 }
