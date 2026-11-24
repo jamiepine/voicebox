@@ -57,7 +57,7 @@ ARG ROCM_VERSION=7.2
 RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
       pip install --no-cache-dir --prefix=/install \
         --index-url "https://download.pytorch.org/whl/rocm${ROCM_VERSION}" \
-        torch torchaudio && \
+        "torch>=2.10.0" "torchaudio>=2.10.0" && \
       printf '[global]\nindex-url = https://download.pytorch.org/whl/rocm%s\nextra-index-url = https://pypi.org/simple\n' "$ROCM_VERSION" > /etc/pip.conf; \
     fi
 

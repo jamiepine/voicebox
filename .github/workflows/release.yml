@@ -395,7 +395,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          pip install torch torchaudio \
+          pip install "torch>=2.10.0" "torchaudio>=2.10.0" \
             --index-url ${{ matrix.torch_index }}
 
       - name: Install remaining Python dependencies
