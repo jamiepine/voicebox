@@ -1,3 +1,6 @@
+# Windows ROCm only. AMD's newest stable Windows wheel is torch 2.9.1, below the
+# torch>=2.10 floor for CVE-2026-24747 in requirements.txt. Move to 2.10+ once
+# repo.radeon.com publishes a stable (non-nightly) build.
 --extra-index-url https://repo.radeon.com/rocm/windows/rocm-rel-7.2.1/
 torch==2.9.1+rocm7.2.1
 torchaudio==2.9.1+rocm7.2.1

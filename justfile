@@ -103,13 +103,7 @@ setup-python:
             echo "Detected NVIDIA GPU — installing CUDA PyTorch..."
             torch_index="https://download.pytorch.org/whl/cu128"
         elif [ -e /dev/kfd ]; then
-            if [ -n "${VOICEBOX_ROCM_VERSION:-}" ]; then
-                rocm_ver="$VOICEBOX_ROCM_VERSION"
-            elif lspci 2>/dev/null | grep -qi "Navi 4"; then
-                rocm_ver=7.2
-            else
-                rocm_ver=6.3
-            fi
+            rocm_ver="${VOICEBOX_ROCM_VERSION:-7.2}"
             echo "Detected AMD GPU — installing ROCm PyTorch (rocm${rocm_ver})..."
             torch_index="https://download.pytorch.org/whl/rocm${rocm_ver}"
         fi

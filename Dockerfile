@@ -48,8 +48,9 @@ RUN pip install --no-cache-dir --upgrade pip
 
 COPY backend/requirements.txt .
 
-# ROCm wheel index. Default 6.3 (RDNA1/2/3); set ROCM_VERSION=7.2 for RDNA4.
-ARG ROCM_VERSION=6.3
+# ROCm wheel index. 7.2 is the oldest PyTorch ROCm index with torch>=2.10
+# (the CVE-2026-24747 floor in requirements.txt); the 6.x indexes stop at 2.9.1.
+ARG ROCM_VERSION=7.2
 
 # For ROCm, make the PyTorch ROCm index primary so every install below resolves
 # torch to ROCm wheels instead of the default CUDA build.
