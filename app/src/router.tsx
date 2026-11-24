@@ -9,6 +9,7 @@ import { AppFrame } from '@/components/AppFrame/AppFrame';
 import { CapturesTab } from '@/components/CapturesTab/CapturesTab';
 import { EffectsTab } from '@/components/EffectsTab/EffectsTab';
 import { MainEditor } from '@/components/MainEditor/MainEditor';
+import { MicrophonePermissionDialog } from '@/components/MicrophonePermissionDialog/MicrophonePermissionDialog';
 import { ModelsTab } from '@/components/ModelsTab/ModelsTab';
 import { AboutPage } from '@/components/ServerTab/AboutPage';
 import { CapturesPage } from '@/components/ServerTab/CapturesPage';
@@ -62,6 +63,7 @@ function RootLayout() {
         );
       })}
 
+      <MicrophonePermissionDialog />
       <Toaster />
     </AppFrame>
   );
