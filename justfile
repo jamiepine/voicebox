@@ -108,7 +108,7 @@ setup-python:
             torch_index="https://download.pytorch.org/whl/rocm${rocm_ver}"
         fi
         if [ -n "$torch_index" ]; then
-            "{{ python }}" -m pip install torch torchaudio --index-url "$torch_index"
+            "{{ python }}" -m pip install "torch>=2.10.0" "torchaudio>=2.10.0" --index-url "$torch_index"
         fi
     fi
     "{{ python }}" -m pip install -r {{ backend_dir }}/requirements.txt
@@ -187,10 +187,10 @@ setup-python:
     $hasIntelArc = ($gpus | Where-Object { $_ -match 'Arc' }).Count -gt 0; \
     if ($hasNvidia) { \
         Write-Host "NVIDIA GPU detected — installing PyTorch with CUDA support..."; \
-        Invoke-Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128; \
+        Invoke-Pip install "torch>=2.10.0" "torchvision>=0.25.0" "torchaudio>=2.10.0" --index-url https://download.pytorch.org/whl/cu128; \
     } elseif ($hasIntelArc) { \
         Write-Host "Intel Arc GPU detected — installing PyTorch with XPU support..."; \
-        Invoke-Pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu; \
+        Invoke-Pip install "torch>=2.10.0" "torchvision>=0.25.0" "torchaudio>=2.10.0" --index-url https://download.pytorch.org/whl/xpu; \
         Invoke-Pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu; \
     } else { \
         Write-Host "No NVIDIA or Intel Arc GPU detected — using CPU-only PyTorch."; \
