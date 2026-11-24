@@ -276,6 +276,12 @@ export function CapturesTab() {
         text,
         language,
         engine,
+        model_size: (voice.default_model_size || undefined) as
+          | '1.7B'
+          | '0.6B'
+          | '1B'
+          | '3B'
+          | undefined,
       });
     },
     onSuccess: (result) => {

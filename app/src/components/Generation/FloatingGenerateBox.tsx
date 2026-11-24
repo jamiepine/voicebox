@@ -18,7 +18,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { apiClient } from '@/lib/api/client';
 import { engineSupportsInstruct } from '@/lib/constants/engines';
 import { getLanguageOptionsForEngine, type LanguageCode } from '@/lib/constants/languages';
-import { useGenerationForm } from '@/lib/hooks/useGenerationForm';
+import { useGenerationForm, type GenerationFormValues } from '@/lib/hooks/useGenerationForm';
 import { useProfile, useProfiles } from '@/lib/hooks/useProfiles';
 import { useStory } from '@/lib/hooks/useStories';
 import { cn } from '@/lib/utils/cn';
@@ -80,6 +80,14 @@ export function FloatingGenerateBox({
   const hasTrackEditor = isStoriesRoute && currentStory && currentStory.items.length > 0;
 
   const { form, handleSubmit, isPending } = useGenerationForm({
+    defaultValues: {
+      language: (selectedProfile?.language as LanguageCode) || 'en',
+      engine: (selectedProfile?.default_engine ??
+        selectedProfile?.preset_engine ??
+        'qwen') as GenerationFormValues['engine'],
+      modelSize:
+        (selectedProfile?.default_model_size as GenerationFormValues['modelSize']) || '1.7B',
+    },
     onSuccess: async (generationId) => {
       setIsExpanded(false);
       // Defer the story add until TTS completes -- useGenerationProgress handles it
@@ -163,6 +171,9 @@ export function FloatingGenerateBox({
     const engine = selectedProfile?.default_engine ?? selectedProfile?.preset_engine;
     if (engine) {
       form.setValue('engine', engine as EngineValue);
+      if (selectedProfile?.default_model_size) {
+        form.setValue('modelSize', selectedProfile.default_model_size as '1.7B' | '0.6B' | '1B' | '3B');
+      }
     } else if (
       selectedProfile &&
       selectedProfile.voice_type !== 'preset' &&
@@ -610,7 +621,7 @@ export function FloatingGenerateBox({
                   />
 
                   <FormItem className="flex-1 space-y-0">
-                    <EngineModelSelector form={form} compact />
+                    <EngineModelSelector form={form} compact selectedProfile={selectedProfile} />
                   </FormItem>
 
                   <FormItem className="flex-1 space-y-0">

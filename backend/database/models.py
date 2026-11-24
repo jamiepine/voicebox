@@ -38,6 +38,7 @@ class VoiceProfile(Base):
     preset_voice_id = Column(String, nullable=True)  # e.g. "am_adam" — only for preset
     design_prompt = Column(Text, nullable=True)      # text description — only for designed
     default_engine = Column(String, nullable=True)   # auto-selected engine, locked for preset
+    default_model_size = Column(String, nullable=True)  # e.g. "0.6B", "1.7B", "1B", "3B"
     # Free-form character prompt used by the compose button and the
     # personality-rewrite path on /generate. Describes *what* this voice
     # says and how, orthogonal to how it sounds (handled by the preset /

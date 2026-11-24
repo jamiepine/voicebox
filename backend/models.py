@@ -25,6 +25,7 @@ class VoiceProfileCreate(BaseModel):
     preset_voice_id: Optional[str] = Field(None, max_length=100)
     design_prompt: Optional[str] = Field(None, max_length=2000)
     default_engine: Optional[str] = Field(None, max_length=50)
+    default_model_size: Optional[str] = Field(None, max_length=20)
     personality: Optional[str] = Field(None, max_length=2000)
 
 
@@ -42,6 +43,7 @@ class VoiceProfileResponse(BaseModel):
     preset_voice_id: Optional[str] = None
     design_prompt: Optional[str] = None
     default_engine: Optional[str] = None
+    default_model_size: Optional[str] = None
     personality: Optional[str] = None
     generation_count: int = 0
     sample_count: int = 0
