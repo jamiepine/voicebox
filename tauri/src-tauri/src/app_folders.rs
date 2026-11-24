@@ -32,20 +32,33 @@ pub fn models_dir(
         .or_else(|| home.map(|dir| dir.join(".cache").join("huggingface").join("hub")))
 }
 
-/// Resolve `folder` to an existing directory inside its allowed root.
+/// Resolve `folder` to an existing directory inside its allowed root. Data
+/// folders are looked up in each of `data_dirs` in order, so a development
+/// backend's data root can be tried before the bundled sidecar's.
 pub fn resolve(
     folder: AppFolder,
-    data_dir: &Path,
+    data_dirs: &[PathBuf],
     models_dir: Option<&Path>,
 ) -> Result<PathBuf, String> {
-    let (root, target) = match folder {
-        AppFolder::Generations => (data_dir.to_path_buf(), data_dir.join("generations")),
-        AppFolder::Captures => (data_dir.to_path_buf(), data_dir.join("captures")),
+    let subdir = match folder {
+        AppFolder::Generations => "generations",
+        AppFolder::Captures => "captures",
         AppFolder::Models => {
             let dir = models_dir.ok_or("Models directory is not known")?;
-            (dir.to_path_buf(), dir.to_path_buf())
+            return resolve_in(dir, dir);
         }
     };
+    let mut result = Err("No data directory is known".to_string());
+    for data_dir in data_dirs {
+        result = resolve_in(data_dir, &data_dir.join(subdir));
+        if result.is_ok() {
+            break;
+        }
+    }
+    result
+}
+
+fn resolve_in(root: &Path, target: &Path) -> Result<PathBuf, String> {
     let root = root
         .canonicalize()
         .map_err(|e| format!("Folder root {} is not accessible: {e}", root.display()))?;
@@ -113,11 +126,11 @@ mod tests {
         let root = tmp.0.canonicalize().unwrap();
 
         assert_eq!(
-            resolve(AppFolder::Generations, &tmp.0, None).unwrap(),
+            resolve(AppFolder::Generations, &[tmp.0.clone()], None).unwrap(),
             root.join("generations")
         );
         assert_eq!(
-            resolve(AppFolder::Captures, &tmp.0, None).unwrap(),
+            resolve(AppFolder::Captures, &[tmp.0.clone()], None).unwrap(),
             root.join("captures")
         );
     }
@@ -125,12 +138,33 @@ mod tests {
     #[test]
     fn rejects_missing_and_non_directory_targets() {
         let tmp = TempDir::new("missing");
-        assert!(resolve(AppFolder::Generations, &tmp.0, None).is_err());
+        assert!(resolve(AppFolder::Generations, &[tmp.0.clone()], None).is_err());
+        assert!(resolve(AppFolder::Generations, &[], None).is_err());
 
         std::fs::write(tmp.0.join("captures"), b"").unwrap();
-        assert!(resolve(AppFolder::Captures, &tmp.0, None).is_err());
+        assert!(resolve(AppFolder::Captures, &[tmp.0.clone()], None).is_err());
 
-        assert!(resolve(AppFolder::Models, &tmp.0, None).is_err());
+        assert!(resolve(AppFolder::Models, &[tmp.0.clone()], None).is_err());
+    }
+
+    #[test]
+    fn falls_back_to_later_data_dirs() {
+        let tmp = TempDir::new("fallback");
+        let dev = tmp.0.join("dev");
+        let app = tmp.0.join("app");
+        std::fs::create_dir_all(dev.join("generations")).unwrap();
+        std::fs::create_dir_all(app.join("captures")).unwrap();
+        std::fs::create_dir_all(app.join("generations")).unwrap();
+        let dirs = [dev.clone(), app.clone()];
+
+        assert_eq!(
+            resolve(AppFolder::Generations, &dirs, None).unwrap(),
+            dev.canonicalize().unwrap().join("generations")
+        );
+        assert_eq!(
+            resolve(AppFolder::Captures, &dirs, None).unwrap(),
+            app.canonicalize().unwrap().join("captures")
+        );
     }
 
     #[cfg(unix)]
@@ -143,7 +177,7 @@ mod tests {
         std::fs::create_dir_all(&outside).unwrap();
         std::os::unix::fs::symlink(&outside, data.join("generations")).unwrap();
 
-        let err = resolve(AppFolder::Generations, &data, None).unwrap_err();
+        let err = resolve(AppFolder::Generations, &[data], None).unwrap_err();
         assert!(err.contains("outside"), "{err}");
     }
 
@@ -152,14 +186,14 @@ mod tests {
         let tmp = TempDir::new("bundle");
         let bundle = tmp.0.join("Calculator.app");
         std::fs::create_dir_all(&bundle).unwrap();
-        assert!(resolve(AppFolder::Models, &tmp.0, Some(&bundle)).is_err());
+        assert!(resolve(AppFolder::Models, &[], Some(&bundle)).is_err());
     }
 
     #[test]
     fn resolves_models_dir() {
         let tmp = TempDir::new("models");
         assert_eq!(
-            resolve(AppFolder::Models, Path::new("/nonexistent"), Some(&tmp.0)).unwrap(),
+            resolve(AppFolder::Models, &[], Some(&tmp.0)).unwrap(),
             tmp.0.canonicalize().unwrap()
         );
     }
