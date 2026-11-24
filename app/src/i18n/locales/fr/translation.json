@@ -1261,5 +1261,22 @@
       "migrationFailedGeneric": "Échec de la migration des modèles",
       "migrationConnectionLost": "Connexion perdue pendant la migration"
     }
+  },
+  "microphonePermission": {
+    "title": "L'accès au microphone est bloqué",
+    "blockedError": "L'accès au microphone est bloqué.",
+    "body": {
+      "windows": "Voicebox ne peut pas utiliser votre microphone, car l'accès a été refusé. Si Windows le bloque, choisissez Ouvrir les paramètres de confidentialité, activez Accès au microphone et Autoriser les applications de bureau à accéder à votre microphone, puis choisissez Réessayer.",
+      "macos": "Voicebox ne peut pas utiliser votre microphone, car l'accès a été refusé. Choisissez Ouvrir les paramètres de confidentialité et activez Voicebox dans Confidentialité et sécurité → Microphone. macOS applique le changement après que vous avez quitté puis rouvert Voicebox.",
+      "linux": "Voicebox ne peut pas utiliser votre microphone, car l'accès a été refusé. Vérifiez qu'un microphone est branché et que les paramètres de son ou de confidentialité de votre bureau autorisent Voicebox à l'utiliser, puis choisissez Réessayer.",
+      "browser": "Votre navigateur a bloqué l'accès au microphone pour cette page. Cliquez sur l'icône des paramètres du site à côté de la barre d'adresse, autorisez le microphone, puis choisissez Réessayer."
+    },
+    "stillBlocked": {
+      "default": "L'accès au microphone est toujours bloqué. Vérifiez les paramètres ci-dessus, puis réessayez.",
+      "macos": "L'accès au microphone est toujours bloqué. Si vous venez de l'activer, quittez puis rouvrez Voicebox."
+    },
+    "retry": "Réessayer",
+    "retrying": "Nouvelle tentative…",
+    "openSettings": "Ouvrir les paramètres de confidentialité"
   }
 }

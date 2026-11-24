@@ -1261,5 +1261,22 @@
       "migrationFailedGeneric": "迁移模型失败",
       "migrationConnectionLost": "迁移期间丢失连接"
     }
+  },
+  "microphonePermission": {
+    "title": "麦克风访问已被阻止",
+    "blockedError": "麦克风访问已被阻止。",
+    "body": {
+      "windows": "由于访问被拒绝，Voicebox 无法使用你的麦克风。如果是 Windows 阻止了访问，请选择“打开隐私设置”，开启“麦克风访问权限”和“允许桌面应用访问你的麦克风”，然后选择“重试”。",
+      "macos": "由于访问被拒绝，Voicebox 无法使用你的麦克风。请选择“打开隐私设置”，在“隐私与安全性”→“麦克风”中开启 Voicebox。退出并重新打开 Voicebox 后，macOS 才会应用此更改。",
+      "linux": "由于访问被拒绝，Voicebox 无法使用你的麦克风。请确认已连接麦克风，并且桌面的声音或隐私设置允许 Voicebox 使用它，然后选择“重试”。",
+      "browser": "浏览器已阻止此页面访问麦克风。请点击地址栏旁的网站设置图标，允许使用麦克风，然后选择“重试”。"
+    },
+    "stillBlocked": {
+      "default": "麦克风访问仍被阻止。请检查上述设置，然后重试。",
+      "macos": "麦克风访问仍被阻止。如果你刚刚开启了权限，请退出并重新打开 Voicebox。"
+    },
+    "retry": "重试",
+    "retrying": "正在重试…",
+    "openSettings": "打开隐私设置"
   }
 }
