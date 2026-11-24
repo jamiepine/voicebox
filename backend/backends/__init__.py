@@ -12,8 +12,10 @@ and a model config registry that eliminates per-engine dispatch maps.
 # HF_HUB_OFFLINE=1 and on network failures.
 from ..utils import hf_offline_patch  # noqa: F401
 
+import asyncio
 import threading
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Protocol, Optional, Tuple, List
 from typing_extensions import runtime_checkable
 import numpy as np
@@ -550,15 +552,46 @@ def engine_has_model_sizes(engine: str) -> bool:
     return len(configs) > 1
 
 
+async def track_model_download(config: ModelConfig, load, *, force: bool = False) -> None:
+    """Run *load* so that a partial download never counts as installed.
+
+    Before loading, every repo of the model gets an in-progress marker when
+    a download may happen (always when *force*, which also makes the backend
+    skip its forced-offline mode and fetch whatever is missing). Only a
+    successful load records the snapshot as verified and clears the marker.
+    """
+    from .base import ANY_WEIGHT_EXTENSIONS, is_model_cached
+    from ..utils.download_state import mark_download_started, mark_download_verified
+
+    repos = (config.hf_repo_id, *config.aux_hf_repo_ids)
+    if force or not all(is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS) for repo in repos):
+        for repo in repos:
+            mark_download_started(repo)
+
+    result = load()
+    if asyncio.iscoroutine(result):
+        await result
+
+    for repo in repos:
+        mark_download_verified(repo)
+
+
 async def load_engine_model(engine: str, model_size: str = "default") -> None:
     """Load a model for the given engine, handling engines with multiple model sizes."""
     backend = get_tts_backend_for_engine(engine)
     if engine in ("qwen", "qwen_custom_voice"):
-        await backend.load_model_async(model_size)
+        load = partial(backend.load_model_async, model_size)
     elif engine == "tada":
-        await backend.load_model(model_size)
+        load = partial(backend.load_model, model_size)
     else:
-        await backend.load_model()
+        load = backend.load_model
+
+    configs = [c for c in get_tts_model_configs() if c.engine == engine]
+    config = next((c for c in configs if c.model_size == model_size), configs[0] if len(configs) == 1 else None)
+    if config is None:
+        await load()
+        return
+    await track_model_download(config, load)
 
 
 async def ensure_model_cached_or_raise(engine: str, model_size: str = "default") -> None:
