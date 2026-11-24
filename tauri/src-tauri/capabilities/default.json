@@ -4,9 +4,6 @@
   "description": "Default permissions for voicebox",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main", "dictate"],
-  "remote": {
-    "urls": ["http://localhost:*"]
-  },
   "permissions": [
     "core:default",
     "core:window:default",
@@ -14,15 +11,13 @@
     "core:webview:default",
     "core:webview:allow-internal-toggle-devtools",
     "shell:allow-open",
-    "shell:allow-execute",
-    "shell:allow-spawn",
     "updater:default",
     "process:default",
     "dialog:default",
     "dialog:allow-save",
     "dialog:allow-open",
     "fs:default",
-    "fs:read-all",
-    "fs:write-all"
+    "fs:allow-write-file",
+    "fs:allow-write-text-file"
   ]
 }

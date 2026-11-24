@@ -161,7 +161,7 @@ export function CapturesPage() {
     if (!capturesPath) return;
     setOpening(true);
     try {
-      await platform.filesystem.openPath(capturesPath);
+      await platform.filesystem.openAppFolder('captures');
     } catch (e) {
       console.error('Failed to open captures folder:', e);
     } finally {

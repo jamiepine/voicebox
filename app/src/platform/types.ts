@@ -8,9 +8,11 @@ export interface FileFilter {
   extensions: string[];
 }
 
+export type AppFolder = 'generations' | 'captures' | 'models';
+
 export interface PlatformFilesystem {
   saveFile(filename: string, blob: Blob, filters?: FileFilter[]): Promise<void>;
-  openPath(path: string): Promise<void>;
+  openAppFolder(folder: AppFolder): Promise<void>;
   pickDirectory(title: string): Promise<string | null>;
 }
 

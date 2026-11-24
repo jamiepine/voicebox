@@ -64,6 +64,9 @@ tauri-plugin-process = "2.0"
 # isn't called).
 keytap = "0.4"
 
+[dev-dependencies]
+regex = "1"
+
 [features]
 # This feature is used for production builds or when `devPath` points to the filesystem
 custom-protocol = ["tauri/custom-protocol"]
