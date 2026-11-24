@@ -203,6 +203,22 @@ async def test_failed_load_of_verified_snapshot_is_not_retried(hf_cache):
 
     async def load():
         attempts.append(1)
+        raise OSError("disk read error")
+
+    with pytest.raises(OSError, match="disk read error"):
+        await track_model_download(CONFIG, load)
+
+    assert attempts == [1]
+    assert is_download_in_progress(REPO) is False
+
+
+@pytest.mark.asyncio
+async def test_non_file_error_on_unrecorded_snapshot_is_not_retried(hf_cache):
+    _write_snapshot(hf_cache, FULL_SNAPSHOT)
+    attempts = []
+
+    async def load():
+        attempts.append(1)
         raise RuntimeError("CUDA out of memory")
 
     with pytest.raises(RuntimeError, match="CUDA out of memory"):
@@ -210,6 +226,38 @@ async def test_failed_load_of_verified_snapshot_is_not_retried(hf_cache):
 
     assert attempts == [1]
     assert is_download_in_progress(REPO) is False
+
+
+@pytest.mark.asyncio
+async def test_failed_load_that_left_model_resident_is_not_retried(hf_cache, monkeypatch):
+    _write_snapshot(hf_cache, FULL_SNAPSHOT)
+    state = {"resident": False, "attempts": 0}
+    monkeypatch.setattr(backends, "check_model_loaded", lambda config: state["resident"])
+
+    async def load():
+        state["attempts"] += 1
+        state["resident"] = True
+        raise OSError("device placement failed")
+
+    with pytest.raises(OSError, match="device placement failed"):
+        await track_model_download(CONFIG, load)
+
+    assert state["attempts"] == 1
+    assert verified_snapshot_complete(REPO) is None
+
+
+def test_tada_residency_is_size_aware(monkeypatch):
+    class FakeTada:
+        model_size = "1B"
+
+        def is_loaded(self):
+            return True
+
+    monkeypatch.setattr(backends, "get_tts_backend_for_engine", lambda engine: FakeTada())
+    tada = {c.model_size: c for c in backends.get_tts_model_configs() if c.engine == "tada"}
+
+    assert backends.check_model_loaded(tada["1B"]) is True
+    assert backends.check_model_loaded(tada["3B"]) is False
 
 
 @pytest.mark.asyncio
