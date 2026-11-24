@@ -7,6 +7,18 @@
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-24
+
+A security and bug-fix release on top of 0.6.0. It raises the PyTorch floor for CVE-2026-24747, narrows the desktop app's shell and filesystem permissions, and fixes partial model downloads, a Windows CUDA DLL load failure in Chatterbox Turbo, and the dead end after denying microphone access.
+
+### Fixes
+
+- **PyTorch 2.10 is now the minimum, closing CVE-2026-24747.** Before 2.10, a crafted checkpoint could run code during `torch.load` even with `weights_only=True`. `torch` and `torchaudio` now require 2.10 or newer on every platform with 2.10 wheels, and the Docker ROCm image and `just setup` on Linux AMD hosts now default to the PyTorch ROCm 7.2 wheels, because the ROCm 6.x indexes stop at 2.9.1 (set `ROCM_VERSION` / `VOICEBOX_ROCM_VERSION` to override). Two platforms cannot reach 2.10 yet and stay on their current torch: **Intel macOS** stays on 2.2.2, the last x86_64 macOS wheel PyTorch published, and **Windows ROCm** stays on AMD's 2.9.1+rocm7.2.1, the newest stable Windows ROCm wheel. On those two platforms, only load models from sources you trust. ([CVE-2026-24747](https://nvd.nist.gov/vuln/detail/CVE-2026-24747))
+- **The desktop app's shell and filesystem permissions are narrowed to what it uses.** The webview's shell `open` scope accepts only `http(s)://` and `mailto:` URLs instead of any string, the shell `execute`/`spawn` and blanket `fs` read/write grants are gone (exports write only to the file picked in the save dialog), and the capability no longer extends IPC to any page served from `http://localhost:*`. The Open folder buttons for generations, captures and models now call a new `reveal_app_folder` command that resolves the folder in Rust and checks it stays inside the app data directory or the configured models directory, instead of opening whatever path the server returned. (security hardening)
+- **A model is shown as downloaded only once every file it needs is on disk.** Voicebox writes an in-progress marker into the model's HuggingFace cache before a download starts and, once the model loads successfully from any path (generation, transcription and dictation, refinement and personalities, MCP, or the Models page), records the snapshot's file list in its place; `/models/status` and every engine's cache check now require all recorded files, and a marked model never runs in forced-offline mode. Previously any weights file was enough, so a download that failed after `model.safetensors` left the model marked *Downloaded* and every load failed with a misleading "couldn't connect to huggingface.co" error. Clicking Download again on such a model now fetches the missing files instead of being skipped, reloading it from disk if it is already in memory. Models downloaded by earlier versions keep working and get recorded on their next successful load. ([#1261](https://github.com/jamiepine/voicebox/issues/1261))
+- **Chatterbox Turbo loads on the Windows CUDA backend without a prior sample upload.** The frozen build now bundles the `onnx.libs` folder from onnx's Windows wheel through a new `pyi_hooks/hook-onnx.py`, so `onnx_cpp2py_export.pyd` finds its `msvcp140-<hash>.dll` via onnx's own `os.add_dll_directory` call instead of failing with "DLL load failed" unless pandas had already loaded an identical copy. ([#1264](https://github.com/jamiepine/voicebox/issues/1264))
+- **Microphone access can be recovered after denying the permission prompt.** Voice profile recording, captures and dictation now detect a blocked microphone and open one shared dialog that explains how to re-enable it, with a Try again button and, on Windows and macOS, an Open privacy settings button that jumps to the OS microphone pane. On Windows the app also grants its own origin up front, so WebView2 no longer remembers an accidental "Block" forever and only the Windows privacy toggle can still deny access. ([#1267](https://github.com/jamiepine/voicebox/issues/1267))
+
 ## [0.6.0] - 2026-10-04
 
 **The stability release.** 0.5 made Voicebox a dictation and agent-voice studio; 0.6 makes it hold up. Sixty-plus contributor pull requests landed since 0.5 and most of them fix something that used to go wrong in daily use: MLX crashed with `There is no Stream(gpu, 1) in current thread` when a model was loaded on one thread and used on another, memory grew with every generation and never came back on unload, a fully-cached model retried HuggingFace five times per file before it would load offline, the Docker image could not write its own data volume, dictation refused to arm without an LLM it was never going to call, and the backend test suite would not even collect. All of that is fixed. The headline features ride on top: native AMD ROCm on Windows and in Docker, five new interface languages, and Chatterbox multilingual running on Apple Silicon through MLX.
@@ -828,6 +840,7 @@ The first public release of Voicebox — an open-source voice synthesis studio p
 
 Tauri v2, React, TypeScript, Tailwind CSS, FastAPI, Qwen3-TTS, Whisper, SQLite
 
+[0.6.1]: https://github.com/jamiepine/voicebox/compare/v0.6.0...v0.6.1
 [0.5.0]: https://github.com/jamiepine/voicebox/compare/v0.4.5...v0.5.0
 [0.4.5]: https://github.com/jamiepine/voicebox/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/jamiepine/voicebox/compare/v0.4.3...v0.4.4
