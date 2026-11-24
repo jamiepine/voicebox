@@ -30,6 +30,8 @@ _namespace = {
     "Path": Path,
     "Optional": Optional,
     "logger": logging.getLogger("test_is_model_cached"),
+    "is_download_in_progress": lambda hf_repo: False,
+    "verified_snapshot_complete": lambda hf_repo: None,
 }
 exec(_FUNC_SRC, _namespace)  # noqa: S102
 is_model_cached = _namespace["is_model_cached"]
