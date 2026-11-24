@@ -1608,6 +1608,25 @@ pub fn run() {
                 allow_app_microphone(&window);
             }
 
+            // The recovery dialog lives in the main window. Bring it forward
+            // when a recording is denied; if it was closed while dictation
+            // keeps running, open the OS microphone pane instead.
+            let handle = app.handle().clone();
+            app.listen_any("system:microphone-blocked", move |_| {
+                match handle.get_webview_window("main") {
+                    Some(window) => {
+                        let _ = window.unminimize();
+                        let _ = window.show();
+                        let _ = window.set_focus();
+                    }
+                    None => {
+                        if let Err(e) = open_microphone_settings() {
+                            eprintln!("{e}");
+                        }
+                    }
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
