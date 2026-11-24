@@ -475,7 +475,7 @@ export function ModelManagement() {
                 className="text-xs text-muted-foreground h-7 px-2"
                 onClick={async () => {
                   try {
-                    await platform.filesystem.openPath(cacheDir.path);
+                    await platform.filesystem.openAppFolder('models');
                   } catch {
                     toast({ title: t('models.toast.openFolderFailed'), variant: 'destructive' });
                   }
