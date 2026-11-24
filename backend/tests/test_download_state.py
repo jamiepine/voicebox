@@ -9,6 +9,7 @@ Usage:
     python -m pytest backend/tests/test_download_state.py -v
 """
 
+import asyncio
 import sys
 from pathlib import Path
 
@@ -49,9 +50,9 @@ def hf_cache(monkeypatch, tmp_path):
     return tmp_path
 
 
-def _write_snapshot(cache: Path, files: dict[str, bytes]) -> Path:
+def _write_snapshot(cache: Path, files: dict[str, bytes], repo: str = REPO) -> Path:
     """Lay files out the way huggingface_hub does: blobs plus snapshot symlinks."""
-    repo_dir = cache / ("models--" + REPO.replace("/", "--"))
+    repo_dir = cache / ("models--" + repo.replace("/", "--"))
     blobs = repo_dir / "blobs"
     snapshot = repo_dir / "snapshots" / COMMIT
     blobs.mkdir(parents=True, exist_ok=True)
@@ -243,6 +244,76 @@ async def test_failed_load_that_left_model_resident_is_not_retried(hf_cache, mon
         await track_model_download(CONFIG, load)
 
     assert state["attempts"] == 1
+    assert verified_snapshot_complete(REPO) is None
+
+
+def test_untracked_whisper_load_path_clears_stale_marker(hf_cache, monkeypatch):
+    """A failed /models/download leaves a marker; a later /transcribe-style load must clear it."""
+    from backend.backends import load_stt_model
+
+    whisper = next(c for c in backends.get_stt_model_configs() if c.model_size == "base")
+    mark_download_started(whisper.hf_repo_id)
+    state = {"resident": False}
+    monkeypatch.setattr(backends, "check_model_loaded", lambda config: state["resident"])
+    monkeypatch.setattr(backends, "get_all_model_configs", lambda: [whisper])
+
+    class FakeWhisper:
+        async def load_model(self, model_size):
+            assert model_size == "base"
+            _write_snapshot(hf_cache, FULL_SNAPSHOT, repo=whisper.hf_repo_id)
+            state["resident"] = True
+
+    asyncio.run(load_stt_model(FakeWhisper(), "base"))
+
+    assert is_download_in_progress(whisper.hf_repo_id) is False
+    assert is_model_cached(whisper.hf_repo_id) is True
+    app = FastAPI()
+    app.include_router(models_router)
+    with TestClient(app) as client:
+        assert client.get("/models/status").json()["models"][0]["downloaded"] is True
+
+
+@pytest.mark.asyncio
+async def test_forced_download_reloads_resident_model_with_stale_marker(hf_cache, monkeypatch):
+    _write_snapshot(hf_cache, {"model.safetensors": b"weights"})
+    mark_download_started(REPO)
+    state = {"resident": True, "unloads": 0, "loads": []}
+    monkeypatch.setattr(backends, "check_model_loaded", lambda config: state["resident"])
+
+    def fake_unload(config):
+        state["unloads"] += 1
+        state["resident"] = False
+        return True
+
+    monkeypatch.setattr(backends, "unload_model_by_config", fake_unload)
+
+    async def load():
+        state["loads"].append(state["resident"])
+        if not state["resident"]:
+            _write_snapshot(hf_cache, {k: v for k, v in FULL_SNAPSHOT.items() if k != "model.safetensors"})
+            state["resident"] = True
+
+    await track_model_download(CONFIG, load, force=True)
+
+    assert state["unloads"] == 1
+    assert state["loads"] == [False]
+    assert is_download_in_progress(REPO) is False
+    assert verified_snapshot_complete(REPO) is True
+
+
+@pytest.mark.asyncio
+async def test_non_forced_load_of_resident_model_keeps_stale_marker(hf_cache, monkeypatch):
+    _write_snapshot(hf_cache, FULL_SNAPSHOT)
+    mark_download_started(REPO)
+    monkeypatch.setattr(backends, "check_model_loaded", lambda config: True)
+    monkeypatch.setattr(backends, "unload_model_by_config", lambda config: pytest.fail("must not unload"))
+
+    async def load():
+        pass
+
+    await track_model_download(CONFIG, load)
+
+    assert is_download_in_progress(REPO) is True
     assert verified_snapshot_complete(REPO) is None
 
 
