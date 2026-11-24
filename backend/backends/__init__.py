@@ -466,6 +466,7 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
                 "el",
                 "fi",
                 "hi",
+                "id",
                 "ms",
                 "nl",
                 "no",

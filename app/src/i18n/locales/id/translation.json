@@ -1,0 +1,1315 @@
+{
+  "common": {
+    "cancel": "Batal",
+    "save": "Simpan",
+    "delete": "Hapus",
+    "edit": "Edit",
+    "close": "Tutup",
+    "confirm": "Konfirmasi",
+    "loading": "Memuat…",
+    "error": "Error",
+    "unknown": "Tidak diketahui",
+    "unknownError": "Error tidak diketahui"
+  },
+  "nav": {
+    "generate": "Generate",
+    "stories": "Stories",
+    "captures": "Captures",
+    "voices": "Voices",
+    "effects": "Effects",
+    "audio": "Audio",
+    "models": "Models",
+    "settings": "Pengaturan",
+    "updateBadge": "Update"
+  },
+  "captures": {
+    "title": "Captures",
+    "beta": "Beta",
+    "searchPlaceholder": "Cari transcript…",
+    "snippetEmpty": "(tidak ada transcript)",
+    "noTranscriptError": "Capture belum punya transcript",
+    "captureCardLabel": "Capture · {{when}}",
+    "header": {
+      "modelSummary": "Whisper {{stt}} · Qwen3 · {{llm}}"
+    },
+    "source": {
+      "dictation": "Dictation",
+      "recording": "Recording",
+      "file": "File"
+    },
+    "transcript": {
+      "refined": "Refined",
+      "raw": "Mentah",
+      "refinedHint": "Refined dengan Qwen3 · {{model}}",
+      "rawHint": "Ditranskrip dengan Whisper {{model}}"
+    },
+    "actions": {
+      "configure": "Konfigurasi",
+      "import": "Import",
+      "importing": "Mengupload…",
+      "dictate": "Dictate",
+      "stop": "Stop",
+      "copy": "Salin",
+      "refine": "Refine",
+      "reRefine": "Refine ulang",
+      "export": "Export",
+      "exportDropdownLabel": "Export capture sebagai",
+      "exportAudio": "Audio (WAV)",
+      "exportTranscript": "Transcript (TXT)",
+      "exportMarkdown": "Markdown (MD)",
+      "delete": "Hapus",
+      "playAs": "Putar sebagai {{name}}",
+      "playAsFallback": "Putar sebagai…",
+      "playAsGenerating": "Generating…",
+      "playAsStop": "Stop · {{name}}",
+      "playAsStopFallback": "Stop · Voice",
+      "playAsDropdownLabel": "Putar transcript sebagai"
+    },
+    "empty": {
+      "noMatches": "Tidak ada capture yang cocok dengan \"{{query}}\"",
+      "none": "Belum ada capture.",
+      "loading": "Memuat captures…",
+      "pickOne": "Pilih capture untuk melihat transcript-nya.",
+      "holdToRecord": "Tahan untuk merekam",
+      "toggleHandsFree": "Aktifkan hands-free",
+      "pressShortcut": "Tekan shortcut di mana saja di komputer kamu untuk mulai capture pertama.",
+      "turnOnShortcut": "Aktifkan global shortcut untuk dictate dari mana saja — atau klik Dictate di atas untuk capture dalam app.",
+      "openSettings": "Buka pengaturan Captures"
+    },
+    "deleteDialog": {
+      "title": "Hapus capture",
+      "description": "Ini akan menghapus capture, audio, dan transcript-nya secara permanen. Tidak bisa dibatalkan.",
+      "deleting": "Menghapus…"
+    },
+    "toast": {
+      "deleteFailed": "Gagal menghapus",
+      "playAsFailed": "Putar sebagai gagal",
+      "noVoice": "Tidak ada voice profile",
+      "noVoiceDescription": "Buat voice profile dulu sebelum pakai Putar sebagai.",
+      "transcriptCopied": "Transcript disalin",
+      "copyFailed": "Gagal menyalin",
+      "exportSuccess": "Berhasil di-export ke {{path}}",
+      "exportFailed": "Export gagal",
+      "exportEmpty": "Tidak ada yang bisa di-export",
+      "shortcutNotArmed": "Shortcut aktif, tapi belum siap",
+      "shortcutNotArmedDescription_one": "{{names}} masih perlu didownload. Buka tab Captures untuk mulai.",
+      "shortcutNotArmedDescription_other": "{{names}} masih perlu didownload. Buka tab Captures untuk mulai."
+    },
+    "pill": {
+      "recording": "Merekam",
+      "transcribing": "Mentranskrip",
+      "refining": "Merapikan",
+      "speaking": "Berbicara",
+      "completed": "Selesai",
+      "stopAria": "Hentikan rekaman",
+      "errorFallback": "Terjadi kesalahan",
+      "errorCopyTooltip": "Klik untuk menyalin error"
+    },
+    "chord": {
+      "capturing": "Menangkap…",
+      "pressShortcut": "Tekan shortcut kamu",
+      "noKeys": "Belum ada tombol",
+      "unsupported": "\"{{key}}\" tidak didukung di chord. Coba modifier atau tombol huruf.",
+      "notSet": "Belum diatur"
+    },
+    "readiness": {
+      "title": "Beberapa hal sebelum kamu bisa dictate",
+      "subheading": "Shortcut tetap mati sampai semua item di bawah siap.",
+      "downloadButton": "Download",
+      "downloading": "Mendownload…",
+      "downloadingPercent": "Mendownload… {{pct}}%",
+      "downloadStarted": "Download dimulai",
+      "downloadStartedDescription": "{{name}} sedang didownload. Shortcut akan aktif otomatis setelah selesai.",
+      "downloadFailed": "Download gagal",
+      "stt": {
+        "label": "{{name}} (speech-to-text)",
+        "ready": "Model sudah didownload.",
+        "missing": "Dibutuhkan untuk men-transkrip audio kamu",
+        "missingWithSize": "Dibutuhkan untuk men-transkrip audio kamu · {{size}}"
+      },
+      "llm": {
+        "label": "{{name}} (refinement)",
+        "ready": "Model sudah didownload.",
+        "missing": "Membersihkan transcript mentah sebelum di-paste",
+        "missingWithSize": "Membersihkan transcript mentah sebelum di-paste · {{size}}"
+      },
+      "inputMonitoring": {
+        "label": "Izin Input Monitoring",
+        "ready": "macOS mengizinkan Voicebox mendeteksi global shortcut kamu.",
+        "missing": "macOS perlu mengizinkan Voicebox untuk mendeteksi global shortcut.",
+        "openSettings": "Buka Settings"
+      },
+      "accessibility": {
+        "label": "Izin Accessibility",
+        "ready": "Voicebox bisa paste transcript ke app lain.",
+        "missing": "Diperlukan agar transcript bisa di-paste ke app yang sedang aktif.",
+        "openSettings": "Buka Settings"
+      }
+    },
+    "permissions": {
+      "accessibility": {
+        "title": "Berikan izin Accessibility untuk mengaktifkan auto-paste",
+        "body": "Voicebox butuh <path>System Settings → Privacy & Security → Accessibility</path> untuk paste transcript ke app lain. Dictation kamu tetap masuk ke tab Captures tanpa izin ini.",
+        "openSettings": "Buka Settings",
+        "recheck": "Saya sudah mengaktifkannya",
+        "rechecking": "Mengecek…",
+        "stillMissing": "Belum terdeteksi. macOS biasanya perlu Voicebox ditutup dan dibuka ulang setelah izin diaktifkan."
+      },
+      "inputMonitoring": {
+        "title": "Berikan Input Monitoring untuk mengaktifkan global shortcut",
+        "body": "Voicebox butuh <path>System Settings → Privacy & Security → Input Monitoring</path> untuk mendeteksi chord dictation kamu. Toggle-nya sudah aktif, tapi macOS masih memblokir key event sampai kamu mengizinkannya.",
+        "openSettings": "Buka Settings",
+        "recheck": "Saya sudah mengaktifkannya",
+        "rechecking": "Mengecek…",
+        "stillMissing": "Belum terdeteksi. macOS biasanya perlu Voicebox ditutup dan dibuka ulang setelah izin diaktifkan."
+      }
+    }
+  },
+  "voicesTab": {
+    "title": "Voices",
+    "loading": "Memuat voices…",
+    "searchPlaceholder": "Cari voices…",
+    "newVoice": "Voice Baru",
+    "avatarAlt": "Avatar {{name}}",
+    "selectChannels": "Pilih channels…",
+    "channelDefaultLabel": "{{name}} (Default)",
+    "columns": {
+      "name": "Nama",
+      "language": "Bahasa",
+      "generations": "Generations",
+      "samples": "Samples",
+      "effects": "Effects",
+      "channels": "Channels"
+    }
+  },
+  "voiceInspector": {
+    "loading": "Memuat…",
+    "defaultEffectsHint": "Diterapkan otomatis ke generation baru dengan voice ini.",
+    "fields": {
+      "description": "Deskripsi"
+    },
+    "toast": {
+      "invalidImageFormat": "Silakan pilih PNG, JPG, atau WebP",
+      "avatarUpdated": "Avatar diperbarui",
+      "savedDescription": "\"{{name}}\" tersimpan."
+    }
+  },
+  "audioChannels": {
+    "title": "Audio Channels",
+    "newChannel": "Channel Baru",
+    "loading": "Memuat…",
+    "confirmDelete": "Hapus channel ini?",
+    "noVoicesAssigned": "Belum ada voice yang di-assign",
+    "selectDevice": "Pilih device",
+    "addDevice": "Tambah device",
+    "addVoice": "Tambah voice",
+    "defaultSuffix": "default",
+    "empty": {
+      "message": "Belum ada audio channels. Buat channel pertama untuk mengarahkan voices ke device tertentu.",
+      "action": "Buat Channel"
+    },
+    "labels": {
+      "outputDevices": "Output Devices",
+      "assignedVoices": "Voice yang Di-assign"
+    },
+    "devices": {
+      "title": "Device Tersedia",
+      "defaultNote": "Default channel memakai default device sistem",
+      "toggleHint": "Klik device untuk menambah atau menghapusnya dari channel yang dipilih",
+      "selectHint": "Pilih channel untuk meng-assign device",
+      "empty": "Tidak ada audio device yang ditemukan",
+      "requiresTauri": "Pemilihan audio device membutuhkan Tauri"
+    },
+    "fields": {
+      "name": "Nama Channel",
+      "namePlaceholder": "misal: Virtual Cable, Broadcast"
+    },
+    "createDialog": {
+      "title": "Buat Audio Channel",
+      "description": "Buat audio channel (bus) baru untuk mengarahkan voices ke output device tertentu.",
+      "action": "Buat"
+    },
+    "editDialog": {
+      "title": "Edit Channel",
+      "description": "Perbarui pengaturan channel dan assignment voice."
+    }
+  },
+  "profileForm": {
+    "createTitle": "Buat Voice",
+    "editTitle": "Edit Voice",
+    "createDescription": "Buat voice profile baru dari audio sample atau built-in voice.",
+    "editDescription": "Perbarui detail voice profile dan kelola samples.",
+    "draftRestored": "Draft dipulihkan",
+    "discard": "Buang",
+    "source": {
+      "clone": "Clone dari audio",
+      "builtin": "Built-in voice",
+      "design": "Deskripsikan voice"
+    },
+    "builtin": {
+      "hint": "Pilih voice bawaan. Tidak perlu audio sample.",
+      "badge": "Built-in Voice",
+      "note": "Profile ini memakai built-in voice. Voice tidak bisa diubah setelah dibuat."
+    },
+    "design": {
+      "hint": "Deskripsikan voice yang kamu mau dengan bahasa biasa. Tidak perlu audio sample.",
+      "placeholder": "Seorang pria tua dengan suara hangat dan serak, logat Skotlandia yang pelan, dan sedikit nada geli.",
+      "engineNote": "Memakai Qwen VoiceDesign",
+      "badge": "Designed Voice",
+      "note": "Profile ini memakai voice hasil deskripsi. Deskripsi tidak bisa diubah setelah dibuat."
+    },
+    "sampleTabs": {
+      "upload": "Upload",
+      "record": "Record",
+      "system": "System Audio"
+    },
+    "fields": {
+      "engine": "Engine",
+      "voice": "Voice",
+      "name": "Nama",
+      "namePlaceholder": "Voice Saya",
+      "descriptionLabel": "Deskripsi (Opsional)",
+      "descriptionPlaceholder": "Deskripsikan voice ini…",
+      "language": "Bahasa",
+      "referenceText": "Teks Referensi",
+      "designPrompt": "Deskripsi Voice",
+      "referenceTextPlaceholder": "Masukkan teks persis seperti yang diucapkan di audio…",
+      "defaultEngine": "Engine Default",
+      "noPreference": "Tidak ada preferensi",
+      "defaultEngineHint": "Otomatis memilih engine ini saat profile dipilih.",
+      "defaultEffects": "Effects Default",
+      "defaultEffectsHint": "Effects yang diterapkan otomatis ke semua generation baru dengan voice ini.",
+      "personalityLabel": "Kepribadian",
+      "personalityPlaceholder": "misal \"bajak laut pemarah yang hanya bicara dengan metafora pelayaran\"",
+      "personalityHint": "Siapa voice ini dan bagaimana cara bicaranya. Dipakai oleh tombol Compose dan toggle rewrite sesuai karakter di halaman generate. Kosongkan untuk menyembunyikan keduanya."
+    },
+    "avatar": {
+      "alt": "Preview avatar"
+    },
+    "actions": {
+      "saving": "Menyimpan…",
+      "saveChanges": "Simpan Perubahan",
+      "createProfile": "Buat Profile"
+    },
+    "validation": {
+      "nameRequired": "Nama wajib diisi",
+      "referenceRequired": "Reference text wajib diisi saat menambah sample",
+      "sampleRequired": "Audio sample wajib diisi",
+      "referenceTextRequired": "Reference text wajib diisi",
+      "audioTooLong": "Audio terlalu panjang ({{duration}}). Durasi maksimal adalah {{max}}.",
+      "audioFailed": "Gagal memvalidasi file audio. Coba file lain."
+    },
+    "toast": {
+      "recordingComplete": "Rekaman selesai",
+      "recordingCompleteDescription": "Audio berhasil direkam.",
+      "recordingError": "Error rekaman",
+      "systemAudioCaptured": "System audio tertangkap",
+      "systemAudioCapturedDescription": "Audio berhasil ditangkap.",
+      "systemAudioError": "Error capture system audio",
+      "transcribeFailed": "Transkripsi gagal",
+      "transcribeFailedFallback": "Gagal men-transkrip audio",
+      "noFile": "Tidak ada file yang dipilih",
+      "noFileDescription": "Silakan pilih file audio dulu.",
+      "invalidFile": "Tipe file tidak valid",
+      "invalidImageFormat": "Silakan pilih file gambar (PNG, JPG, atau WebP)",
+      "fileTooLarge": "File terlalu besar",
+      "imageTooLargeDescription": "Gambar harus kurang dari 5MB",
+      "avatarRemoved": "Avatar dihapus",
+      "avatarRemovedDescription": "Gambar avatar berhasil dihapus.",
+      "avatarRemoveFailed": "Gagal menghapus avatar",
+      "avatarUploadFailed": "Upload avatar gagal",
+      "avatarUploadFailedFallback": "Gagal mengupload avatar",
+      "effectsUpdateFailed": "Update effects gagal",
+      "effectsUpdateFailedFallback": "Gagal menyimpan effects chain",
+      "voiceUpdated": "Voice diperbarui",
+      "voiceUpdatedDescription": "\"{{name}}\" berhasil diperbarui.",
+      "noVoiceSelected": "Belum ada voice yang dipilih",
+      "noVoiceSelectedDescription": "Silakan pilih built-in voice.",
+      "noDesignPrompt": "Deskripsi belum diisi",
+      "noDesignPromptDescription": "Silakan deskripsikan voice yang kamu mau.",
+      "profileCreated": "Profile dibuat",
+      "profileCreatedBuiltin": "\"{{name}}\" berhasil dibuat dengan built-in voice.",
+      "profileCreatedDesigned": "\"{{name}}\" berhasil dibuat dari deskripsi voice.",
+      "profileCreatedSample": "\"{{name}}\" berhasil dibuat dengan sample.",
+      "sampleRequired": "Audio sample dibutuhkan",
+      "sampleRequiredDescription": "Silakan berikan audio sample untuk membuat voice profile.",
+      "referenceTextRequired": "Reference text dibutuhkan",
+      "referenceTextRequiredDescription": "Silakan berikan reference text untuk audio sample.",
+      "invalidAudio": "File audio tidak valid",
+      "invalidAudioDescription": "Durasi audio {{duration}}, sedangkan maksimalnya {{max}}.",
+      "validationError": "Error validasi",
+      "rollbackFailed": "Rollback gagal",
+      "rollbackFailedDescription": "Profile yang dibuat tidak bisa dihapus setelah upload sample gagal.",
+      "profileRolledBack": "Profile sudah di-rollback.",
+      "sampleFailed": "Gagal menambah sample",
+      "sampleFailedDescription": "Gagal menambah sample.",
+      "sampleFailedRolledBack": "Gagal menambah sample. Profile sudah di-rollback.",
+      "saveFailed": "Gagal menyimpan profile"
+    }
+  },
+  "audioSample": {
+    "chooseFile": "Pilih File",
+    "uploadHint": "Klik untuk memilih file atau drag and drop. Durasi maksimal: 30 detik.",
+    "fileUploaded": "File diupload",
+    "fileLabel": "File: {{name}}",
+    "play": "Putar",
+    "pause": "Jeda",
+    "transcribe": "Transkrip",
+    "transcribing": "Mentranskrip…",
+    "remove": "Hapus",
+    "startRecording": "Mulai Rekam",
+    "recordHint": "Klik untuk mulai merekam. Durasi maksimal: 30 detik.",
+    "stopRecording": "Hentikan Rekaman",
+    "remaining": "sisa {{time}}",
+    "recordingComplete": "Rekaman selesai",
+    "recordAgain": "Rekam Ulang",
+    "startCapture": "Mulai Capture",
+    "systemHint": "Tangkap audio dari sistem kamu. Durasi maksimal: 30 detik.",
+    "stopCapture": "Hentikan Capture",
+    "captureComplete": "Capture selesai",
+    "captureAgain": "Capture Ulang"
+  },
+  "sampleList": {
+    "loading": "Memuat samples…",
+    "empty": {
+      "title": "Belum ada samples",
+      "hint": "Tambahkan audio sample pertama untuk mulai"
+    },
+    "editing": "Mengedit transkripsi",
+    "placeholder": "Masukkan reference text…",
+    "saving": "Menyimpan…",
+    "editTranscription": "Edit transkripsi",
+    "deleteSample": "Hapus sample",
+    "addSample": "Tambah Sample",
+    "note": "Catatan: Satu sample 30 detik adalah yang paling pas. Kualitas bisa turun jika ada banyak sample. Di update mendatang, sample mungkin bisa dipertukarkan dan diberi tag untuk gaya berbeda dari voice yang sama.",
+    "deleteDialog": {
+      "title": "Hapus Sample",
+      "description": "Yakin ingin menghapus audio sample ini? Aksi ini tidak bisa dibatalkan.",
+      "deleting": "Menghapus…"
+    },
+    "player": {
+      "play": "Putar sample",
+      "pause": "Jeda sample",
+      "stop": "Stop",
+      "stopAria": "Hentikan playback",
+      "position": "Posisi playback sample",
+      "positionValue": "{{current}} dari {{total}}"
+    },
+    "toast": {
+      "invalidText": "Teks tidak valid",
+      "invalidTextDescription": "Reference text tidak boleh kosong.",
+      "updated": "Sample diperbarui",
+      "updatedDescription": "Reference text berhasil diperbarui.",
+      "updateFailed": "Update gagal",
+      "updateFailedFallback": "Gagal memperbarui sample"
+    }
+  },
+  "profiles": {
+    "card": {
+      "noDescription": "Tidak ada deskripsi",
+      "designed": "didesain",
+      "export": "Export profile",
+      "edit": "Edit profile",
+      "delete": "Hapus profile",
+      "selectLabel": "{{name}}, {{language}}. Pilih sebagai voice untuk generation.",
+      "selectLabelSelected": "{{name}}, {{language}}. Dipilih sebagai voice untuk generation."
+    },
+    "list": {
+      "errorLoading": "Error memuat profiles: {{message}}",
+      "empty": "Belum ada voice profile. Buat profile pertama kamu untuk mulai.",
+      "createVoice": "Buat Voice",
+      "unsupportedNote": "Hanya voice profile yang didukung yang bisa dipilih untuk model saat ini."
+    },
+    "deleteDialog": {
+      "title": "Hapus Profile",
+      "body": "Yakin ingin menghapus \"{{name}}\"? Semua generation yang dibuat dengan voice ini, termasuk file audionya, juga akan dihapus. Aksi ini tidak bisa dibatalkan.",
+      "deleting": "Menghapus…"
+    }
+  },
+  "effects": {
+    "title": "Effects",
+    "newPreset": "Preset Baru",
+    "noDescription": "Tidak ada deskripsi",
+    "placeholder": "Pilih preset atau buat yang baru",
+    "effectCount_one": "{{count}} effect",
+    "effectCount_other": "{{count}} effect",
+    "sections": {
+      "builtin": "Bawaan",
+      "custom": "Kustom",
+      "new": "Baru"
+    },
+    "badge": {
+      "builtin": "bawaan"
+    },
+    "unsaved": {
+      "title": "Preset Belum Disimpan",
+      "hint": "Atur effects di panel sebelah kanan."
+    },
+    "detail": {
+      "newTitle": "Preset Baru",
+      "editTitle": "Edit Preset",
+      "savePreset": "Simpan Preset",
+      "saveAsCustom": "Simpan sebagai Custom",
+      "saving": "Menyimpan…",
+      "deleting": "Menghapus…"
+    },
+    "fields": {
+      "name": "Nama",
+      "namePlaceholder": "Preset saya…",
+      "description": "Deskripsi",
+      "descriptionPlaceholder": "Deskripsikan fungsi preset ini…"
+    },
+    "preview": {
+      "label": "Pratinjau",
+      "button": "Pratinjau",
+      "processing": "Memproses…",
+      "hint": "Preview menerapkan effects ke versi bersih tanpa menyimpan."
+    },
+    "saveAs": {
+      "title": "Simpan sebagai Custom Preset",
+      "description": "Buat custom preset baru berdasarkan effects chain saat ini.",
+      "suggestedName": "{{name}} (Salinan)"
+    },
+    "toast": {
+      "saved": "Preset tersimpan",
+      "createdDescription": "\"{{name}}\" berhasil dibuat.",
+      "updated": "Preset diperbarui",
+      "deleted": "Preset dihapus",
+      "saveFailed": "Gagal menyimpan",
+      "deleteFailed": "Gagal menghapus",
+      "previewFailed": "Preview gagal",
+      "nameRequired": "Nama wajib diisi"
+    },
+    "chain": {
+      "loadPreset": "Muat preset…",
+      "addEffect": "Tambah effect…",
+      "clear": "Kosongkan",
+      "enable": "Aktifkan",
+      "disable": "Nonaktifkan",
+      "remove": "Hapus"
+    },
+    "types": {
+      "chorus": {
+        "label": "Chorus / Flanger",
+        "params": {
+          "rate_hz": "Kecepatan LFO (Hz)",
+          "depth": "Kedalaman modulasi",
+          "feedback": "Jumlah feedback",
+          "centre_delay_ms": "Tunda pusat (ms)",
+          "mix": "Mix wet/dry"
+        }
+      },
+      "reverb": {
+        "label": "Reverb",
+        "params": {
+          "room_size": "Ukuran ruangan",
+          "damping": "Redaman frekuensi tinggi",
+          "wet_level": "Level wet",
+          "dry_level": "Level dry",
+          "width": "Lebar stereo"
+        }
+      },
+      "delay": {
+        "label": "Delay",
+        "params": {
+          "delay_seconds": "Waktu delay (detik)",
+          "feedback": "Jumlah feedback",
+          "mix": "Mix wet/dry"
+        }
+      },
+      "compressor": {
+        "label": "Compressor",
+        "params": {
+          "threshold_db": "Ambang (dB)",
+          "ratio": "Rasio kompresi",
+          "attack_ms": "Waktu attack (ms)",
+          "release_ms": "Waktu release (ms)"
+        }
+      },
+      "gain": {
+        "label": "Gain",
+        "params": {
+          "gain_db": "Gain (dB)"
+        }
+      },
+      "highpass": {
+        "label": "High-Pass Filter",
+        "params": {
+          "cutoff_frequency_hz": "Frekuensi cutoff (Hz)"
+        }
+      },
+      "lowpass": {
+        "label": "Low-Pass Filter",
+        "params": {
+          "cutoff_frequency_hz": "Frekuensi cutoff (Hz)"
+        }
+      },
+      "pitch_shift": {
+        "label": "Pitch Shift",
+        "params": {
+          "semitones": "Semitone yang digeser"
+        }
+      }
+    },
+    "builtinPresets": {
+      "Robotic": {
+        "name": "Robotic",
+        "description": "Suara robot metalik (flanger dengan LFO lambat dan feedback tinggi)"
+      },
+      "Radio": {
+        "name": "Radio",
+        "description": "Suara radio AM tipis dengan band-pass filter dan kompresi ringan"
+      },
+      "Echo Chamber": {
+        "name": "Echo Chamber",
+        "description": "Reverb lapang dengan echo yang memanjang"
+      },
+      "Deep Voice": {
+        "name": "Deep Voice",
+        "description": "Pitch lebih rendah dengan kehangatan tambahan"
+      }
+    }
+  },
+  "stories": {
+    "title": "Stories",
+    "newStory": "Story Baru",
+    "loading": "Memuat stories…",
+    "searchPlaceholder": "Cari stories…",
+    "empty": {
+      "title": "Belum ada stories",
+      "hint": "Buat story pertama kamu untuk mulai",
+      "noMatches": "Tidak ada story yang cocok dengan \"{{query}}\""
+    },
+    "row": {
+      "itemCount_one": "{{count}} item",
+      "itemCount_other": "{{count}} item",
+      "ariaLabel": "Story {{name}}, {{count}} item, {{updated}}",
+      "actionsLabel": "Aksi untuk {{name}}"
+    },
+    "createDialog": {
+      "title": "Buat Story Baru",
+      "description": "Buat story baru untuk mengatur voice generations kamu menjadi percakapan.",
+      "action": "Buat",
+      "creating": "Membuat…"
+    },
+    "editDialog": {
+      "title": "Edit Story",
+      "description": "Perbarui nama dan deskripsi story.",
+      "saving": "Menyimpan…"
+    },
+    "deleteDialog": {
+      "title": "Yakin?",
+      "description": "Ini akan menghapus story beserta semua item-nya secara permanen. Aksi ini tidak bisa dibatalkan.",
+      "deleting": "Menghapus…"
+    },
+    "fields": {
+      "name": "Nama",
+      "namePlaceholder": "Story Saya",
+      "descriptionLabel": "Deskripsi (opsional)",
+      "descriptionPlaceholder": "Percakapan antara…"
+    },
+    "toast": {
+      "nameRequired": "Nama wajib diisi",
+      "nameRequiredDescription": "Silakan masukkan nama story",
+      "created": "Story dibuat",
+      "createdDescription": "\"{{name}}\" berhasil dibuat",
+      "createFailed": "Gagal membuat story",
+      "updateFailed": "Gagal memperbarui story",
+      "deleteFailed": "Gagal menghapus story"
+    }
+  },
+  "storyContent": {
+    "selectStory": {
+      "title": "Pilih story",
+      "hint": "Pilih story dari daftar untuk melihat isinya"
+    },
+    "loading": "Memuat story…",
+    "notFound": {
+      "title": "Story tidak ditemukan",
+      "hint": "Story yang dipilih tidak bisa dimuat"
+    },
+    "generatingCount_one": "Generating {{count}} audio",
+    "generatingCount_other": "Generating {{count}} audio",
+    "add": "Tambah",
+    "searchPlaceholder": "Cari berdasarkan nama atau transcript…",
+    "searchNoMatches": "Tidak ada generation yang cocok",
+    "searchNoAvailable": "Tidak ada generation yang tersedia",
+    "exportAudio": "Export Audio",
+    "exportDropdownLabel": "Export story sebagai",
+    "exportFormats": {
+      "wav": "Audio (WAV)",
+      "mp3": "Audio (MP3)",
+      "m4b": "Audiobook (M4B, dengan chapter)"
+    },
+    "empty": {
+      "title": "Tidak ada item di story ini",
+      "hint": "Generate speech menggunakan kotak di bawah untuk menambah item"
+    },
+    "itemActions": {
+      "playFromHere": "Putar dari sini",
+      "regenerate": "Regenerate",
+      "removeFromStory": "Hapus dari Story"
+    },
+    "importAudio": "Import audio…",
+    "importing": "Mengimport…",
+    "dropToImport": "Lepaskan audio untuk mengimport",
+    "toast": {
+      "removeFailed": "Gagal menghapus item",
+      "reorderFailed": "Gagal mengurutkan ulang item",
+      "exportFailed": "Gagal export audio",
+      "addFailed": "Gagal menambah generation",
+      "regenerateFailed": "Gagal regenerate",
+      "importFailed": "Gagal mengimport audio"
+    }
+  },
+  "history": {
+    "empty": "Belum ada voice generations…",
+    "actions": {
+      "menu": "Aksi",
+      "play": "Putar",
+      "exportAudio": "Export Audio",
+      "exportAudioMp3": "Export Audio (MP3)",
+      "exportPackage": "Export Package",
+      "applyEffects": "Terapkan Effects",
+      "regenerate": "Regenerate"
+    },
+    "deleteDialog": {
+      "title": "Hapus Generation",
+      "body": "Yakin ingin menghapus generation ini dari \"{{name}}\"? Aksi ini tidak bisa dibatalkan.",
+      "deleting": "Menghapus…"
+    },
+    "clearFailedDialog": {
+      "title": "Bersihkan failed generations",
+      "body_one": "Ini akan menghapus {{count}} failed generation dari history secara permanen. Tidak bisa dibatalkan.",
+      "body_other": "Ini akan menghapus {{count}} failed generation dari history secara permanen. Tidak bisa dibatalkan.",
+      "clearing": "Membersihkan…",
+      "clearAll": "Bersihkan semua"
+    },
+    "importDialog": {
+      "title": "Import Generation",
+      "body": "Import generation dari \"{{name}}\". Ini akan menambahkannya ke history.",
+      "importing": "Mengimport…",
+      "action": "Import"
+    },
+    "effectsDialog": {
+      "title": "Terapkan Effects",
+      "body": "Atur post-processing effects untuk diterapkan ke generation ini. Versi baru akan dibuat.",
+      "sourceLabel": "Sumber",
+      "sourcePlaceholder": "Pilih source version",
+      "apply": "Terapkan",
+      "applying": "Menerapkan…"
+    }
+  },
+  "generation": {
+    "placeholder": {
+      "storyWithEffects": "Generate speech untuk \"{{name}}\"… (ketik / untuk effects)",
+      "story": "Generate speech untuk \"{{name}}\"…",
+      "profile": "Generate speech menggunakan {{name}}…",
+      "effectsHint": "Ketik / untuk effects seperti [laugh], [sigh]…",
+      "selectVoice": "Pilih voice profile di atas…"
+    },
+    "button": {
+      "generate": "Generate speech",
+      "generating": "Generating…",
+      "selectFirst": "Pilih voice profile dulu"
+    },
+    "instruct": {
+      "show": "Tampilkan instruksi delivery",
+      "hide": "Sembunyikan instruksi delivery",
+      "tooltip": "Instruksi delivery (tone, emosi, pace)",
+      "placeholder": "Instruksi delivery — misal Speak slowly with warmth, Authoritative and clear…",
+      "placeholderOmnivoice": "Atribut voice, dipisah koma — misal female, low pitch, british accent (vocabulary tetap: gender, age, pitch, whisper, accent)"
+    },
+    "voiceSelector": {
+      "placeholder": "Pilih voice…"
+    },
+    "effects": {
+      "none": "Tanpa effects",
+      "profileDefault": "Default profile"
+    },
+    "compose": {
+      "tooltip": "Compose",
+      "ariaLabel": "Compose satu baris sesuai karakter",
+      "failedTitle": "Compose gagal",
+      "failedDescription": "Tidak bisa men-generate teks dari personality ini."
+    },
+    "persona": {
+      "tooltipActive": "Berbicara sesuai karakter",
+      "tooltipInactive": "Bicara sesuai karakter",
+      "ariaLabelActive": "Berbicara sesuai karakter",
+      "ariaLabelInactive": "Bicara sesuai karakter"
+    }
+  },
+  "main": {
+    "importVoice": "Import Voice",
+    "createVoice": "Buat Voice",
+    "import": {
+      "invalidTitle": "Tipe file tidak valid",
+      "invalidDescription": "Silakan pilih file .voicebox.zip yang valid",
+      "successTitle": "Profile diimport",
+      "successDescription": "Voice profile berhasil diimport",
+      "failedTitle": "Gagal mengimport profile",
+      "dialogTitle": "Import Profile",
+      "dialogDescription": "Import profile dari \"{{name}}\". Ini akan membuat profile baru beserta semua sample-nya.",
+      "importing": "Mengimport…",
+      "action": "Import"
+    }
+  },
+  "settings": {
+    "tabs": {
+      "general": "Umum",
+      "generation": "Generation",
+      "captures": "Captures",
+      "mcp": "MCP",
+      "gpu": "GPU",
+      "logs": "Logs",
+      "changelog": "Changelog",
+      "about": "Tentang"
+    },
+    "language": {
+      "label": "Bahasa",
+      "description": "Pilih bahasa tampilan untuk Voicebox."
+    },
+    "theme": {
+      "label": "Tema",
+      "description": "Ikuti sistem, atau pilih tampilan light atau dark tetap.",
+      "options": {
+        "system": "Sistem",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "general": {
+      "docs": {
+        "title": "Baca Docs"
+      },
+      "discord": {
+        "title": "Gabung Discord",
+        "subtitle": "Dapatkan bantuan & bagikan voices"
+      },
+      "serverUrl": {
+        "title": "Server URL",
+        "description": "Alamat backend server Voicebox kamu.",
+        "invalidUrl": "Silakan masukkan URL yang valid",
+        "updatedTitle": "Server URL diperbarui",
+        "updatedDescription": "Terhubung ke {{url}}"
+      },
+      "keepServerRunning": {
+        "title": "Biarkan server berjalan saat app ditutup",
+        "description": "Server akan terus berjalan di background setelah app ditutup.",
+        "failedTitle": "Gagal memperbarui pengaturan",
+        "failedDescription": "Pengaturan tidak bisa disinkronkan ke backend.",
+        "updatedTitle": "Pengaturan diperbarui",
+        "runningDescription": "Server akan tetap berjalan saat app ditutup",
+        "stoppedDescription": "Server akan berhenti saat app ditutup"
+      },
+      "networkAccess": {
+        "title": "Izinkan akses jaringan",
+        "description": "Membuat server bisa diakses dari perangkat lain di jaringan kamu. Restart app setelah mengubah.",
+        "updatedTitle": "Pengaturan diperbarui",
+        "enabled": "Akses jaringan aktif. Restart app untuk menerapkan.",
+        "disabled": "Akses jaringan nonaktif. Restart app untuk menerapkan."
+      },
+      "connection": {
+        "connecting": "Menghubungkan",
+        "offline": "Offline",
+        "online": "Online"
+      },
+      "updates": {
+        "title": "Update Aplikasi",
+        "devSuffix": " (dev)",
+        "devMode": {
+          "title": "Mode development",
+          "description": "Auto-update dinonaktifkan dalam mode development."
+        },
+        "check": {
+          "title": "Cek update",
+          "available": "Versi {{version}} tersedia",
+          "checking": "Mengecek…",
+          "upToDate": "Kamu sudah memakai versi terbaru",
+          "button": "Cek"
+        },
+        "error": "Error update",
+        "download": {
+          "title": "Update ke {{version}}",
+          "description": "Download dan pasang versi terbaru.",
+          "button": "Download"
+        },
+        "downloading": "Mendownload update…",
+        "ready": {
+          "title": "Update siap dipasang",
+          "description": "Versi {{version}} sudah didownload. Restart untuk menyelesaikan.",
+          "button": "Restart Sekarang"
+        }
+      },
+      "api": {
+        "title": "Akses API",
+        "description": "Integrasikan Voicebox ke workflow kamu lewat REST API di <code>{{url}}</code>",
+        "viewReference": "Lihat referensi API lengkap",
+        "endpoints": {
+          "generate": "Generate speech",
+          "health": "Status server",
+          "profiles": "Daftar voices",
+          "history": "Generations sebelumnya"
+        }
+      }
+    },
+    "generation": {
+      "title": "Generation",
+      "description": "Kontrol untuk generation teks panjang. Pengaturan ini berlaku untuk semua engine.",
+      "chunkLimit": {
+        "title": "Batas auto-chunking",
+        "description": "Teks panjang dipecah menjadi chunk di batas kalimat. Nilai lebih kecil bisa meningkatkan kualitas untuk output panjang.",
+        "value": "{{chars}} karakter"
+      },
+      "crossfade": {
+        "title": "Crossfade chunk",
+        "description": "Menggabungkan audio antar chunk agar transisinya halus. Atur ke 0 untuk potongan keras.",
+        "cut": "Potong",
+        "ms": "{{ms}}ms"
+      },
+      "normalize": {
+        "title": "Normalisasi audio",
+        "description": "Menyesuaikan volume output ke level yang konsisten di semua generation."
+      },
+      "autoplay": {
+        "title": "Autoplay saat generate",
+        "description": "Otomatis memutar audio saat generation selesai."
+      },
+      "folder": {
+        "title": "Folder generations",
+        "description": "Lokasi file audio hasil generation disimpan di disk.",
+        "open": "Buka"
+      },
+      "sidebar": {
+        "aboutTitle": "Tentang voice generation",
+        "aboutBody": "Clone voice dari sample pendek, lalu generate speech dengan voice apa pun dalam bahasa apa pun. Pasang TTS ke AI agents, game, podcast, atau narasi panjang.",
+        "differencesTitle": "Apa bedanya",
+        "clone": {
+          "title": "Clone voice apa pun dalam hitungan detik.",
+          "body": "Beberapa detik audio referensi sudah cukup. Dukungan multi-sample untuk kualitas lebih tinggi jika kamu mau."
+        },
+        "engines": {
+          "title": "Tujuh engine, 23 bahasa.",
+          "body": "Pilih trade-off yang pas — kualitas, kecepatan, atau cakupan multibahasa."
+        },
+        "agentReady": {
+          "title": "Siap untuk agent.",
+          "body": "REST API dengan kontrol per profile — beri suara apa pun yang sudah kamu clone ke AI."
+        }
+      }
+    },
+    "captures": {
+      "dictation": {
+        "title": "Dictation",
+        "description": "Capture dari mana saja di komputer kamu dengan global shortcut.",
+        "globalShortcut": {
+          "title": "Global shortcut",
+          "description": "Tahan shortcut untuk merekam dari mana saja di komputer kamu. Lepas untuk men-transkrip."
+        },
+        "pushToTalk": {
+          "title": "Shortcut push-to-talk",
+          "description": "Tahan tombol ini di mana saja di sistem kamu untuk merekam. Lepas untuk berhenti dan men-transkrip.",
+          "change": "Ubah"
+        },
+        "toggle": {
+          "title": "Shortcut toggle",
+          "description": "Tekan sekali untuk mulai rekaman hands-free. Tekan lagi untuk berhenti. Biasanya push-to-talk ditambah Space.",
+          "change": "Ubah"
+        },
+        "chordPicker": {
+          "pttTitle": "Atur shortcut push-to-talk",
+          "pttDescription": "Tahan tombol yang ingin kamu pakai, lalu lepas dan klik Simpan. Badge modifier sebelah kanan menunjukkan apakah tombol itu varian kiri atau kanan.",
+          "toggleTitle": "Atur shortcut toggle",
+          "toggleDescription": "Tahan tombol yang ingin kamu pakai, lalu lepas dan klik Simpan. Pilih yang berbeda dari chord push-to-talk kamu."
+        },
+        "preview": {
+          "title": "Pratinjau",
+          "description": "Yang muncul di layar saat kamu menahan shortcut."
+        },
+        "copyToClipboard": {
+          "title": "Salin transcript ke clipboard",
+          "description": "Transcript yang sudah dibersihkan masuk ke clipboard saat capture selesai."
+        },
+        "autoPaste": {
+          "title": "Auto-paste ke text field yang aktif",
+          "description": "Jika text input sedang aktif di app lain, paste langsung ke dalamnya. Voicebox menyimpan dan mengembalikan isi clipboard kamu."
+        }
+      },
+      "transcription": {
+        "title": "Transkripsi",
+        "description": "Pilih model speech-to-text yang dijalankan untuk captures kamu.",
+        "model": {
+          "title": "Model transkripsi",
+          "description": "Whisper sudah termasuk di Voicebox dan berjalan sepenuhnya di komputer kamu.",
+          "base": "Whisper Base · 74M · {{tail}}",
+          "small": "Whisper Small · 244M · {{tail}}",
+          "medium": "Whisper Medium · 769M · {{tail}}",
+          "large": "Whisper Large · 1.5B · {{tail}}",
+          "turbo": "Whisper Turbo · Pruned Large v3 · {{tail}}",
+          "tail": {
+            "fast": "Cepat",
+            "balanced": "Seimbang",
+            "higher": "Akurasi lebih tinggi",
+            "best": "Akurasi terbaik",
+            "nearBest": "Hampir terbaik, cepat"
+          }
+        },
+        "language": {
+          "title": "Bahasa",
+          "description": "Auto-detect bekerja untuk sebagian besar capture. Kunci jika kamu selalu berbicara dalam bahasa yang sama.",
+          "auto": "Deteksi otomatis",
+          "en": "Inggris",
+          "es": "Spanyol",
+          "fr": "Prancis",
+          "de": "Jerman",
+          "ja": "Jepang",
+          "zh": "Mandarin",
+          "hi": "Hindi",
+          "id": "Indonesia"
+        },
+        "archive": {
+          "title": "Arsipkan audio",
+          "description": "Simpan rekaman asli bersama setiap transcript."
+        }
+      },
+      "refinement": {
+        "title": "Refinement",
+        "description": "Opsional: jalankan LLM lokal di atas transcript untuk membersihkan filler words, tanda baca, dan self-correction.",
+        "auto": {
+          "title": "Refine transcript otomatis",
+          "description": "Berjalan setelah setiap capture. Kamu tetap bisa beralih antara raw dan refined di tab Captures."
+        },
+        "model": {
+          "title": "Model refinement",
+          "description": "Model yang lebih besar lebih lambat tapi lebih baik menangani self-correction halus dan istilah teknis.",
+          "size06": "Qwen3 · 0.6B · 400 MB · {{tail}}",
+          "size17": "Qwen3 · 1.7B · 1.1 GB · {{tail}}",
+          "size40": "Qwen3 · 4B · 2.5 GB · {{tail}}",
+          "tail": {
+            "veryFast": "Sangat cepat",
+            "fast": "Cepat",
+            "fullQuality": "Kualitas penuh"
+          }
+        },
+        "smartCleanup": {
+          "title": "Pembersihan cerdas",
+          "description": "Hapus filler words (um, uh, like), pulihkan tanda baca, dan perbaiki kapitalisasi tanpa mengubah kalimat."
+        },
+        "selfCorrection": {
+          "title": "Hapus self-correction",
+          "description": "Saat kamu mengubah pikiran di tengah kalimat (\"actually, no...\", \"wait, I meant...\"), buang bagian yang dibatalkan dan simpan maksud akhirnya."
+        },
+        "preserveTechnical": {
+          "title": "Pertahankan istilah teknis",
+          "description": "Pertahankan identifier kode, nama command, dan akronim persis seperti yang diucapkan. Aktifkan saat kamu dictate ke prompt kode."
+        },
+        "customEndpoint": {
+          "title": "Custom LLM endpoint (lanjutan)",
+          "description": "Serahkan refinement dan rewrite personality ke server apa pun yang kompatibel dengan OpenAI — llama.cpp, vLLM, LM Studio, LocalAI, shim Ollama, atau OpenAI API itu sendiri. Kosongkan untuk memakai Qwen3 bawaan.",
+          "endpointLabel": "Endpoint URL",
+          "endpointPlaceholder": "http://localhost:8090/v1",
+          "modelLabel": "Nama model",
+          "modelPlaceholder": "Nama model (misal qwen3-4b)",
+          "apiKeyLabel": "API key",
+          "apiKeyPlaceholder": "API key (opsional)",
+          "apiKeyPlaceholderReplace": "Masukkan key baru untuk mengganti yang tersimpan",
+          "apiKeyConfigured": "Tersimpan",
+          "apiKeyClear": "Hapus",
+          "statusBuiltin": "Memakai model Qwen3 bawaan yang dipilih di atas.",
+          "statusRemote": "Mengirim setiap refinement dan rewrite personality ke {{endpoint}}."
+        }
+      },
+      "playback": {
+        "title": "Pemutaran",
+        "description": "Voice default untuk aksi \"Putar sebagai\" di tab Captures.",
+        "defaultVoice": {
+          "title": "Voice default",
+          "description": "Dipakai saat kamu klik Putar sebagai tanpa memilih voice dulu. Bisa diubah per capture.",
+          "noClonedVoices": "Belum ada cloned voice",
+          "noneSelected": "Belum ada yang dipilih",
+          "clonedVoices": "Voice hasil clone"
+        }
+      },
+      "storage": {
+        "title": "Penyimpanan",
+        "description": "Captures disimpan sebagai pasangan file audio dan transcript di folder data Voicebox kamu.",
+        "retention": {
+          "title": "Retensi",
+          "description": "Berapa lama captures disimpan. Berlaku untuk audio dan transcript.",
+          "forever": "Simpan selamanya",
+          "d90": "90 hari",
+          "d30": "30 hari",
+          "d7": "7 hari"
+        },
+        "folder": {
+          "title": "Folder captures",
+          "description": "Lokasi audio dan transcript capture disimpan di disk.",
+          "open": "Buka"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "Tentang Captures",
+        "aboutBody": "Tahan shortcut di mana saja di komputer kamu, bicara, dan Voicebox mengubah suara kamu jadi teks. Putar ulang dengan voice clone apa pun, paste ke app mana pun, atau kirim ke coding agent kamu.",
+        "differencesTitle": "Apa bedanya",
+        "local": {
+          "title": "Sepenuhnya lokal.",
+          "body": "Whisper dan LLM refinement berjalan di hardware kamu. Tanpa cloud, tanpa akun, voice kamu tidak pernah meninggalkan komputer."
+        },
+        "remote": {
+          "title": "Refinement berjalan remote.",
+          "body": "Whisper tetap men-transkrip di hardware kamu, tapi transcript yang sudah di-refine dan rewrite personality dikirim ke {{endpoint}}. Audio voice itu sendiri tidak pernah meninggalkan komputer."
+        },
+        "playAs": {
+          "title": "Putar dengan voice apa pun.",
+          "body": "Transcript bisa dibacakan kembali dengan profile apa pun yang sudah kamu clone."
+        },
+        "crossPlatform": {
+          "title": "Lintas platform.",
+          "body": "Shortcut dan alur yang sama di macOS, Windows, dan Linux."
+        },
+        "windowsCaveat": {
+          "title": "Catatan untuk Windows",
+          "body": "Shortcut tidak akan aktif saat Voicebox sendiri atau app yang berjalan sebagai administrator sedang aktif. Sedang kami kerjakan."
+        }
+      }
+    },
+    "mcp": {
+      "install": {
+        "title": "Pasang ke agent kamu",
+        "description": "Voicebox menyediakan MCP server lokal setiap kali app terbuka. Tempel salah satu snippet ini ke konfigurasi MCP agent kamu.",
+        "http": {
+          "title": "HTTP (direkomendasikan)",
+          "description": "Untuk client yang mendukung HTTP MCP — Claude Code, Cursor, Windsurf, VS Code."
+        },
+        "claudeCode": {
+          "title": "One-liner Claude Code",
+          "description": "Mendaftar lewat Claude Code CLI."
+        },
+        "stdio": {
+          "title": "Stdio (cadangan)",
+          "description": "Untuk client yang hanya bisa menjalankan proses stdio. Binary shim sudah termasuk di app."
+        },
+        "copy": "Salin",
+        "copied": "Tersalin"
+      },
+      "defaultVoice": {
+        "title": "Voice default",
+        "description": "Dipakai saat agent memanggil voicebox_speak tanpa profile tertentu dan tidak punya binding per-client.",
+        "label": "Voice playback default",
+        "labelHint": "Dipakai bersama dropdown 'Play as voice' di tab Captures — satu voice default untuk playback pasif.",
+        "none": "(tidak ada)"
+      },
+      "bindings": {
+        "title": "Voice per agent",
+        "description": "Hubungkan agent tertentu ke voice tertentu supaya kamu tahu siapa yang sedang bicara tanpa melihat. Agent mengenali dirinya lewat header X-Voicebox-Client-Id (atau env VOICEBOX_CLIENT_ID untuk stdio).",
+        "empty": "Belum ada binding. Tambahkan di bawah, lalu atur MCP client kamu agar mengirim <code>X-Voicebox-Client-Id</code> yang sesuai.",
+        "lastSeen": "terakhir terlihat {{when}}",
+        "lastSeenTitle": "Terakhir terlihat {{when}}",
+        "neverConnected": "belum pernah terhubung",
+        "defaultOption": "(default)",
+        "removeAria": "Hapus binding untuk {{client}}",
+        "add": {
+          "title": "Tambah binding",
+          "clientIdPlaceholder": "client id (misal claude-code)",
+          "labelPlaceholder": "label (opsional)",
+          "action": "Tambah binding"
+        }
+      },
+      "sidebar": {
+        "aboutTitle": "Tentang MCP",
+        "aboutBody": "Model Context Protocol memungkinkan AI coding agent kamu — Claude Code, Cursor, Windsurf — memanggil tools Voicebox. Bicara dengan voice clone, transkrip audio, dan telusuri captures.",
+        "toolsTitle": "Tools yang tersedia",
+        "tools": {
+          "speak": "Ucapkan teks dengan voice profile.",
+          "transcribe": "Whisper STT untuk sebuah klip.",
+          "listCaptures": "Dictation / rekaman terbaru.",
+          "listProfiles": "Voice profile yang tersedia."
+        },
+        "postSpeak": "Juga tersedia sebagai <code>POST /speak</code> untuk shell script, ACP, A2A."
+      }
+    },
+    "gpu": {
+      "cpuOnly": "Hanya CPU",
+      "vramUsed": "{{mb}} MB VRAM",
+      "noAcceleration": "Tidak ada akselerasi GPU yang terdeteksi",
+      "active": "Aktif",
+      "cuda": {
+        "title": "CUDA Backend",
+        "activeTitle": "CUDA Backend Aktif",
+        "description": "Akselerasi GPU NVIDIA lewat CUDA backend yang bisa diunduh.",
+        "downloading": "Mendownload CUDA backend…",
+        "downloadingShort": "Mendownload…",
+        "updating": "Mengupdate…"
+      },
+      "activeBackend": {
+        "description": "Akselerasi GPU sedang aktif."
+      },
+      "restart": {
+        "ready": "Server berhasil di-restart",
+        "waiting": "Me-restart server…",
+        "stopping": "Menghentikan server…"
+      },
+      "download": {
+        "title": "Download CUDA backend",
+        "description": "Download sekitar 2.4 GB. Membutuhkan GPU NVIDIA dengan dukungan CUDA.",
+        "button": "Download"
+      },
+      "switchToCuda": {
+        "title": "Pindah ke CUDA backend",
+        "description": "CUDA backend sudah didownload dan siap. Restart untuk mengaktifkan.",
+        "button": "Restart"
+      },
+      "switchToCpu": {
+        "title": "Pindah ke CPU backend",
+        "description": "Nonaktifkan akselerasi GPU. Kamu bisa download ulang GPU backend nanti.",
+        "button": "Pindah"
+      },
+      "remove": {
+        "title": "Hapus CUDA backend",
+        "description": "Hapus binary CUDA yang sudah didownload untuk membebaskan ruang disk.",
+        "button": "Hapus"
+      },
+      "errors": {
+        "downloadFailed": "Download gagal",
+        "downloadStart": "Gagal memulai download",
+        "restartFailed": "Restart gagal",
+        "switchCpu": "Gagal pindah ke CPU",
+        "deleteCuda": "Gagal menghapus CUDA backend",
+        "deleteRocm": "Gagal menghapus ROCm backend"
+      },
+      "footer": "Voicebox otomatis mendeteksi dan memakai GPU terbaik yang tersedia di sistem kamu. Di Mac Apple Silicon, backend MLX berjalan native di Neural Engine dan GPU lewat Metal Performance Shaders (MPS), tanpa setup tambahan. Di Windows dan Linux, kamu bisa mengunduh backend CUDA (NVIDIA) atau ROCm (AMD) opsional untuk inferensi yang dipercepat hardware. Intel XPU dan DirectML juga didukung di mana tersedia lewat PyTorch. Jika tidak ada GPU yang terdeteksi, Voicebox kembali ke CPU — semua engine tetap bekerja, hanya lebih lambat.",
+      "rocm": {
+        "title": "AMD ROCm Backend",
+        "activeTitle": "ROCm Backend Aktif",
+        "description": "Akselerasi GPU AMD lewat ROCm backend yang bisa diunduh.",
+        "downloading": "Mendownload ROCm backend…",
+        "downloadingShort": "Mendownload…",
+        "updating": "Mengupdate…"
+      },
+      "downloadRocm": {
+        "title": "Download AMD ROCm backend",
+        "description": "Download sekitar 2-3 GB. Membutuhkan AMD Radeon GPU dengan dukungan ROCm.",
+        "button": "Download"
+      },
+      "switchToRocm": {
+        "title": "Pindah ke ROCm backend",
+        "description": "ROCm backend sudah didownload dan siap. Restart untuk mengaktifkan.",
+        "button": "Restart"
+      },
+      "removeRocm": {
+        "title": "Hapus ROCm backend",
+        "description": "Hapus binary ROCm yang sudah didownload untuk membebaskan ruang disk.",
+        "button": "Hapus"
+      }
+    },
+    "logs": {
+      "title": "Server Logs",
+      "lineCount_one": "{{count}} baris",
+      "lineCount_other": "{{count}} baris",
+      "scrollToBottom": "Gulir ke bawah",
+      "clear": "Bersihkan",
+      "empty": "Belum ada log output.",
+      "devHint": "Server logs hanya ditangkap saat app mengelola proses server (production build)."
+    },
+    "changelog": {
+      "devBadge": "dev",
+      "showLess": "Tampilkan lebih sedikit",
+      "showMore": "Tampilkan lebih banyak"
+    },
+    "about": {
+      "tagline": "Studio sintesis suara open-source. Clone voice, generate speech, terapkan effects, dan bangun app bertenaga voice — semuanya berjalan lokal di komputer kamu.",
+      "createdBy": "Dibuat oleh",
+      "builtWith": "Dibangun dengan",
+      "buyCoffee": "Traktir kopi",
+      "license": "Dilisensikan di bawah <link>MIT</link>"
+    }
+  },
+  "models": {
+    "title": "Models",
+    "subtitle": "Download dan kelola model AI untuk voice generation dan transkripsi",
+    "defaultName": "Model",
+    "unknownSize": "Ukuran tidak diketahui",
+    "sections": {
+      "voiceGeneration": "Voice Generation",
+      "transcription": "Transkripsi",
+      "languageModels": "Model Bahasa"
+    },
+    "status": {
+      "loaded": "Dimuat"
+    },
+    "storage": {
+      "location": "Lokasi penyimpanan",
+      "open": "Buka",
+      "change": "Ubah",
+      "migrating": "Memindahkan…",
+      "reset": "Reset",
+      "pickerTitle": "Pilih folder penyimpanan model"
+    },
+    "progress": {
+      "connecting": "Menghubungkan…",
+      "connectingHf": "Menghubungkan ke HuggingFace…"
+    },
+    "problems": {
+      "title": "Masalah",
+      "clearAll": "Hapus Semua",
+      "noDetails": "Detail error tidak tersedia. Coba download lagi.",
+      "startedAt": "dimulai pada {{time}}"
+    },
+    "detail": {
+      "loadingInfo": "Memuat info model…",
+      "byAuthor": "oleh {{author}}",
+      "downloads": "Unduhan",
+      "likes": "Suka",
+      "license": "Lisensi",
+      "languagesCount": "Mendukung {{count}} bahasa",
+      "languagesList": "Bahasa: {{list}}",
+      "onDisk": "{{size}} di disk"
+    },
+    "actions": {
+      "download": "Download",
+      "retry": "Coba Download Lagi",
+      "unload": "Unload",
+      "unloading": "Meng-unload…",
+      "unloadFirst": "Unload model sebelum menghapus",
+      "deleteModel": "Hapus Model"
+    },
+    "deleteDialog": {
+      "title": "Hapus Model",
+      "body": "Yakin ingin menghapus <strong>{{name}}</strong>?",
+      "sizeNote": "Ini akan membebaskan {{size}} ruang disk. Model harus didownload ulang jika ingin dipakai lagi.",
+      "deleting": "Menghapus…"
+    },
+    "migrateDialog": {
+      "title": "Pindahkan model ke lokasi baru?",
+      "description": "Server akan mati selama model dipindahkan ke folder baru. Server akan restart otomatis setelah migrasi selesai.",
+      "action": "Pindahkan Model",
+      "preparing": "Menyiapkan…",
+      "restartingServer": "Me-restart server…"
+    },
+    "migrate": {
+      "title": "Memindahkan model",
+      "offline": "Server offline selama model dipindahkan."
+    },
+    "toast": {
+      "downloadFailed": "Download gagal",
+      "cancelFailed": "Pembatalan gagal",
+      "cancelFailedDescription": "Tidak bisa membatalkan task download.",
+      "deleted": "Model dihapus",
+      "deletedDescription": "{{name}} berhasil dihapus.",
+      "deleteFailed": "Gagal menghapus",
+      "unloaded": "Model di-unload",
+      "unloadedDescription": "{{name}} sudah di-unload dari memori.",
+      "unloadFailed": "Unload gagal",
+      "openFolderFailed": "Gagal membuka folder model",
+      "pickerFailed": "Gagal membuka folder picker",
+      "resetToDefault": "Dikembalikan ke lokasi default. Me-restart server…",
+      "noModelsToMigrate": "Tidak ada model untuk dipindahkan",
+      "noModelsToMigrateDescription": "Download minimal satu model sebelum mengubah lokasi penyimpanan.",
+      "migrated": "Model berhasil dipindahkan",
+      "migrationFailed": "Migrasi gagal",
+      "migrationFailedGeneric": "Gagal memigrasikan model",
+      "migrationConnectionLost": "Koneksi terputus selama migrasi"
+    }
+  }
+}

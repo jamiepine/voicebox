@@ -4,6 +4,7 @@ import { initReactI18next } from 'react-i18next';
 import en from './locales/en/translation.json';
 import es from './locales/es/translation.json';
 import fr from './locales/fr/translation.json';
+import id from './locales/id/translation.json';
 import it from './locales/it/translation.json';
 import ja from './locales/ja/translation.json';
 import ko from './locales/ko/translation.json';
@@ -13,6 +14,7 @@ import zhTW from './locales/zh-TW/translation.json';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', label: 'English' },
+  { code: 'id', label: 'Bahasa Indonesia' },
   { code: 'es', label: 'Español' },
   { code: 'pt-BR', label: 'Português (Brasil)' },
   { code: 'ja', label: '日本語' },
@@ -31,6 +33,7 @@ i18n
   .init({
     resources: {
       en: { translation: en },
+      id: { translation: id },
       es: { translation: es },
       'pt-BR': { translation: ptBR },
       ja: { translation: ja },

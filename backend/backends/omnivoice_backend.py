@@ -59,11 +59,35 @@ LANGUAGE_CODE_OVERRIDES = {"ar": "arb"}
 # the loaded model when available; this is the fallback.
 DEFAULT_SAMPLE_RATE = 24000
 
-# Diffusion steps. Upstream defaults to 32; 16 roughly halves latency at some
-# quality cost.
-NUM_DIFFUSION_STEPS = 32
+# Diffusion steps. Upstream defaults to 32. Voicebox uses 64: on the Indonesian
+# benchmark (v3, 24 sentences x 2 seeds) it lowered the median WER from ~0.06 to
+# 0 on clean sentences, at about twice the generation time. A zero-size output
+# at 32 steps was seen on one sentence (seed 42) that 64 steps generated fine.
+NUM_DIFFUSION_STEPS = 64
+
+# Step count for each generation attempt. Retries keep the same step count and
+# change only the seed (seed + attempt index), so they stay deterministic.
+_GENERATION_ATTEMPT_STEPS = (NUM_DIFFUSION_STEPS,) * 3
+
+# Peak amplitude below which an output is treated as silence. Sits well under
+# the -50 dBFS floor remove_silence uses, so only true dead output trips it.
+_DEGENERATE_PEAK_FLOOR = 1e-4
 
 _VOICE_CLONE_PROMPT_FORMAT_VERSION = 1
+
+
+def _is_degenerate(audio: Any) -> bool:
+    """Return True when a generated waveform carries no usable signal.
+
+    Empty arrays are checked first so the peak computation never runs on
+    them (``max()`` of a zero-size array raises).
+    """
+    samples = np.asarray(audio)
+    if samples.size == 0:
+        return True
+    if not np.all(np.isfinite(samples)):
+        return True
+    return float(np.abs(samples).max()) < _DEGENERATE_PEAK_FLOOR
 
 
 def _clear_codec_layer_cache() -> None:
@@ -309,31 +333,55 @@ class OmniVoiceBackend:
         resolved_language = LANGUAGE_CODE_OVERRIDES.get(language, language)
 
         def _generate_sync() -> Tuple[np.ndarray, int]:
-            if seed is not None:
-                manual_seed(seed, self.device)
+            attempts = len(_GENERATION_ATTEMPT_STEPS)
+            for attempt, num_step in enumerate(_GENERATION_ATTEMPT_STEPS):
+                if seed is not None:
+                    # Offset by attempt index: attempt 0 keeps the caller's seed.
+                    manual_seed(seed + attempt, self.device)
 
-            kwargs: dict[str, Any] = {
-                "text": text,
-                "language": resolved_language,
-                "num_step": NUM_DIFFUSION_STEPS,
-            }
-            if clone_prompt is not None:
-                kwargs["voice_clone_prompt"] = clone_prompt
-            if instruct:
-                kwargs["instruct"] = instruct
+                kwargs: dict[str, Any] = {
+                    "text": text,
+                    "language": resolved_language,
+                    "num_step": num_step,
+                }
+                if clone_prompt is not None:
+                    kwargs["voice_clone_prompt"] = clone_prompt
+                if instruct:
+                    kwargs["instruct"] = instruct
 
-            try:
-                audios = self.model.generate(**kwargs)
-            except ValueError as exc:
-                if instruct and "instruct" in str(exc).lower():
-                    raise ValueError(
-                        "OmniVoice voice design accepts a fixed set of "
-                        "attributes (gender, age, pitch, whisper, English "
-                        f"accent, Chinese dialect), not free text. {exc}"
-                    ) from exc
-                raise
+                try:
+                    audios = self.model.generate(**kwargs)
+                except ValueError as exc:
+                    if "zero-size array" in str(exc):
+                        logger.warning(
+                            "OmniVoice attempt %d/%d produced empty audio "
+                            "(lang=%s, steps=%d); retrying",
+                            attempt + 1, attempts, resolved_language, num_step,
+                        )
+                        continue
+                    if instruct and "instruct" in str(exc).lower():
+                        raise ValueError(
+                            "OmniVoice voice design accepts a fixed set of "
+                            "attributes (gender, age, pitch, whisper, English "
+                            f"accent, Chinese dialect), not free text. {exc}"
+                        ) from exc
+                    raise
 
-            return audios[0], self.sample_rate
+                audio = audios[0]
+                if _is_degenerate(audio):
+                    logger.warning(
+                        "OmniVoice attempt %d/%d produced silent or invalid "
+                        "audio (lang=%s, steps=%d); retrying",
+                        attempt + 1, attempts, resolved_language, num_step,
+                    )
+                    continue
+
+                return audio, self.sample_rate
+
+            raise RuntimeError(
+                f"OmniVoice produced no usable audio after {attempts} attempts "
+                f"(lang={resolved_language}, steps={list(_GENERATION_ATTEMPT_STEPS)})"
+            )
 
         return await asyncio.to_thread(_generate_sync)
 

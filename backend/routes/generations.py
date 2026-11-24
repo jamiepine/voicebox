@@ -71,6 +71,7 @@ async def generate_speech(
     engine = _resolve_generation_engine(data, profile)
     try:
         profiles.validate_profile_engine(profile, engine)
+        profiles.validate_generation_language(engine, data.language)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -336,6 +337,7 @@ async def stream_speech(
     engine = _resolve_generation_engine(data, profile)
     try:
         profiles.validate_profile_engine(profile, engine)
+        profiles.validate_generation_language(engine, data.language)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     tts_model = get_tts_backend_for_engine(engine)

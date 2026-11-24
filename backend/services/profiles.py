@@ -138,6 +138,26 @@ def default_engine_for_profile(profile) -> str:
     return "qwen"
 
 
+def validate_generation_language(engine: str, language: str | None) -> None:
+    """Reject Indonesian ("id") on TTS engines that do not declare it.
+
+    Only "id" is checked here: other language codes keep their existing
+    behaviour, so this does not change requests that already work.
+    """
+    if language != "id":
+        return
+
+    from ..backends import get_tts_model_configs
+
+    configs = [cfg for cfg in get_tts_model_configs() if cfg.engine == engine]
+    if not configs or any("id" in (cfg.languages or []) for cfg in configs):
+        return
+    raise ValueError(
+        f"Engine '{engine}' does not support language 'id' (Indonesian). "
+        "Use the OmniVoice engine for Indonesian speech."
+    )
+
+
 def validate_profile_engine(profile, engine: str) -> None:
     voice_type = getattr(profile, "voice_type", None) or "cloned"
 
