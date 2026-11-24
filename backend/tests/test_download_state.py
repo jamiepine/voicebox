@@ -174,6 +174,59 @@ async def test_redownload_of_partial_snapshot_runs_online_and_recovers(hf_cache)
     assert verified_snapshot_complete(REPO) is True
 
 
+@pytest.mark.asyncio
+async def test_failed_load_of_unrecorded_partial_snapshot_retries_online(hf_cache):
+    """An upgrade from 0.6.0 with a partial snapshot: no marker, no record."""
+    _write_snapshot(hf_cache, {"model.safetensors": b"weights"})
+    attempts = []
+
+    async def load():
+        is_cached = is_model_cached(REPO)
+        with model_load_progress(CONFIG.model_name, is_cached):
+            attempts.append((is_cached, _hf_offline()))
+            if is_cached:
+                raise OSError("We couldn't connect to 'https://huggingface.co'")
+            _write_snapshot(hf_cache, {k: v for k, v in FULL_SNAPSHOT.items() if k != "model.safetensors"})
+
+    await track_model_download(CONFIG, load)
+
+    assert attempts == [(True, True), (False, False)]
+    assert is_download_in_progress(REPO) is False
+    assert verified_snapshot_complete(REPO) is True
+
+
+@pytest.mark.asyncio
+async def test_failed_load_of_verified_snapshot_is_not_retried(hf_cache):
+    _write_snapshot(hf_cache, FULL_SNAPSHOT)
+    mark_download_verified(REPO)
+    attempts = []
+
+    async def load():
+        attempts.append(1)
+        raise RuntimeError("CUDA out of memory")
+
+    with pytest.raises(RuntimeError, match="CUDA out of memory"):
+        await track_model_download(CONFIG, load)
+
+    assert attempts == [1]
+    assert is_download_in_progress(REPO) is False
+
+
+@pytest.mark.asyncio
+async def test_failed_retry_reraises_original_error_and_keeps_marker(hf_cache):
+    _write_snapshot(hf_cache, {"model.safetensors": b"weights"})
+    errors = iter([OSError("first failure"), OSError("retry failure")])
+
+    async def load():
+        raise next(errors)
+
+    with pytest.raises(OSError, match="first failure"):
+        await track_model_download(CONFIG, load)
+
+    assert is_download_in_progress(REPO) is True
+    assert is_model_cached(REPO) is False
+
+
 def test_offline_patch_is_not_forced_while_marker_exists(hf_cache):
     _write_snapshot(hf_cache, FULL_SNAPSHOT)
     mark_download_started(REPO)
