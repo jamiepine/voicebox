@@ -2,6 +2,7 @@
 
 import asyncio
 import shutil
+from functools import partial
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -78,7 +79,7 @@ async def load_model(
     request for the default — silently loading Qwen there is the very bug this
     endpoint had.
     """
-    from ..backends import get_model_load_func, track_model_download
+    from ..backends import find_model_config, get_model_load_func, get_tts_model_configs, track_model_download
     from ..services import tts
 
     requested_name = request.model_name if request else None
@@ -95,7 +96,11 @@ async def load_model(
     size = requested_size or DEFAULT_QWEN_MODEL_SIZE
     try:
         tts_model = tts.get_tts_model()
-        await tts_model.load_model_async(size)
+        config = find_model_config(get_tts_model_configs(), "qwen", size)
+        if config is None:
+            await tts_model.load_model_async(size)
+        else:
+            await track_model_download(config, partial(tts_model.load_model_async, size))
         return {"message": f"Model {size} loaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e

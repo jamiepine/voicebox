@@ -18,6 +18,7 @@ import soundfile as sf
 from sqlalchemy.orm import Session
 
 from .. import config
+from ..backends import load_stt_model
 from ..database import Capture as DBCapture
 from ..models import CaptureResponse, RefinementFlagsModel
 from ..utils.audio import load_audio
@@ -119,6 +120,7 @@ async def create_capture(
 
         whisper = get_whisper_model()
         resolved_stt = stt_model or whisper.model_size
+        await load_stt_model(whisper, resolved_stt)
         transcript = await whisper.transcribe(str(audio_path), language, resolved_stt)
 
         row = DBCapture(
@@ -221,6 +223,7 @@ async def retranscribe_capture(
 
     whisper = get_whisper_model()
     resolved_stt = stt_model or whisper.model_size
+    await load_stt_model(whisper, resolved_stt)
     transcript = await whisper.transcribe(str(resolved), language, resolved_stt)
 
     row.transcript_raw = transcript
