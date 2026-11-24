@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+### Fixes
+
+- **PyTorch 2.10 is now the minimum, closing CVE-2026-24747.** Before 2.10, a crafted checkpoint could run code during `torch.load` even with `weights_only=True`. `torch` and `torchaudio` now require 2.10 or newer on every platform with 2.10 wheels, and the Docker ROCm image and `just setup` on Linux AMD hosts now default to the PyTorch ROCm 7.2 wheels, because the ROCm 6.x indexes stop at 2.9.1 (set `ROCM_VERSION` / `VOICEBOX_ROCM_VERSION` to override). Two platforms cannot reach 2.10 yet and stay on their current torch: **Intel macOS** stays on 2.2.2, the last x86_64 macOS wheel PyTorch published, and **Windows ROCm** stays on AMD's 2.9.1+rocm7.2.1, the newest stable Windows ROCm wheel. On those two platforms, only load models from sources you trust. ([CVE-2026-24747](https://nvd.nist.gov/vuln/detail/CVE-2026-24747))
+
 ### Text-to-speech
 
 - **Design a voice from a written description.** The profile form gains a third source, "Describe a voice", next to clone-from-audio and built-in voice: write the voice you want ("a warm, gravelly older man with a slow Scottish lilt") and the profile is created as a `designed` voice backed by the new `qwen_voice_design` engine (Qwen3-TTS-12Hz-1.7B-VoiceDesign, 10 languages, local, Apache-2.0 weights). Designed profiles work everywhere a profile does: `/generate`, `/speak`, MCP `voicebox_speak`, stories, and dictation TTS. A per-generation instruct layers onto the description instead of replacing it. — @Lvigentini ([#1012](https://github.com/jamiepine/voicebox/pull/1012))
