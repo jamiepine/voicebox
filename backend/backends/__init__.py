@@ -13,6 +13,7 @@ and a model config registry that eliminates per-engine dispatch maps.
 from ..utils import hf_offline_patch  # noqa: F401
 
 import asyncio
+import logging
 import threading
 from dataclasses import dataclass, field
 from functools import partial
@@ -24,6 +25,8 @@ DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
 
 from ..utils.platform_detect import get_backend_type
+
+logger = logging.getLogger(__name__)
 
 LANGUAGE_CODE_TO_NAME = {
     "zh": "chinese",
@@ -639,18 +642,38 @@ async def track_model_download(config: ModelConfig, load, *, force: bool = False
     a download may happen (always when *force*, which also makes the backend
     skip its forced-offline mode and fetch whatever is missing). Only a
     successful load records the snapshot as verified and clears the marker.
+
+    A model that looked cached but has no verified record (downloaded by an
+    older Voicebox, possibly partially) gets one online retry if the load
+    fails, so missing files are fetched instead of failing offline forever.
     """
     from .base import ANY_WEIGHT_EXTENSIONS, is_model_cached
-    from ..utils.download_state import mark_download_started, mark_download_verified
+    from ..utils.download_state import mark_download_started, mark_download_verified, verified_snapshot_complete
+
+    async def run_load():
+        result = load()
+        if asyncio.iscoroutine(result):
+            await result
 
     repos = (config.hf_repo_id, *config.aux_hf_repo_ids)
-    if force or not all(is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS) for repo in repos):
+    marked = force or not all(is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS) for repo in repos)
+    if marked:
         for repo in repos:
             mark_download_started(repo)
 
-    result = load()
-    if asyncio.iscoroutine(result):
-        await result
+    try:
+        await run_load()
+    except Exception as exc:
+        unverified = [] if marked else [repo for repo in repos if verified_snapshot_complete(repo) is None]
+        if not unverified:
+            raise
+        logger.warning("Loading %s failed with an unverified snapshot, retrying online: %s", config.model_name, exc)
+        for repo in unverified:
+            mark_download_started(repo)
+        try:
+            await run_load()
+        except Exception as retry_exc:
+            raise exc from retry_exc
 
     for repo in repos:
         mark_download_verified(repo)
