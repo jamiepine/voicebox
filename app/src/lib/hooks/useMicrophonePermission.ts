@@ -39,7 +39,8 @@ export const useMicrophonePermissionStore = create<MicrophonePermissionStore>((s
 /**
  * Opens the shared recovery dialog. In Tauri the event also reaches the main
  * window when the denial happened in the floating dictate window, which has
- * no room for the dialog.
+ * no room for the dialog, and lets the native side bring the main window
+ * forward or open the OS settings when the main window is closed.
  */
 export function reportMicrophoneBlocked(isTauri: boolean) {
   useMicrophonePermissionStore.getState().setBlocked(true);
