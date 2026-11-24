@@ -227,6 +227,23 @@ async def test_failed_retry_reraises_original_error_and_keeps_marker(hf_cache):
     assert is_model_cached(REPO) is False
 
 
+@pytest.mark.asyncio
+async def test_resident_model_does_not_certify_an_incomplete_snapshot(hf_cache, monkeypatch):
+    snapshot = _write_snapshot(hf_cache, FULL_SNAPSHOT)
+    mark_download_verified(REPO)
+    (snapshot / "config.json").unlink()
+    monkeypatch.setattr(backends, "check_model_loaded", lambda config: True)
+
+    async def load():
+        pass
+
+    await track_model_download(CONFIG, load, force=True)
+
+    assert is_download_in_progress(REPO) is False
+    assert verified_snapshot_complete(REPO) is False
+    assert is_model_cached(REPO) is False
+
+
 def test_offline_patch_is_not_forced_while_marker_exists(hf_cache):
     _write_snapshot(hf_cache, FULL_SNAPSHOT)
     mark_download_started(REPO)

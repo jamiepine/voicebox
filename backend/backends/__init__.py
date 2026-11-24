@@ -562,6 +562,8 @@ async def track_model_download(config: ModelConfig, load, *, force: bool = False
     a download may happen (always when *force*, which also makes the backend
     skip its forced-offline mode and fetch whatever is missing). Only a
     successful load records the snapshot as verified and clears the marker.
+    A model that is already resident is left alone: its loader returns
+    without touching the disk, so it can't verify the snapshot.
 
     A model that looked cached but has no verified record (downloaded by an
     older Voicebox, possibly partially) gets one online retry if the load
@@ -574,6 +576,10 @@ async def track_model_download(config: ModelConfig, load, *, force: bool = False
         result = load()
         if asyncio.iscoroutine(result):
             await result
+
+    if check_model_loaded(config):
+        await run_load()
+        return
 
     repos = (config.hf_repo_id, *config.aux_hf_repo_ids)
     marked = force or not all(is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS) for repo in repos)
