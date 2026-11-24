@@ -1,0 +1,2 @@
+# Optional CPU STT backend for POST /transcribe with model=orukeet.
+onnx-asr[cpu]==0.7.0
