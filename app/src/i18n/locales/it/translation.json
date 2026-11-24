@@ -1289,5 +1289,22 @@
       "migrationFailedGeneric": "Impossibile migrare i modelli",
       "migrationConnectionLost": "Connessione interrotta durante la migrazione"
     }
+  },
+  "microphonePermission": {
+    "title": "L'accesso al microfono è bloccato",
+    "blockedError": "L'accesso al microfono è bloccato.",
+    "body": {
+      "windows": "Voicebox non può usare il microfono perché l'accesso è stato negato. Se Windows lo sta bloccando, scegli Apri impostazioni privacy, attiva Accesso al microfono e Consenti alle app desktop di accedere al microfono, poi scegli Riprova.",
+      "macos": "Voicebox non può usare il microfono perché l'accesso è stato negato. Scegli Apri impostazioni privacy e attiva Voicebox in Privacy e sicurezza → Microfono. macOS applica la modifica dopo che chiudi e riapri Voicebox.",
+      "linux": "Voicebox non può usare il microfono perché l'accesso è stato negato. Verifica che un microfono sia collegato e che le impostazioni audio o privacy del desktop consentano a Voicebox di usarlo, poi scegli Riprova.",
+      "browser": "Il browser ha bloccato l'accesso al microfono per questa pagina. Fai clic sull'icona delle impostazioni del sito accanto alla barra degli indirizzi, consenti il microfono, poi scegli Riprova."
+    },
+    "stillBlocked": {
+      "default": "L'accesso al microfono è ancora bloccato. Controlla le impostazioni indicate sopra e riprova.",
+      "macos": "L'accesso al microfono è ancora bloccato. Se lo hai appena attivato, chiudi e riapri Voicebox."
+    },
+    "retry": "Riprova",
+    "retrying": "Nuovo tentativo…",
+    "openSettings": "Apri impostazioni privacy"
   }
 }

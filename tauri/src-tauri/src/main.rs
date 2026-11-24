@@ -1182,6 +1182,91 @@ fn open_input_monitoring_settings(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
+/// OS microphone privacy panes `open_microphone_settings` may launch. The
+/// command only ever opens one of these fixed URIs.
+const MICROPHONE_SETTINGS_URIS: &[(&str, &str)] = &[
+    ("windows", "ms-settings:privacy-microphone"),
+    (
+        "macos",
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone",
+    ),
+];
+
+fn microphone_settings_uri(os: &str) -> Option<&'static str> {
+    MICROPHONE_SETTINGS_URIS
+        .iter()
+        .find(|(target, _)| *target == os)
+        .map(|(_, uri)| *uri)
+}
+
+/// Open the OS microphone privacy pane so the user can re-enable access
+/// after denying it. Errors on platforms without a standard settings URI.
+#[command]
+fn open_microphone_settings() -> Result<(), String> {
+    let uri = microphone_settings_uri(std::env::consts::OS)
+        .ok_or("Microphone settings pane is not available on this platform")?;
+    let opener = if cfg!(windows) { "explorer" } else { "open" };
+    std::process::Command::new(opener)
+        .arg(uri)
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("Failed to open microphone settings: {e}"))
+}
+
+/// Whether `uri` belongs to the app's own frontend (bundled assets or the
+/// dev server), the only origin the webview may grant microphone access to.
+fn is_trusted_app_origin(uri: &str) -> bool {
+    let Ok(url) = tauri::Url::parse(uri) else {
+        return false;
+    };
+    match url.scheme() {
+        "tauri" => true,
+        "http" | "https" => matches!(
+            url.host_str(),
+            Some("tauri.localhost" | "localhost" | "127.0.0.1")
+        ),
+        _ => false,
+    }
+}
+
+/// WebView2 persists the answer to its own microphone prompt per origin and
+/// stops asking after "Block", which left no way back in the app. Grant the
+/// app's own origin up front, as the Linux handler does, so the Windows
+/// microphone privacy toggle is the only remaining gate.
+#[cfg(windows)]
+fn allow_app_microphone(window: &tauri::WebviewWindow) {
+    let Ok(url) = window.url() else { return };
+    let origin = url.origin().ascii_serialization();
+    if !is_trusted_app_origin(&origin) {
+        return;
+    }
+    let _ = window.with_webview(move |webview| unsafe {
+        use webview2_com::Microsoft::Web::WebView2::Win32::{
+            ICoreWebView2Profile4, ICoreWebView2_13, COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
+            COREWEBVIEW2_PERMISSION_STATE_ALLOW,
+        };
+        use windows_core::{Interface, HSTRING};
+
+        let result = webview
+            .controller()
+            .CoreWebView2()
+            .and_then(|core| core.cast::<ICoreWebView2_13>())
+            .and_then(|core| core.Profile())
+            .and_then(|profile| profile.cast::<ICoreWebView2Profile4>())
+            .and_then(|profile| {
+                profile.SetPermissionState(
+                    COREWEBVIEW2_PERMISSION_KIND_MICROPHONE,
+                    &HSTRING::from(origin.as_str()),
+                    COREWEBVIEW2_PERMISSION_STATE_ALLOW,
+                    &webview2_com::SetPermissionStateCompletedHandler::create(Box::new(|_| Ok(()))),
+                )
+            });
+        if let Err(e) = result {
+            eprintln!("Failed to allow microphone access for {origin}: {e}");
+        }
+    });
+}
+
 /// Deliver `text` into the UI that had focus when the chord fired.
 ///
 /// Pipeline: activate the captured PID → settle → save the user's
@@ -1505,11 +1590,7 @@ pub fn run() {
                         wk_webview.connect_permission_request(move |webview, request: &webkit2gtk::PermissionRequest| {
                             if request.is::<webkit2gtk::UserMediaPermissionRequest>() {
                                 let uri = WebViewExt::uri(webview).unwrap_or_default();
-                                let is_trusted = uri.starts_with("tauri://")
-                                    || uri.starts_with("https://tauri.localhost")
-                                    || uri.starts_with("http://localhost")
-                                    || uri.starts_with("http://127.0.0.1");
-                                if is_trusted {
+                                if is_trusted_app_origin(&uri) {
                                     request.allow();
                                     return true;
                                 }
@@ -1520,6 +1601,11 @@ pub fn run() {
                         });
                     });
                 }
+            }
+
+            #[cfg(windows)]
+            if let Some(window) = app.get_webview_window("main") {
+                allow_app_microphone(&window);
             }
 
             Ok(())
@@ -1544,6 +1630,7 @@ pub fn run() {
             check_input_monitoring_permission,
             open_accessibility_settings,
             open_input_monitoring_settings,
+            open_microphone_settings,
             paste_final_text,
             enable_hotkey,
             disable_hotkey,
@@ -1674,4 +1761,45 @@ pub fn run() {
 
 fn main() {
     run();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn microphone_settings_uri_is_allow_listed_per_os() {
+        assert_eq!(
+            microphone_settings_uri("windows"),
+            Some("ms-settings:privacy-microphone")
+        );
+        assert_eq!(
+            microphone_settings_uri("macos"),
+            Some("x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone")
+        );
+        assert_eq!(microphone_settings_uri("linux"), None);
+        assert_eq!(microphone_settings_uri(""), None);
+    }
+
+    #[test]
+    fn trusted_app_origin_only_matches_app_hosts() {
+        for uri in [
+            "tauri://localhost",
+            "http://tauri.localhost",
+            "https://tauri.localhost/index.html",
+            "http://localhost:5173",
+            "http://127.0.0.1:17493/",
+        ] {
+            assert!(is_trusted_app_origin(uri), "{uri}");
+        }
+        for uri in [
+            "",
+            "null",
+            "http://localhost.evil.com",
+            "https://example.com",
+            "file:///etc/passwd",
+        ] {
+            assert!(!is_trusted_app_origin(uri), "{uri}");
+        }
+    }
 }

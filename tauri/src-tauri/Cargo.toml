@@ -35,6 +35,8 @@ core-foundation-sys = "0.8"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wasapi = "0.22"
+webview2-com = "0.38"
+windows-core = "0.61"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

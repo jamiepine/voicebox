@@ -1261,5 +1261,22 @@
       "migrationFailedGeneric": "遷移模型失敗",
       "migrationConnectionLost": "遷移期間連線中斷"
     }
+  },
+  "microphonePermission": {
+    "title": "麥克風存取已被封鎖",
+    "blockedError": "麥克風存取已被封鎖。",
+    "body": {
+      "windows": "由於存取遭拒，Voicebox 無法使用你的麥克風。如果是 Windows 封鎖了存取，請選擇「開啟隱私權設定」，開啟「麥克風存取權」和「允許桌面應用程式存取你的麥克風」，然後選擇「重試」。",
+      "macos": "由於存取遭拒，Voicebox 無法使用你的麥克風。請選擇「開啟隱私權設定」，在「隱私權與安全性」→「麥克風」中開啟 Voicebox。結束並重新開啟 Voicebox 後，macOS 才會套用此變更。",
+      "linux": "由於存取遭拒，Voicebox 無法使用你的麥克風。請確認已連接麥克風，且桌面的聲音或隱私權設定允許 Voicebox 使用它，然後選擇「重試」。",
+      "browser": "瀏覽器已封鎖此頁面存取麥克風。請點擊網址列旁的網站設定圖示，允許使用麥克風，然後選擇「重試」。"
+    },
+    "stillBlocked": {
+      "default": "麥克風存取仍被封鎖。請檢查上述設定，然後重試。",
+      "macos": "麥克風存取仍被封鎖。如果你剛剛開啟了權限，請結束並重新開啟 Voicebox。"
+    },
+    "retry": "重試",
+    "retrying": "正在重試…",
+    "openSettings": "開啟隱私權設定"
   }
 }
