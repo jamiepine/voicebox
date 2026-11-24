@@ -30,8 +30,11 @@ from backend.services import tts
 
 
 @pytest.fixture
-def loaded(monkeypatch):
+def loaded(monkeypatch, tmp_path):
     """Record what the route asked the registry to load/unload."""
+    import huggingface_hub.constants as hf_constants
+
+    monkeypatch.setattr(hf_constants, "HF_HUB_CACHE", str(tmp_path))
     calls: dict[str, list] = {"by_config": [], "qwen_size": [], "qwen_unload": 0}
 
     def fake_load_func(config):
