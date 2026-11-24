@@ -1279,10 +1279,13 @@ fn reveal_app_folder(
     folder: app_folders::AppFolder,
 ) -> Result<(), String> {
     let mut data_dirs = Vec::new();
-    // `just dev` runs the backend from the repo root, where it keeps its
-    // data in ./data instead of the sidecar's --data-dir.
+    // A backend this app did not spawn is, in debug builds, usually `just dev`
+    // running from the repo root, which keeps its data in ./data instead of
+    // the sidecar's --data-dir.
     #[cfg(debug_assertions)]
-    data_dirs.push(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data"));
+    if state.child.lock().unwrap().is_none() {
+        data_dirs.push(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../data"));
+    }
     data_dirs.push(
         app.path()
             .app_data_dir()
