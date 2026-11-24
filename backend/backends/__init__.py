@@ -567,7 +567,8 @@ async def track_model_download(config: ModelConfig, load, *, force: bool = False
 
     A model that looked cached but has no verified record (downloaded by an
     older Voicebox, possibly partially) gets one online retry if the load
-    fails, so missing files are fetched instead of failing offline forever.
+    fails with a file or network error (OSError) and left nothing resident,
+    so missing files are fetched instead of failing offline forever.
     """
     from .base import ANY_WEIGHT_EXTENSIONS, is_model_cached
     from ..utils.download_state import mark_download_started, mark_download_verified, verified_snapshot_complete
@@ -589,9 +590,9 @@ async def track_model_download(config: ModelConfig, load, *, force: bool = False
 
     try:
         await run_load()
-    except Exception as exc:
+    except OSError as exc:
         unverified = [] if marked else [repo for repo in repos if verified_snapshot_complete(repo) is None]
-        if not unverified:
+        if not unverified or check_model_loaded(config):
             raise
         logger.warning("Loading %s failed with an unverified snapshot, retrying online: %s", config.model_name, exc)
         for repo in unverified:
@@ -716,7 +717,7 @@ def check_model_loaded(config: ModelConfig) -> bool:
             loaded_size = getattr(tts_model, "_current_model_size", None) or getattr(tts_model, "model_size", None)
             return tts_model.is_loaded() and loaded_size == config.model_size
 
-        if config.engine == "qwen_custom_voice":
+        if config.engine in ("qwen_custom_voice", "tada"):
             backend = get_tts_backend_for_engine(config.engine)
             loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
             return backend.is_loaded() and loaded_size == config.model_size
