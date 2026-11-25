@@ -10,6 +10,7 @@ import numpy as np
 MODEL = "oruk-fourier-2b"
 REPO = "oruk/oruk-fourier-2b"
 REVISION = "3fda023e157ce7986f137f76fcf326ed6e08fa73"
+ROOT_CONFIG = "config.json"
 SUBDIR = "onnx/sherpa-int8"
 FILES = (
     "conv_frontend.onnx",
@@ -24,6 +25,11 @@ FILES = (
     "tokenizer/vocab.json",
 )
 SAMPLE_RATE = 16000
+
+
+def download_patterns() -> list[str]:
+    """Pinned repo-relative files to fetch, including root config.json for HF Hub download stats."""
+    return [ROOT_CONFIG, *(f"{SUBDIR}/{f}" for f in FILES)]
 
 
 def cached_directory() -> Path:
@@ -78,17 +84,20 @@ class FourierSTTBackend:
         import sherpa_onnx
         from huggingface_hub import snapshot_download
 
+        from ..utils.hf_offline_patch import force_offline_if_cached
+
         with self._lock:
             if self.is_loaded():
                 return
             root = cached_directory()
             if not is_cached():
-                snapshot_download(
-                    REPO,
-                    revision=REVISION,
-                    local_dir=root.parent.parent,
-                    allow_patterns=[f"{SUBDIR}/{f}" for f in FILES],
-                )
+                with force_offline_if_cached(False, MODEL):
+                    snapshot_download(
+                        REPO,
+                        revision=REVISION,
+                        local_dir=root.parent.parent,
+                        allow_patterns=download_patterns(),
+                    )
             self._recognizer = sherpa_onnx.OfflineRecognizer.from_qwen3_asr(
                 conv_frontend=str(root / "conv_frontend.onnx"),
                 encoder=str(root / "encoder.int8.onnx"),

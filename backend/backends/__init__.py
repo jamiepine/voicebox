@@ -673,6 +673,15 @@ async def track_model_download(config: ModelConfig, load, *, force: bool = False
         if asyncio.iscoroutine(result):
             await result
 
+    if config.engine == "fourier":
+        if check_model_loaded(config):
+            if not (force and not fourier_stt.is_cached()):
+                await run_load()
+                return
+            unload_model_by_config(config)
+        await run_load()
+        return
+
     repos = (config.hf_repo_id, *config.aux_hf_repo_ids)
     if check_model_loaded(config):
         if not (force and any(is_download_in_progress(repo) for repo in repos)):
@@ -721,8 +730,9 @@ async def load_engine_model(engine: str, model_size: str = "default") -> None:
 
 
 async def load_stt_model(backend: STTBackend, model_size: str) -> None:
-    """Load a Whisper size through download tracking."""
-    config = find_model_config(get_stt_model_configs(), "whisper", model_size)
+    """Load an STT model size through download tracking."""
+    engine = "fourier" if model_size == fourier_stt.MODEL else "whisper"
+    config = find_model_config(get_stt_model_configs(), engine, model_size)
     if config is None:
         await backend.load_model(model_size)
         return
