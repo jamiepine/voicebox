@@ -43,6 +43,7 @@
 ### Engines
 
 - **OmniVoice TTS engine (non-commercial).** Adds k2-fsa/OmniVoice as an opt-in eighth engine: zero-shot cloning and attribute-based voice design (gender, age, pitch, accent) across the 23 languages Voicebox already lists, 24 kHz output. Its `HiggsAudioV2` codec only exists in transformers 5.x, so the modelling code is vendored under `backend/vendor/` and grafted onto the pinned 4.57 at load time; `omnivoice` installs `--no-deps` like Chatterbox and TADA. The weights are CC-BY-NC, so the engine is labelled non-commercial in the engine picker and model manager and is never a default. — @pippo73 ([#1062](https://github.com/jamiepine/voicebox/pull/1062); fixes [#380](https://github.com/jamiepine/voicebox/issues/380), [#517](https://github.com/jamiepine/voicebox/issues/517), [#791](https://github.com/jamiepine/voicebox/issues/791))
+- **LuxTTS explains when the text is too short.** A short input such as "This is a test" gives fewer feature frames than the Vocos vocoder's kernel, and the generation failed with torch's raw `Kernel size can't be greater than actual input size` error. LuxTTS now reports "Text is too short for LuxTTS. Try a longer sentence or another engine." and passes every other error through unchanged. — @vincentfranstyo ([#1199](https://github.com/jamiepine/voicebox/pull/1199); fixes [#1046](https://github.com/jamiepine/voicebox/issues/1046))
 
 ### Developer experience
 
