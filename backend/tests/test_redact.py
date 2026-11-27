@@ -127,6 +127,8 @@ def test_redacts_urls_embedded_in_text():
             '{"docs":"https://docs.example/help","endpoint":"https://llm.example/v1?key=REDACTED"}',
         ),
         ("https://h/cb?next=https://u:s3cret@other/x&sig=s3cret", "https://h/cb?next=https://other/x&sig=REDACTED"),
+        ("https://h/v1?password=https://private.example/s3cret", "https://h/v1?password=REDACTED"),
+        ("'https://h/v1?a=1&token=https://x/s3cret?k=s3cret'", "'https://h/v1?a=1&token=REDACTED'"),
     ],
 )
 def test_quotes_and_trailing_punctuation_around_urls(text, expected):
