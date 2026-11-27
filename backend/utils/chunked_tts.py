@@ -65,6 +65,7 @@ _ABBREVIATIONS = frozenset(
 # Paralinguistic tags used by Chatterbox Turbo.  The splitter must never
 # cut inside one of these.
 _PARA_TAG_RE = re.compile(r"\[[^\]]*\]")
+MAX_ATOMIC_TAG_CHARS = 32
 _ASCII_SENTENCE_END_RE = re.compile(r"[.!?](?:\s|$)")
 _UNICODE_SENTENCE_END_RE = re.compile(r"[\u061f\u0964\u0965\u3002\uff01\uff1f\u06d4]")
 
@@ -215,7 +216,11 @@ def _safe_hard_cut(segment: str, max_chars: int) -> int:
     # Check if the cut falls inside a bracket tag; if so, move before it
     for m in _PARA_TAG_RE.finditer(segment):
         if m.start() <= cut < m.end():
-            return m.start() - 1 if m.start() > 0 else m.end() - 1
+            if m.start() > 0:
+                return m.start() - 1
+            if m.end() - m.start() <= MAX_ATOMIC_TAG_CHARS:
+                return m.end() - 1
+            return cut
     unmatched_tag_start = segment.rfind("[", 0, cut + 1)
     if unmatched_tag_start != -1 and segment.find("]", unmatched_tag_start) == -1:
         return unmatched_tag_start - 1 if unmatched_tag_start > 0 else cut
