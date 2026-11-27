@@ -298,8 +298,9 @@ jobs:
 
       - name: Install PyTorch with CUDA 12.8
         run: |
-          pip install torch --index-url https://download.pytorch.org/whl/cu128 --force-reinstall --no-deps
-          pip install torchaudio --index-url https://download.pytorch.org/whl/cu128 --force-reinstall --no-deps
+          # Keep both wheels inside the CUDA runtime compatibility range below.
+          pip install "torch==2.10.0+cu128" --index-url https://download.pytorch.org/whl/cu128 --force-reinstall --no-deps
+          pip install "torchaudio==2.10.0+cu128" --index-url https://download.pytorch.org/whl/cu128 --force-reinstall --no-deps
 
       - name: Verify CUDA support in torch
         run: |
