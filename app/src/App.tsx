@@ -14,11 +14,7 @@ import { cn } from '@/lib/utils/cn';
 import { usePlatform } from '@/platform/PlatformContext';
 import { router } from '@/router';
 import { useLogStore } from '@/stores/logStore';
-import {
-  getDefaultServerUrl,
-  isLoopbackVoiceboxServerUrl,
-  useServerStore,
-} from '@/stores/serverStore';
+import { getDefaultServerUrl, useServerStore } from '@/stores/serverStore';
 
 function isDictateView(): boolean {
   if (typeof window === 'undefined') return false;
@@ -135,10 +131,7 @@ function MainApp() {
   useEffect(() => {
     if (!platform.metadata.isTauri) {
       const serverUrl = getDefaultServerUrl();
-      const currentServerUrl = useServerStore.getState().serverUrl;
-      if (currentServerUrl !== serverUrl && isLoopbackVoiceboxServerUrl(currentServerUrl)) {
-        useServerStore.getState().setServerUrl(serverUrl);
-      }
+      useServerStore.getState().setDiscoveredServerUrl(serverUrl);
       setServerReady(true); // Web assumes server is running
       return;
     }
@@ -173,8 +166,8 @@ function MainApp() {
       .startServer(isRemote, customModelsDir)
       .then((serverUrl) => {
         console.log('Server is ready at:', serverUrl);
-        // Update the server URL in the store with the dynamically assigned port
-        useServerStore.getState().setServerUrl(serverUrl);
+        // Use the bundled server address unless the user saved a custom URL.
+        useServerStore.getState().setDiscoveredServerUrl(serverUrl);
         setServerReady(true);
         // Mark that we started the server (so we know to stop it on close)
         window.__voiceboxServerStartedByApp = true;
