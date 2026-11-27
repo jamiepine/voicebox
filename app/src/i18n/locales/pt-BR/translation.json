@@ -717,7 +717,8 @@
       "show": "Mostrar instruções de entrega",
       "hide": "Ocultar instruções de entrega",
       "tooltip": "Instruções de entrega (tom, emoção, ritmo)",
-      "placeholder": "Instruções de entrega — ex.: Fale devagar e com calor, Autoritário e claro…"
+      "placeholder": "Instruções de entrega — ex.: Fale devagar e com calor, Autoritário e claro…",
+      "placeholderOmnivoice": "Atributos de voz separados por vírgulas — ex.: female, low pitch, british accent (vocabulário fixo: gênero, idade, altura da voz, sussurro, sotaque)"
     },
     "voiceSelector": {
       "placeholder": "Selecione uma voz…"
@@ -1001,6 +1002,21 @@
         "preserveTechnical": {
           "title": "Preservar termos técnicos",
           "description": "Mantém identificadores de código, nomes de comandos e siglas exatamente como falados. Ative quando ditar em um prompt de código."
+        },
+        "customEndpoint": {
+          "title": "Servidor LLM personalizado (avançado)",
+          "description": "Delegue o refinamento e as reescritas conforme a personalidade a qualquer servidor compatível com OpenAI — llama.cpp, vLLM, LM Studio, LocalAI, o adaptador do Ollama ou a própria API da OpenAI. Deixe em branco para usar o Qwen3 integrado.",
+          "endpointLabel": "URL do servidor",
+          "endpointPlaceholder": "http://localhost:8090/v1",
+          "modelLabel": "Nome do modelo",
+          "modelPlaceholder": "Nome do modelo (ex.: qwen3-4b)",
+          "apiKeyLabel": "Chave de API",
+          "apiKeyPlaceholder": "Chave de API (opcional)",
+          "apiKeyPlaceholderReplace": "Digite uma nova chave para substituir a armazenada",
+          "apiKeyConfigured": "Armazenada",
+          "apiKeyClear": "Limpar",
+          "statusBuiltin": "Usando o modelo Qwen3 integrado selecionado acima.",
+          "statusRemote": "Enviando todos os refinamentos e reescritas conforme a personalidade para {{endpoint}}."
         }
       },
       "playback": {
@@ -1038,6 +1054,10 @@
         "local": {
           "title": "Totalmente local.",
           "body": "O Whisper e o LLM de refinamento rodam no seu hardware. Sem nuvem, sem contas, sua voz nunca sai da máquina."
+        },
+        "remote": {
+          "title": "O refinamento é executado remotamente.",
+          "body": "O Whisper continua transcrevendo no seu hardware, mas as transcrições refinadas e as reescritas conforme a personalidade são enviadas para {{endpoint}}. O áudio da voz nunca sai da máquina."
         },
         "playAs": {
           "title": "Reproduza como qualquer voz.",
@@ -1137,7 +1157,7 @@
       },
       "switchToCpu": {
         "title": "Mudar para o backend de CPU",
-        "description": "Desativa a aceleração por GPU. Você pode baixar o CUDA novamente depois.",
+        "description": "Desativa a aceleração por GPU. Você pode baixar o backend de GPU novamente depois.",
         "button": "Mudar"
       },
       "remove": {
@@ -1171,6 +1191,7 @@
     "about": {
       "tagline": "O estúdio de síntese de voz de código aberto. Clone vozes, gere fala, aplique efeitos e crie apps com voz — tudo rodando localmente na sua máquina.",
       "createdBy": "Criado por",
+      "builtWith": "Desenvolvido com",
       "buyCoffee": "Me pague um café",
       "license": "Licenciado sob a <link>MIT</link>"
     }
