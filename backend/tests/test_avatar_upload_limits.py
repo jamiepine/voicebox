@@ -31,13 +31,15 @@ def captured_upload(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_avatar_over_limit_is_rejected_with_413(captured_upload):
+async def test_avatar_over_limit_is_rejected_with_413(captured_upload, monkeypatch, tmp_path):
+    monkeypatch.setattr(profiles_route.tempfile, "tempdir", str(tmp_path))
     with pytest.raises(HTTPException) as exc:
         await profiles_route.upload_profile_avatar(
             "p1", _upload("big.png", profiles_route.AVATAR_MAX_FILE_SIZE + 1), None
         )
     assert exc.value.status_code == 413
     assert captured_upload == {}
+    assert list(tmp_path.iterdir()) == []
 
 
 @pytest.mark.asyncio
