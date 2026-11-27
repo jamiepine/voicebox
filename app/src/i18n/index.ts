@@ -8,6 +8,7 @@ import it from './locales/it/translation.json';
 import ja from './locales/ja/translation.json';
 import ko from './locales/ko/translation.json';
 import ptBR from './locales/pt-BR/translation.json';
+import vi from './locales/vi/translation.json';
 import zhCN from './locales/zh-CN/translation.json';
 import zhTW from './locales/zh-TW/translation.json';
 
@@ -21,6 +22,7 @@ export const SUPPORTED_LANGUAGES = [
   { code: 'zh-TW', label: '繁體中文' },
   { code: 'fr', label: 'Français' },
   { code: 'it', label: 'Italiano' },
+  { code: 'vi', label: 'Tiếng Việt' },
 ] as const;
 
 export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number]['code'];
@@ -39,6 +41,7 @@ i18n
       'zh-TW': { translation: zhTW },
       fr: { translation: fr },
       it: { translation: it },
+      vi: { translation: vi },
     },
     fallbackLng: 'en',
     supportedLngs: SUPPORTED_LANGUAGES.map((l) => l.code),
