@@ -10,6 +10,7 @@
 ### Security
 
 - **Web pages can no longer drive the local API through DNS rebinding or cross-site requests.** A request that reaches the server over loopback must name `localhost`, `127.0.0.1` or `[::1]` (any port) as its `Host`, and a request carrying an `Origin` header must come from the desktop app, the Vite dev server, the server's own address, or `VOICEBOX_CORS_ORIGINS`; anything else gets a `403` and a log line. `Origin: null` is rejected. Requests without `Origin` (curl, the `openai` SDK, MCP clients) are unaffected, and Docker, LAN and Remote Mode keep working because connections that arrive on a non-loopback address accept any `Host`. Behind a reverse proxy that forwards its own hostname over loopback, set `VOICEBOX_ALLOWED_HOSTS=your.host` (comma-separated; once set it applies to every connection, `*` turns the check off). Every response now also carries `X-Content-Type-Options: nosniff`. See Remote Mode → Host and Origin checks. (security hardening)
+- **Credentials in a custom LLM endpoint URL no longer reach logs or error messages.** A user:password in the endpoint URL is dropped, and secret-looking query parameters (`api_key`, `key`, `token`, `access_token`, `sig`, `signature`, `secret`, `password`, `X-Amz-Signature`/`X-Amz-Credential`/`X-Amz-Security-Token` and similar, any case) show as `REDACTED`, in the backend log, in the error the settings UI and dictation pill display, and in URLs that an httpx error or the endpoint's error body echoes back. The request itself still goes to the full URL. (security hardening)
 
 ### macOS
 
