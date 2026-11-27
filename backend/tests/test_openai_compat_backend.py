@@ -11,8 +11,10 @@ the built-in Qwen path.
 
 import json
 import threading
+import traceback
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import httpx
 import pytest
 
 from backend import models
@@ -20,6 +22,7 @@ from backend.backends import (
     _OPENAI_COMPAT_CACHE_KEY,
     _llm_backends,
     get_llm_backend,
+    openai_compat_backend,
     reset_backends,
     set_llm_config,
 )
@@ -348,3 +351,66 @@ async def test_refinement_and_personality_record_remote_model_label():
         assert (text, size) == ("Refined.", "remote-model")
         result = await personality.rewrite_as_profile("A pirate.", "hello", model_size="0.6B")
         assert result.model_size == "remote-model"
+
+SECRET = "s3cret-value"
+LEAKY_ENDPOINT = f"https://bob:{SECRET}@llm.example.com/v1?api_key={SECRET}"
+
+
+def _leak_check(excinfo, caplog):
+    rendered = "".join(traceback.format_exception(excinfo.value))
+    assert SECRET not in rendered
+    assert SECRET not in caplog.text
+    assert "llm.example.com/v1" in str(excinfo.value)
+
+
+def _mock_httpx(monkeypatch, handler):
+    real_client = httpx.AsyncClient
+
+    def client(*args, **kwargs):
+        return real_client(*args, transport=httpx.MockTransport(handler), **kwargs)
+
+    monkeypatch.setattr(openai_compat_backend.httpx, "AsyncClient", client)
+
+
+@pytest.mark.asyncio
+async def test_http_error_does_not_leak_endpoint_credentials(monkeypatch, caplog):
+    _mock_httpx(
+        monkeypatch,
+        lambda request: httpx.Response(401, text=f"bad key for {request.url}"),
+    )
+    backend = OpenAICompatLLMBackend(endpoint=LEAKY_ENDPOINT, model="m")
+    with pytest.raises(RuntimeError) as excinfo:
+        await backend.generate(prompt="x")
+    assert "HTTP 401" in str(excinfo.value)
+    _leak_check(excinfo, caplog)
+
+
+@pytest.mark.asyncio
+async def test_request_error_does_not_leak_endpoint_credentials(monkeypatch, caplog):
+    def handler(request):
+        raise httpx.ConnectError(f"connection refused for {request.url}", request=request)
+
+    _mock_httpx(monkeypatch, handler)
+    backend = OpenAICompatLLMBackend(endpoint=LEAKY_ENDPOINT, model="m")
+    with pytest.raises(RuntimeError) as excinfo:
+        await backend.generate(prompt="x")
+    assert "unreachable" in str(excinfo.value)
+    _leak_check(excinfo, caplog)
+
+
+@pytest.mark.asyncio
+async def test_non_json_body_does_not_leak_endpoint_credentials(monkeypatch, caplog):
+    _mock_httpx(monkeypatch, lambda request: httpx.Response(200, text=f"proxy page {request.url}"))
+    backend = OpenAICompatLLMBackend(endpoint=LEAKY_ENDPOINT, model="m")
+    with pytest.raises(RuntimeError) as excinfo:
+        await backend.generate(prompt="x")
+    _leak_check(excinfo, caplog)
+
+
+@pytest.mark.asyncio
+async def test_missing_content_does_not_leak_endpoint_credentials(monkeypatch, caplog):
+    _mock_httpx(monkeypatch, lambda request: httpx.Response(200, json={"choices": []}))
+    backend = OpenAICompatLLMBackend(endpoint=LEAKY_ENDPOINT, model="m")
+    with pytest.raises(ValueError, match="No choices") as excinfo:
+        await backend.generate(prompt="x")
+    _leak_check(excinfo, caplog)
