@@ -1,0 +1,108 @@
+---
+title: "Grabación y transcripción"
+description: "Un mapa de los tres lugares donde puedes grabar y transcribir audio en Voicebox — dictado, capturas y muestras de perfil de voz."
+---
+
+## Visión general
+
+Voicebox graba y transcribe audio en tres contextos diferentes, cada uno
+alimentando una superficie distinta de la app. Esta página es un mapa; sigue los
+enlaces para ver el detalle.
+
+| Objetivo | Dónde | Documentación |
+|---|---|---|
+| Hablar y que tus palabras aterricen en otra app | Atajo global → pestaña Capturas + pegado automático | [Dictado](./dictation.mdx) |
+| Grabar una idea, una reunión o una nota de voz dentro de Voicebox | Pestaña Capturas | [Capturas](./captures.mdx) |
+| Grabar un clip del que clonar una voz | Pestaña Voces → muestras de perfil | [Crear perfiles de voz](./creating-voice-profiles.mdx) |
+
+Las tres vías comparten el mismo backend STT — lo que difiere es el flujo de
+trabajo que las rodea.
+
+## Dictado
+
+La función estrella de la 0.5.0. Mantén pulsado un acorde en cualquier parte de tu
+máquina, habla, suelta. La transcripción aterriza en el campo de texto que tuvieras
+enfocado, depurada por un LLM local si tienes activado el refinamiento automático.
+Las capturas se acumulan en la pestaña Capturas para reproducirlas o retranscribirlas
+más tarde.
+
+Se cubre de principio a fin en [Dictado](./dictation.mdx).
+
+## Pestaña Capturas
+
+Cuando no necesitas pegar en otra app — solo quieres una transcripción limpia de
+algún audio — la pestaña Capturas es su hogar. Graba dentro de la app, suelta un
+archivo (`.wav`, `.mp3`, `.m4a`, `.webm`, `.opus`, `.flac`), o revisa los dictados
+que ya aterrizaron ahí. Cada captura conserva su audio original, puede retranscribirse
+con un modelo diferente y puede reproducirse a través de cualquier perfil de voz
+que tengas.
+
+Se cubre en [Capturas](./captures.mdx).
+
+## Muestras de perfil de voz
+
+Un flujo aparte, en la pestaña Voces. Cuando estás creando un perfil a partir de un
+clip de audio, la muestra es de lo que realmente aprende el motor de clonado —
+el `reference_text` de una muestra debe coincidir con el audio *al pie de la letra*,
+y por eso las muestras son un modelo de datos distinto al de las capturas.
+
+Puedes promover una captura a muestra desde el menú Enviar a de la pestaña Capturas
+("Usar como muestra de voz…"), que abre un diálogo de confirmación del texto de
+referencia para que puedas corregir el último ~10% de precisión de la transcripción
+antes de guardar.
+
+Se cubre en [Crear perfiles de voz](./creating-voice-profiles.mdx).
+
+## Modelos de transcripción
+
+Las tres vías comparten los mismos modelos de Whisper. Elige uno por defecto en
+**Ajustes → Capturas → Transcripción**; anúlalo por captura si lo necesitas.
+
+| Modelo | Tamaño | Cuándo elegirlo |
+|---|---|---|
+| Whisper Base | ~300 MB | Rápido. Por defecto. Bueno para habla limpia. |
+| Whisper Small | ~500 MB | Mejor calidad, aún rápido. |
+| Whisper Medium | ~1.5 GB | Alta calidad. |
+| Whisper Large | ~3 GB | La mejor calidad, lento en CPU. |
+| Whisper Turbo | ~1.5 GB | Calidad de nivel Large, ~5× más rápido que Large. |
+
+En Apple Silicon el modelo corre a través de **MLX-Whisper** (~8× más rápido que
+PyTorch). En el resto de plataformas corre a través de `transformers` de PyTorch. El
+backend elige el correcto — tú no lo configuras.
+
+<Callout type="info">
+  Para clips ruidosos, prefiere **Turbo** o **Large**. Base puede alucinar con
+  entradas difíciles — el caso más famoso es el bucle "thanks for watching". Voicebox
+  elimina esos bucles de forma determinista antes de que corra el refinamiento por LLM,
+  de modo que una captura puede re-refinarse limpiamente aunque la transcripción en
+  bruto los contenga.
+</Callout>
+
+## Idioma
+
+Puedes pasar una pista de idioma para clips cortos (de menos de ~5 segundos) donde
+la detección automática de Whisper no es fiable. Establece un bloqueo de idioma por
+defecto en **Ajustes → Capturas → Transcripción → Idioma**, o anúlalo por captura.
+
+## API de transcripción
+
+El detalle a nivel de desarrollador sobre el backend STT, la carga de modelos, el
+preprocesamiento y el endpoint `/transcribe` vive en la
+[guía de transcripción para desarrolladores](/developer/transcription). El pipeline
+de Capturas también expone `/captures` como un endpoint de más alto nivel que envuelve
+STT + archivado + refinamiento opcional en una sola llamada — consulta
+[Capturas](./captures.mdx#api-surface).
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Dictado" href="/overview/dictation">
+    Mantén pulsado un acorde en cualquier parte de tu máquina, habla, suelta.
+  </Card>
+  <Card title="Capturas" href="/overview/captures">
+    El archivo emparejado de audio + transcripción.
+  </Card>
+  <Card title="Crear perfiles de voz" href="/overview/creating-voice-profiles">
+    Graba o sube muestras para clonado de voz.
+  </Card>
+</Cards>

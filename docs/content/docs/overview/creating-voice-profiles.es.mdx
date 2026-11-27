@@ -1,0 +1,288 @@
+---
+title: "Crear perfiles de voz"
+description: "Cómo crear perfiles de voz, tanto basados en clonación como en preajustes"
+---
+
+## Visión general
+
+Un **perfil de voz** es una voz guardada que puedes reutilizar en generaciones, historias y la API. Desde la versión 0.4, los perfiles de Voicebox vienen en dos variantes que se corresponden con dos formas distintas de obtener una voz:
+
+| Tipo de perfil | Qué almacena                                          | Úsalo cuando…                                            |
+| -------------- | ----------------------------------------------------- | -------------------------------------------------------- |
+| **Clonado**    | Una o más muestras de audio de referencia + un embedding de voz | Quieres replicar la voz de una persona concreta          |
+| **Preajuste**  | Una referencia a una voz prefabricada en un motor concreto | Quieres una voz curada y lista para producción sin preparar audio |
+
+Ambos tipos viven en la misma pestaña Perfiles y se comportan igual a la hora de generar: elige el tipo que se ajuste a tu objetivo y sigue el flujo de trabajo de abajo.
+
+<Callout type="info">
+  ¿No sabes cuál usar? La clonación te da una voz *específica* pero necesita audio limpio. El preajuste te da *buenas* voces al instante, pero no eliges a quién se parecen.
+</Callout>
+
+## Flujo A — Perfiles clonados
+
+Úsalo cuando quieras replicar la voz de una persona concreta a partir de una grabación.
+
+<Steps>
+  <Step title="Prepara el audio">
+    De 10 a 30 segundos de habla clara, con un mínimo de ruido de fondo. Consulta [Clonación de voz](./voice-cloning.mdx) para ver el catálogo de motores.
+  </Step>
+  <Step title="Crea el perfil">
+    **Perfiles** → **+ Nuevo perfil** → elige un motor de clonación (Qwen3-TTS, Chatterbox Multilingual, Chatterbox Turbo, LuxTTS o TADA)
+  </Step>
+  <Step title="Sube o graba una muestra">
+    Arrastra un archivo de audio o graba directamente con el grabador integrado en la app
+  </Step>
+  <Step title="Genera para probar">
+    Usa el perfil para generar una frase de prueba. Si la calidad es pobre, añade más muestras
+  </Step>
+</Steps>
+
+### Requisitos de audio (solo clonación)
+
+<Cards>
+  <Card title="Duración">
+    **10-30 segundos**
+
+    Demasiado corto: calidad pobre
+    Demasiado largo: innecesario
+  </Card>
+  <Card title="Claridad">
+    **Habla clara**
+
+    Sin ruido de fondo
+    Sin música ni voces superpuestas
+  </Card>
+  <Card title="Calidad">
+    **Alta fidelidad**
+
+    Frecuencia de muestreo de 44,1 kHz o 48 kHz
+    Compresión mínima
+  </Card>
+  <Card title="Contenido">
+    **Habla natural**
+
+    Tono conversacional
+    Frases completas
+  </Card>
+</Cards>
+
+### Formatos de archivo
+
+Formatos admitidos:
+- **WAV** (recomendado) — Calidad sin pérdidas
+- **MP3** — Aceptable, compresión mínima
+- **M4A** — Aceptable
+- **FLAC** — Alternativa sin pérdidas
+
+<Callout type="info">
+  Usa WAV para obtener los mejores resultados. Evita los formatos muy comprimidos.
+</Callout>
+
+### Consejos de grabación
+
+<AccordionGroup>
+  <Accordion title="Espacio silencioso">
+    - Graba en una habitación silenciosa
+    - Apaga ventiladores, aire acondicionado y electrodomésticos
+    - Cierra las ventanas para reducir el ruido exterior
+    - Usa elementos blandos para reducir el eco
+  </Accordion>
+
+  <Accordion title="Colocación del micrófono">
+    - A 15-30 cm de la boca
+    - Con un ligero ángulo para reducir las plosivas (p, b, t)
+    - Usa un filtro antipop si tienes uno
+    - Mantén una distancia constante
+  </Accordion>
+
+  <Accordion title="Ajustes de grabación">
+    - Frecuencia de muestreo de 44,1 kHz o 48 kHz
+    - Profundidad de 16 o 24 bits
+    - Mono está bien (el estéreo se convertirá)
+    - Evita el control automático de ganancia
+  </Accordion>
+</AccordionGroup>
+
+### Estilo de habla
+
+- **Ritmo natural** — No te apresures ni hables demasiado despacio
+- **Articulación clara** — Pronuncia las palabras con claridad
+- **Volumen constante** — Mantén una intensidad estable
+- **Tono normal** — Habla como lo harías normalmente
+- **Frases completas** — Evita fragmentos o muletillas como "eh"
+
+### Varias muestras
+
+Añadir varias muestras puede mejorar la calidad de forma significativa:
+
+<Cards>
+  <Card title="Robustez">
+    El modelo aprende una representación más completa
+  </Card>
+  <Card title="Versatilidad">
+    Maneja mejor distintos estilos de habla
+  </Card>
+  <Card title="Calidad">
+    Reduce los artefactos y mejora la naturalidad
+  </Card>
+  <Card title="Consistencia">
+    Más fiable con distintos textos
+  </Card>
+</Cards>
+
+Considera añadir muestras con:
+
+1. **Distintos tonos** — informal, formal, entusiasta, tranquilo
+2. **Distintos contenidos** — narraciones, preguntas, afirmaciones
+3. **Distintas condiciones de grabación** — calidad de estudio, acústica de la sala
+
+<Callout type="warn">
+  Todas las muestras deben ser del **mismo hablante**. Mezclar voces producirá resultados pobres.
+</Callout>
+
+### Procesar audio existente
+
+Si ya tienes audio (pódcast, vídeos, etc.):
+
+<Steps>
+  <Step title="Encuentra habla limpia">
+    Busca segmentos en los que solo esté el hablante objetivo, sin música de fondo y con un mínimo de ruido
+  </Step>
+  <Step title="Usa un editor de audio">
+    Herramientas como Audacity o Adobe Audition: corta segmentos limpios de 10-30 s, elimina el silencio al principio y al final, normaliza el volumen
+  </Step>
+  <Step title="Exporta como WAV">
+    Guárdalo como un archivo WAV de alta calidad
+  </Step>
+</Steps>
+
+Para ruido de fondo leve, usa la reducción de ruido de Audacity (con ajustes suaves: procesar en exceso introduce artefactos).
+
+### Pruebas e iteración
+
+Tras crear un perfil clonado:
+
+<Steps>
+  <Step title="Genera una prueba">
+    Prueba con una frase sencilla: `"Hola, esto es una prueba de mi perfil de voz."`
+  </Step>
+  <Step title="Evalúa la calidad">
+    Escucha si el tono es natural, la pronunciación es clara, la prosodia es adecuada y no hay artefactos
+  </Step>
+  <Step title="Itera">
+    Si la calidad es pobre: añade más muestras, prueba con otro audio de origen, revisa la calidad de las muestras
+  </Step>
+</Steps>
+
+#### Problemas comunes
+
+<AccordionGroup>
+  <Accordion title="Voz robótica">
+    **Causa**: muestras de baja calidad o demasiado cortas
+
+    **Solución**: usa muestras más largas y de mayor calidad
+  </Accordion>
+
+  <Accordion title="Tono incorrecto">
+    **Causa**: el tono de la muestra no coincide con el resultado deseado
+
+    **Solución**: graba muestras en el estilo que quieras generar
+  </Accordion>
+
+  <Accordion title="Artefactos/fallos">
+    **Causa**: ruido de fondo o problemas de audio en las muestras
+
+    **Solución**: limpia las muestras o vuelve a grabar en un entorno más silencioso
+  </Accordion>
+</AccordionGroup>
+
+## Flujo B — Perfiles de preajuste
+
+Úsalo cuando quieras una voz prefabricada sin grabar nada. Motores disponibles: **Kokoro 82M** (50 voces) y **Qwen CustomVoice** (9 voces). Consulta [Voces de preajuste](./preset-voices.mdx) para ver el catálogo completo.
+
+<Steps>
+  <Step title="Crea el perfil">
+    **Perfiles** → **+ Nuevo perfil** → elige **Kokoro** o **Qwen CustomVoice** como motor
+  </Step>
+  <Step title="Elige una voz">
+    Aparece el catálogo de voces del motor. Haz clic en cualquier voz para escucharla
+  </Step>
+  <Step title="Ponle nombre y guárdalo">
+    Dale un nombre al perfil. No se requiere ninguna muestra de audio
+  </Step>
+  <Step title="Genera">
+    El perfil está listo de inmediato: úsalo en el cuadro de generación flotante o en la página Generar
+  </Step>
+</Steps>
+
+<Callout type="info">
+  Los perfiles de preajuste están **vinculados a su motor de origen**. Si cambias a un motor distinto en el cuadro de generación flotante, el perfil se atenúa, ya que la voz solo existe en ese motor. Al hacer clic en un perfil atenuado se vuelve a cambiar automáticamente el motor.
+</Callout>
+
+### Qwen CustomVoice + Instruct
+
+Las voces de preajuste de Qwen CustomVoice admiten **instrucciones de interpretación**: control del estilo en lenguaje natural sobre el tono, el ritmo y la emoción. El cuadro de generación flotante muestra un icono de control deslizante junto al botón de generar cuando hay un perfil de Qwen CustomVoice seleccionado; haz clic en él para mostrar el área de texto de instrucciones.
+
+Consulta [Voces de preajuste → Usar el modo Instruct](./preset-voices.mdx#using-instruct-mode) para ver ejemplos.
+
+## Consejos avanzados
+
+### Voces de famosos o personajes (clonación)
+
+Para clonar figuras públicas o personajes:
+
+1. **Consideraciones legales** — Asegúrate de tener los derechos o de que sea claramente uso legítimo
+2. **Calidad de la fuente** — Encuentra audio de entrevistas de alta calidad o clips limpios
+3. **Consistencia** — Usa clips en los que hablen de forma similar
+4. **Varias muestras** — Muy importante para voces reconocibles
+
+### Acento y dialecto (clonación)
+
+Los modelos de clonación conservan el acento y el dialecto:
+
+- Las muestras de inglés británico generan un resultado en inglés británico
+- Las muestras con acento sureño producen un resultado con acento sureño
+- Se mantienen las pronunciaciones regionales
+
+### Transferencia de emoción (clonación)
+
+El tono emocional de las muestras afecta a la generación:
+
+- Muestras enérgicas → resultado enérgico
+- Muestras tranquilas → resultado tranquilo
+- Mezcla muestras para un perfil más versátil
+
+Para los preajustes de Qwen CustomVoice, usa el campo **instruct** en lugar de depender de la emoción de la muestra: es exactamente lo que controla.
+
+## Gestionar perfiles
+
+### Organización
+
+- **Nombres descriptivos** — "Juan Pérez - Narrador profesional"
+- **Añade descripciones** — Anota las condiciones de grabación, los casos de uso o qué voz de preajuste
+- **Etiquetas de idioma** — Marca el idioma principal
+- **Archiva los que no uses** — Mantén manejable la lista de perfiles
+
+### Exportar / Importar
+
+- **Exporta** perfiles para compartirlos o hacer copia de seguridad
+- **Importa** de compañeros o colegas de equipo
+- **Los perfiles clonados** se exportan con sus embeddings de voz (no con el audio original)
+- **Los perfiles de preajuste** se exportan solo como metadatos de motor + ID de voz: quien los importe debe tener instalado el modelo de ese motor
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Clonación de voz" href="/overview/voice-cloning">
+    Catálogo de motores y buenas prácticas para clonar
+  </Card>
+  <Card title="Voces de preajuste" href="/overview/preset-voices">
+    Catálogo completo de voces de Kokoro y Qwen CustomVoice
+  </Card>
+  <Card title="Generar voz" href="/overview/generating-speech">
+    Usa tu perfil para generar voz
+  </Card>
+  <Card title="Crear historias" href="/overview/building-stories">
+    Crea narraciones con varias voces
+  </Card>
+</Cards>

@@ -1,0 +1,236 @@
+---
+title: "Aceleración por GPU"
+description: "Cómo usa Voicebox tu GPU — detección automática, configuración manual, resolución de problemas"
+---
+
+## Resumen
+
+Voicebox detecta automáticamente los aceleradores disponibles en el primer arranque y elige el backend más rápido que puede usar. Para la mayoría de la gente esto simplemente funciona — abres la app y ya estás en el backend correcto.
+
+Esta página es para los casos en los que no:
+
+- Tienes una GPU pero Voicebox se está ejecutando en CPU
+- Has actualizado de GPU (especialmente a la serie RTX 50 / Blackwell) y la generación dejó de funcionar
+- Quieres cambiar de backend manualmente (p. ej. forzar MLX en lugar de PyTorch en Apple Silicon)
+- Ves `[UNSUPPORTED - see logs]` junto a tu GPU en Ajustes
+
+## Matriz de backends
+
+| Plataforma                  | Backend autoseleccionado  | Notas                                                |
+| --------------------------- | ------------------------- | ---------------------------------------------------- |
+| **macOS Apple Silicon**     | MLX (Metal)               | 4-5x más rápido que PyTorch vía Apple Neural Engine  |
+| **macOS Intel**             | PyTorch CPU               | Sin aceleración por GPU disponible; solo PyTorch ≥ 2.2 |
+| **Windows + NVIDIA**        | PyTorch CUDA (cu128)      | Descarga automática del binario del backend CUDA en el primer uso |
+| **Windows + Intel Arc**     | PyTorch XPU (IPEX)        | Nuevo en 0.4 — funciona con Arc serie A y serie B    |
+| **Windows GPU genérica**    | DirectML                  | Soporte universal de GPU en Windows; más lento que CUDA |
+| **Linux + NVIDIA**          | PyTorch CUDA (cu128)      | Mismo flujo de descarga automática que en Windows    |
+| **Linux + AMD**             | PyTorch ROCm              | Configura automáticamente `HSA_OVERRIDE_GFX_VERSION` |
+| **Linux + Intel Arc**       | PyTorch XPU (IPEX)        |                                                      |
+| **Cualquiera (sin GPU)**    | PyTorch CPU               | Funciona en todas partes; espera entre 5 y 50x más lento que con GPU |
+
+El backend detectado se muestra en Ajustes → GPU. Los logs de arranque también imprimen el backend elegido y el nombre del dispositivo.
+
+## Apple Silicon — MLX vs PyTorch
+
+En los Mac con chip serie M, Voicebox incluye un backend optimizado con MLX que usa el Apple Neural Engine. Es **4-5x más rápido** que la ruta de PyTorch (CPU/Metal) para los motores compatibles.
+
+| Motor                | Soporte MLX | Notas                                       |
+| -------------------- | ----------- | ------------------------------------------- |
+| Qwen3-TTS            | ✅ Nativo   | Usa MLX exclusivamente cuando está disponible |
+| Chatterbox / Turbo   | PyTorch MPS | Recurre a Metal vía PyTorch                 |
+| LuxTTS               | PyTorch MPS |                                             |
+| TADA                 | PyTorch MPS |                                             |
+| Kokoro               | PyTorch MPS | Requiere `PYTORCH_ENABLE_MPS_FALLBACK=1`    |
+| Qwen CustomVoice     | PyTorch MPS |                                             |
+| Whisper (transcribe) | ✅ Nativo   | MLX-Whisper es el predeterminado en Apple Silicon |
+
+La combinación Whisper Turbo + MLX redujo la latencia de transcripción de ~20s a ~2-3s en los chips de la serie M (consulta la entrada del CHANGELOG para v0.1.10).
+
+## Windows / Linux + NVIDIA — El intercambio del backend CUDA
+
+Voicebox no incluye CUDA en el instalador principal (haría que las descargas se dispararan al territorio de varios gigabytes para usuarios que no tienen una GPU NVIDIA). En su lugar, cuando lo necesitas por primera vez, la app descarga un **binario del backend CUDA** independiente que contiene el runtime de PyTorch + CUDA.
+
+<Steps>
+  <Step title="Abre Ajustes → GPU">
+    Si se detecta una GPU NVIDIA, verás "Install CUDA backend" en el panel de GPU
+  </Step>
+  <Step title="Haz clic en Install">
+    La app descarga dos archivos por separado:
+    - **Núcleo del servidor** (~200-400 MB) — versionado con cada versión de Voicebox
+    - **Librerías CUDA** (~4 GB) — las pesadas DLL de PyTorch + CUDA, versionadas de forma independiente
+  </Step>
+  <Step title="Reinicia">
+    Voicebox se reinicia para activar el backend CUDA
+  </Step>
+</Steps>
+
+<Callout type="info">
+  El diseño de archivos divididos (añadido en v0.4) significa que la mayoría de las actualizaciones de Voicebox solo vuelven a descargar el pequeño archivo del núcleo del servidor. El archivo de librerías de 4 GB solo se actualiza cuando cambia el toolkit de CUDA subyacente o la versión mayor de torch.
+</Callout>
+
+### Actualización automática
+
+Cuando llega una nueva versión de Voicebox, el panel de GPU comprueba si el núcleo del servidor incluido coincide con la versión de CUDA instalada. Si solo cambió el núcleo (lo habitual), descarga el nuevo núcleo en segundo plano. Si cambió la versión de las librerías (raro — solo ocurre en saltos de tipo cu126 → cu128), se te pedirá confirmar la descarga más grande.
+
+## Serie RTX 50 / Blackwell
+
+Voicebox 0.4 añadió soporte explícito para la serie RTX 50:
+
+- Toolkit de CUDA actualizado a **cu128** (las versiones anteriores usaban cu126, que carece de kernels para Blackwell)
+- Compilación fijada con `TORCH_CUDA_ARCH_LIST=...12.0+PTX` para compatibilidad hacia adelante
+
+Si tienes una RTX 5070 / 5080 / 5090 y ves errores de "no kernel image is available":
+
+1. Asegúrate de estar en Voicebox **≥ 0.4.0** (Ajustes → About)
+2. Reinstala el backend CUDA (Ajustes → GPU → Reinstall CUDA backend) — las instalaciones más antiguas pueden tener librerías cu126 obsoletas
+3. Si los errores persisten, consulta la sección de avisos de compatibilidad de GPU más abajo
+
+## Intel Arc (XPU)
+
+Nuevo en 0.4. Funciona tanto con Arc serie A (Alchemist: A380, A580, A750, A770) como con la serie B (Battlemage).
+
+### Configuración
+
+Voicebox detecta automáticamente las GPU Arc y enruta a través del backend PyTorch XPU de Intel (impulsado por IPEX — Intel Extension for PyTorch). No hay ningún paso de instalación adicional más allá de la instalación estándar de Voicebox.
+
+Verifica que funciona:
+- Ajustes → GPU debería mostrar **XPU** seguido del nombre de tu modelo Arc (p. ej. `XPU (Intel Arc A770)`)
+- Los logs de arranque imprimen `Backend: PYTORCH` y `GPU: XPU (Intel Arc ...)`
+
+### Motores en XPU
+
+Todos los motores basados en PyTorch funcionan en XPU. El rendimiento generalmente se sitúa entre el de CPU y el de CUDA — espera una mejora de ~2-3x sobre CPU para los modelos más grandes.
+
+## DirectML
+
+La opción de reserva para usuarios de Windows con GPU que no sean NVIDIA ni Intel Arc (AMD discretas más antiguas, GPU integradas, etc.). Más lento que CUDA y XPU, pero aporta algo de aceleración sobre CPU.
+
+Se autoselecciona cuando no hay ningún otro backend de GPU disponible.
+
+## AMD ROCm (Linux)
+
+ROCm proporciona aceleración por GPU con PyTorch en GPU discretas de AMD. Voicebox configura automáticamente `HSA_OVERRIDE_GFX_VERSION` para las tarjetas comunes que necesitan el override.
+
+### Verificación
+
+```bash
+# In a terminal
+echo $HSA_OVERRIDE_GFX_VERSION
+# Should show e.g. 10.3.0 for RX 6000 series
+```
+
+Si la detección falla, define la variable manualmente antes de lanzar Voicebox:
+
+```bash
+export HSA_OVERRIDE_GFX_VERSION=10.3.0
+voicebox
+```
+
+Valores comunes:
+- `10.3.0` — serie RX 6000 (RDNA 2)
+- `11.0.0` — serie RX 7000 (RDNA 3)
+- `9.0.0` — tarjetas Vega más antiguas
+
+## Avisos de compatibilidad de GPU
+
+Voicebox 0.4 añadió una comprobación en tiempo de ejecución que compara la capacidad de cómputo de tu GPU con las arquitecturas para las que se compiló el PyTorch incluido. Si no coinciden, verás:
+
+- Una línea en el log de arranque: `WARNING: GPU COMPATIBILITY: <your GPU> is not supported by this PyTorch build...`
+- La etiqueta de la GPU en Ajustes muestra `[UNSUPPORTED - see logs]`
+- La API `/health` devuelve un campo `gpu_compatibility_warning` con datos
+
+### Qué hacer
+
+El desencadenante más común es una arquitectura de GPU recién salida que las ruedas precompiladas de PyTorch aún no cubren de forma nativa. En orden de preferencia:
+
+1. **Actualiza Voicebox** — las versiones más nuevas incluyen un PyTorch más reciente con soporte de arquitecturas más amplio
+2. **Reinstala el backend CUDA** — Ajustes → GPU → Reinstall CUDA backend
+3. **Para GPU de última hornada (más nuevas que el Blackwell actual):** instala PyTorch nightly manualmente:
+   ```bash
+   pip install torch --index-url https://download.pytorch.org/whl/nightly/cu128 --force-reinstall
+   ```
+   Luego apunta Voicebox a ese entorno vía [Modo remoto](./remote-mode.mdx) hasta que el PyTorch estable se ponga al día.
+4. **Recurre a la CPU** temporalmente — define `VOICEBOX_FORCE_CPU=1` antes de lanzar
+
+## Reserva solo con CPU
+
+Cuando no hay ninguna GPU disponible (o la has forzado a desactivarse), Voicebox ejecuta el backend de PyTorch en CPU. Espera:
+
+- Generación entre 5 y 50x más lenta según el motor y la longitud del texto
+- Uso intensivo de CPU durante la generación
+- Algunos motores funcionan mejor que otros en CPU:
+  - **Kokoro 82M** — funciona en tiempo real en CPU modernas
+  - **LuxTTS** — supera las 150x el tiempo real en CPU
+  - **Chatterbox Turbo (350M)** — utilizable pero lento
+  - Modelos más grandes (Qwen 1.7B, Chatterbox Multilingual, TADA 3B) — penosos
+
+Para casos de uso limitados a CPU, prefiere los motores más pequeños y ligeros.
+
+## Verificar tu configuración
+
+Tres lugares para comprobar que se está usando el backend correcto:
+
+<Steps>
+  <Step title="Ajustes → GPU">
+    Muestra el backend detectado, el modelo de GPU y la VRAM (cuando aplica). Fíjate en el sufijo `[UNSUPPORTED - see logs]`
+  </Step>
+  <Step title="Ajustes → Logs">
+    La pestaña "Server logs" muestra el banner de arranque con `Backend: <type>` y `GPU: <name>`
+  </Step>
+  <Step title="Endpoint de salud">
+    `curl http://localhost:17493/health` devuelve un payload JSON con `backend_type`, `backend_variant` y `gpu_compatibility_warning` (cuando aplica)
+  </Step>
+</Steps>
+
+## Resolución de problemas
+
+<AccordionGroup>
+  <Accordion title="Ajustes muestra CPU en lugar de mi GPU">
+    - En NVIDIA: instala el backend CUDA (Ajustes → GPU)
+    - En Intel Arc: confirma la detección de IPEX en los logs de arranque; reinicia la app tras actualizar el driver
+    - En AMD Linux: comprueba que `HSA_OVERRIDE_GFX_VERSION` esté definido
+  </Accordion>
+
+  <Accordion title="'no kernel image is available' / 'CUDA error'">
+    Casi siempre significa que el PyTorch incluido no tiene kernels para la capacidad de cómputo de tu GPU.
+
+    1. Actualiza a Voicebox ≥ 0.4.0 (el soporte de Blackwell se añadió ahí)
+    2. Reinstala el backend CUDA
+    3. Si sigue roto, instala PyTorch nightly vía Modo remoto
+  </Accordion>
+
+  <Accordion title="Sin memoria (CUDA)">
+    - Cambia a un tamaño de modelo más pequeño (p. ej. Qwen3 0.6B en lugar de 1.7B)
+    - Usa Ajustes → Models para descargar otros motores que no estés usando
+    - `low_cpu_mem_usage` ya está activado para CPU; para CUDA, el `device_map` del motor gestiona la descarga automáticamente
+    - Cierra otras aplicaciones que usen la GPU
+  </Accordion>
+
+  <Accordion title="Errores de reserva de MPS en macOS">
+    Algunas operaciones no tienen implementación en Metal. Voicebox define `PYTORCH_ENABLE_MPS_FALLBACK=1` para los motores que lo necesitan (notablemente Kokoro), pero si lanzas desde un entorno personalizado, defínelo manualmente:
+    ```bash
+    export PYTORCH_ENABLE_MPS_FALLBACK=1
+    ```
+  </Accordion>
+
+  <Accordion title="La generación funciona pero es lenta en mi GPU">
+    - Comprueba que Ajustes → GPU muestre tu GPU (no CPU)
+    - Comprueba el uso de VRAM — puede que estés paginando a la memoria del sistema
+    - Prueba un modelo más pequeño
+    - En NVIDIA: confirma que cu128 está instalado (Ajustes → GPU → version)
+  </Accordion>
+</AccordionGroup>
+
+## Próximos pasos
+
+<Cards>
+  <Card title="Modo remoto" href="/overview/remote-mode">
+    Ejecuta el backend en una máquina diferente con una GPU más potente
+  </Card>
+  <Card title="Gestión de modelos" href="/developer/model-management">
+    Descarga modelos para liberar memoria de GPU
+  </Card>
+  <Card title="Resolución de problemas" href="/overview/troubleshooting">
+    Resolución de problemas general más allá de la GPU
+  </Card>
+</Cards>
