@@ -351,6 +351,7 @@ export function ProfileForm() {
       setProfileEffectsChain(editingProfile.effects_chain ?? []);
       setEffectsDirty(false);
       setDefaultEngine(editingProfile.default_engine ?? '');
+      setDesignPrompt(editingProfile.design_prompt ?? '');
     } else if (profileFormDraft && open) {
       // Restore from draft when opening in create mode
       form.reset({
@@ -393,6 +394,7 @@ export function ProfileForm() {
       });
       setSampleMode('record');
       setAvatarPreview(null);
+      setDesignPrompt('');
     }
   }, [editingProfile, profileFormDraft, open, form]);
 
@@ -504,6 +506,17 @@ export function ProfileForm() {
   async function onSubmit(data: ProfileFormValues) {
     try {
       if (editingProfileId) {
+        const isDesigned = editingProfile?.voice_type === 'designed';
+        const trimmedDesign = designPrompt.trim();
+        if (isDesigned && !trimmedDesign) {
+          toast({
+            title: t('profileForm.toast.noDesignPrompt'),
+            description: t('profileForm.toast.noDesignPromptDescription'),
+            variant: 'destructive',
+          });
+          return;
+        }
+
         // Editing: update profile
         await updateProfile.mutateAsync({
           profileId: editingProfileId,
@@ -513,6 +526,7 @@ export function ProfileForm() {
             language: data.language,
             default_engine: defaultEngine || undefined,
             personality: data.personality?.trim() ? data.personality.trim() : undefined,
+            ...(isDesigned && { design_prompt: trimmedDesign }),
           },
         });
 
@@ -1211,8 +1225,16 @@ export function ProfileForm() {
                           <div className="text-sm font-medium text-muted-foreground">
                             {t('profileForm.design.badge')}
                           </div>
-                          <p className="text-sm leading-relaxed">
-                            {editingProfile.design_prompt}
+                          <Textarea
+                            value={designPrompt}
+                            onChange={(e) => setDesignPrompt(e.target.value)}
+                            placeholder={t('profileForm.design.placeholder')}
+                            maxLength={MAX_DESIGN_PROMPT_LENGTH}
+                            rows={6}
+                            className="resize-none"
+                          />
+                          <p className="text-xs text-muted-foreground tabular-nums text-right">
+                            {designPrompt.length}/{MAX_DESIGN_PROMPT_LENGTH}
                           </p>
                           <Badge variant="secondary" className="text-xs">
                             {editingProfile.default_engine}

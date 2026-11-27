@@ -256,7 +256,7 @@
       "placeholder": "Un hombre mayor de voz cálida y rasposa, con un acento escocés pausado y un punto de guasa.",
       "engineNote": "Usa Qwen VoiceDesign",
       "badge": "Voz diseñada",
-      "note": "Este perfil usa una voz descrita. La descripción no se puede cambiar después de crearla."
+      "note": "Este perfil usa una voz descrita. Si editas la descripción, cambiará cómo suenan las nuevas generaciones."
     },
     "sampleTabs": {
       "upload": "Subir",

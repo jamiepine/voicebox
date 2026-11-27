@@ -256,7 +256,7 @@
       "placeholder": "Un uomo anziano dalla voce calda e roca, con una lenta cadenza scozzese e un pizzico di ironia.",
       "engineNote": "Usa Qwen VoiceDesign",
       "badge": "Voce progettata",
-      "note": "Questo profilo usa una voce descritta. La descrizione non può essere modificata dopo la creazione."
+      "note": "Questo profilo usa una voce descritta. Modificare la descrizione cambia il suono delle nuove generazioni."
     },
     "sampleTabs": {
       "upload": "Carica",
