@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+### Security
+
+- **Web pages can no longer drive the local API through DNS rebinding or cross-site requests.** A request that reaches the server over loopback must name `localhost`, `127.0.0.1` or `[::1]` (any port) as its `Host`, and a request carrying an `Origin` header must come from the desktop app, the Vite dev server, the server's own address, or `VOICEBOX_CORS_ORIGINS`; anything else gets a `403` and a log line. `Origin: null` is rejected. Requests without `Origin` (curl, the `openai` SDK, MCP clients) are unaffected, and Docker, LAN and Remote Mode keep working because connections that arrive on a non-loopback address accept any `Host`. Behind a reverse proxy that forwards its own hostname over loopback, set `VOICEBOX_ALLOWED_HOSTS=your.host` (comma-separated; once set it applies to every connection, `*` turns the check off). Every response now also carries `X-Content-Type-Options: nosniff`. See Remote Mode → Host and Origin checks. (security hardening)
+
 ### macOS
 
 - **0.7 is the last release with an Intel macOS build.** Later releases ship for Apple Silicon only. Intel Macs stay on PyTorch 2.2.2, the last x86_64 macOS wheel PyTorch published, so the CVE-2026-24747 caveat still applies there: only load models from sources you trust. ([CVE-2026-24747](https://nvd.nist.gov/vuln/detail/CVE-2026-24747))

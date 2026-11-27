@@ -4,8 +4,9 @@ Tests for CORS origin restrictions.
 Validates that the CORS middleware only allows known local origins
 and respects the VOICEBOX_CORS_ORIGINS environment variable.
 
-Uses a minimal FastAPI app that mirrors the exact CORS configuration
-from backend/main.py, so tests run without heavy ML dependencies.
+Uses a minimal FastAPI app configured by the same
+``configure_request_security`` call as backend/app.py, so tests run without
+heavy ML dependencies.
 
 Usage:
     pip install httpx pytest fastapi starlette
@@ -16,36 +17,18 @@ import os
 import pytest
 from unittest.mock import patch
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from starlette.testclient import TestClient
+
+from backend.utils.request_guard import configure_request_security
+
+BASE_URL = "http://localhost:17493"
 
 
 def _build_app(env_origins: str = "") -> FastAPI:
-    """
-    Build a minimal FastAPI app with the same CORS logic as backend/main.py.
-
-    This mirrors the exact code in main.py so the test validates the real
-    configuration without needing torch/numpy/transformers installed.
-    """
+    """Build a minimal FastAPI app with the same CORS setup as backend/app.py."""
     app = FastAPI()
-
-    _default_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:17493",
-        "http://127.0.0.1:17493",
-        "tauri://localhost",
-        "https://tauri.localhost",
-    ]
-    _cors_origins = _default_origins + [o.strip() for o in env_origins.split(",") if o.strip()]
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=_cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    with patch.dict(os.environ, {"VOICEBOX_CORS_ORIGINS": env_origins}):
+        configure_request_security(app)
 
     @app.get("/health")
     async def health():
@@ -56,12 +39,12 @@ def _build_app(env_origins: str = "") -> FastAPI:
 
 @pytest.fixture()
 def client():
-    return TestClient(_build_app())
+    return TestClient(_build_app(), base_url=BASE_URL)
 
 
 @pytest.fixture()
 def client_with_custom_origins():
-    return TestClient(_build_app("https://custom.example.com,https://other.example.com"))
+    return TestClient(_build_app("https://custom.example.com,https://other.example.com"), base_url=BASE_URL)
 
 
 def _get_with_origin(client: TestClient, origin: str) -> dict:
@@ -145,18 +128,18 @@ class TestCORSEnvVarParsing:
 
     def test_empty_env_var(self):
         app = _build_app("")
-        client = TestClient(app)
+        client = TestClient(app, base_url=BASE_URL)
         headers = _get_with_origin(client, "http://evil.com")
         assert "access-control-allow-origin" not in headers
 
     def test_whitespace_trimmed(self):
         app = _build_app("  https://spaced.example.com  ")
-        client = TestClient(app)
+        client = TestClient(app, base_url=BASE_URL)
         headers = _get_with_origin(client, "https://spaced.example.com")
         assert headers.get("access-control-allow-origin") == "https://spaced.example.com"
 
     def test_trailing_comma_ignored(self):
         app = _build_app("https://one.example.com,")
-        client = TestClient(app)
+        client = TestClient(app, base_url=BASE_URL)
         headers = _get_with_origin(client, "https://one.example.com")
         assert headers.get("access-control-allow-origin") == "https://one.example.com"

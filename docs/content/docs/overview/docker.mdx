@@ -77,7 +77,8 @@ ports:
 |----------|---------|-------------|
 | `LOG_LEVEL` | `info` | Logging verbosity (`debug`, `info`, `warning`, `error`) |
 | `VOICEBOX_MODELS_DIR` | (HuggingFace cache) | Custom path for model storage |
-| `VOICEBOX_CORS_ORIGINS` | (local origins) | Additional CORS origins, comma-separated |
+| `VOICEBOX_CORS_ORIGINS` | (local origins) | Additional browser origins allowed to call the API, comma-separated (`*` allows any) |
+| `VOICEBOX_ALLOWED_HOSTS` | (unset) | Extra `Host` header names to accept; when set, every request must use a loopback name or one of these (`*` allows any). See [Host and Origin checks](/overview/remote-mode#host-and-origin-checks) |
 
 ### Resource Limits
 
@@ -152,7 +153,7 @@ The Docker image follows security best practices:
 - **Non-root user** -- the server runs as `voicebox`, not `root`
 - **Localhost binding** -- only accessible from the host machine by default
 - **Health checks** -- automatic restart if the server hangs (`/health` endpoint polled every 30s)
-- **CORS restricted** -- only local origins allowed by default
+- **CORS restricted** -- only local origins allowed by default; browser requests from other origins are rejected with `403`, while the web UI served by the container keeps working on any address you reach it on
 
 ### Running Behind a Reverse Proxy
 
@@ -175,6 +176,13 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 }
+```
+
+When the proxy connects over loopback and forwards the public hostname, as above, add it to the allowed hosts or the server answers `403`:
+
+```yaml
+environment:
+  - VOICEBOX_ALLOWED_HOSTS=voicebox.example.com
 ```
 
 ## Troubleshooting
