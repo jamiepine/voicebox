@@ -18,6 +18,8 @@ Languages supported (via misaki G2P):
 import asyncio
 import logging
 import os
+import sys
+import threading
 from typing import Optional
 
 import numpy as np
@@ -37,6 +39,33 @@ KOKORO_SAMPLE_RATE = 24000
 
 # Default voice if none specified
 KOKORO_DEFAULT_VOICE = "af_heart"
+
+
+def _use_miopen_fallback() -> bool:
+    """Return True when Kokoro must avoid MIOpen on this device.
+
+    Windows ROCm builds for RDNA2 (gfx103x) ship MIOpen kernels that fail to
+    JIT-compile the RNN and InstanceNorm ops used by Kokoro, raising
+    ``miopenStatusUnknownError``. PyTorch's native fallbacks run the same ops
+    on the GPU, so use them for Kokoro only and leave MIOpen enabled elsewhere.
+    """
+    if sys.platform != "win32":
+        return False
+
+    try:
+        import torch
+
+        if torch.version.hip is None or not torch.cuda.is_available():
+            return False
+        arch = torch.cuda.get_device_properties(torch.cuda.current_device()).gcnArchName
+        return arch.startswith("gfx103")
+    except Exception:
+        return False
+
+
+# Serialize Kokoro generations while the process-wide MIOpen flag is disabled.
+_miopen_fallback_lock = threading.Lock()
+
 
 # All available Kokoro voices: (voice_id, display_name, gender, lang_code)
 KOKORO_VOICES = [
@@ -173,6 +202,8 @@ class KokoroTTSBackend:
             from kokoro import KModel
 
             device = self.device
+            if _use_miopen_fallback():
+                logger.info("Kokoro: using PyTorch native fallbacks for MIOpen on Windows ROCm (gfx103x)")
             logger.info(f"Loading Kokoro-82M on {device}...")
 
             self._model = KModel(repo_id=KOKORO_HF_REPO).to(device).eval()
@@ -276,13 +307,24 @@ class KokoroTTSBackend:
 
             # Generate all chunks and concatenate
             audio_chunks = []
-            with torch.inference_mode():
-                for result in pipeline(text, voice=voice_name, speed=1.0):
-                    if result.audio is not None:
-                        chunk = result.audio
-                        if isinstance(chunk, torch.Tensor):
-                            chunk = chunk.detach().cpu().numpy()
-                        audio_chunks.append(chunk.squeeze())
+            use_miopen_fallback = _use_miopen_fallback()
+            if use_miopen_fallback:
+                _miopen_fallback_lock.acquire()
+            prev_cudnn = torch.backends.cudnn.enabled
+            try:
+                if use_miopen_fallback:
+                    torch.backends.cudnn.enabled = False
+                with torch.inference_mode():
+                    for result in pipeline(text, voice=voice_name, speed=1.0):
+                        if result.audio is not None:
+                            chunk = result.audio
+                            if isinstance(chunk, torch.Tensor):
+                                chunk = chunk.detach().cpu().numpy()
+                            audio_chunks.append(chunk.squeeze())
+            finally:
+                if use_miopen_fallback:
+                    torch.backends.cudnn.enabled = prev_cudnn
+                    _miopen_fallback_lock.release()
 
             if not audio_chunks:
                 # Return 1 second of silence as fallback
