@@ -130,7 +130,7 @@ export function useExportProfile() {
 
       // Get profile name for filename
       const profile = await apiClient.getProfile(profileId);
-      const safeName = toFileNameSlug(profile.name);
+      const safeName = toFileNameSlug(profile.name, 50);
       const filename = `profile-${safeName}.voicebox.zip`;
 
       await platform.filesystem.saveFile(filename, blob, [
