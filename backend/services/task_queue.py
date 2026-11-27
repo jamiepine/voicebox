@@ -65,6 +65,12 @@ async def _generation_worker():
             _queued_generation_ids.discard(job.generation_id)
             _generation_queue.task_done()
 
+            # Every generation exits through here (success, failure or cancel),
+            # so this is the one place the idle countdown must be reset.
+            from .idle_unload import mark_activity
+
+            mark_activity()
+
 
 async def _force_fail_if_active(generation_id: str, error: str) -> None:
     """Best-effort recovery — flip an active row to failed if the worker
