@@ -256,7 +256,7 @@
       "placeholder": "一位聲音溫暖沙啞的年長男性，帶著緩慢的蘇格蘭口音和一絲笑意。",
       "engineNote": "使用 Qwen VoiceDesign",
       "badge": "設計的聲音",
-      "note": "此設定檔使用描述產生的聲音。建立後描述無法變更。"
+      "note": "此設定檔使用描述產生的聲音。修改描述會改變之後產生的聲音。"
     },
     "sampleTabs": {
       "upload": "上傳",

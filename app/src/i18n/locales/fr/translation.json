@@ -256,7 +256,7 @@
       "placeholder": "Un homme âgé à la voix chaude et rocailleuse, avec un accent écossais lent et une pointe d'amusement.",
       "engineNote": "Utilise Qwen VoiceDesign",
       "badge": "Voix conçue",
-      "note": "Ce profil utilise une voix décrite. La description ne peut pas être modifiée après la création."
+      "note": "Ce profil utilise une voix décrite. Modifier la description change le rendu des nouvelles générations."
     },
     "sampleTabs": {
       "upload": "Importer",

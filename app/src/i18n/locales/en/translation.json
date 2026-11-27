@@ -256,7 +256,7 @@
       "placeholder": "A warm, gravelly older man with a slow Scottish lilt and a hint of amusement.",
       "engineNote": "Uses Qwen VoiceDesign",
       "badge": "Designed Voice",
-      "note": "This profile uses a described voice. The description cannot be changed after creation."
+      "note": "This profile uses a described voice. Editing the description changes how new generations sound."
     },
     "sampleTabs": {
       "upload": "Upload",

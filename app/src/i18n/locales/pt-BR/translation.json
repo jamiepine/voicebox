@@ -256,7 +256,7 @@
       "placeholder": "Um homem mais velho de voz quente e rouca, com sotaque escocês pausado e um toque de humor.",
       "engineNote": "Usa Qwen VoiceDesign",
       "badge": "Voz projetada",
-      "note": "Este perfil usa uma voz descrita. A descrição não pode ser alterada após a criação."
+      "note": "Este perfil usa uma voz descrita. Editar a descrição muda o som das novas gerações."
     },
     "sampleTabs": {
       "upload": "Enviar",
