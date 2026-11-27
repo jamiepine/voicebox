@@ -23,6 +23,7 @@
 ### Dictation and agents
 
 - **Bring your own LLM for refinement and personalities.** Settings → Captures → Refinement gains a *Custom LLM endpoint (advanced)* section: point it at any server that speaks OpenAI's `/v1/chat/completions` (llama.cpp, vLLM, LM Studio, LocalAI, Ollama's OpenAI shim, OpenRouter, or OpenAI itself) with a model name and an optional API key, and dictation refinement and personality compose/rewrite go there instead of the bundled Qwen3. Leave the endpoint blank and nothing changes. The key is write-only: the settings API reports only whether one is stored. The dictation readiness checklist treats a configured endpoint as ready, the Models page keeps managing the on-device Qwen regardless, and a failing endpoint surfaces as a clear error naming the URL and status. — @ext-sakamoro ([#947](https://github.com/jamiepine/voicebox/pull/947))
+- **Speak-in-character and compose use the refinement model size you selected.** `/generate` with `personality` and `/profiles/{id}/compose` called the personality LLM without a model size, so it fell back to whichever Qwen3 size was last loaded (usually 0.6B) instead of the one chosen in Settings. Both now read `capture_settings.llm_model`, the same way capture refinement already does. — @singlaamitesh ([#830](https://github.com/jamiepine/voicebox/pull/830); fixes [#711](https://github.com/jamiepine/voicebox/issues/711))
 
 ### API
 
