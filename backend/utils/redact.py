@@ -45,8 +45,8 @@ def _is_secret_param(name: str) -> bool:
 def _redact_params(params: str) -> str:
     parts = []
     for part in re.split(r"([&;])", params):
-        name, sep, _value = part.partition("=")
-        if sep and _is_secret_param(name):
+        name, _sep, value = part.partition("=")
+        if value and _is_secret_param(name):
             part = f"{name}={REDACTED}"
         parts.append(part)
     return "".join(parts)
