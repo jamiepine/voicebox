@@ -66,6 +66,11 @@ def test_redacts_every_repeated_param():
     )
 
 
+def test_param_shaped_path_segments_are_redacted():
+    assert redact_url("https://other/x&sig=s3cret") == "https://other/x&sig=REDACTED"
+    assert redact_url("https://h/v1/a=b/c") == "https://h/v1/a=b/c"
+
+
 def test_semicolon_separated_params():
     assert redact_url("https://h/v1?a=1;sig=2") == "https://h/v1?a=1;sig=REDACTED"
 
@@ -117,6 +122,11 @@ def test_redacts_urls_embedded_in_text():
         ("at https://h/v1?key=s3cret.", "at https://h/v1?key=REDACTED."),
         ("(https://bob:s3cret@h/v1)", "(https://h/v1)"),
         ("[http://u:s3cret@[::1]]", "[http://[::1]]"),
+        (
+            '{"docs":"https://docs.example/help","endpoint":"https://bob:s3cret@llm.example/v1?key=s3cret"}',
+            '{"docs":"https://docs.example/help","endpoint":"https://llm.example/v1?key=REDACTED"}',
+        ),
+        ("https://h/cb?next=https://u:s3cret@other/x&sig=s3cret", "https://h/cb?next=https://other/x&sig=REDACTED"),
     ],
 )
 def test_quotes_and_trailing_punctuation_around_urls(text, expected):
