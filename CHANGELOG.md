@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-27
+
 **The reach release.** 0.6 made Voicebox hold up; 0.7 takes it further out. You can now describe a voice in words and get a profile back, try OmniVoice's zero-shot cloning and attribute-based design across 23 languages, point any OpenAI TTS client at Voicebox by changing one base URL, send dictation refinement and personalities to the LLM server of your choice, run the CUDA and ROCm backends natively on Linux, and export stories as chaptered M4B audiobooks. Every one of these is opt-in: nothing changes for an existing setup until you use it.
 
 Underneath, the local API is harder to reach from places it shouldn't be. Requests that arrive over loopback must name a loopback host, browser requests must come from an allowed origin, every response carries `nosniff`, and credentials in a custom LLM endpoint URL are scrubbed from logs and errors. Most setups notice nothing, but if you reach Voicebox through a reverse proxy, a LAN hostname or a Docker port mapping, read the Security section before you upgrade. 0.7 is also the last release with an Intel macOS build.
@@ -922,6 +924,10 @@ The first public release of Voicebox — an open-source voice synthesis studio p
 
 Tauri v2, React, TypeScript, Tailwind CSS, FastAPI, Qwen3-TTS, Whisper, SQLite
 
+[Unreleased]: https://github.com/jamiepine/voicebox/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/jamiepine/voicebox/compare/v0.6.1...v0.7.0
+[0.6.1]: https://github.com/jamiepine/voicebox/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/jamiepine/voicebox/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/jamiepine/voicebox/compare/v0.4.5...v0.5.0
 [0.4.5]: https://github.com/jamiepine/voicebox/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/jamiepine/voicebox/compare/v0.4.3...v0.4.4
