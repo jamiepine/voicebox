@@ -52,3 +52,37 @@ async def test_cancel_running_generation_cancels_task():
 
     assert task_queue.cancel_generation("gen-running") == "running"
     await asyncio.wait_for(running_cancelled.wait(), timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_queue_position_counts_jobs_ahead():
+    task_queue.init_queue(force=True)
+
+    running_started = asyncio.Event()
+    release_running = asyncio.Event()
+
+    async def running_job():
+        running_started.set()
+        await release_running.wait()
+
+    async def waiting_job():
+        await release_running.wait()
+
+    task_queue.enqueue_generation("gen-running", running_job())
+    await asyncio.wait_for(running_started.wait(), timeout=1)
+    task_queue.enqueue_generation("gen-second", waiting_job())
+    task_queue.enqueue_generation("gen-third", waiting_job())
+
+    assert task_queue.get_queue_position("gen-running") == 0
+    assert task_queue.get_queue_position("gen-second") == 1
+    assert task_queue.get_queue_position("gen-third") == 2
+    assert task_queue.get_queue_position("gen-unknown") is None
+
+    # A cancelled waiting job no longer counts for the ones behind it.
+    assert task_queue.cancel_generation("gen-second") == "queued"
+    assert task_queue.get_queue_position("gen-second") is None
+    assert task_queue.get_queue_position("gen-third") == 1
+
+    release_running.set()
+    await asyncio.sleep(0.1)
+    assert task_queue.get_queue_position("gen-running") is None

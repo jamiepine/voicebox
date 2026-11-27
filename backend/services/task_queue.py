@@ -26,6 +26,8 @@ _generation_worker_task: asyncio.Task | None = None
 _queued_generation_ids: set[str] = set()
 _running_generation_tasks: dict[str, asyncio.Task] = {}
 _cancelled_generation_ids: set[str] = set()
+# Arrival order of queued IDs, so the UI can show how far back a job is.
+_queue_order: list[str] = []
 
 
 def create_background_task(coro) -> asyncio.Task:
@@ -40,6 +42,8 @@ async def _generation_worker():
     """Worker that processes generation tasks one at a time."""
     while True:
         job = await _generation_queue.get()
+        if job.generation_id in _queue_order:
+            _queue_order.remove(job.generation_id)
         try:
             if job.generation_id in _cancelled_generation_ids:
                 _cancelled_generation_ids.discard(job.generation_id)
@@ -99,7 +103,19 @@ def enqueue_generation(generation_id: str, coro):
         raise RuntimeError("Generation queue has not been initialized")
 
     _queued_generation_ids.add(generation_id)
+    _queue_order.append(generation_id)
     _generation_queue.put_nowait(GenerationJob(generation_id=generation_id, coro=coro))
+
+
+def get_queue_position(generation_id: str) -> int | None:
+    """How many jobs are ahead of this one: 0 while it runs, None if it is not queued."""
+    if generation_id in _running_generation_tasks:
+        return 0
+    if generation_id not in _queued_generation_ids:
+        return None
+    waiting = [gid for gid in _queue_order if gid in _queued_generation_ids]
+    # Everything still waiting ahead of it, plus the job that is running now.
+    return waiting.index(generation_id) + (1 if _running_generation_tasks else 0)
 
 
 def cancel_generation(generation_id: str) -> Literal["queued", "running"] | None:
@@ -124,6 +140,7 @@ def init_queue(force: bool = False):
     """
     global _generation_queue, _generation_worker_task
     global _queued_generation_ids, _running_generation_tasks, _cancelled_generation_ids
+    global _queue_order
 
     if _generation_worker_task is not None and not _generation_worker_task.done():
         if not force:
@@ -136,4 +153,5 @@ def init_queue(force: bool = False):
     _queued_generation_ids = set()
     _running_generation_tasks = {}
     _cancelled_generation_ids = set()
+    _queue_order = []
     _generation_worker_task = create_background_task(_generation_worker())

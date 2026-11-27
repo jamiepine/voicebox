@@ -118,6 +118,8 @@ export interface GenerationResponse {
   created_at: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
+  /** Jobs ahead of this one in the generation queue; 0 while running. */
+  queue_position?: number | null;
 }
 
 export interface HistoryQuery {
