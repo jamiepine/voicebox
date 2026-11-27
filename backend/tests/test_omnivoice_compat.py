@@ -295,6 +295,44 @@ def test_declared_languages_are_resolvable_by_omnivoice():
     assert unresolved == []
 
 
+async def test_generate_normalizes_digits_for_num2words_languages(monkeypatch):
+    """Arabic numerals must reach the model as words, not as digits.
+
+    The languages that fall back to num2words read bare digits poorly: a
+    Vietnamese sentence containing "11 tháng 10 ... 31 tỷ" comes out as
+    unintelligible audio unless ``normalize_text`` is on.
+    """
+    import numpy as np
+
+    from backend.backends import omnivoice_backend as omnivoice
+
+    captured: dict = {}
+
+    class _FakeModel:
+        sampling_rate = 24000
+
+        def generate(self, **kwargs):
+            captured.update(kwargs)
+            return [np.zeros(2400, dtype=np.float32)]
+
+    backend = omnivoice.OmniVoiceBackend()
+
+    async def _skip_load(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(backend, "load_model", _skip_load)
+    backend.model = _FakeModel()
+
+    await backend.generate(text="ngày 11 tháng 10", voice_prompt={}, language="vi")
+    assert captured["normalize_text"] is True
+
+    captured.clear()
+    await backend.generate(text="hello 11", voice_prompt={}, language="zh")
+    # zh/en route through the optional WeTextProcessing extra and raise when it
+    # is missing, so normalisation must not be forced on for them.
+    assert captured["normalize_text"] == omnivoice._can_normalize_text("zh")
+
+
 def test_clear_codec_layer_cache_is_safe_when_codec_never_imported():
     from backend.backends.omnivoice_backend import _clear_codec_layer_cache
 

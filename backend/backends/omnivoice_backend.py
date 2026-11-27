@@ -28,6 +28,7 @@ exposing them means widening the language enum across the API and frontend.
 
 import asyncio
 import gc
+import importlib.util
 import logging
 import sys
 import threading
@@ -54,6 +55,21 @@ OMNIVOICE_HF_REPO = "k2-fsa/OmniVoice"
 # OmniVoice enumerates the individual varieties rather than the "ar"
 # macrolanguage. "arb" is Modern Standard Arabic.
 LANGUAGE_CODE_OVERRIDES = {"ar": "arb"}
+
+
+def _can_normalize_text(language: str) -> bool:
+    """Whether OmniVoice can normalise this language's text in-process.
+
+    Arabic numerals are otherwise read as digits, which degrades or breaks
+    synthesis. OmniVoice routes zh/en through WeTextProcessing — an optional
+    extra that raises when missing and has no macOS arm64 wheel, because pynini
+    is conda-only there — while every other language falls back to num2words,
+    which leaves unsupported values untouched instead of raising.
+    """
+    if language not in ("zh", "en"):
+        return True
+    return importlib.util.find_spec("tn") is not None
+
 
 # Output sample rate, from the audio tokenizer's feature extractor. Read off
 # the loaded model when available; this is the fallback.
@@ -307,6 +323,7 @@ class OmniVoiceBackend:
 
         clone_prompt = self._rebuild_clone_prompt(voice_prompt)
         resolved_language = LANGUAGE_CODE_OVERRIDES.get(language, language)
+        normalize_text = _can_normalize_text(resolved_language)
 
         def _generate_sync() -> Tuple[np.ndarray, int]:
             if seed is not None:
@@ -316,6 +333,7 @@ class OmniVoiceBackend:
                 "text": text,
                 "language": resolved_language,
                 "num_step": NUM_DIFFUSION_STEPS,
+                "normalize_text": normalize_text,
             }
             if clone_prompt is not None:
                 kwargs["voice_clone_prompt"] = clone_prompt
