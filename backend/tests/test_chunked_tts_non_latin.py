@@ -285,3 +285,14 @@ async def test_generate_chunked_rejects_whitespace_only_text():
 
     with pytest.raises(RuntimeError, match=EMPTY_TEXT_ERROR):
         await chunked_tts.generate_chunked(FakeBackend(), "   ", {})
+
+
+def test_long_bracketed_passage_is_hard_cut_within_byte_budget():
+    budget = 30
+    text = "[" + "\u4e2d" * 200 + "]"
+
+    chunks = chunked_tts.split_text_into_chunks(text, budget, chunked_tts.utf8_byte_length)
+
+    assert len(chunks) > 1
+    assert all(chunked_tts.utf8_byte_length(chunk) <= budget for chunk in chunks)
+    assert "".join(chunks) == text
