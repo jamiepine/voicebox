@@ -21,7 +21,7 @@ export function StoriesTab() {
         </div>
 
         {/* Floating Generate Box - position is managed via storyStore.trackEditorHeight */}
-        <FloatingGenerateBox showVoiceSelector isPlayerOpen={!!audioUrl} />
+        <FloatingGenerateBox isPlayerOpen={!!audioUrl} />
       </div>
     </div>
   );

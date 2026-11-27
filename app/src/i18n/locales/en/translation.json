@@ -723,6 +723,22 @@
     "voiceSelector": {
       "placeholder": "Select a voice…"
     },
+    "voicePicker": {
+      "searchPlaceholder": "Search voices…",
+      "myVoices": "My voices",
+      "builtIn": "Built-in · {{engine}}",
+      "loading": "Loading voices…",
+      "noResults": "No voices match “{{query}}”",
+      "preview": "Preview {{name}}",
+      "stopPreview": "Stop previewing {{name}}",
+      "previewFailed": "Couldn't play preview",
+      "addFailed": "Couldn't add voice",
+      "type": {
+        "cloned": "cloned",
+        "preset": "built-in",
+        "designed": "designed"
+      }
+    },
     "effects": {
       "none": "No effects",
       "profileDefault": "Profile default"

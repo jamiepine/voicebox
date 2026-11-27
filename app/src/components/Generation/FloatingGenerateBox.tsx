@@ -27,16 +27,13 @@ import { useStoryStore } from '@/stores/storyStore';
 import { useUIStore } from '@/stores/uiStore';
 import { EngineModelSelector } from './EngineModelSelector';
 import { ParalinguisticInput } from './ParalinguisticInput';
+import { VoicePicker } from './VoicePicker';
 
 interface FloatingGenerateBoxProps {
   isPlayerOpen?: boolean;
-  showVoiceSelector?: boolean;
 }
 
-export function FloatingGenerateBox({
-  isPlayerOpen = false,
-  showVoiceSelector = false,
-}: FloatingGenerateBoxProps) {
+export function FloatingGenerateBox({ isPlayerOpen = false }: FloatingGenerateBoxProps) {
   const { t } = useTranslation();
   const selectedProfileId = useUIStore((state) => state.selectedProfileId);
   const setSelectedProfileId = useUIStore((state) => state.setSelectedProfileId);
@@ -559,26 +556,9 @@ export function FloatingGenerateBox({
                 className=" mt-3"
               >
                 <div className="flex items-center gap-2">
-                  {showVoiceSelector && (
-                    <div className="flex-1">
-                      <Select
-                        value={selectedProfileId || ''}
-                        onValueChange={(value) => setSelectedProfileId(value || null)}
-                      >
-                        <SelectTrigger className="h-8 text-xs bg-card border-border rounded-full hover:bg-background/50 transition-all w-full">
-                          <SelectValue placeholder={t('generation.voiceSelector.placeholder')} />
-                        </SelectTrigger>
-                        <SelectContent side="top">
-                          {profiles?.map((profile) => (
-                            <SelectItem key={profile.id} value={profile.id} className="text-xs">
-                              {profile.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
+                  <div className="min-w-0 flex-1">
+                    <VoicePicker />
+                  </div>
 
                   <FormField
                     control={form.control}

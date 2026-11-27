@@ -8,10 +8,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, Response, StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
+from ..utils import voice_preview
 from ..utils.http import safe_content_disposition
 from ..database import VoiceProfile as DBVoiceProfile, get_db
 from ..services import channels, export_import, personality, profiles
@@ -71,40 +72,74 @@ async def import_profile(
 # wildcard swallowing "presets" as a profile_id.
 
 
-@router.get("/profiles/presets/{engine}")
-async def list_preset_voices(engine: str):
-    """List available preset voices for an engine."""
+def _preset_catalog(engine: str) -> list[tuple[str, str, str, str]]:
+    """(voice_id, name, gender, language) for each built-in voice of an engine."""
     if engine == "kokoro":
         from ..backends.kokoro_backend import KOKORO_VOICES
 
-        return {
-            "engine": engine,
-            "voices": [
-                {
-                    "voice_id": vid,
-                    "name": name,
-                    "gender": gender,
-                    "language": lang,
-                }
-                for vid, name, gender, lang in KOKORO_VOICES
-            ],
-        }
+        return [(vid, name, gender, lang) for vid, name, gender, lang in KOKORO_VOICES]
     if engine == "qwen_custom_voice":
         from ..backends.qwen_custom_voice_backend import QWEN_CUSTOM_VOICES
 
-        return {
-            "engine": engine,
-            "voices": [
-                {
-                    "voice_id": speaker_id,
-                    "name": display_name,
-                    "gender": gender,
-                    "language": lang,
-                }
-                for speaker_id, display_name, gender, lang, _desc in QWEN_CUSTOM_VOICES
-            ],
-        }
-    return {"engine": engine, "voices": []}
+        return [
+            (speaker_id, display_name, gender, lang)
+            for speaker_id, display_name, gender, lang, _desc in QWEN_CUSTOM_VOICES
+        ]
+    return []
+
+
+@router.get("/profiles/presets/{engine}")
+async def list_preset_voices(engine: str):
+    """List available preset voices for an engine."""
+    return {
+        "engine": engine,
+        "voices": [
+            {
+                "voice_id": vid,
+                "name": name,
+                "gender": gender,
+                "language": lang,
+            }
+            for vid, name, gender, lang in _preset_catalog(engine)
+        ],
+    }
+
+
+@router.get("/profiles/presets/{engine}/{voice_id}/preview")
+async def preview_preset_voice(engine: str, voice_id: str):
+    """Audio sample of a built-in voice, rendered once and then served from cache."""
+    voice = next((v for v in _preset_catalog(engine) if v[0] == voice_id), None)
+    if voice is None:
+        raise HTTPException(status_code=404, detail="Unknown built-in voice")
+
+    path = await voice_preview.cached_preset_preview(engine, voice_id, language=voice[3])
+    return FileResponse(path, media_type="audio/wav")
+
+
+@router.get("/profiles/{profile_id}/preview")
+async def preview_profile_voice(profile_id: str, db: Session = Depends(get_db)):
+    """Audio sample of a profile's voice, so it can be heard before generating."""
+    profile = await profiles.get_profile(profile_id, db)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+
+    if profile.voice_type == "preset" and profile.preset_engine and profile.preset_voice_id:
+        path = await voice_preview.cached_preset_preview(
+            profile.preset_engine, profile.preset_voice_id, language=profile.language
+        )
+        return FileResponse(path, media_type="audio/wav")
+
+    engine = profiles.default_engine_for_profile(profile)
+
+    async def profile_prompt() -> dict:
+        try:
+            profiles.validate_profile_engine(profile, engine)
+            return await profiles.create_voice_prompt_for_profile(profile_id, db, engine=engine)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+    wav = await voice_preview.render_preview(engine, profile.language, profile_prompt)
+    return Response(content=wav, media_type="audio/wav")
 
 @router.get("/profiles/{profile_id}", response_model=models.VoiceProfileResponse)
 async def get_profile(

@@ -123,6 +123,31 @@ class ApiClient {
     return this.request<{ engine: string; voices: PresetVoice[] }>(`/profiles/presets/${engine}`);
   }
 
+  /** Audio sample of a built-in voice. The server renders it once, then serves it from cache. */
+  async previewPresetVoice(engine: string, voiceId: string): Promise<Blob> {
+    return this.fetchAudio(
+      `/profiles/presets/${encodeURIComponent(engine)}/${encodeURIComponent(voiceId)}/preview`,
+    );
+  }
+
+  /** Audio sample of a profile's voice, so it can be heard before generating. */
+  async previewProfileVoice(profileId: string): Promise<Blob> {
+    return this.fetchAudio(`/profiles/${encodeURIComponent(profileId)}/preview`);
+  }
+
+  private async fetchAudio(endpoint: string): Promise<Blob> {
+    const response = await fetch(`${this.getBaseUrl()}${endpoint}`);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        detail: response.statusText,
+      }));
+      throw new Error(formatErrorDetail(error.detail, `HTTP error! status: ${response.status}`));
+    }
+
+    return response.blob();
+  }
+
   async updateProfile(profileId: string, data: VoiceProfileCreate): Promise<VoiceProfileResponse> {
     return this.request<VoiceProfileResponse>(`/profiles/${profileId}`, {
       method: 'PUT',

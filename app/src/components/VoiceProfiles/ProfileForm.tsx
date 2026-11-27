@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import * as z from 'zod';
 import { EffectsChainEditor } from '@/components/Effects/EffectsChainEditor';
+import { VoicePreviewButton } from '@/components/Generation/VoicePreviewButton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,6 +52,7 @@ import {
 } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
+import { useVoicePreview } from '@/lib/hooks/useVoicePreview';
 import { convertToWav, formatAudioDuration, getAudioDuration } from '@/lib/utils/audio';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
@@ -148,6 +150,12 @@ export function ProfileForm() {
   const createProfile = useCreateProfile();
   const updateProfile = useUpdateProfile();
   const addSample = useAddSample();
+  const voicePreview = useVoicePreview();
+  const stopVoicePreview = voicePreview.stop;
+  // Covers every way the dialog can close (cancel, save, backdrop).
+  useEffect(() => {
+    if (!open) stopVoicePreview();
+  }, [open, stopVoicePreview]);
   const deleteProfile = useDeleteProfile();
   const uploadAvatar = useUploadAvatar();
   const deleteAvatar = useDeleteAvatar();
@@ -1008,34 +1016,51 @@ export function ProfileForm() {
                           <FormItem>
                             <FormLabel>{t('profileForm.fields.voice')}</FormLabel>
                             <div className="grid grid-cols-2 gap-1.5 max-h-[340px] overflow-y-auto pr-1">
-                              {presetVoices.map((voice: PresetVoice) => (
-                                <button
-                                  key={voice.voice_id}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedPresetVoiceId(voice.voice_id);
-                                    // Auto-set language from voice
-                                    if (voice.language) {
-                                      form.setValue('language', voice.language as LanguageCode);
-                                    }
-                                  }}
-                                  className={`text-left px-3 py-2 rounded-md border text-sm transition-colors ${
-                                    selectedPresetVoiceId === voice.voice_id
-                                      ? 'border-accent bg-accent/10 text-accent-foreground'
-                                      : 'border-border hover:bg-muted'
-                                  }`}
-                                >
-                                  <div className="font-medium">{voice.name}</div>
-                                  <div className="flex gap-1.5 mt-0.5">
-                                    <Badge variant="outline" className="text-[10px] h-4 px-1">
-                                      {voice.gender}
-                                    </Badge>
-                                    <Badge variant="outline" className="text-[10px] h-4 px-1">
-                                      {voice.language}
-                                    </Badge>
+                              {presetVoices.map((voice: PresetVoice) => {
+                                const previewKey = `preset:${selectedPresetEngine}:${voice.voice_id}`;
+                                return (
+                                  <div key={voice.voice_id} className="relative">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedPresetVoiceId(voice.voice_id);
+                                        // Auto-set language from voice
+                                        if (voice.language) {
+                                          form.setValue('language', voice.language as LanguageCode);
+                                        }
+                                      }}
+                                      className={`w-full text-left px-3 py-2 pr-11 rounded-md border text-sm transition-colors ${
+                                        selectedPresetVoiceId === voice.voice_id
+                                          ? 'border-accent bg-accent/10 text-accent-foreground'
+                                          : 'border-border hover:bg-muted'
+                                      }`}
+                                    >
+                                      <div className="font-medium">{voice.name}</div>
+                                      <div className="flex gap-1.5 mt-0.5">
+                                        <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                          {voice.gender}
+                                        </Badge>
+                                        <Badge variant="outline" className="text-[10px] h-4 px-1">
+                                          {voice.language}
+                                        </Badge>
+                                      </div>
+                                    </button>
+                                    <VoicePreviewButton
+                                      name={voice.name}
+                                      state={voicePreview.stateOf(previewKey)}
+                                      onToggle={() =>
+                                        voicePreview.toggle(previewKey, () =>
+                                          apiClient.previewPresetVoice(
+                                            selectedPresetEngine,
+                                            voice.voice_id,
+                                          ),
+                                        )
+                                      }
+                                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                                    />
                                   </div>
-                                </button>
-                              ))}
+                                );
+                              })}
                             </div>
                           </FormItem>
                         </div>

@@ -179,6 +179,35 @@ class KokoroTTSBackend:
 
         logger.info("Kokoro-82M loaded successfully")
 
+    @staticmethod
+    def _ensure_voice_cached(voice_name: str) -> None:
+        """Make sure a voice's style vector is on disk before the pipeline asks for it.
+
+        The model download only fetches the weights; each voice is a separate
+        file that KPipeline pulls from the Hub the first time it is used. By
+        then huggingface_hub's per-thread session may have been built inside
+        an offline window (loading a cached model opens one) and keeps its
+        offline adapter, so the fetch fails with OfflineModeIsEnabled for every
+        voice that has not been used before.
+        """
+        from huggingface_hub import hf_hub_download
+        from huggingface_hub.errors import LocalEntryNotFoundError
+        from huggingface_hub.utils import reset_sessions
+
+        from ..utils.hf_offline_patch import force_offline_if_cached
+
+        filename = f"voices/{voice_name}.pt"
+        try:
+            hf_hub_download(KOKORO_HF_REPO, filename, local_files_only=True)
+            return
+        except LocalEntryNotFoundError:
+            pass
+
+        logger.info("Downloading Kokoro voice %s", voice_name)
+        with force_offline_if_cached(False, f"kokoro voice {voice_name}"):
+            reset_sessions()
+            hf_hub_download(KOKORO_HF_REPO, filename)
+
     def _get_pipeline(self, lang_code: str):
         """Get or create a KPipeline for the given language code."""
         kokoro_lang = LANG_CODE_MAP.get(lang_code, "a")
@@ -272,6 +301,7 @@ class KokoroTTSBackend:
                 if torch.cuda.is_available():
                     torch.cuda.manual_seed(seed)
 
+            self._ensure_voice_cached(voice_name)
             pipeline = self._get_pipeline(language)
 
             # Generate all chunks and concatenate
