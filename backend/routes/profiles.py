@@ -244,20 +244,20 @@ async def upload_profile_avatar(
             detail=f"Unsupported image format '{_raw_ext}'. Allowed: {sorted(_ALLOWED_IMAGE_EXTS)}",
         )
     suffix = _raw_ext if _raw_ext in _ALLOWED_IMAGE_EXTS else ".png"
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        total_size = 0
-        while chunk := await file.read(AVATAR_UPLOAD_CHUNK_SIZE):
-            total_size += len(chunk)
-            if total_size > AVATAR_MAX_FILE_SIZE:
-                Path(tmp.name).unlink(missing_ok=True)
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"Avatar file too large (max {AVATAR_MAX_FILE_SIZE // (1024 * 1024)} MB)",
-                )
-            tmp.write(chunk)
-        tmp_path = tmp.name
-
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    tmp_path = tmp.name
     try:
+        with tmp:
+            total_size = 0
+            while chunk := await file.read(AVATAR_UPLOAD_CHUNK_SIZE):
+                total_size += len(chunk)
+                if total_size > AVATAR_MAX_FILE_SIZE:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Avatar file too large (max {AVATAR_MAX_FILE_SIZE // (1024 * 1024)} MB)",
+                    )
+                tmp.write(chunk)
+
         profile = await profiles.upload_avatar(profile_id, tmp_path, db)
         return profile
     except ValueError as e:
