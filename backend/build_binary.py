@@ -493,6 +493,11 @@ def build_server(cuda=False, rocm=False):
                 "backend.backends.qwen_llm_backend",
                 "--hidden-import",
                 "backend.backends.chatterbox_mlx_backend",
+                "--hidden-import",
+                "backend.backends.higgs_mlx_backend",
+                # Loaded by name through importlib (model_type="higgs_audio_v3")
+                "--hidden-import",
+                "mlx_audio.tts.models.higgs_audio_v3",
                 "--collect-submodules",
                 "mlx",
                 "--collect-submodules",

@@ -154,7 +154,8 @@ export function FloatingGenerateBox({
     | 'kokoro'
     | 'qwen_custom_voice'
     | 'qwen_voice_design'
-    | 'omnivoice';
+    | 'omnivoice'
+    | 'higgs';
   useEffect(() => {
     if (selectedProfile?.language) {
       form.setValue('language', selectedProfile.language as LanguageCode);

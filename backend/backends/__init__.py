@@ -244,6 +244,7 @@ TTS_ENGINES = {
     "tada": "TADA",
     "kokoro": "Kokoro",
     "omnivoice": "OmniVoice",
+    "higgs": "Higgs Audio v3",
 }
 
 LLM_ENGINES = {
@@ -363,7 +364,49 @@ def _get_non_qwen_tts_configs() -> list[ModelConfig]:
         chatterbox_size_mb = 3200
         chatterbox_aux_repos = ()
 
-    return [
+    # Higgs Audio v3 only has an MLX implementation (mlx-audio), so it is offered on Apple Silicon only.
+    higgs_configs = (
+        [
+            ModelConfig(
+                model_name="higgs-audio-v3",
+                # Non-commercial: Boson Higgs Audio v3 research and non-commercial licence.
+                display_name="Higgs Audio v3 4B (Multilingual, non-commercial)",
+                engine="higgs",
+                hf_repo_id="bosonai/higgs-tts-3-4b",
+                size_mb=9300,
+                # Same 23 languages Voicebox already exposes; upstream covers 100+.
+                languages=[
+                    "zh",
+                    "en",
+                    "ja",
+                    "ko",
+                    "de",
+                    "fr",
+                    "ru",
+                    "pt",
+                    "es",
+                    "it",
+                    "he",
+                    "ar",
+                    "da",
+                    "el",
+                    "fi",
+                    "hi",
+                    "ms",
+                    "nl",
+                    "no",
+                    "pl",
+                    "sv",
+                    "sw",
+                    "tr",
+                ],
+            )
+        ]
+        if on_mlx
+        else []
+    )
+
+    return higgs_configs + [
         ModelConfig(
             model_name="luxtts",
             display_name="LuxTTS (Fast, CPU-friendly)",
@@ -953,6 +996,12 @@ def get_tts_backend_for_engine(engine: str) -> TTSBackend:
             from .omnivoice_backend import OmniVoiceBackend
 
             backend = OmniVoiceBackend()
+        elif engine == "higgs":
+            if get_backend_type() != "mlx":
+                raise ValueError("Higgs Audio v3 requires Apple Silicon (MLX backend)")
+            from .higgs_mlx_backend import HiggsMLXTTSBackend
+
+            backend = HiggsMLXTTSBackend()
         elif engine == "qwen_custom_voice":
             from .qwen_custom_voice_backend import QwenCustomVoiceBackend
 

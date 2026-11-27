@@ -30,6 +30,7 @@ const generationSchema = z.object({
       'tada',
       'kokoro',
       'omnivoice',
+      'higgs',
     ])
     .optional(),
   personality: z.boolean().optional(),
@@ -107,9 +108,11 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                     ? 'qwen-voice-design-1.7B'
                     : engine === 'omnivoice'
                       ? 'omnivoice'
-                      : engine === 'qwen_custom_voice'
-                        ? `qwen-custom-voice-${data.modelSize}`
-                        : `qwen-tts-${data.modelSize}`;
+                      : engine === 'higgs'
+                        ? 'higgs-audio-v3'
+                        : engine === 'qwen_custom_voice'
+                          ? `qwen-custom-voice-${data.modelSize}`
+                          : `qwen-tts-${data.modelSize}`;
       const displayName =
         engine === 'luxtts'
           ? 'LuxTTS'
@@ -127,13 +130,15 @@ export function useGenerationForm(options: UseGenerationFormOptions = {}) {
                     ? 'Qwen VoiceDesign 1.7B'
                     : engine === 'omnivoice'
                       ? 'OmniVoice'
-                      : engine === 'qwen_custom_voice'
-                        ? data.modelSize === '1.7B'
-                          ? 'Qwen CustomVoice 1.7B'
-                          : 'Qwen CustomVoice 0.6B'
-                        : data.modelSize === '1.7B'
-                          ? 'Qwen TTS 1.7B'
-                          : 'Qwen TTS 0.6B';
+                      : engine === 'higgs'
+                        ? 'Higgs Audio v3'
+                        : engine === 'qwen_custom_voice'
+                          ? data.modelSize === '1.7B'
+                            ? 'Qwen CustomVoice 1.7B'
+                            : 'Qwen CustomVoice 0.6B'
+                          : data.modelSize === '1.7B'
+                            ? 'Qwen TTS 1.7B'
+                            : 'Qwen TTS 0.6B';
 
       // Check if model needs downloading
       try {

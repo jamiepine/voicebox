@@ -101,7 +101,7 @@ jobs:
           # rest (sounddevice, protobuf, sentencepiece, pyyaml, jinja2) are
           # pulled in by other engines.
           pip install --no-deps mlx-lm==0.31.1
-          pip install --no-deps mlx-audio==0.4.1
+          pip install --no-deps mlx-audio==0.5.9
 
       - name: Build Python server (Linux/macOS)
         if: matrix.platform != 'windows-latest'

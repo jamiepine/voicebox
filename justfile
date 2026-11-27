@@ -128,7 +128,7 @@ setup-python:
         # runtime deps are covered by requirements.txt / requirements-mlx.txt —
         # see the note in requirements-mlx.txt and .github/workflows/release.yml)
         "{{ python }}" -m pip install --no-deps mlx-lm==0.31.1
-        "{{ python }}" -m pip install --no-deps mlx-audio==0.4.1
+        "{{ python }}" -m pip install --no-deps mlx-audio==0.5.9
     fi
     "{{ python }}" -m pip install git+https://github.com/QwenLM/Qwen3-TTS.git
     "{{ python }}" -m pip install pyinstaller ruff pytest pytest-asyncio openai -q

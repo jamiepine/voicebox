@@ -269,7 +269,7 @@ export function CapturesTab() {
       // override fall through to whatever the backend picks.
       const engine = voice.default_engine as
         | 'qwen' | 'qwen_custom_voice' | 'qwen_voice_design' | 'luxtts' | 'chatterbox'
-        | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'omnivoice'
+        | 'chatterbox_turbo' | 'tada' | 'kokoro' | 'omnivoice' | 'higgs'
         | undefined;
       return apiClient.generateSpeech({
         profile_id: voice.id,

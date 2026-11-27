@@ -431,7 +431,9 @@ class MLXSTTBackend:
             # The generate method accepts audio path directly
             model = self.model
             try:
-                decode_options = {}
+                # Greedy decoding: mlx-audio 0.5.x's temperature fallback (0.2..1.0) turns
+                # short clips into multilingual gibberish after the first sentence.
+                decode_options = {"temperature": 0.0}
                 if language:
                     decode_options["language"] = language
 

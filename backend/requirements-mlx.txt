@@ -1,7 +1,7 @@
 # MLX-specific dependencies (Apple Silicon only)
 # These should only be installed on aarch64-apple-darwin platforms
 
-mlx>=0.30.0
+mlx>=0.31.1  # mlx-audio 0.5.9 (Higgs Audio v3) requires it
 
 # miniaudio is a runtime dep of mlx-audio's STT path (mlx_audio.stt).
 # mlx-audio itself is installed --no-deps (see comment below), so we
@@ -15,7 +15,7 @@ miniaudio>=1.59
 # resolver. The mlx-audio API surface we use (mlx_audio.tts.load,
 # mlx_audio.stt.load) works fine on transformers 4.57.x in practice.
 #
-# Install it via `pip install --no-deps mlx-audio==0.4.1` after this file
+# Install it via `pip install --no-deps mlx-audio==0.5.9` after this file
 # (see .github/workflows/release.yml and the setup-python recipe in the
 # justfile). Most other mlx-audio runtime deps
 # (huggingface_hub, librosa, mlx-lm, numba, numpy, protobuf, pyloudnorm,

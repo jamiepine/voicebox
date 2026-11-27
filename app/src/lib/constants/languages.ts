@@ -98,6 +98,32 @@ export const ENGINE_LANGUAGES: Record<string, readonly LanguageCode[]> = {
     'tr',
     'zh',
   ],
+  // Higgs Audio v3 covers 100+ languages; same ALL_LANGUAGES subset as OmniVoice.
+  higgs: [
+    'ar',
+    'da',
+    'de',
+    'el',
+    'en',
+    'es',
+    'fi',
+    'fr',
+    'he',
+    'hi',
+    'it',
+    'ja',
+    'ko',
+    'ms',
+    'nl',
+    'no',
+    'pl',
+    'pt',
+    'ru',
+    'sv',
+    'sw',
+    'tr',
+    'zh',
+  ],
 } as const;
 
 /** Helper: get language options for a given engine. */

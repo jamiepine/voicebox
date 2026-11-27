@@ -30,6 +30,7 @@ const ENGINE_OPTIONS = [
   { value: 'tada:3B', label: 'TADA 3B Multilingual', engine: 'tada' },
   { value: 'kokoro', label: 'Kokoro 82M', engine: 'kokoro' },
   { value: 'omnivoice', label: 'OmniVoice (non-commercial)', engine: 'omnivoice' },
+  { value: 'higgs', label: 'Higgs Audio v3 (non-commercial)', engine: 'higgs' },
 ] as const;
 
 const ENGINE_DESCRIPTIONS: Record<string, string> = {
@@ -42,6 +43,7 @@ const ENGINE_DESCRIPTIONS: Record<string, string> = {
   tada: 'HumeAI, 700s+ coherent audio',
   kokoro: '82M params, CPU realtime, 8 langs',
   omnivoice: '23 languages, voice design. CC-BY-NC weights: non-commercial use only',
+  higgs: 'Apple Silicon only, 23 languages, <|emotion:...|> tags. Non-commercial licence',
 };
 
 /** Engines that only support English and should force language to 'en' on select. */
@@ -55,6 +57,7 @@ const CLONING_ENGINES = new Set([
   'chatterbox_turbo',
   'tada',
   'omnivoice',
+  'higgs',
 ]);
 
 /** Engines that synthesise a voice from a written description. */
