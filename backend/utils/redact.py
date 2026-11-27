@@ -29,7 +29,7 @@ _SECRET_PARAM_PARTS = (
 
 _SCHEME = r"[a-zA-Z][a-zA-Z0-9+.\-]*://"
 _URL_IN_TEXT = re.compile(rf"{_SCHEME}(?:(?!{_SCHEME})[^\s<>`])+")
-_PARAM_BEFORE_URL = re.compile(r"[?&;#]([^\s?&;#=]+)=\Z")
+_PARAM_BEFORE_URL = re.compile(r"[?&;#]([^\s?&;#=]+)=[^\s?&;#=]*\Z")
 _URL_TRAILING_PUNCTUATION = "'\".,;:!)]}"
 _FALLBACK_USERINFO = re.compile(r"(//)[^/?#\s]*@")
 _FALLBACK_QUERY = re.compile(r"([?#])\S*")

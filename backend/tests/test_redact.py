@@ -128,6 +128,9 @@ def test_redacts_urls_embedded_in_text():
         ),
         ("https://h/cb?next=https://u:s3cret@other/x&sig=s3cret", "https://h/cb?next=https://other/x&sig=REDACTED"),
         ("https://h/v1?password=https://private.example/s3cret", "https://h/v1?password=REDACTED"),
+        ("https://h/v1?token='https://private.example/s3cret'", "https://h/v1?token='REDACTED'"),
+        ('https://h/v1?token="https://private.example/s3cret"', 'https://h/v1?token="REDACTED"'),
+        ("https://h/v1?token=x:https://private.example/s3cret", "https://h/v1?token=REDACTED:REDACTED"),
         ("'https://h/v1?a=1&token=https://x/s3cret?k=s3cret'", "'https://h/v1?a=1&token=REDACTED'"),
     ],
 )
