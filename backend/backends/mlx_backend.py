@@ -38,8 +38,28 @@ from .base import (  # noqa: E402
     combine_voice_prompts as _combine_voice_prompts,
     model_load_progress,
     empty_mlx_cache,
+    estimate_max_new_tokens,
 )
 from ..utils.cache import get_cache_key, get_cached_voice_prompt, cache_voice_prompt  # noqa: E402
+
+
+def _decode_budget(text: str, params) -> int | None:
+    """Per-call ``max_tokens`` for mlx-audio's Qwen3-TTS ``generate()``.
+
+    Without it a missed codec EOS decodes until mlx-audio's own limit:
+    4096 tokens per segment (~5.5 min of audio) on the pinned 0.4.1, or the
+    checkpoint's 8192 (~11 min) on newer releases. Uses the same
+    length-scaled budget as the PyTorch path (``estimate_max_new_tokens``),
+    but never raises a smaller default the installed mlx-audio already has.
+    Returns None when ``generate()`` takes no ``max_tokens``.
+    """
+    param = params.get("max_tokens")
+    if param is None:
+        return None
+    budget = estimate_max_new_tokens(text)
+    if isinstance(param.default, int) and param.default > 0:
+        budget = min(budget, param.default)
+    return budget
 
 
 class MLXTTSBackend:
@@ -270,33 +290,42 @@ class MLXTTSBackend:
                 # mlx_audio lookups hanging when the network drops mid-inference,
                 # issue #462) regressed online users because libraries make
                 # legitimate metadata calls during generation.
+                import inspect
+
+                params = inspect.signature(model.generate).parameters
+                gen_kwargs = {"lang_code": lang}
+                max_tokens = _decode_budget(text, params)
+                if max_tokens is not None:
+                    gen_kwargs["max_tokens"] = max_tokens
+
+                def _collect(results):
+                    nonlocal sample_rate
+                    for result in results:
+                        audio_chunks.append(np.array(result.audio))
+                        sample_rate = result.sample_rate
+                        token_count = getattr(result, "token_count", None)
+                        if max_tokens is not None and token_count is not None and token_count >= max_tokens:
+                            logger.warning(
+                                "Qwen decode hit its %d-token budget for %d chars; the model likely missed EOS",
+                                max_tokens,
+                                len(text),
+                            )
+
                 try:
                     if ref_audio:
-                        # Check if generate accepts ref_audio parameter
-                        import inspect
-
-                        sig = inspect.signature(model.generate)
-                        if "ref_audio" in sig.parameters:
+                        if "ref_audio" in params:
                             # Generate with voice cloning
-                            for result in model.generate(text, ref_audio=ref_audio, ref_text=ref_text, lang_code=lang):
-                                audio_chunks.append(np.array(result.audio))
-                                sample_rate = result.sample_rate
+                            _collect(model.generate(text, ref_audio=ref_audio, ref_text=ref_text, **gen_kwargs))
                         else:
                             # Fallback: generate without voice cloning
-                            for result in model.generate(text, lang_code=lang):
-                                audio_chunks.append(np.array(result.audio))
-                                sample_rate = result.sample_rate
+                            _collect(model.generate(text, **gen_kwargs))
                     else:
                         # No voice prompt, generate normally
-                        for result in model.generate(text, lang_code=lang):
-                            audio_chunks.append(np.array(result.audio))
-                            sample_rate = result.sample_rate
+                        _collect(model.generate(text, **gen_kwargs))
                 except Exception as e:
                     # If voice cloning fails, try without it
                     logger.warning("Voice cloning failed, generating without voice prompt: %s", e)
-                    for result in model.generate(text, lang_code=lang):
-                        audio_chunks.append(np.array(result.audio))
-                        sample_rate = result.sample_rate
+                    _collect(model.generate(text, **gen_kwargs))
 
                 # Concatenate all chunks
                 if audio_chunks:
