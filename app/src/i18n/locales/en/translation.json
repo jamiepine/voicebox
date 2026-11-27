@@ -664,6 +664,8 @@
   },
   "history": {
     "empty": "No voice generations, yet…",
+    "took": "took {{time}}",
+    "tookHint": "Time it took to generate, including loading the model",
     "actions": {
       "menu": "Actions",
       "play": "Play",

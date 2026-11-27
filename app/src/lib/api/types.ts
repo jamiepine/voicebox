@@ -118,6 +118,8 @@ export interface GenerationResponse {
   created_at: string;
   versions?: GenerationVersionResponse[];
   active_version_id?: string;
+  /** How long the last successful run took, in seconds (includes model loading). */
+  generation_seconds?: number | null;
 }
 
 export interface HistoryQuery {

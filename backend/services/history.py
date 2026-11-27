@@ -267,6 +267,7 @@ async def list_generations(
             error=generation.error,
             is_favorited=bool(generation.is_favorited),
             created_at=generation.created_at,
+            generation_seconds=generation.generation_seconds,
             versions=versions,
             active_version_id=active_version_id,
         ))

@@ -185,6 +185,8 @@ def _migrate_generations(engine, inspector, tables: set[str]) -> None:
             "source VARCHAR NOT NULL DEFAULT 'manual'",
             "source",
         )
+    if "generation_seconds" not in columns:
+        _add_column(engine, "generations", "generation_seconds FLOAT", "generation_seconds")
 
 
 def _migrate_effect_presets(engine, inspector, tables: set[str]) -> None:
