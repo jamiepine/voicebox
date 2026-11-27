@@ -344,7 +344,8 @@
       "sampleFailed": "Falha ao adicionar a amostra",
       "sampleFailedDescription": "Falha ao adicionar a amostra.",
       "sampleFailedRolledBack": "Falha ao adicionar a amostra. O perfil foi revertido.",
-      "saveFailed": "Falha ao salvar o perfil"
+      "saveFailed": "Falha ao salvar o perfil",
+      "transcriptCoverage": "Verifique a transcrição da amostra"
     }
   },
   "audioSample": {

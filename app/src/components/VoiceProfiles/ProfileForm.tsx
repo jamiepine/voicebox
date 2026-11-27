@@ -426,8 +426,9 @@ export function ProfileForm() {
     }
 
     try {
-      const language = form.getValues('language');
-      const result = await transcribe.mutateAsync({ file, language });
+      // Let Whisper detect the language rather than forcing the profile's:
+      // a mismatched or partial transcript breaks cloning (#1086).
+      const result = await transcribe.mutateAsync({ file });
 
       form.setValue('referenceText', result.text, { shouldValidate: true });
     } catch (error) {
@@ -737,7 +738,7 @@ export function ProfileForm() {
         }
 
         try {
-          await addSample.mutateAsync({
+          const sample = await addSample.mutateAsync({
             profileId: profile.id,
             file: fileToUpload,
             referenceText: referenceText,
@@ -764,6 +765,12 @@ export function ProfileForm() {
             title: t('profileForm.toast.profileCreated'),
             description: t('profileForm.toast.profileCreatedSample', { name: data.name }),
           });
+          if (sample.warning) {
+            toast({
+              title: t('profileForm.toast.transcriptCoverage'),
+              description: sample.warning,
+            });
+          }
         } catch (sampleError) {
           let rollbackSucceeded = false;
           try {

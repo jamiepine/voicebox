@@ -344,7 +344,8 @@
       "sampleFailed": "Failed to add sample",
       "sampleFailedDescription": "Failed to add sample.",
       "sampleFailedRolledBack": "Failed to add sample. The profile was rolled back.",
-      "saveFailed": "Failed to save profile"
+      "saveFailed": "Failed to save profile",
+      "transcriptCoverage": "Check the sample transcript"
     }
   },
   "audioSample": {

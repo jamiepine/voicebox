@@ -24,7 +24,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
 import { useAudioPlayer } from '@/lib/hooks/useAudioPlayer';
 import { useAudioRecording } from '@/lib/hooks/useAudioRecording';
-import { useAddSample, useProfile } from '@/lib/hooks/useProfiles';
+import { useAddSample } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
 import { usePlatform } from '@/platform/PlatformContext';
@@ -52,7 +52,6 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
   const platform = usePlatform();
   const addSample = useAddSample();
   const transcribe = useTranscription();
-  const { data: profile } = useProfile(profileId);
   const { toast } = useToast();
   const [mode, setMode] = useState<'upload' | 'record' | 'system'>('upload');
   const { isPlaying, playPause, cleanup: cleanupAudio } = useAudioPlayer();
@@ -153,8 +152,11 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
     }
 
     try {
-      const language = profile?.language as 'en' | 'zh' | undefined;
-      const result = await transcribe.mutateAsync({ file, language });
+      // Let Whisper detect the language. Forcing the profile's language onto
+      // a clip spoken in another one makes Whisper translate or truncate the
+      // transcript, and a transcript that does not match the audio breaks
+      // voice cloning (jamiepine/voicebox#1086).
+      const result = await transcribe.mutateAsync({ file });
 
       form.setValue('referenceText', result.text, { shouldValidate: true });
     } catch (error) {
@@ -168,16 +170,23 @@ export function SampleUpload({ profileId, open, onOpenChange }: SampleUploadProp
 
   async function onSubmit(data: SampleFormValues) {
     try {
-      await addSample.mutateAsync({
+      const sample = await addSample.mutateAsync({
         profileId,
         file: data.file,
         referenceText: data.referenceText,
       });
 
-      toast({
-        title: 'Sample added',
-        description: 'Audio sample has been added successfully.',
-      });
+      if (sample.warning) {
+        toast({
+          title: 'Sample added, but check its transcript',
+          description: sample.warning,
+        });
+      } else {
+        toast({
+          title: 'Sample added',
+          description: 'Audio sample has been added successfully.',
+        });
+      }
 
       handleOpenChange(false);
     } catch (error) {

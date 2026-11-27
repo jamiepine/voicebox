@@ -344,7 +344,8 @@
       "sampleFailed": "新增樣本失敗",
       "sampleFailedDescription": "新增樣本失敗。",
       "sampleFailedRolledBack": "新增樣本失敗。檔案已復原。",
-      "saveFailed": "儲存檔案失敗"
+      "saveFailed": "儲存檔案失敗",
+      "transcriptCoverage": "請檢查樣本轉錄文字"
     }
   },
   "audioSample": {

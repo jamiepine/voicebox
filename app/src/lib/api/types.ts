@@ -57,6 +57,8 @@ export interface ProfileSampleResponse {
   profile_id: string;
   audio_path: string;
   reference_text: string;
+  /** Set when the transcript is implausibly short or long for the clip. */
+  warning?: string | null;
 }
 
 export interface EffectConfig {

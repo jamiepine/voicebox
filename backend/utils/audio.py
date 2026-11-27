@@ -354,3 +354,60 @@ def validate_and_load_reference_audio(
         return True, None, audio, sr
     except Exception as e:
         return False, f"Error validating audio: {str(e)}", None, None
+
+
+# Qwen's in-context voice cloning continues from the reference speech codes
+# *and* their transcript. A transcript that describes only part of the clip,
+# or words the clip does not contain, makes the model emit a fraction of a
+# second of noise or minutes of babble instead of the requested text
+# (issue #1086). Read speech runs at roughly 10-20 characters per second in
+# the alphabetic languages, so a transcript far outside that band cannot be a
+# faithful one. CJK scripts carry a syllable per character, so each one is
+# weighted like a short Latin word.
+TRANSCRIPT_MIN_CHARS_PER_SECOND = 4.0
+TRANSCRIPT_MAX_CHARS_PER_SECOND = 30.0
+_CJK_WEIGHT = 3
+
+
+def _is_cjk(char: str) -> bool:
+    code = ord(char)
+    return (
+        0x3040 <= code <= 0x30FF  # hiragana, katakana
+        or 0x3400 <= code <= 0x4DBF  # CJK extension A
+        or 0x4E00 <= code <= 0x9FFF  # CJK unified ideographs
+        or 0xAC00 <= code <= 0xD7AF  # hangul syllables
+    )
+
+
+def transcript_coverage_warning(reference_text: str, duration_s: float) -> Optional[str]:
+    """Return a warning when ``reference_text`` cannot describe a clip of
+    ``duration_s`` seconds, or ``None`` when its density is plausible.
+
+    This is a sanity check on density, not a transcription check: it catches
+    the catastrophic cases -- a one-line transcript for a 25 s clip, a pasted
+    paragraph for a 3 s clip -- that leave the clone unusable, and says so
+    in terms a user can act on. A wrong-language transcript of the right
+    length still gets through.
+    """
+    text = " ".join((reference_text or "").split())
+    if duration_s <= 0 or not text:
+        return None
+    weight = sum(_CJK_WEIGHT if _is_cjk(ch) else 1 for ch in text)
+    rate = weight / duration_s
+    if rate < TRANSCRIPT_MIN_CHARS_PER_SECOND:
+        return (
+            f"The transcript ({len(text)} characters) looks too short for a "
+            f"{duration_s:.0f} s sample. Voice cloning needs the exact words "
+            "spoken in the clip; a partial transcript produces noise or "
+            "gibberish. Check that the whole clip is transcribed, in the "
+            "language actually spoken."
+        )
+    if rate > TRANSCRIPT_MAX_CHARS_PER_SECOND:
+        return (
+            f"The transcript ({len(text)} characters) looks too long for a "
+            f"{duration_s:.0f} s sample. Voice cloning needs only the words "
+            "spoken in the clip; extra text is read out before the generated "
+            "speech."
+        )
+    return None
+
