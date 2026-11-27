@@ -4,6 +4,7 @@ import {
   AudioLines,
   Download,
   FileArchive,
+  ListChecks,
   Loader2,
   MoreHorizontal,
   Play,
@@ -19,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { AudioBars } from '@/components/AudioBars';
 import { EffectsChainEditor } from '@/components/Effects/EffectsChainEditor';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -103,6 +105,10 @@ export function HistoryTable() {
   const deleteGeneration = useDeleteGeneration();
   const clearFailed = useClearFailedGenerations();
   const [clearFailedDialogOpen, setClearFailedDialogOpen] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const exportGeneration = useExportGeneration();
   const exportGenerationAudio = useExportGenerationAudio();
   const importGeneration = useImportGeneration();
@@ -266,6 +272,48 @@ export function HistoryTable() {
     }
   };
 
+  const toggleSelected = (generationId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(generationId)) {
+        next.delete(generationId);
+      } else {
+        next.add(generationId);
+      }
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    setBulkDeleting(true);
+    const deletedIds = new Set<string>();
+    for (const id of selectedIds) {
+      try {
+        await apiClient.deleteGeneration(id);
+        deletedIds.add(id);
+      } catch (error) {
+        console.error('Failed to delete generation', id, error);
+      }
+    }
+    const failed = selectedIds.size - deletedIds.size;
+    setBulkDeleting(false);
+    setBulkDeleteOpen(false);
+    exitSelectMode();
+    setAllHistory((prev) => prev.filter((g) => !deletedIds.has(g.id)));
+    setPage(0);
+    await queryClient.invalidateQueries({ queryKey: ['history'] });
+    toast({
+      title: t('history.bulkDelete.deleted', { count: deletedIds.size }),
+      description: failed > 0 ? t('history.bulkDelete.someFailed', { count: failed }) : undefined,
+      variant: failed > 0 ? 'destructive' : undefined,
+    });
+  };
+
   const handleRetry = async (generationId: string) => {
     try {
       const result = await apiClient.retryGeneration(generationId);
@@ -416,6 +464,10 @@ export function HistoryTable() {
   const history = allHistory;
   const hasMore = allHistory.length < total;
   const failedCount = history.filter((g) => g.status === 'failed').length;
+  const isActive = (g: HistoryResponse) =>
+    g.status === 'loading_model' || g.status === 'generating';
+  const selectAllShown = () =>
+    setSelectedIds(new Set(history.filter((g) => !isActive(g)).map((g) => g.id)));
 
   const handleClearFailedConfirm = () => {
     clearFailed.mutate(undefined, {
@@ -445,23 +497,71 @@ export function HistoryTable() {
         </div>
       ) : (
         <>
-          {failedCount > 0 && (
-            <div className="flex items-center justify-between px-1 pb-2">
-              <span className="text-xs text-muted-foreground">
-                {failedCount} failed {failedCount === 1 ? 'generation' : 'generations'}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs text-muted-foreground"
-                onClick={() => setClearFailedDialogOpen(true)}
-                disabled={clearFailed.isPending}
-              >
-                <Trash2 className="h-3 w-3 mr-1.5" />
-                {clearFailed.isPending ? 'Clearing...' : 'Clear failed'}
-              </Button>
+          <div className="flex items-center justify-between gap-2 px-1 pb-2">
+            <span className="text-xs text-muted-foreground">
+              {selectMode
+                ? t('history.selection.selected', { count: selectedIds.size })
+                : failedCount > 0
+                  ? `${failedCount} failed ${failedCount === 1 ? 'generation' : 'generations'}`
+                  : null}
+            </span>
+            <div className="flex items-center gap-1">
+              {selectMode ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={selectAllShown}
+                  >
+                    {t('history.selection.selectAllShown')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-destructive"
+                    onClick={() => setBulkDeleteOpen(true)}
+                    disabled={selectedIds.size === 0 || bulkDeleting}
+                  >
+                    <Trash2 className="h-3 w-3 mr-1.5" />
+                    {t('history.selection.deleteSelected')}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={exitSelectMode}
+                  >
+                    {t('history.selection.done')}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {failedCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs text-muted-foreground"
+                      onClick={() => setClearFailedDialogOpen(true)}
+                      disabled={clearFailed.isPending}
+                    >
+                      <Trash2 className="h-3 w-3 mr-1.5" />
+                      {clearFailed.isPending ? 'Clearing...' : 'Clear failed'}
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs text-muted-foreground"
+                    onClick={() => setSelectMode(true)}
+                  >
+                    <ListChecks className="h-3 w-3 mr-1.5" />
+                    {t('history.selection.select')}
+                  </Button>
+                </>
+              )}
             </div>
-          )}
+          </div>
           {isScrolled && (
             <div className="absolute top-0 left-0 right-0 h-16 bg-gradient-to-b from-background to-transparent z-10 pointer-events-none" />
           )}
@@ -474,7 +574,9 @@ export function HistoryTable() {
           >
             {history.map((gen) => {
               const isCurrentlyPlaying = currentAudioId === gen.id && isPlaying;
-              const isInProgress = gen.status === 'loading_model' || gen.status === 'generating';
+              const isInProgress = isActive(gen);
+              const isSelected = selectedIds.has(gen.id);
+              const isSelectable = selectMode && !isInProgress;
               const isGenerating = isInProgress;
               const isFailed = gen.status === 'failed';
               const isPlayable = !isGenerating && !isFailed;
@@ -488,12 +590,13 @@ export function HistoryTable() {
                   className={cn(
                     'border rounded-md bg-card transition-colors text-left w-full',
                     isCurrentlyPlaying && 'bg-muted/70',
+                    isSelected && 'border-accent',
                   )}
                 >
                   {/* Main row */}
                   <div
-                    role={isPlayable ? 'button' : undefined}
-                    tabIndex={isPlayable ? 0 : undefined}
+                    role={isPlayable || isSelectable ? 'button' : undefined}
+                    tabIndex={isPlayable || isSelectable ? 0 : undefined}
                     className={cn(
                       'flex items-stretch gap-4 h-26 p-3 outline-none',
                       isPlayable && 'hover:bg-muted/70 cursor-pointer rounded-md',
@@ -509,6 +612,12 @@ export function HistoryTable() {
                             : `Sample from ${gen.profile_name}, ${formatDuration(gen.duration ?? 0)}, ${formatDate(gen.created_at)}. Press Enter to play.`
                     }
                     onMouseDown={(e) => {
+                      if (selectMode) {
+                        // The checkbox toggles itself on click; don't toggle twice.
+                        const onCheckbox = (e.target as HTMLElement).closest('[role="checkbox"]');
+                        if (isSelectable && !onCheckbox) toggleSelected(gen.id);
+                        return;
+                      }
                       if (!isPlayable) return;
                       const target = e.target as HTMLElement;
                       if (target.closest('textarea') || window.getSelection()?.toString()) {
@@ -517,6 +626,13 @@ export function HistoryTable() {
                       handlePlay(gen.id, gen.text, gen.profile_id);
                     }}
                     onKeyDown={(e) => {
+                      if (selectMode) {
+                        if (isSelectable && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          toggleSelected(gen.id);
+                        }
+                        return;
+                      }
                       if (!isPlayable) return;
                       const target = e.target as HTMLElement;
                       if (target.closest('textarea') || target.closest('button')) return;
@@ -526,6 +642,16 @@ export function HistoryTable() {
                       }
                     }}
                   >
+                    {selectMode && (
+                      <div className="flex items-center shrink-0">
+                        <Checkbox
+                          checked={isSelected}
+                          disabled={!isSelectable}
+                          onCheckedChange={() => toggleSelected(gen.id)}
+                        />
+                      </div>
+                    )}
+
                     {/* Status icon */}
                     <div className="flex items-center shrink-0 w-10 justify-center overflow-hidden">
                       <AudioBars
@@ -812,6 +938,30 @@ export function HistoryTable() {
               disabled={deleteGeneration.isPending}
             >
               {deleteGeneration.isPending ? t('history.deleteDialog.deleting') : t('common.delete')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => !bulkDeleting && setBulkDeleteOpen(open)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('history.bulkDelete.title', { count: selectedIds.size })}</DialogTitle>
+            <DialogDescription>{t('history.bulkDelete.body')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBulkDeleteOpen(false)}
+              disabled={bulkDeleting}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDeleteConfirm} disabled={bulkDeleting}>
+              {bulkDeleting ? t('history.deleteDialog.deleting') : t('common.delete')}
             </Button>
           </DialogFooter>
         </DialogContent>
