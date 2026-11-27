@@ -29,6 +29,7 @@ _SECRET_PARAM_PARTS = (
 
 _SCHEME = r"[a-zA-Z][a-zA-Z0-9+.\-]*://"
 _URL_IN_TEXT = re.compile(rf"{_SCHEME}(?:(?!{_SCHEME})[^\s<>`])+")
+_PARAM_BEFORE_URL = re.compile(r"[?&;#]([^\s?&;#=]+)=\Z")
 _URL_TRAILING_PUNCTUATION = "'\".,;:!)]}"
 _FALLBACK_USERINFO = re.compile(r"(//)[^/?#\s]*@")
 _FALLBACK_QUERY = re.compile(r"([?#])\S*")
@@ -86,6 +87,9 @@ def redact_url(url: str) -> str:
 def _redact_url_match(match: re.Match) -> str:
     url = match.group(0)
     trimmed = url.rstrip(_URL_TRAILING_PUNCTUATION)
+    param = _PARAM_BEFORE_URL.search(match.string, 0, match.start())
+    if param and _is_secret_param(param.group(1)):
+        return REDACTED + url[len(trimmed) :]
     return redact_url(trimmed) + url[len(trimmed) :]
 
 
