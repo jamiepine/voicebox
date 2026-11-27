@@ -83,9 +83,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r backend/requirements.txt
-          pip install --no-deps chatterbox-tts
-          pip install --no-deps hume-tada
-          pip install --no-deps omnivoice
+          pip install --no-deps -r backend/requirements-nodeps.txt
 
       - name: Install MLX dependencies (Apple Silicon only)
         if: matrix.backend == 'mlx'
@@ -292,9 +290,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r backend/requirements.txt
-          pip install --no-deps chatterbox-tts
-          pip install --no-deps hume-tada
-          pip install --no-deps omnivoice
+          pip install --no-deps -r backend/requirements-nodeps.txt
 
       - name: Install PyTorch with CUDA 12.8
         run: |
@@ -401,8 +397,7 @@ jobs:
       - name: Install remaining Python dependencies
         run: |
           pip install -r backend/requirements.txt
-          pip install --no-deps chatterbox-tts
-          pip install --no-deps hume-tada
+          pip install --no-deps -r backend/requirements-nodeps.txt
 
       - name: Verify GPU support in torch
         run: python -c "import torch; assert torch.version.${{ matrix.torch_attr }}, 'torch is not a ${{ matrix.backend }} build'; print(torch.__version__)"
@@ -455,9 +450,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r backend/requirements.txt
-          pip install --no-deps chatterbox-tts
-          pip install --no-deps hume-tada
-          pip install --no-deps omnivoice
+          pip install --no-deps -r backend/requirements-nodeps.txt
 
       - name: Build ROCm server binary (onedir)
         shell: bash

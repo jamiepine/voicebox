@@ -112,13 +112,8 @@ setup-python:
         fi
     fi
     "{{ python }}" -m pip install -r {{ backend_dir }}/requirements.txt
-    # Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
-    "{{ python }}" -m pip install --no-deps chatterbox-tts
-    # HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
-    "{{ python }}" -m pip install --no-deps hume-tada
-    # OmniVoice requires transformers>=5.3; we vendor the one class it
-    # needs from 5.x (see backend/vendor/higgs_audio_v2_tokenizer).
-    "{{ python }}" -m pip install --no-deps omnivoice
+    # Engines whose own pins conflict with our stack (see the file for why)
+    "{{ python }}" -m pip install --no-deps -r {{ backend_dir }}/requirements-nodeps.txt
     # Apple Silicon: install MLX backend
     if [ "$(uname -m)" = "arm64" ] && [ "$(uname)" = "Darwin" ]; then
         echo "Detected Apple Silicon — installing MLX dependencies..."
@@ -202,9 +197,7 @@ setup-python:
         Write-Host "  python -m pip install intel-extension-for-pytorch --index-url https://download.pytorch.org/whl/xpu"; \
     }; \
     Invoke-Pip install -r {{ backend_dir }}/requirements.txt; \
-    Invoke-Pip install --no-deps chatterbox-tts; \
-    Invoke-Pip install --no-deps hume-tada; \
-    Invoke-Pip install --no-deps omnivoice; \
+    Invoke-Pip install --no-deps -r {{ backend_dir }}/requirements-nodeps.txt; \
     Invoke-Pip install git+https://github.com/QwenLM/Qwen3-TTS.git; \
     Invoke-Pip install pyinstaller ruff pytest pytest-asyncio openai -q; \
     Write-Host "Python environment ready."

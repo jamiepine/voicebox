@@ -232,11 +232,9 @@ pip install -r requirements.txt
 # Apple Silicon: install MLX dependencies
 pip install -r requirements-mlx.txt
 
-# Chatterbox pins numpy<1.26 / torch==2.6 which break on Python 3.12+
-pip install --no-deps chatterbox-tts
-
-# HumeAI TADA pins torch>=2.7,<2.8 which conflicts with our torch>=2.1
-pip install --no-deps hume-tada
+# Chatterbox, TADA and OmniVoice pin versions our stack can't use, so they
+# install without dependencies (their real deps are in requirements.txt)
+pip install --no-deps -r requirements-nodeps.txt
 
 # Install Qwen3-TTS from source
 pip install git+https://github.com/QwenLM/Qwen3-TTS.git
