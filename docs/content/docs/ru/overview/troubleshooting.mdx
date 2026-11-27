@@ -1,0 +1,656 @@
+---
+title: "Решение проблем"
+description: "Частые проблемы при использовании и разработке Voicebox и способы их устранения."
+---
+
+Этот гайд собирает типовые проблемы, с которыми можно столкнуться при работе с
+Voicebox или при разработке, и даёт практические способы их решить.
+
+## Проблемы установки
+
+### macOS: "App is damaged and can't be opened"
+
+Такое происходит, потому что приложение не подписано сертификатом Apple
+Developer.
+
+**Решение:**
+
+```bash
+# Снять quarantine-атрибут
+xattr -cr /Applications/Voicebox.app
+```
+
+### Windows: предупреждение SmartScreen
+
+Windows SmartScreen может показать предупреждение, что приложение не распознано.
+
+**Решение:**
+
+- нажмите **More info**
+- затем нажмите **Run anyway**
+
+<Callout type="info">
+  Для неподписанных приложений это ожидаемое поведение. Подпись релизов
+  планируется в будущих версиях.
+</Callout>
+
+### Linux: AppImage не запускается
+
+**Решение:**
+
+```bash
+chmod +x voicebox-*.AppImage
+./voicebox-*.AppImage
+```
+
+## Проблемы сервера
+
+### Backend Server Won't Start
+
+**Симптомы:**
+
+- красный индикатор статуса в левом нижнем углу
+- ошибка `"Failed to connect to server"`
+
+**Решения:**
+
+<AccordionGroup>
+  <Accordion title="Порт уже занят">
+    Проверьте, не использует ли кто-то порт 17493:
+
+    ```bash
+    # macOS/Linux
+    lsof -i :17493
+
+    # Windows
+    powershell -Command "Get-NetTCPConnection -LocalPort 17493 -State Listen"
+    ```
+
+    Затем остановите процесс, который держит порт:
+
+    ```bash
+    # macOS/Linux
+    kill -9 <PID>
+
+    # Windows
+    taskkill /PID <PID> /F
+    ```
+  </Accordion>
+
+  <Accordion title="Проблемы с правами доступа">
+    У серверного бинарника может не быть права на выполнение:
+
+    ```bash
+    # macOS/Linux
+    chmod +x ~/Library/Application\ Support/sh.voicebox.app/backend/voicebox-server
+    ```
+  </Accordion>
+
+  <Accordion title="Проверка логов">
+    Посмотрите server logs:
+
+    **macOS:**
+    ```bash
+    tail -f ~/Library/Application\ Support/sh.voicebox.app/logs/server.log
+    ```
+
+    **Windows:**
+    ```bash
+    type %APPDATA%\sh.voicebox.app\logs\server.log
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### `flash-attn is not installed` в server logs
+
+**Симптомы:**
+
+```text
+Warning: flash-attn is not installed. Will only run the manual PyTorch version.
+Please install flash-attn for faster inference.
+```
+
+**Это не опасно.** Предупреждение появляется у transformer-based движков
+(Chatterbox / Qwen) на каждом старте. FlashAttention — необязательная
+библиотека ускорения. Если её нет, используется встроенный в PyTorch
+scaled-dot-product attention (SDPA), и для современных GPU разница в реальной
+скорости обычно минимальна.
+
+**Почему предупреждение видно на всех платформах:**
+
+- **Windows:** у `flash-attn` нет официальной поддержки Windows
+- **macOS (Apple Silicon):** FlashAttention заточен под CUDA и здесь не нужен; у MLX свои оптимизированные attention-kernels
+- **Linux:** библиотека не закреплена в requirements, потому что её установка чувствительна к версиям CUDA и окружения
+
+**Варианты действий, все необязательные:**
+
+<AccordionGroup>
+  <Accordion title="Просто игнорировать — рекомендуемый вариант">
+    На практике именно PyTorch SDPA и работает в большинстве установок, а на
+    современных Ampere / Ada / Hopper GPU это обычно достаточно быстро.
+  </Accordion>
+
+  <Accordion title="Установить flash-attn на Linux">
+    ```bash
+    pip install flash-attn --no-build-isolation
+    ```
+
+    Нужна совместимая версия CUDA toolkit. Сборка может занимать 20 минут и
+    больше.
+  </Accordion>
+
+  <Accordion title="Установить flash-attn на Windows через community wheels">
+    Официальных сборок нет, но есть предсобранные community wheels:
+
+    - [kingbri1/flash-attention releases](https://github.com/kingbri1/flash-attention/releases)
+    - [bdashore3/flash-attention releases](https://github.com/bdashore3/flash-attention/releases)
+
+    Выбирайте wheel, точно соответствующий вашей комбинации CUDA, PyTorch и Python. Пример:
+
+    ```bash
+    pip install https://github.com/kingbri1/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu128torch2.8.0cxx11abiFALSE-cp312-cp312-win_amd64.whl
+    ```
+
+    Альтернатива — запускать backend Voicebox в WSL2 и использовать обычные Linux wheels.
+  </Accordion>
+</AccordionGroup>
+
+### Connection Timeout
+
+**Симптомы:**
+
+- приложение долго загружается
+- появляются ошибки `"Connection timeout"`
+
+**Решение:**
+
+- перезапустите приложение
+- проверьте настройки firewall
+- убедитесь, что localhost доступен
+
+## Проблемы генерации
+
+### First Generation is Very Slow
+
+**Симптомы:**
+
+- первая генерация занимает 2-5 минут
+- индикатор застревает на `"Loading model..."`
+
+**Объяснение:**
+
+Это нормальное поведение. Первая генерация загружает выбранную TTS-модель и
+инициализирует её. Размеры могут быть от примерно 350 МБ у Kokoro до 8 ГБ у
+TADA 3B.
+
+**Решение:**
+
+- дождитесь завершения первой загрузки, прогресс виден в **Settings → Models**
+- последующие генерации будут использовать кэш модели и станут заметно быстрее
+- проверьте интернет-соединение
+- если канал слабый, начните с Kokoro или LuxTTS
+
+### Плохое качество голоса
+
+**Симптомы:**
+
+- роботизированное или неестественное звучание
+- не хватает эмоций и просодии
+- заметны ошибки произношения
+
+**Решения:**
+
+<Steps>
+  <Step title="Улучшите voice samples">
+    - используйте 10-30 секунд чистого аудио
+    - избегайте фонового шума
+    - сохраняйте стабильную манеру речи
+    - добавляйте несколько образцов одного и того же спикера
+  </Step>
+
+  <Step title="Согласуйте стиль речи">
+    Генерация наследует характер и манеру исходных сэмплов. Если образец
+    звучит монотонно, озвучка тоже будет более плоской.
+  </Step>
+
+  <Step title="Оформляйте текст аккуратнее">
+    - используйте нормальную пунктуацию
+    - добавляйте запятые для естественных пауз
+    - правильно пишите имена собственные
+  </Step>
+</Steps>
+
+### Generation Fails with "Out of Memory"
+
+**Симптомы:**
+
+- генерация падает
+- видны ошибки `"CUDA out of memory"` или `"RuntimeError: out of memory"`
+
+**Решения:**
+
+<AccordionGroup>
+  <Accordion title="Освободите память GPU">
+    Закройте другие тяжёлые GPU-приложения:
+    - игры
+    - видеоредакторы
+    - большое число браузерных вкладок с WebGL
+
+    После этого перезапустите Voicebox.
+  </Accordion>
+
+  <Accordion title="Переключитесь на CPU-режим">
+    Если у вашей GPU мало VRAM, можно перейти на CPU:
+
+    **Settings → Generation → Use CPU instead of GPU**
+
+    <Callout type="warn">
+      Генерация на CPU обычно в 5-10 раз медленнее, но использует системную
+      RAM вместо VRAM.
+    </Callout>
+  </Accordion>
+
+  <Accordion title="Уменьшите размер задачи">
+    Для длинного текста лучше разбивать генерацию на более короткие фрагменты,
+    а не отправлять всё за один раз.
+  </Accordion>
+</AccordionGroup>
+
+### MLX "Failed to load the default metallib" (Apple Silicon)
+
+**Симптомы:**
+
+- генерация падает с ошибкой `"library not found"` или чем-то про `metallib`
+- в server logs упоминаются отсутствующие Metal shader libraries
+
+**Решения:**
+
+<AccordionGroup>
+  <Accordion title="Пересоберите серверный бинарник">
+    ```bash
+    just build-server
+    ```
+
+    Скрипт сборки автоматически включает нужные MLX Metal shader libraries для
+    Apple Silicon.
+  </Accordion>
+
+  <Accordion title="Переустановите MLX-зависимости">
+    ```bash
+    pip install -r backend/requirements-mlx.txt
+    ```
+  </Accordion>
+
+  <Accordion title="Проверьте определение backend-а">
+    Откройте **Settings → Server Status**. На Apple Silicon там должно быть
+    **Backend: MLX**. Если показывается **Backend: PYTORCH**, значит MLX
+    установлен некорректно.
+  </Accordion>
+</AccordionGroup>
+
+## Проблемы со звуком
+
+### No Audio Playback
+
+**Симптомы:**
+
+- сгенерированное аудио не воспроизводится
+- кнопка воспроизведения не реагирует
+
+**Решение:**
+
+- проверьте системные настройки звука
+- убедитесь, что устройство вывода подключено
+- попробуйте экспортировать файл и открыть его в обычном медиаплеере
+
+### Crackling or Distorted Audio
+
+**Симптомы:**
+
+- звук потрескивает или искажается
+- слышен клиппинг и цифровая грязь
+
+**Решение:**
+
+- проверьте, нет ли искажений в исходных сэмплах
+- уменьшите громкость воспроизведения
+- пересгенерируйте звук на более чистых образцах
+
+## Проблемы разработки
+
+### Backend Won't Start in Dev Mode
+
+**Симптомы:**
+
+- падает `just dev-backend` или `just dev`
+- есть import errors или `"module not found"`
+
+**Решения:**
+
+<AccordionGroup>
+  <Accordion title="Версия Python">
+    Убедитесь, что используется Python 3.11 или новее:
+
+    ```bash
+    python --version
+    ```
+
+    Если версия ниже, обновите Python и пересоздайте виртуальное окружение.
+  </Accordion>
+
+  <Accordion title="Виртуальное окружение">
+    Убедитесь, что venv активирован:
+
+    ```bash
+    # macOS/Linux
+    source backend/venv/bin/activate
+
+    # Windows
+    backend\venv\Scripts\activate
+    ```
+
+    В prompt должна появиться пометка `(venv)`.
+  </Accordion>
+
+  <Accordion title="Зависимости">
+    Проще всего переустановить зависимости через `just`:
+
+    ```bash
+    just setup
+    ```
+
+    Или вручную:
+
+    ```bash
+    cd backend
+    pip install -r requirements.txt
+    pip install --no-deps chatterbox-tts
+    pip install --no-deps hume-tada
+    pip install git+https://github.com/QwenLM/Qwen3-TTS.git
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Tauri Build Fails
+
+**Симптомы:**
+
+- падает `bun run tauri build`
+- Rust-компиляция завершается ошибками
+
+**Решение:**
+
+```bash
+# Очистить build artifacts
+cd tauri/src-tauri
+cargo clean
+
+# Обновить Rust
+rustup update
+
+# Попробовать снова
+cd ../..
+bun run tauri build
+```
+
+### OpenAPI Client Generation Fails
+
+**Симптомы:**
+
+- падает `./scripts/generate-api.sh`
+- появляется ошибка `"Failed to fetch schema"`
+
+**Решения:**
+
+<Steps>
+  <Step title="Убедитесь, что backend запущен">
+    ```bash
+    curl http://localhost:17493/openapi.json
+    ```
+
+    Команда должна вернуть JSON. Если нет, сначала поднимите backend.
+  </Step>
+
+  <Step title="Проверьте порт">
+    Убедитесь, что порт 17493 не занят чем-то другим.
+  </Step>
+
+  <Step title="Запустите генерацию вручную">
+    ```bash
+    cd backend
+    source venv/bin/activate
+    uvicorn main:app --reload --port 17493
+
+    # В другом терминале
+    ./scripts/generate-api.sh
+    ```
+  </Step>
+</Steps>
+
+## Проблемы базы данных
+
+### "Database is locked"
+
+**Симптомы:**
+
+- операции с профилями или генерациями завершаются ошибкой
+- в логах видны SQLite lock errors
+
+**Решение:**
+
+- закройте все экземпляры Voicebox
+- удалите lock-файлы:
+
+  ```bash
+  # macOS
+  rm ~/Library/Application\ Support/sh.voicebox.app/data/voicebox.db-shm
+  rm ~/Library/Application\ Support/sh.voicebox.app/data/voicebox.db-wal
+  ```
+
+### Corrupted Database
+
+**Симптомы:**
+
+- приложение падает при запуске
+- часть данных пропала или выглядит повреждённой
+
+**Решение:**
+
+<Callout type="warn">
+  Это удалит все голосовые профили и историю генераций. Если возможно, сначала
+  экспортируйте важные данные.
+</Callout>
+
+```bash
+# macOS
+rm ~/Library/Application\ Support/sh.voicebox.app/data/voicebox.db
+
+# Windows
+del %APPDATA%\sh.voicebox.app\data\voicebox.db
+```
+
+После перезапуска приложение создаст новую базу данных.
+
+## Проблемы с моделями
+
+### Model Download Fails
+
+**Симптомы:**
+
+- ошибка `"Failed to download model"`
+- загрузка зависает на `"Downloading..."`
+
+**Решение:**
+
+- проверьте интернет-соединение
+- проверьте статус HuggingFace Hub
+- если HuggingFace заблокирован в вашем регионе, попробуйте VPN
+- при необходимости скачайте модель вручную через HuggingFace CLI и положите её в кэш:
+
+  ```bash
+  pip install huggingface_hub
+  huggingface-cli download Qwen/Qwen3-TTS-12Hz-1.7B-Base
+  ```
+
+### Wrong Model Version
+
+**Симптомы:**
+
+- качество генерации внезапно просело
+- голос начал звучать иначе, чем раньше
+
+**Решение:**
+
+Очистите кэш модели и скачайте её заново. Вместо `Qwen*` можно использовать
+префикс нужного движка: `ResembleAI*` для Chatterbox, `HumeAI*` для TADA,
+`hexgrad*` для Kokoro и так далее. Альтернатива — удалить модель через API
+`DELETE /models/{name}`.
+
+```bash
+# macOS / Linux
+rm -rf ~/.cache/huggingface/hub/models--Qwen*
+
+# Windows
+rmdir /s %USERPROFILE%\.cache\huggingface\hub\models--Qwen*
+```
+
+## Проблемы производительности
+
+### Slow Generation on GPU
+
+**Симптомы:**
+
+- генерация идёт заметно медленнее ожидаемого
+- GPU почти не используется
+
+**Решения:**
+
+<AccordionGroup>
+  <Accordion title="Проверьте установку CUDA">
+    ```bash
+    nvidia-smi
+    ```
+
+    Команда должна показать вашу GPU. Если этого не происходит, сначала
+    установите или исправьте драйверы CUDA/NVIDIA.
+  </Accordion>
+
+  <Accordion title="Проверьте выбор GPU">
+    Если у вас несколько GPU, убедитесь, что Voicebox использует нужную.
+
+    **Settings → Generation → GPU Device**
+  </Accordion>
+
+  <Accordion title="Обновите драйверы">
+    Устаревшие драйверы часто становятся причиной низкой производительности.
+  </Accordion>
+
+  <Accordion title="Apple Silicon: подтвердите, что используется MLX">
+    Откройте **Settings → Server Status**. На Apple Silicon там должно быть
+    **Backend: MLX** — он работает здесь в 4-5 раз быстрее PyTorch. Если
+    показывается **Backend: PYTORCH**, переустановите MLX:
+
+    ```bash
+    pip install -r backend/requirements-mlx.txt
+    ```
+
+    Доступность GPU должна отображаться как `"Metal (Apple Silicon via MLX)"`.
+  </Accordion>
+</AccordionGroup>
+
+### High Memory Usage
+
+**Симптомы:**
+
+- приложение потребляет слишком много RAM
+- система начинает заметно тормозить
+
+**Решение:**
+
+- закройте неиспользуемые голосовые профили
+- очистите историю генераций
+- время от времени перезапускайте приложение
+
+## Проблемы обновления
+
+### "Update Check Failed"
+
+**Решение:**
+
+- проверьте интернет-соединение: обновления подтягиваются из GitHub Releases
+- убедитесь, что `github.com` доступен и не блокируется firewall или proxy
+- при необходимости скачайте свежий релиз вручную с GitHub
+
+### "Invalid Signature"
+
+**Решение:**
+
+- скачайте установщик заново: подпись могла повредиться при передаче
+- проверьте, что `.sig`-файл соответствует установщику; если нет, создайте issue
+
+## Проблемы Remote Mode
+
+### Can't Connect to Remote Server
+
+**Симптомы:**
+
+- ошибка `"Connection refused"`
+- удалённый сервер не находится
+
+**Решения:**
+
+<Steps>
+  <Step title="Проверьте состояние сервера">
+    Убедитесь, что удалённый сервер действительно запущен:
+
+    ```bash
+    curl http://<server-ip>:17493/health
+    ```
+  </Step>
+
+  <Step title="Проверьте firewall">
+    Убедитесь, что порт 17493 открыт на удалённой машине:
+
+    ```bash
+    # Открыть порт на Ubuntu/Debian
+    sudo ufw allow 17493
+    ```
+  </Step>
+
+  <Step title="Проверьте сеть">
+    - убедитесь, что обе машины в одной сети, если это локальный сервер
+    - используйте IP-адрес, а не hostname
+    - попробуйте пинг: `ping <server-ip>`
+  </Step>
+</Steps>
+
+## Если проблемы остались
+
+Если ничего не помогло:
+
+1. Проверьте существующие issues: [github.com/jamiepine/voicebox/issues](https://github.com/jamiepine/voicebox/issues)
+2. Откройте новый issue и обязательно приложите:
+   - операционную систему и её версию
+   - версию Voicebox
+   - шаги воспроизведения
+   - сообщения об ошибках и логи
+3. Discord-сервер для проекта заявлен, но пока ещё готовится
+
+## Диагностическая информация
+
+Когда вы отправляете issue, полезно сразу приложить такую информацию:
+
+```bash
+# Версия Voicebox
+# Посмотрите Help → About внутри приложения
+
+# Операционная система
+uname -a  # macOS/Linux
+systeminfo  # Windows
+
+# Версия Python (для dev-проблем)
+python --version
+
+# Информация о GPU
+nvidia-smi  # NVIDIA GPUs
+```

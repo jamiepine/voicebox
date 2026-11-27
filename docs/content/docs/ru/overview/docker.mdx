@@ -1,0 +1,265 @@
+---
+title: "Развёртывание в Docker"
+description: "Как запускать Voicebox как сервер без графической оболочки с веб-интерфейсом через Docker."
+---
+
+## Обзор
+
+Voicebox можно запускать в виде Docker-контейнера с полноценным веб-интерфейсом, без
+настольного приложения. Такой вариант особенно удобен для серверов без графической оболочки,
+общих GPU-машин и самостоятельно размещаемых развёртываний.
+
+## Быстрый старт
+
+```bash
+git clone https://github.com/jamiepine/voicebox.git
+cd voicebox
+docker compose up
+```
+
+После запуска откройте [http://localhost:17493](http://localhost:17493) в
+браузере. Полный интерфейс Voicebox будет раздаваться напрямую из бэкенда.
+
+<Callout type="info">
+  Первая сборка занимает несколько минут: нужно собрать фронтенд и установить
+  Python-зависимости. Последующие старты идут заметно быстрее благодаря
+  кэшированию Docker-слоёв.
+</Callout>
+
+## Как это устроено
+
+Docker-образ использует трёхэтапную сборку:
+
+1. **Frontend** — собирает React SPA через Bun и Vite
+2. **Backend** — устанавливает Python-зависимости и пакеты TTS-моделей
+3. **Runtime** — объединяет всё в минимальный образ с FastAPI-сервером
+
+Если собранный фронтенд присутствует, бэкенд автоматически раздаёт веб-интерфейс.
+Все API-маршруты работают так же, как и в desktop-версии.
+
+## Конфигурация
+
+### `docker-compose.yml`
+
+Файл по умолчанию слушает только localhost, подключает постоянные volume для
+данных и кэша моделей и задаёт разумные лимиты ресурсов:
+
+```yaml
+services:
+  voicebox:
+    build: .
+    container_name: voicebox
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:17493:17493"
+    volumes:
+      - ./output:/app/data/generations
+      - voicebox-data:/app/data
+      - huggingface-cache:/home/voicebox/.cache/huggingface
+    environment:
+      - LOG_LEVEL=info
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+```
+
+### Как открыть доступ из сети
+
+По умолчанию контейнер слушает только `127.0.0.1`. Чтобы к нему могли
+подключаться другие машины в вашей сети, измените проброс порта:
+
+```yaml
+ports:
+  - "0.0.0.0:17493:17493"
+```
+
+<Callout type="warn">
+  У API нет встроенной аутентификации. Открывайте его только в доверенные сети
+  или ставьте впереди обратный прокси с аутентификацией.
+</Callout>
+
+### Переменные окружения
+
+| Переменная | Значение по умолчанию | Назначение |
+|---|---|---|
+| `LOG_LEVEL` | `info` | Уровень логирования: `debug`, `info`, `warning`, `error` |
+| `VOICEBOX_MODELS_DIR` | кэш HuggingFace | Пользовательский путь для хранения моделей |
+| `VOICEBOX_CORS_ORIGINS` | локальные источники | Дополнительные CORS-источники через запятую |
+
+### Лимиты ресурсов
+
+По умолчанию compose-конфиг ограничивает контейнер 4 CPU и 8 ГБ RAM. Эти
+значения можно адаптировать под своё железо:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '8'
+      memory: 16G
+```
+
+<Callout type="info">
+  Инференс TTS-моделей прожорлив к памяти. 8 ГБ — это нижняя практическая
+  граница для запуска одного движка. Если вы хотите держать несколько движков
+  загруженными одновременно, лучше ориентироваться на 16 ГБ и выше.
+</Callout>
+
+## Volumes
+
+| Volume | Путь в контейнере | Назначение |
+|---|---|---|
+| `./output` | `/app/data/generations` | Сгенерированные аудиофайлы, доступные напрямую с хоста |
+| `voicebox-data` | `/app/data` | Профили, база данных, кэш |
+| `huggingface-cache` | `/home/voicebox/.cache/huggingface` | Скачанные модели, сохраняющиеся между пересборками |
+
+Volume `huggingface-cache` особенно важен: без него модели пришлось бы
+загружать заново при каждой пересборке контейнера.
+
+## Ускорение через GPU
+
+### NVIDIA GPU (CUDA)
+
+Чтобы использовать NVIDIA GPU внутри контейнера, установите
+[NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+и добавьте GPU-доступ в compose-конфиг:
+
+```yaml
+services:
+  voicebox:
+    build: .
+    # ... существующая конфигурация ...
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+```
+
+### AMD GPU (ROCm)
+
+Для AMD GPU используйте ROCm runtime:
+
+```yaml
+services:
+  voicebox:
+    build: .
+    # ... существующая конфигурация ...
+    devices:
+      - /dev/kfd
+      - /dev/dri
+    group_add:
+      - video
+```
+
+### Только CPU
+
+Конфигурация по умолчанию работает на CPU. Это полностью рабочий вариант, но
+генерация будет заметно медленнее. Самый быстрый движок для CPU-сценариев —
+LuxTTS.
+
+## Безопасность
+
+Docker-образ следует базовым security best practices:
+
+- **не-root пользователь** — сервер работает от пользователя `voicebox`, а не `root`
+- **привязка к localhost** — по умолчанию контейнер доступен только с хоста
+- **проверки здоровья** — сервер автоматически перезапускается, если зависает
+- **ограниченный CORS** — по умолчанию разрешены только локальные источники
+
+### Работа за обратным прокси
+
+Для production-развёртываний разумно ставить Voicebox за nginx или Caddy с TLS
+и аутентификацией:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name voicebox.example.com;
+
+    ssl_certificate /etc/ssl/certs/voicebox.pem;
+    ssl_certificate_key /etc/ssl/private/voicebox.key;
+
+    auth_basic "Voicebox";
+    auth_basic_user_file /etc/nginx/.htpasswd;
+
+    location / {
+        proxy_pass http://127.0.0.1:17493;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+## Типичные проблемы
+
+### Контейнер стартует, но UI показывает JSON
+
+Если вместо веб-интерфейса вы видите что-то вроде `{"message": "voicebox API", ...}`,
+скорее всего, во время Docker build не собрался фронтенд. Проверьте логи
+сборки:
+
+```bash
+docker compose build --no-cache
+```
+
+Ищите ошибки на этапе сборки фронтенда.
+
+### Модели скачиваются при каждом запуске заново
+
+Проверьте, что volume `huggingface-cache` действительно подключён. Без него
+кэш теряется после остановки контейнера:
+
+```yaml
+volumes:
+  - huggingface-cache:/home/voicebox/.cache/huggingface
+```
+
+### Недостаточно памяти
+
+TTS-модели большие. Если контейнер убивается системным OOM killer, увеличьте лимит:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      memory: 16G
+```
+
+### Порт уже занят
+
+```bash
+# Проверить, кто использует порт 17493
+lsof -i :17493
+
+# Или указать другой порт
+ports:
+  - "127.0.0.1:8080:17493"
+```
+
+## Готовые образы
+
+В будущем планируется публикация готовых Docker-образов в GitHub Container
+Registry, чтобы не приходилось собирать их локально:
+
+```bash
+# Пока ещё недоступно — появится в одном из будущих релизов
+docker run -p 17493:17493 ghcr.io/jamiepine/voicebox:latest
+```
+
+CPU-образ ожидается размером около 3-4 ГБ, а отдельный CUDA-тег — порядка
+6-8 ГБ. Для ML-контейнеров это нормально.
+
+Пока что используйте `docker compose up`, как описано выше.
+
+## Подключение desktop-приложения
+
+Настольный клиент Voicebox тоже можно использовать как фронтенд для бэкенда,
+запущенного в Docker. Для этого откройте **Settings → Server**, включите
+**Remote Mode** и укажите `http://<server-ip>:17493`.
+
+Подробности — в разделе [Remote Mode](/ru/overview/remote-mode).

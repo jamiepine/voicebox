@@ -1,0 +1,25 @@
+{
+  "title": "Обзор",
+  "defaultOpen": true,
+  "pages": [
+    "introduction",
+    "installation",
+    "gpu-acceleration",
+    "docker",
+    "quick-start",
+    "creating-voice-profiles",
+    "dictation",
+    "captures",
+    "recording-transcription",
+    "voice-cloning",
+    "preset-voices",
+    "mcp-server",
+    "voice-personalities",
+    "generating-speech",
+    "stories-editor",
+    "generation-history",
+    "building-stories",
+    "remote-mode",
+    "troubleshooting"
+  ]
+}

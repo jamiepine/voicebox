@@ -1,0 +1,305 @@
+---
+title: "MCP Server"
+description: "Как дать Claude Code, Cursor, Cline и другим агентам с поддержкой MCP возможность говорить одним из ваших голосов локально, без облака."
+---
+
+## Обзор
+
+В Voicebox встроен собственный сервер **Model Context Protocol**, поэтому
+локальные AI-агенты могут обращаться к установленному Voicebox напрямую:
+озвучивать текст через голосовой профиль, расшифровывать аудио и получать
+списки captures и profiles. Сервер работает в том же процессе, что и остальной
+Voicebox, и публикуется по пути `/mcp` через Streamable HTTP.
+
+Сценарий выглядит так: агент просит озвучить текст → Voicebox воспроизводит
+звук через ваши колонки → плавающая плашка показывает имя используемого голоса
+на всё время воспроизведения, чтобы вы всегда понимали, что именно звучит из
+системы.
+
+<Callout type="info">
+  MCP появился в версии **0.5.0** вместе с [Диктовкой](/ru/overview/dictation)
+  и [Характером голоса](/ru/overview/voice-personalities). Ключевая идея здесь
+  проста: один локальный голосовой слой для всех агентов на вашей машине.
+</Callout>
+
+## Быстрая установка
+
+### Claude Code
+
+```bash
+claude mcp add voicebox \
+  --transport http \
+  --url http://127.0.0.1:17493/mcp \
+  --header "X-Voicebox-Client-Id: claude-code"
+```
+
+### Cursor / Windsurf / VS Code MCP / любой HTTP MCP-клиент
+
+Добавьте это в MCP-конфиг клиента, обычно `.mcp.json` или соответствующий
+экран настроек:
+
+```json
+{
+  "mcpServers": {
+    "voicebox": {
+      "url": "http://127.0.0.1:17493/mcp",
+      "headers": { "X-Voicebox-Client-Id": "cursor" }
+    }
+  }
+}
+```
+
+Значение `cursor` можно заменить на любое удобное имя. Оно используется в
+Voicebox → Settings → MCP как идентификатор клиентской привязки голоса. Это
+не секрет и не учётные данные.
+
+### Клиенты, которые умеют только stdio
+
+В настольное приложение встроен stdio-мост `voicebox-mcp`. Укажите клиенту
+абсолютный путь к бинарнику:
+
+<Tabs items={["macOS", "Windows", "Linux"]}>
+  <Tab value="macOS">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "/Applications/Voicebox.app/Contents/MacOS/voicebox-mcp",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+  <Tab value="Windows">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "C:\\Program Files\\Voicebox\\voicebox-mcp.exe",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+  <Tab value="Linux">
+  ```json
+  {
+    "mcpServers": {
+      "voicebox": {
+        "command": "/opt/voicebox/voicebox-mcp",
+        "env": { "VOICEBOX_CLIENT_ID": "claude-desktop" }
+      }
+    }
+  }
+  ```
+  </Tab>
+</Tabs>
+
+Этот мост ждёт до 30 секунд, пока бэкенд Voicebox поднимется, а затем проксирует
+JSON-RPC из stdio в Streamable HTTP. Чтобы это работало, сам Voicebox должен
+быть запущен.
+
+## Инструменты
+
+| Инструмент | Назначение |
+|---|---|
+| `voicebox.speak` | Озвучить текст через голосовой профиль. Возвращает `generation_id` для последующего опроса. |
+| `voicebox.transcribe` | Расшифровать base64-аудио или локальный файл по абсолютному пути. |
+| `voicebox.list_captures` | Получить список недавних captures с транскриптами и пагинацией. |
+| `voicebox.list_profiles` | Получить доступные голосовые профили: клонированные и готовые. |
+
+### `voicebox.speak`
+
+Обязателен только `text`. `profile` можно передать по имени или id; если его
+не указать, Voicebox использует клиентскую привязку, а затем глобальный профиль
+по умолчанию. `engine` принимает значения `qwen`, `qwen_custom_voice`, `luxtts`,
+`chatterbox`, `chatterbox_turbo`, `tada` или `kokoro`. `personality: true`
+переписывает текст через personality LLM профиля перед TTS.
+
+```ts
+voicebox.speak({
+  text: "Deploy complete.",
+  profile: "Morgan",
+  engine: "qwen",
+  personality: true,
+  language: "en",
+})
+```
+
+Возвращает:
+
+```json
+{
+  "generation_id": "…",
+  "status": "generating",
+  "profile": "Morgan",
+  "source": "mcp",
+  "poll_url": "/generate/<id>/status"
+}
+```
+
+- **Обычный TTS** — `personality: false` или параметр не указан, а в привязке по умолчанию он выключен. Текст озвучивается как есть.
+- **Режим personality** — `personality: true`, и у профиля должно быть задано описание характера. Перед TTS локальная LLM переписывает текст в нужной манере. Подробности см. в разделе [Характер голоса](/ru/overview/voice-personalities).
+
+### `voicebox.transcribe`
+
+Передайте ровно один источник аудио: `audio_base64` или `audio_path`.
+Поля `language` и `model` необязательны; `model` принимает значения `base`,
+`small`, `medium`, `large` или `turbo`.
+
+```ts
+voicebox.transcribe({
+  audio_path: "/absolute/path/to/file.wav",
+  language: "en",
+  model: "turbo",
+})
+```
+
+Возвращает `{ text, duration, language, model }`. Лимит входных данных —
+200 МБ для обоих вариантов.
+
+### `voicebox.list_captures`
+
+`{ limit?: 20, offset?: 0 }` → `{ captures: [...], total }`.
+Параметр `limit` ограничивается диапазоном `1..=200`.
+
+### `voicebox.list_profiles`
+
+Без аргументов возвращает:
+`{ profiles: [{ id, name, voice_type, language, has_personality }] }`.
+
+## Как выбирается голос
+
+Каждый вызов `voicebox.speak` и `POST /speak` определяет профиль в таком
+порядке:
+
+<Steps>
+  <Step title="Явный аргумент `profile`">
+    Его можно передать по имени без учёта регистра или по id. Если имя или id
+    не совпадают ни с одним профилем, сервер возвращает ошибку и не делает
+    тихий переход на запасной вариант.
+  </Step>
+  <Step title="Привязка на уровне клиента">
+    Она определяется по заголовку `X-Voicebox-Client-Id` и настраивается в
+    **Voicebox → Settings → MCP**. Так можно закрепить Claude Code за одним
+    голосом, Cursor — за другим и так далее.
+  </Step>
+  <Step title="Глобальный голос по умолчанию">
+    `capture_settings.default_playback_voice_id` — тот же самый голос, который
+    используется действием "Play as voice" во вкладке Captures.
+  </Step>
+</Steps>
+
+Если ни один из трёх уровней не дал профиль, инструмент возвращает понятную
+ошибку с указанием, что нужно проверить Settings.
+
+## Привязки для разных клиентов
+
+Voicebox → Settings → MCP показывает по одной строке на каждый `client_id`,
+который уже обращался к серверу, а также готовые конфиги для копирования в
+агентские клиенты. Для каждой строки хранятся:
+
+| Поле | Назначение |
+|---|---|
+| `label` | Отображаемое имя в UI, например "Claude Code" |
+| `profile_id` | Голос, который используется, если `profile` явно не передан |
+| `default_engine` | Переопределение TTS-движка для этого клиента |
+| `default_personality` | Если `true`, `voicebox.speak` по умолчанию проходит через personality LLM профиля |
+| `last_seen_at` | Когда сервер в последний раз видел запрос от этого клиента |
+
+Поле `last_seen_at` заполняется автоматически middleware-слоем на каждом
+`/mcp/*`-запросе. Это удобно, когда вы не уверены, действительно ли клиент
+подключается к нужному экземпляру Voicebox.
+
+## Плашка воспроизведения
+
+Каждый speak-запрос от агента показывает ту же плавающую плашку, что и
+[Диктовка](/ru/overview/dictation), только в новом состоянии `Speaking`, где
+видны имя профиля и таймер воспроизведения. Это сделано намеренно: тихий
+фоновой TTS без явной индикации подрывает доверие, поэтому Voicebox всегда
+показывает, что именно произносится и каким голосом.
+
+Под капотом бэкенд рассылает события `speak-start` и `speak-end` через
+`GET /events/speak`, а `DictateWindow` подписывается на них по SSE.
+
+## REST-альтернатива без MCP
+
+`POST /speak` — это тонкая оболочка над тем же кодовым путём для клиентов,
+которые не умеют в MCP: shell-скриптов, ACP, A2A, GitHub Actions и других.
+
+```bash
+curl -X POST http://127.0.0.1:17493/speak \
+  -H 'Content-Type: application/json' \
+  -H 'X-Voicebox-Client-Id: ci' \
+  -d '{"text":"Build complete.","profile":"Morgan"}'
+```
+
+Тело запроса повторяет MCP-инструмент: `text`, необязательные `profile`,
+`engine`, `personality`, `language`. В ответ возвращается `GenerationResponse`
+того же вида, что и у `POST /generate`.
+
+## Отладка
+
+Чтобы проверить инструменты без участия полноценного агента, можно использовать
+MCP Inspector:
+
+```bash
+npx @modelcontextprotocol/inspector http://127.0.0.1:17493/mcp
+```
+
+Лучше всего начать с `voicebox.list_profiles`, чтобы убедиться, что всё
+подключено корректно, а затем вызвать `voicebox.speak` и проверить полный цикл:
+звук должен воспроизвестись, а генерация — появиться во вкладке Captures.
+
+<Callout type="info">
+  Если агент не может достучаться до сервера, первым делом проверьте, что
+  Voicebox вообще запущен. Бэкенд слушает запросы только пока открыто настольное приложение.
+</Callout>
+
+## Безопасность
+
+- **Только localhost.** По умолчанию сервер слушает `127.0.0.1`. Если вы
+  когда-нибудь начнёте публиковать его наружу, например в Remote Mode в
+  доверенной сети, стоит добавить bearer token или другой слой аутентификации.
+- **Аутентификации пока нет.** Любой локальный процесс, который может
+  подключиться к локальному loopback-интерфейсу, может вызвать MCP. Для однопользовательского
+  локального инструмента это приемлемая граница доверия, но на общих хостах
+  сценариях уже стоит быть аккуратнее.
+- **`audio_path` читает локальные пути без дополнительных ограничений** в
+  рамках той же локальной границы доверия. Если у вас чувствительная среда, безопаснее
+  использовать `audio_base64`.
+- **Этика клонирования голоса никуда не исчезает.** См. раздел
+  [Клонирование голоса](/ru/overview/voice-cloning#ограничения-и-ответственное-использование):
+  сам факт того, что агент может вызвать `voicebox.speak`, не отменяет вопроса
+  согласия на использование чужого голоса.
+
+## Технические заметки
+
+- **Transport:** Streamable HTTP, то есть формат MCP нового поколения после SSE
+- **Именование пакета:** пакет бэкенда называется `backend/mcp_server/`, а не
+  `mcp`, чтобы не конфликтовать с PyPI-пакетом `mcp`
+- **Dependencies:** `fastmcp>=3.0,<4.0`, `sse-starlette>=2.0`
+- **Lifespan:** при встраивании FastMCP в `FastAPI()` используется `lifespan=`,
+  потому что стандартные startup/shutdown decorators не совместимы с
+  менеджером сессий Streamable HTTP
+
+Полный технический разбор архитектуры лежит в `backend/mcp_server/README.md`.
+
+## Что дальше
+
+<Cards>
+  <Card title="Характер голоса" href="/ru/overview/voice-personalities">
+    Persona mode для агентов, которым нужно не просто озвучивать текст, а
+    преобразовывать его перед синтезом.
+  </Card>
+  <Card title="Диктовка" href="/ru/overview/dictation">
+    Та же плашка, которая показывает речь агента, используется и для вашей
+    диктовки — единая модель взаимодействия в обе стороны.
+  </Card>
+  <Card title="Записи" href="/ru/overview/captures">
+    Каждая агентская генерация тоже попадает во вкладку Captures, откуда её
+    можно переслушать, скачать и переиспользовать.
+  </Card>
+</Cards>
