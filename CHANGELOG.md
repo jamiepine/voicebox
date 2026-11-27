@@ -41,6 +41,7 @@
 
 ### Engines
 
+- **Japanese Chatterbox generation works in packaged builds.** The bundled server now collects `pykakasi` and its dictionary data (`--collect-all pykakasi` in `build_binary.py` and the committed `voicebox-server.spec`), so Japanese text no longer fails on missing pykakasi files in the frozen binary. — @stein3 ([#1228](https://github.com/jamiepine/voicebox/pull/1228); fixes [#922](https://github.com/jamiepine/voicebox/issues/922))
 - **OmniVoice TTS engine (non-commercial).** Adds k2-fsa/OmniVoice as an opt-in eighth engine: zero-shot cloning and attribute-based voice design (gender, age, pitch, accent) across the 23 languages Voicebox already lists, 24 kHz output. Its `HiggsAudioV2` codec only exists in transformers 5.x, so the modelling code is vendored under `backend/vendor/` and grafted onto the pinned 4.57 at load time; `omnivoice` installs `--no-deps` like Chatterbox and TADA. The weights are CC-BY-NC, so the engine is labelled non-commercial in the engine picker and model manager and is never a default. — @pippo73 ([#1062](https://github.com/jamiepine/voicebox/pull/1062); fixes [#380](https://github.com/jamiepine/voicebox/issues/380), [#517](https://github.com/jamiepine/voicebox/issues/517), [#791](https://github.com/jamiepine/voicebox/issues/791))
 
 ### Developer experience
