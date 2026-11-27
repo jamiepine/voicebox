@@ -120,6 +120,22 @@ In Remote Mode, the Voicebox desktop app (running on your local machine) communi
   The API currently has no authentication. Only use on trusted networks or with a VPN.
 </Callout>
 
+### Host and Origin checks
+
+The server rejects two kinds of request with `403`, so a web page open in a browser on the server or client machine can't drive the API:
+
+- **Unknown `Host` on a loopback connection.** A request that arrives on `127.0.0.1` or `::1` must name `localhost`, `127.0.0.1` or `[::1]` (any port) in its `Host` header. This blocks DNS rebinding, where a site points its own hostname at `127.0.0.1`. Requests that arrive on a LAN or public address, as in Remote Mode or Docker, accept any `Host`.
+- **Foreign `Origin`.** A request with an `Origin` header must come from the desktop app (`tauri://localhost`, `http(s)://tauri.localhost`), the Vite dev server, the server's own address (the web UI it serves), or an origin listed in `VOICEBOX_CORS_ORIGINS`. `Origin: null` (sandboxed iframes, `file://` pages) is rejected. Requests without an `Origin` header, such as curl, the `openai` SDK and MCP clients, are not affected.
+
+Every response also carries `X-Content-Type-Options: nosniff`.
+
+| Variable | Effect |
+|----------|--------|
+| `VOICEBOX_ALLOWED_HOSTS` | Comma-separated hostnames to accept besides the loopback names, for example `voicebox.example.com` behind a reverse proxy that forwards `Host`. Once set, the `Host` check applies to every connection, not only loopback ones. `*` turns the `Host` check off. |
+| `VOICEBOX_CORS_ORIGINS` | Comma-separated extra origins for browser clients on another origin. `*` turns the `Origin` check off. |
+
+A rejected request is logged as a `Rejected ...` warning naming the `Host` or `Origin` that failed.
+
 **Best Practices:**
 - Use a VPN (WireGuard, Tailscale) instead of exposing to the internet
 - Run behind a reverse proxy with authentication (nginx + basic auth)

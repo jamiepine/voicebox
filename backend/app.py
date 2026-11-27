@@ -104,13 +104,13 @@ if not os.environ.get("MIOPEN_LOG_LEVEL"):
 
 import torch
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__, config, database
 from .services import tts, transcribe, llm
 from .database import get_db
 from .utils.platform_detect import get_backend_type
 from .utils.progress import get_progress_manager
+from .utils.request_guard import configure_request_security
 # Re-exported for backwards compatibility with callers importing it from here.
 from .utils.http import safe_content_disposition as safe_content_disposition
 from .services.task_queue import create_background_task, init_queue
@@ -154,7 +154,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    _configure_cors(application)
+    configure_request_security(application)
     application.add_middleware(ClientIdMiddleware)
     register_routers(application)
     application.mount("/mcp", mcp_app)
@@ -162,29 +162,6 @@ def create_app() -> FastAPI:
     _mount_frontend(application)
 
     return application
-
-
-def _configure_cors(application: FastAPI) -> None:
-    """Set up CORS middleware with local-first defaults."""
-    default_origins = [
-        "http://localhost:5173",  # Vite dev server
-        "http://127.0.0.1:5173",
-        "http://localhost:17493",
-        "http://127.0.0.1:17493",
-        "tauri://localhost",  # Tauri webview (macOS)
-        "https://tauri.localhost",  # Tauri webview (Windows/Linux)
-        "http://tauri.localhost",  # Tauri webview (Windows, some builds)
-    ]
-    env_origins = os.environ.get("VOICEBOX_CORS_ORIGINS", "")
-    all_origins = default_origins + [o.strip() for o in env_origins.split(",") if o.strip()]
-
-    application.add_middleware(
-        CORSMiddleware,
-        allow_origins=all_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
 
 
 def _mount_frontend(application: FastAPI) -> None:
