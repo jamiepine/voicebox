@@ -31,8 +31,9 @@ def captured_request(monkeypatch):
     """
     captured = {}
 
-    async def fake_generate_speech(req, db):
+    async def fake_generate_speech(req, db, source=None):
         captured["req"] = req
+        captured["source"] = source
         return _FakeGeneration()
 
     monkeypatch.setattr(generations, "generate_speech", fake_generate_speech)
@@ -89,3 +90,17 @@ async def test_speak_rejects_invalid_model_size(captured_request):
             db=None,
         )
     assert "req" not in captured_request
+
+
+@pytest.mark.asyncio
+async def test_speak_records_mcp_source(captured_request):
+    await tools._speak(
+        profile_id="p1",
+        profile_name="Morgan",
+        text="hello",
+        engine="qwen",
+        language="en",
+        personality=False,
+        db=None,
+    )
+    assert captured_request["source"] == "mcp"

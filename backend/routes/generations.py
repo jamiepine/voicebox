@@ -53,7 +53,11 @@ def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
     return data.engine or profiles.default_engine_for_profile(profile)
 
 
-@router.post("/generate", response_model=models.GenerationResponse)
+@router.post(
+    "/generate",
+    response_model=models.GenerationResponse,
+    operation_id="generate_speech_generate_post",
+)
 async def generate_speech_endpoint(
     data: models.GenerationRequest,
     db: Session = Depends(get_db),
