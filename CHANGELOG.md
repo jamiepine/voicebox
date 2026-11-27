@@ -19,6 +19,7 @@
 ### Text-to-speech
 
 - **Design a voice from a written description.** The profile form gains a third source, "Describe a voice", next to clone-from-audio and built-in voice: write the voice you want ("a warm, gravelly older man with a slow Scottish lilt") and the profile is created as a `designed` voice backed by the new `qwen_voice_design` engine (Qwen3-TTS-12Hz-1.7B-VoiceDesign, 10 languages, local, Apache-2.0 weights). Designed profiles work everywhere a profile does: `/generate`, `/speak`, MCP `voicebox_speak`, stories, and dictation TTS. A per-generation instruct layers onto the description instead of replacing it. — @Lvigentini ([#1012](https://github.com/jamiepine/voicebox/pull/1012))
+- **Chatterbox Multilingual chunks long non-Latin text by UTF-8 bytes.** Long-text chunking counted characters, so Hindi, Arabic and other non-Latin scripts produced chunks far larger than the engine handles, and sentence splitting only recognised `.!?` and CJK punctuation. Chatterbox now measures `max_chunk_chars` in UTF-8 bytes (other engines keep counting characters), sentence boundaries include the Devanagari danda and Arabic and full-width marks, bracket tags stay whole when a chunk is hard-cut, and queued, sync and streaming generation all use the same engine-aware chunker. — @ousamabenyounes ([#1082](https://github.com/jamiepine/voicebox/pull/1082); fixes [#1066](https://github.com/jamiepine/voicebox/issues/1066))
 
 ### Dictation and agents
 
