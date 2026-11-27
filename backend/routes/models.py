@@ -65,6 +65,15 @@ def _resolve_model_config(model_name: str):
     return config
 
 
+def _ensure_engine_available(engine: str) -> None:
+    """Raise a 400 when *engine* can't run on this machine."""
+    from ..backends import engine_unavailable_reason
+
+    reason = engine_unavailable_reason(engine)
+    if reason:
+        raise HTTPException(status_code=400, detail=reason)
+
+
 @router.post("/models/load")
 async def load_model(
     request: models.ModelLoadRequest | None = None,
@@ -87,6 +96,7 @@ async def load_model(
 
     if requested_name is not None:
         config = _resolve_model_config(requested_name)
+        _ensure_engine_available(config.engine)
         try:
             await track_model_download(config, get_model_load_func(config))
         except Exception as e:
@@ -306,7 +316,7 @@ async def get_model_status():
     except ImportError:
         use_scan_cache = False
 
-    from ..backends import get_all_model_configs, check_model_loaded
+    from ..backends import check_model_loaded, engine_unavailable_reason, get_all_model_configs
     from ..backends.base import ANY_WEIGHT_EXTENSIONS, is_model_cached
     from ..utils.download_state import repo_cache_dir
 
@@ -318,6 +328,8 @@ async def get_model_status():
             "hf_repo_id": cfg.hf_repo_id,
             "aux_hf_repo_ids": cfg.aux_hf_repo_ids,
             "model_size": cfg.model_size,
+            "engine": cfg.engine,
+            "unavailable_reason": engine_unavailable_reason(cfg.engine),
             "check_loaded": lambda c=cfg: check_model_loaded(c),
         }
         for cfg in registry_configs
@@ -386,6 +398,9 @@ async def get_model_status():
                     downloading=is_downloading,
                     size_mb=size_mb,
                     loaded=loaded,
+                    engine=config["engine"],
+                    available=config["unavailable_reason"] is None,
+                    unavailable_reason=config["unavailable_reason"],
                 )
             )
         except Exception:
@@ -405,6 +420,9 @@ async def get_model_status():
                     downloading=is_downloading,
                     size_mb=None,
                     loaded=loaded,
+                    engine=config["engine"],
+                    available=config["unavailable_reason"] is None,
+                    unavailable_reason=config["unavailable_reason"],
                 )
             )
 
@@ -422,6 +440,7 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     config = get_model_config(request.model_name)
     if not config:
         raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_name}")
+    _ensure_engine_available(config.engine)
 
     load_func = get_model_load_func(config)
 

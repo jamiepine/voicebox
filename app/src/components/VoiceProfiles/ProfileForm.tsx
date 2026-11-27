@@ -51,6 +51,7 @@ import {
 } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
+import { useUnavailableEngines } from '@/lib/hooks/useUnavailableEngines';
 import { convertToWav, formatAudioDuration, getAudioDuration } from '@/lib/utils/audio';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
@@ -299,6 +300,7 @@ export function ProfileForm() {
   const availableDefaultEngines = DEFAULT_ENGINE_OPTIONS.filter(
     (option) => !isSampleBasedProfile || !PRESET_ONLY_ENGINES.has(option.value),
   );
+  const unavailableEngines = useUnavailableEngines();
 
   // Show recording errors
   useEffect(() => {
@@ -1382,11 +1384,23 @@ export function ProfileForm() {
                         <SelectItem value="_none">
                           {t('profileForm.fields.noPreference')}
                         </SelectItem>
-                        {availableDefaultEngines.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
+                        {availableDefaultEngines.map((option) => {
+                          const unavailableReason = unavailableEngines.get(option.value);
+                          return (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                              disabled={unavailableReason !== undefined}
+                            >
+                              {option.label}
+                              {unavailableReason && (
+                                <span className="block text-xs text-muted-foreground">
+                                  {unavailableReason}
+                                </span>
+                              )}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">

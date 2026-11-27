@@ -511,6 +511,9 @@ class ModelStatus(BaseModel):
     downloading: bool = False  # True if download is in progress
     size_mb: Optional[float] = None
     loaded: bool = False
+    engine: Optional[str] = None
+    available: bool = True
+    unavailable_reason: Optional[str] = None
 
 
 class ModelStatusListResponse(BaseModel):

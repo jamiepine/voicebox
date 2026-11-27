@@ -358,6 +358,9 @@ export interface ModelStatus {
   downloading: boolean; // True if download is in progress
   size_mb?: number;
   loaded: boolean;
+  engine?: string;
+  available?: boolean;
+  unavailable_reason?: string;
 }
 
 export interface HuggingFaceModelInfo {

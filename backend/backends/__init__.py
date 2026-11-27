@@ -24,7 +24,7 @@ import numpy as np
 DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
 
-from ..utils.platform_detect import get_backend_type
+from ..utils.platform_detect import get_backend_type, is_intel_mac
 
 logger = logging.getLogger(__name__)
 
@@ -249,6 +249,17 @@ TTS_ENGINES = {
 LLM_ENGINES = {
     "qwen_llm": "Qwen3 LLM",
 }
+
+# The vendored Higgs Audio V2 codec uses torch.nn.Buffer (added in torch 2.5),
+# and PyTorch's last x86_64 macOS wheel is 2.2.2.
+OMNIVOICE_INTEL_MAC_REASON = "OmniVoice needs PyTorch 2.5 or newer, which isn't available for Intel Macs."
+
+
+def engine_unavailable_reason(engine: str) -> Optional[str]:
+    """Why *engine* can't run on this machine, or None when it can."""
+    if engine == "omnivoice" and is_intel_mac():
+        return OMNIVOICE_INTEL_MAC_REASON
+    return None
 
 
 def _get_qwen_model_configs() -> list[ModelConfig]:
