@@ -7,6 +7,11 @@
 
 ## [Unreleased]
 
+### macOS
+
+- **0.7 is the last release with an Intel macOS build.** Later releases ship for Apple Silicon only. Intel Macs stay on PyTorch 2.2.2, the last x86_64 macOS wheel PyTorch published, so the CVE-2026-24747 caveat still applies there: only load models from sources you trust. ([CVE-2026-24747](https://nvd.nist.gov/vuln/detail/CVE-2026-24747))
+- **OmniVoice is disabled on Intel Macs.** Its bundled Higgs Audio V2 codec needs PyTorch 2.5 or newer, which Intel Macs can't install. On Intel macOS, `/models/status` reports OmniVoice with `available: false` and an `unavailable_reason`, and generating with, loading or downloading OmniVoice returns a 400 with that reason instead of starting a download that can't load. The engine picker, the profile default-engine picker and the Models page show OmniVoice greyed out with the reason. Apple Silicon, Windows and Linux are unchanged.
+
 ### Text-to-speech
 
 - **Design a voice from a written description.** The profile form gains a third source, "Describe a voice", next to clone-from-audio and built-in voice: write the voice you want ("a warm, gravelly older man with a slow Scottish lilt") and the profile is created as a `designed` voice backed by the new `qwen_voice_design` engine (Qwen3-TTS-12Hz-1.7B-VoiceDesign, 10 languages, local, Apache-2.0 weights). Designed profiles work everywhere a profile does: `/generate`, `/speak`, MCP `voicebox_speak`, stories, and dictation TTS. A per-generation instruct layers onto the description instead of replacing it. — @Lvigentini ([#1012](https://github.com/jamiepine/voicebox/pull/1012))

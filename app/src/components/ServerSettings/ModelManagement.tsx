@@ -570,6 +570,11 @@ export function ModelManagement() {
                       {/* Name + inline progress */}
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium">{model.display_name}</span>
+                        {model.unavailable_reason && (
+                          <div className="text-xs text-muted-foreground">
+                            {model.unavailable_reason}
+                          </div>
+                        )}
                         {isDownloading &&
                           (() => {
                             const dl = downloadProgressMap.get(model.model_name);
@@ -806,6 +811,12 @@ export function ModelManagement() {
                   </div>
                 )}
 
+                {freshSelectedModel.unavailable_reason && (
+                  <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
+                    {freshSelectedModel.unavailable_reason}
+                  </div>
+                )}
+
                 {/* Error detail */}
                 {selectedError?.error && (
                   <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive">
@@ -822,6 +833,7 @@ export function ModelManagement() {
                         onClick={() => handleDownload(freshSelectedModel.model_name)}
                         variant="outline"
                         className="flex-1"
+                        disabled={freshSelectedModel.available === false}
                       >
                         <Download className="h-4 w-4 mr-2" />
                         {t('models.actions.retry')}
@@ -919,6 +931,7 @@ export function ModelManagement() {
                       size="sm"
                       onClick={() => handleDownload(freshSelectedModel.model_name)}
                       className="flex-1"
+                      disabled={freshSelectedModel.available === false}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       {t('models.actions.download')}

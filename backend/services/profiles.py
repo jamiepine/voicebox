@@ -139,6 +139,12 @@ def default_engine_for_profile(profile) -> str:
 
 
 def validate_profile_engine(profile, engine: str) -> None:
+    from ..backends import engine_unavailable_reason
+
+    unavailable = engine_unavailable_reason(engine)
+    if unavailable:
+        raise ValueError(unavailable)
+
     voice_type = getattr(profile, "voice_type", None) or "cloned"
 
     if voice_type == "preset":
