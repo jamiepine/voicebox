@@ -15,6 +15,8 @@ Underneath, the local API is harder to reach from places it shouldn't be. Reques
 
 ### Voice design
 
+- **Reuse prepared reference audio for multi-sample voices.** Repeated generations reuse the combined WAV when sample content, transcripts, order and engine are unchanged; edits invalidate it and bypassing the cache still rebuilds it. Reference decoding, hashing and WAV writes run off the API event loop, and combined WAVs are published atomically.
+
 - **Design a voice from a written description.** The profile form gains a third source, "Describe a voice", next to clone-from-audio and built-in voice: write the voice you want ("a warm, gravelly older man with a slow Scottish lilt") and the profile is created as a `designed` voice backed by the new `qwen_voice_design` engine (Qwen3-TTS-12Hz-1.7B-VoiceDesign, 10 languages, local, Apache-2.0 weights). Designed profiles work everywhere a profile does: `/generate`, `/speak`, MCP `voicebox_speak`, stories, and dictation TTS. A per-generation instruct layers onto the description instead of replacing it. — @Lvigentini ([#1012](https://github.com/jamiepine/voicebox/pull/1012))
 - **Edits to a designed voice's description are saved.** `PUT /profiles/{id}` used to validate against the stored `design_prompt` and return 200 with the old text. It now saves the supplied description after the same validation, rejects a blank one with 400, and keeps the stored value when the field is omitted. The profile edit form now shows a designed voice's description in an editable field and saves it, instead of displaying it read-only. — @zhangkom ([#1268](https://github.com/jamiepine/voicebox/pull/1268); fixes [#1262](https://github.com/jamiepine/voicebox/issues/1262))
 

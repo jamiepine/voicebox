@@ -1,5 +1,7 @@
 """Voice profile management module."""
 
+import asyncio
+import hashlib
 import json as _json
 import logging
 import shutil
@@ -26,7 +28,7 @@ from ..models import (
     VoiceProfileResponse,
 )
 from ..utils.audio import save_audio, validate_and_load_reference_audio
-from ..utils.cache import _get_cache_dir, clear_profile_cache
+from ..utils.cache import _get_cache_dir, clear_profile_cache, get_cache_key
 from ..utils.images import process_avatar, validate_image
 from . import history
 
@@ -664,23 +666,32 @@ async def create_voice_prompt_for_profile(
         audio_paths.append(str(sample_audio_path))
     reference_texts = [s.reference_text for s in samples]
 
-    combined_audio, combined_text = await tts_model.combine_voice_prompts(
-        audio_paths,
-        reference_texts,
-    )
+    # Preserve sample order and include content, transcripts and engine. Sample
+    # IDs alone cannot safely identify reusable audio after an edit/replacement.
+    def reference_keys():
+        return [get_cache_key(path, reference) for path, reference in zip(audio_paths, reference_texts, strict=True)]
 
-    # Save combined audio to cache directory (persistent)
-    # Create a hash of sample IDs to identify this specific combination
-    import hashlib
-
-    sample_ids_str = "-".join(sorted([s.id for s in samples]))
-    combination_hash = hashlib.md5(sample_ids_str.encode()).hexdigest()[:12]
+    sample_keys = await asyncio.to_thread(reference_keys)
+    combination_hash = hashlib.sha256((engine + "-" + "-".join(sample_keys)).encode()).hexdigest()[:16]
 
     cache_dir = _get_cache_dir()
     cache_dir.mkdir(parents=True, exist_ok=True)
     combined_path = cache_dir / f"combined_{profile_id}_{combination_hash}.wav"
+    combined_text = " ".join(reference_texts)
 
-    save_audio(combined_audio, str(combined_path), 24000)
+    if not use_cache or not combined_path.is_file():
+        combined_audio, combined_text = await tts_model.combine_voice_prompts(audio_paths, reference_texts)
+
+        def save_combined_audio():
+            # A reader must never mistake a partially written WAV for a hit.
+            temporary_path = combined_path.with_name(f".{combined_path.stem}.{uuid.uuid4().hex}.tmp.wav")
+            try:
+                save_audio(combined_audio, str(temporary_path), 24000)
+                temporary_path.replace(combined_path)
+            finally:
+                temporary_path.unlink(missing_ok=True)
+
+        await asyncio.to_thread(save_combined_audio)
 
     voice_prompt, _ = await tts_model.create_voice_prompt(
         str(combined_path),
