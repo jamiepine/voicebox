@@ -46,7 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --no-cache-dir --upgrade pip
 
-COPY backend/requirements.txt .
+COPY backend/requirements.txt backend/requirements-nodeps.txt ./
 
 # ROCm wheel index. 7.2 is the oldest PyTorch ROCm index with torch>=2.10
 # (the CVE-2026-24747 floor in requirements.txt); the 6.x indexes stop at 2.9.1.
@@ -62,9 +62,7 @@ RUN if [ "$PYTORCH_VARIANT" = "rocm" ]; then \
     fi
 
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-RUN pip install --no-cache-dir --prefix=/install --no-deps chatterbox-tts
-RUN pip install --no-cache-dir --prefix=/install --no-deps hume-tada
-RUN pip install --no-cache-dir --prefix=/install --no-deps omnivoice
+RUN pip install --no-cache-dir --prefix=/install --no-deps -r requirements-nodeps.txt
 RUN pip install --no-cache-dir --prefix=/install \
     git+https://github.com/QwenLM/Qwen3-TTS.git
 
