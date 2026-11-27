@@ -27,7 +27,8 @@ _SECRET_PARAM_PARTS = (
     "session",
 )
 
-_URL_IN_TEXT = re.compile(r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s<>`]+")
+_SCHEME = r"[a-zA-Z][a-zA-Z0-9+.\-]*://"
+_URL_IN_TEXT = re.compile(rf"{_SCHEME}(?:(?!{_SCHEME})[^\s<>`])+")
 _URL_TRAILING_PUNCTUATION = "'\".,;:!)]}"
 _FALLBACK_USERINFO = re.compile(r"(//)[^/?#\s]*@")
 _FALLBACK_QUERY = re.compile(r"([?#])\S*")
@@ -68,9 +69,10 @@ def redact_url(url: str) -> str:
         schemeless = "://" not in url and not url.startswith(("/", "?", "#"))
         parts = urlsplit(f"//{url}" if schemeless else url)
         netloc = parts.netloc.rpartition("@")[2]
+        path = _redact_params(parts.path) if "=" in parts.path else parts.path
         query = _redact_params(parts.query)
         fragment = _redact_params(parts.fragment) if "=" in parts.fragment else parts.fragment
-        redacted = urlunsplit((parts.scheme, netloc, parts.path, query, fragment))
+        redacted = urlunsplit((parts.scheme, netloc, path, query, fragment))
         if schemeless and redacted.startswith("//"):
             redacted = redacted[2:]
         return redacted
