@@ -11,6 +11,7 @@
 /** All languages that any engine supports. */
 export const ALL_LANGUAGES = {
   ar: 'Arabic',
+  bn: 'Bengali',
   da: 'Danish',
   de: 'German',
   el: 'Greek',
