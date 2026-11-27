@@ -1,5 +1,7 @@
 # Contributing to Voicebox
 
+**English** · [Español](CONTRIBUTING.es.md)
+
 Thank you for your interest in contributing to Voicebox! This document provides guidelines and instructions for contributing.
 
 ## Code of Conduct
