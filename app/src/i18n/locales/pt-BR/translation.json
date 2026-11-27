@@ -698,7 +698,51 @@
       "sourcePlaceholder": "Selecione a versão de origem",
       "apply": "Aplicar",
       "applying": "Aplicando…"
+    },
+    "endOfList": "Você chegou ao fim",
+    "status": {
+      "failed": "Falhou",
+      "generating": "Gerando…",
+      "loadingModel": "Carregando modelo…"
+    },
+    "failedSummary": {
+      "count_one": "{{count}} geração com falha",
+      "count_other": "{{count}} gerações com falha",
+      "clear": "Limpar falhas",
+      "clearing": "Limpando…"
+    },
+    "row": {
+      "generatingLabel": "Gerando fala para {{name}}…",
+      "failedLabel": "Falha na geração para {{name}}",
+      "playLabel": "Amostra de {{name}}, {{duration}}, {{date}}. Pressione Enter para reproduzir.",
+      "playingLabel": "Amostra de {{name}}, {{duration}}, {{date}}. Reproduzindo. Pressione Enter para reiniciar.",
+      "transcriptLabel": "Transcrição da amostra de {{name}}, {{duration}}",
+      "favorite": "Favoritar",
+      "unfavorite": "Remover dos favoritos",
+      "toggleVersions": "Mostrar ou ocultar versões",
+      "retry": "Tentar gerar novamente",
+      "delete": "Excluir geração",
+      "cancel": "Cancelar geração"
+    },
+    "versions": {
+      "from": "de {{label}}",
+      "active": "ativa"
     }
+  },
+  "audioPlayer": {
+    "play": "Reproduzir",
+    "pause": "Pausar",
+    "notLoaded": "Áudio não carregado",
+    "position": "Posição da reprodução",
+    "positionValue": "{{current}} de {{total}}",
+    "toggleLoop": "Alternar repetição",
+    "loop": "Repetir",
+    "stopLooping": "Parar de repetir",
+    "volume": "Volume",
+    "volumeLevel": "Nível de volume, {{percent}}%",
+    "mute": "Silenciar",
+    "unmute": "Ativar som",
+    "close": "Fechar player"
   },
   "generation": {
     "placeholder": {

@@ -698,7 +698,51 @@
       "sourcePlaceholder": "Select source version",
       "apply": "Apply",
       "applying": "Applying…"
+    },
+    "endOfList": "You've reached the end",
+    "status": {
+      "failed": "Failed",
+      "generating": "Generating...",
+      "loadingModel": "Loading model..."
+    },
+    "failedSummary": {
+      "count_one": "{{count}} failed generation",
+      "count_other": "{{count}} failed generations",
+      "clear": "Clear failed",
+      "clearing": "Clearing..."
+    },
+    "row": {
+      "generatingLabel": "Generating speech for {{name}}...",
+      "failedLabel": "Generation failed for {{name}}",
+      "playLabel": "Sample from {{name}}, {{duration}}, {{date}}. Press Enter to play.",
+      "playingLabel": "Sample from {{name}}, {{duration}}, {{date}}. Playing. Press Enter to restart.",
+      "transcriptLabel": "Transcript for sample from {{name}}, {{duration}}",
+      "favorite": "Favorite",
+      "unfavorite": "Unfavorite",
+      "toggleVersions": "Toggle versions",
+      "retry": "Retry generation",
+      "delete": "Delete generation",
+      "cancel": "Cancel generation"
+    },
+    "versions": {
+      "from": "from {{label}}",
+      "active": "active"
     }
+  },
+  "audioPlayer": {
+    "play": "Play",
+    "pause": "Pause",
+    "notLoaded": "Audio not loaded",
+    "position": "Playback position",
+    "positionValue": "{{current}} of {{total}}",
+    "toggleLoop": "Toggle loop",
+    "loop": "Loop",
+    "stopLooping": "Stop looping",
+    "volume": "Volume",
+    "volumeLevel": "Volume level, {{percent}}%",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "close": "Close player"
   },
   "generation": {
     "placeholder": {

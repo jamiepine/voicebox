@@ -448,7 +448,7 @@ export function HistoryTable() {
           {failedCount > 0 && (
             <div className="flex items-center justify-between px-1 pb-2">
               <span className="text-xs text-muted-foreground">
-                {failedCount} failed {failedCount === 1 ? 'generation' : 'generations'}
+                {t('history.failedSummary.count', { count: failedCount })}
               </span>
               <Button
                 variant="ghost"
@@ -458,7 +458,9 @@ export function HistoryTable() {
                 disabled={clearFailed.isPending}
               >
                 <Trash2 className="h-3 w-3 mr-1.5" />
-                {clearFailed.isPending ? 'Clearing...' : 'Clear failed'}
+                {clearFailed.isPending
+                  ? t('history.failedSummary.clearing')
+                  : t('history.failedSummary.clear')}
               </Button>
             </div>
           )}
@@ -501,12 +503,20 @@ export function HistoryTable() {
                     )}
                     aria-label={
                       isGenerating
-                        ? `Generating speech for ${gen.profile_name}...`
+                        ? t('history.row.generatingLabel', { name: gen.profile_name })
                         : isFailed
-                          ? `Generation failed for ${gen.profile_name}`
+                          ? t('history.row.failedLabel', { name: gen.profile_name })
                           : isCurrentlyPlaying
-                            ? `Sample from ${gen.profile_name}, ${formatDuration(gen.duration ?? 0)}, ${formatDate(gen.created_at)}. Playing. Press Enter to restart.`
-                            : `Sample from ${gen.profile_name}, ${formatDuration(gen.duration ?? 0)}, ${formatDate(gen.created_at)}. Press Enter to play.`
+                            ? t('history.row.playingLabel', {
+                                name: gen.profile_name,
+                                duration: formatDuration(gen.duration ?? 0),
+                                date: formatDate(gen.created_at),
+                              })
+                            : t('history.row.playLabel', {
+                                name: gen.profile_name,
+                                duration: formatDuration(gen.duration ?? 0),
+                                date: formatDate(gen.created_at),
+                              })
                     }
                     onMouseDown={(e) => {
                       if (!isPlayable) return;
@@ -544,7 +554,9 @@ export function HistoryTable() {
                           {formatEngineName(gen.engine, gen.model_size)}
                         </span>
                         {isFailed ? (
-                          <span className="text-xs text-destructive">Failed</span>
+                          <span className="text-xs text-destructive">
+                            {t('history.status.failed')}
+                          </span>
                         ) : !isGenerating ? (
                           <span className="text-xs text-muted-foreground">
                             {formatDuration(gen.duration ?? 0)}
@@ -554,7 +566,9 @@ export function HistoryTable() {
                       <div className="text-xs text-muted-foreground">
                         {isInProgress ? (
                           <span className="text-accent">
-                            {gen.status === 'loading_model' ? 'Loading model...' : 'Generating...'}
+                            {gen.status === 'loading_model'
+                              ? t('history.status.loadingModel')
+                              : t('history.status.generating')}
                           </span>
                         ) : (
                           formatDate(gen.created_at)
@@ -568,7 +582,10 @@ export function HistoryTable() {
                         value={gen.text}
                         className="flex-1 resize-none text-sm text-muted-foreground select-text"
                         readOnly
-                        aria-label={`Transcript for sample from ${gen.profile_name}, ${formatDuration(gen.duration ?? 0)}`}
+                        aria-label={t('history.row.transcriptLabel', {
+                          name: gen.profile_name,
+                          duration: formatDuration(gen.duration ?? 0),
+                        })}
                       />
                     </div>
 
@@ -585,7 +602,9 @@ export function HistoryTable() {
                           'h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground',
                           gen.is_favorited && 'text-accent hover:text-accent',
                         )}
-                        aria-label={gen.is_favorited ? 'Unfavorite' : 'Favorite'}
+                        aria-label={
+                          gen.is_favorited ? t('history.row.unfavorite') : t('history.row.favorite')
+                        }
                         onClick={() => handleToggleFavorite(gen.id)}
                       >
                         <Star
@@ -601,7 +620,7 @@ export function HistoryTable() {
                             'h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground',
                             isVersionsExpanded && 'text-accent hover:text-accent',
                           )}
-                          aria-label="Toggle versions"
+                          aria-label={t('history.row.toggleVersions')}
                           onClick={() => setExpandedVersionsId(isVersionsExpanded ? null : gen.id)}
                         >
                           <AudioLines className="h-2 w-2" />
@@ -614,7 +633,7 @@ export function HistoryTable() {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
-                            aria-label="Retry generation"
+                            aria-label={t('history.row.retry')}
                             onClick={() => handleRetry(gen.id)}
                           >
                             <RotateCcw className="h-2 w-2" />
@@ -623,7 +642,7 @@ export function HistoryTable() {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
-                            aria-label="Delete generation"
+                            aria-label={t('history.row.delete')}
                             disabled={deleteGeneration.isPending}
                             onClick={() => handleDeleteClick(gen.id, gen.profile_name)}
                           >
@@ -635,7 +654,7 @@ export function HistoryTable() {
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6 text-muted-foreground/50 hover:bg-muted-foreground/20 hover:text-muted-foreground"
-                          aria-label="Cancel generation"
+                          aria-label={t('history.row.cancel')}
                           disabled={isCancelling}
                           onClick={() => cancelGeneration.mutate(gen.id)}
                         >
@@ -750,13 +769,13 @@ export function HistoryTable() {
                                   )}
                                   {showSource && (
                                     <span className="text-[10px] text-muted-foreground/60 truncate">
-                                      from {sourceVersion.label}
+                                      {t('history.versions.from', { label: sourceVersion.label })}
                                     </span>
                                   )}
                                   <span className="flex-1" />
                                   {v.is_default && (
                                     <span className="text-[10px] bg-accent/15 text-accent px-1.5 py-0.5 rounded-full">
-                                      active
+                                      {t('history.versions.active')}
                                     </span>
                                   )}
                                 </button>
@@ -781,7 +800,7 @@ export function HistoryTable() {
             {/* End of list indicator */}
             {!hasMore && history.length > 0 && (
               <div className="text-center py-4 text-xs text-muted-foreground">
-                You've reached the end
+                {t('history.endOfList')}
               </div>
             )}
           </div>

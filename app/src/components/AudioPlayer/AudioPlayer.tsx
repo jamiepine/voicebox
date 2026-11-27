@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Pause, Play, Repeat, Volume2, VolumeX, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import WaveSurfer from 'wavesurfer.js';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -11,6 +12,7 @@ import { usePlatform } from '@/platform/PlatformContext';
 import { usePlayerStore } from '@/stores/playerStore';
 
 export function AudioPlayer() {
+  const { t } = useTranslation();
   const platform = usePlatform();
   const volumeLabelId = useId();
   const {
@@ -532,9 +534,13 @@ export function AudioPlayer() {
             onClick={handlePlayPause}
             disabled={isLoading || duration === 0}
             className={`shrink-0 -mt-2 ${isPlaying ? 'bg-accent text-accent-foreground' : ''}`}
-            title={duration === 0 && !isLoading ? 'Audio not loaded' : ''}
+            title={duration === 0 && !isLoading ? t('audioPlayer.notLoaded') : ''}
             aria-label={
-              duration === 0 && !isLoading ? 'Audio not loaded' : isPlaying ? 'Pause' : 'Play'
+              duration === 0 && !isLoading
+                ? t('audioPlayer.notLoaded')
+                : isPlaying
+                  ? t('audioPlayer.pause')
+                  : t('audioPlayer.play')
             }
           >
             {isPlaying ? (
@@ -553,8 +559,11 @@ export function AudioPlayer() {
               max={100}
               step={0.1}
               className="w-full"
-              aria-label="Playback position"
-              aria-valuetext={`${formatAudioDuration(currentTime)} of ${formatAudioDuration(duration)}`}
+              aria-label={t('audioPlayer.position')}
+              aria-valuetext={t('audioPlayer.positionValue', {
+                current: formatAudioDuration(currentTime),
+                total: formatAudioDuration(duration),
+              })}
             />
 
             {error && <div className="text-xs text-destructive text-center py-2">{error}</div>}
@@ -573,8 +582,8 @@ export function AudioPlayer() {
             size="icon"
             onClick={toggleLoop}
             className={isLooping ? 'bg-accent text-accent-foreground' : ''}
-            title="Toggle loop"
-            aria-label={isLooping ? 'Stop looping' : 'Loop'}
+            title={t('audioPlayer.toggleLoop')}
+            aria-label={isLooping ? t('audioPlayer.stopLooping') : t('audioPlayer.loop')}
           >
             <Repeat className="h-4 w-4" />
           </Button>
@@ -583,19 +592,19 @@ export function AudioPlayer() {
           <div
             className="flex items-center gap-2 shrink-0 w-[120px]"
             role="group"
-            aria-label="Volume"
+            aria-label={t('audioPlayer.volume')}
           >
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setVolume(volume > 0 ? 0 : 1)}
               className="h-8 w-8"
-              aria-label={volume > 0 ? 'Mute' : 'Unmute'}
+              aria-label={volume > 0 ? t('audioPlayer.mute') : t('audioPlayer.unmute')}
             >
               {volume > 0 ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </Button>
             <span id={volumeLabelId} className="sr-only">
-              Volume level, {Math.round(volume * 100)}%
+              {t('audioPlayer.volumeLevel', { percent: Math.round(volume * 100) })}
             </span>
             <Slider
               value={[volume * 100]}
@@ -614,8 +623,8 @@ export function AudioPlayer() {
             size="icon"
             onClick={handleClose}
             className="shrink-0"
-            title="Close player"
-            aria-label="Close player"
+            title={t('audioPlayer.close')}
+            aria-label={t('audioPlayer.close')}
           >
             <X className="h-5 w-5" />
           </Button>
