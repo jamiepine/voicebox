@@ -40,19 +40,9 @@ export function useModelDownloadToast({
   }, []);
 
   useEffect(() => {
-    console.log('[useModelDownloadToast] useEffect triggered', {
-      enabled,
-      serverUrl,
-      modelName,
-      displayName,
-    });
-
     if (!enabled || !serverUrl || !modelName) {
-      console.log('[useModelDownloadToast] Not enabled, skipping');
       return;
     }
-
-    console.log('[useModelDownloadToast] Creating toast and EventSource for:', modelName);
 
     // Create initial toast
     const toastResult = toast({
@@ -70,15 +60,9 @@ export function useModelDownloadToast({
 
     // Subscribe to progress updates via Server-Sent Events
     const eventSourceUrl = `${serverUrl}/models/progress/${modelName}`;
-    console.log('[useModelDownloadToast] Creating EventSource to:', eventSourceUrl);
     const eventSource = new EventSource(eventSourceUrl);
 
-    eventSource.onopen = () => {
-      console.log('[useModelDownloadToast] EventSource connection opened for:', modelName);
-    };
-
     eventSource.onmessage = (event) => {
-      console.log('[useModelDownloadToast] Received SSE message:', event.data);
       try {
         const progress = JSON.parse(event.data) as ModelProgress;
 
@@ -141,11 +125,6 @@ export function useModelDownloadToast({
           const isError = progress.status === 'error';
 
           if (isComplete || isError) {
-            console.log('[useModelDownloadToast] Download finished:', {
-              isComplete,
-              isError,
-              progress: progress.progress,
-            });
             eventSource.close();
             eventSourceRef.current = null;
 
@@ -165,10 +144,8 @@ export function useModelDownloadToast({
 
             // Call callbacks
             if (isComplete && onComplete) {
-              console.log('[useModelDownloadToast] Download complete, calling onComplete callback');
               onComplete();
             } else if (isError && onError) {
-              console.log('[useModelDownloadToast] Download error, calling onError callback');
               onError(progress.error || 'Unknown error');
             }
           }
@@ -178,9 +155,7 @@ export function useModelDownloadToast({
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error('[useModelDownloadToast] SSE error for:', modelName, error);
-      console.log('[useModelDownloadToast] EventSource readyState:', eventSource.readyState);
+    eventSource.onerror = () => {
       eventSource.close();
       eventSourceRef.current = null;
 
@@ -201,7 +176,6 @@ export function useModelDownloadToast({
 
     // Cleanup on unmount or when disabled
     return () => {
-      console.log('[useModelDownloadToast] Cleanup - closing EventSource for:', modelName);
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;

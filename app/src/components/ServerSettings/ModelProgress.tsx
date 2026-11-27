@@ -28,8 +28,6 @@ export function ModelProgress({
       return;
     }
 
-    console.log(`[ModelProgress] Connecting SSE for ${modelName}`);
-
     // Subscribe to progress updates via Server-Sent Events
     const eventSource = new EventSource(`${serverUrl}/models/progress/${modelName}`);
 
@@ -40,21 +38,18 @@ export function ModelProgress({
 
         // Close connection if complete or error
         if (data.status === 'complete' || data.status === 'error') {
-          console.log(`[ModelProgress] Download ${data.status} for ${modelName}, closing SSE`);
           eventSource.close();
         }
-      } catch (error) {
-        console.error('Error parsing progress event:', error);
+      } catch {
+        // Ignore malformed SSE frames
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error(`[ModelProgress] SSE error for ${modelName}:`, error);
+    eventSource.onerror = () => {
       eventSource.close();
     };
 
     return () => {
-      console.log(`[ModelProgress] Cleanup - closing SSE for ${modelName}`);
       eventSource.close();
     };
   }, [serverUrl, modelName, isDownloading]);
