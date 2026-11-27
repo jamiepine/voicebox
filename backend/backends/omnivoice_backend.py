@@ -21,7 +21,7 @@ Two things set this engine apart from the rest of the roster:
     pitch, whisper, English accent, Chinese dialect), not the free-form prose
     Qwen CustomVoice accepts. Anything outside it raises upstream.
 
-Languages: the 22 codes Voicebox already knows that OmniVoice also covers,
+Languages: the 23 codes Voicebox already knows that OmniVoice also covers,
 plus Arabic via the ISO 639-3 code ``arb``. OmniVoice supports far more, but
 exposing them means widening the language enum across the API and frontend.
 """

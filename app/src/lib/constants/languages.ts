@@ -32,6 +32,7 @@ export const ALL_LANGUAGES = {
   sv: 'Swedish',
   sw: 'Swahili',
   tr: 'Turkish',
+  vi: 'Vietnamese',
   zh: 'Chinese',
 } as const;
 
@@ -96,6 +97,7 @@ export const ENGINE_LANGUAGES: Record<string, readonly LanguageCode[]> = {
     'sv',
     'sw',
     'tr',
+    'vi',
     'zh',
   ],
 } as const;

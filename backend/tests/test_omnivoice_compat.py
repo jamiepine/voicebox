@@ -295,6 +295,25 @@ def test_declared_languages_are_resolvable_by_omnivoice():
     assert unresolved == []
 
 
+def test_declared_languages_pass_the_api_pattern():
+    """Regression: the API enum is a second copy of the advertised language list.
+
+    A code can be listed in the engine config and still be rejected with a 422
+    by the ``language`` pattern on the request models, so every advertised code
+    has to be accepted by ``GenerationRequest``.
+    """
+    from pydantic import ValidationError
+
+    from backend.backends import get_model_config
+    from backend.models import GenerationRequest
+
+    for code in get_model_config("omnivoice").languages:
+        GenerationRequest(profile_id="profile", text="Xin chào", language=code)
+
+    with pytest.raises(ValidationError):
+        GenerationRequest(profile_id="profile", text="Xin chào", language="zz")
+
+
 def test_clear_codec_layer_cache_is_safe_when_codec_never_imported():
     from backend.backends.omnivoice_backend import _clear_codec_layer_cache
 
