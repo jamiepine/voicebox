@@ -414,3 +414,23 @@ async def test_missing_content_does_not_leak_endpoint_credentials(monkeypatch, c
     with pytest.raises(ValueError, match="No choices") as excinfo:
         await backend.generate(prompt="x")
     _leak_check(excinfo, caplog)
+
+@pytest.mark.asyncio
+async def test_quoted_query_secret_echoed_in_body_does_not_leak(monkeypatch, caplog):
+    _mock_httpx(monkeypatch, lambda request: httpx.Response(400, text=f"bad url '{request.url}'"))
+    backend = OpenAICompatLLMBackend(endpoint=f"https://llm.example.com/v1?token='{SECRET}'", model="m")
+    with pytest.raises(RuntimeError) as excinfo:
+        await backend.generate(prompt="x")
+    _leak_check(excinfo, caplog)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("status", "limit"), [(200, 200), (500, 500)])
+async def test_echoed_userinfo_cut_by_preview_limit_does_not_leak(monkeypatch, caplog, status, limit):
+    prefix = "x" * (limit - len("https://bob:s3cret"))
+    _mock_httpx(monkeypatch, lambda request: httpx.Response(status, text=f"{prefix}{request.url}"))
+    backend = OpenAICompatLLMBackend(endpoint=f"https://bob:{SECRET}@llm.example.com/v1", model="m")
+    with pytest.raises(RuntimeError) as excinfo:
+        await backend.generate(prompt="x")
+    assert "s3cret" not in str(excinfo.value)
+    assert "s3cret" not in caplog.text
