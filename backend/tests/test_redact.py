@@ -109,5 +109,19 @@ def test_redacts_urls_embedded_in_text():
     assert "https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/401" in redacted
 
 
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("url 'https://h/v1?token='s3cret''", "url 'https://h/v1?token=REDACTED''"),
+        ('{"url": "https://h/v1?api_key=s3cret"}', '{"url": "https://h/v1?api_key=REDACTED"}'),
+        ("at https://h/v1?key=s3cret.", "at https://h/v1?key=REDACTED."),
+        ("(https://bob:s3cret@h/v1)", "(https://h/v1)"),
+        ("[http://u:s3cret@[::1]]", "[http://[::1]]"),
+    ],
+)
+def test_quotes_and_trailing_punctuation_around_urls(text, expected):
+    assert redact_urls_in_text(text) == expected
+
+
 def test_text_without_urls_is_unchanged():
     assert redact_urls_in_text("[Errno 111] Connection refused") == "[Errno 111] Connection refused"

@@ -27,7 +27,8 @@ _SECRET_PARAM_PARTS = (
     "session",
 )
 
-_URL_IN_TEXT = re.compile(r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s'\"<>`]+")
+_URL_IN_TEXT = re.compile(r"[a-zA-Z][a-zA-Z0-9+.\-]*://[^\s<>`]+")
+_URL_TRAILING_PUNCTUATION = "'\".,;:!)]}"
 _FALLBACK_USERINFO = re.compile(r"(//)[^/?#\s]*@")
 _FALLBACK_QUERY = re.compile(r"([?#])\S*")
 
@@ -80,14 +81,22 @@ def redact_url(url: str) -> str:
             return REDACTED
 
 
+def _redact_url_match(match: re.Match) -> str:
+    url = match.group(0)
+    trimmed = url.rstrip(_URL_TRAILING_PUNCTUATION)
+    return redact_url(trimmed) + url[len(trimmed) :]
+
+
 def redact_urls_in_text(text: str) -> str:
     """Apply ``redact_url`` to every ``scheme://`` URL inside free text.
 
     For exception messages (httpx, for one) that embed the request URL.
+    Quotes inside a URL stay part of it, so redact the whole text before
+    truncating it: a cut inside the userinfo hides the ``@`` that marks it.
     """
     if not isinstance(text, str) or not text:
         return text
     try:
-        return _URL_IN_TEXT.sub(lambda m: redact_url(m.group(0)), text)
+        return _URL_IN_TEXT.sub(_redact_url_match, text)
     except Exception:
         return REDACTED

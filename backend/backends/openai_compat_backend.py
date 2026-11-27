@@ -127,7 +127,7 @@ class OpenAICompatLLMBackend:
             except httpx.HTTPStatusError as exc:
                 # Truncate the body — some servers echo the whole prompt in
                 # error responses, and log files fill up fast otherwise.
-                body_preview = redact_urls_in_text(exc.response.text[:500])
+                body_preview = redact_urls_in_text(exc.response.text)[:500]
                 logger.error(
                     "OpenAI-compat endpoint %s returned %d: %s",
                     display_url,
@@ -150,7 +150,7 @@ class OpenAICompatLLMBackend:
             except ValueError as exc:
                 raise RuntimeError(
                     f"Custom LLM endpoint {display_url} returned a non-JSON body: "
-                    f"{redact_urls_in_text(response.text[:200])}"
+                    f"{redact_urls_in_text(response.text)[:200]}"
                 ) from exc
 
         return _extract_content(data, display_url)
