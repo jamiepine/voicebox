@@ -155,14 +155,16 @@ def trim_tts_output(
     min_silence_ms: int = 200,
     max_internal_silence_ms: int | None = 1000,
     fade_ms: int = 30,
+    min_continuation_ms: int = 1500,
 ) -> np.ndarray:
     """
     Trim trailing silence and post-silence hallucination from TTS output.
 
     Chatterbox sometimes produces ``[speech][silence][hallucinated noise]``.
     This detects internal silence gaps longer than *max_internal_silence_ms*
-    and cuts the audio at that boundary, then trims trailing silence and
-    applies a short cosine fade-out.
+    and cuts the audio there only when less than *min_continuation_ms* of
+    speech remains. It then trims trailing silence and applies a short cosine
+    fade-out.
 
     Args:
         audio: Input audio array (mono float32)
@@ -170,9 +172,13 @@ def trim_tts_output(
         frame_ms: Frame size for RMS energy calculation
         silence_threshold_db: dB threshold below which a frame is silence
         min_silence_ms: Minimum trailing silence to keep
-        max_internal_silence_ms: Cut after any silence gap longer than this.
-            ``None`` disables the internal cut and only trims the edges.
+        max_internal_silence_ms: Minimum silence gap to consider for an
+            internal cut. The gap is kept when at least
+            ``min_continuation_ms`` of speech follows it. ``None`` disables
+            the internal cut and only trims the edges.
         fade_ms: Cosine fade-out duration in ms
+        min_continuation_ms: Minimum remaining speech duration required to
+            keep a long internal silence gap.
 
     Returns:
         Trimmed audio array
@@ -204,15 +210,26 @@ def trim_tts_output(
     cut_frame = n_frames
     if max_internal_silence_ms is not None:
         max_silence_frames = int(max_internal_silence_ms / frame_ms)
-        consecutive_silence = 0
-        for i in range(first_speech, n_frames):
+        speech_suffix_frames = np.cumsum(is_speech[::-1])[::-1]
+        i = first_speech
+        while i < n_frames:
             if is_speech[i]:
-                consecutive_silence = 0
-            else:
-                consecutive_silence += 1
-                if consecutive_silence >= max_silence_frames:
-                    cut_frame = i - consecutive_silence + 1
-                    break
+                i += 1
+                continue
+
+            silence_start = i
+            while i < n_frames and not is_speech[i]:
+                i += 1
+
+            if i - silence_start < max_silence_frames:
+                continue
+
+            speech_after_frames = speech_suffix_frames[i] if i < n_frames else 0
+            if speech_after_frames * frame_ms >= min_continuation_ms:
+                continue
+
+            cut_frame = silence_start
+            break
 
     # Trim trailing silence from the cut point
     min_silence_frames = int(min_silence_ms / frame_ms)
