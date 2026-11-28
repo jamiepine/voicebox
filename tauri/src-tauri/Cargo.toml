@@ -1,6 +1,6 @@
 [package]
 name = "voicebox"
-version = "0.6.0"
+version = "0.7.0"
 description = "A production-quality desktop app for Qwen3-TTS voice cloning and generation"
 authors = ["you"]
 license = ""
@@ -35,6 +35,8 @@ core-foundation-sys = "0.8"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wasapi = "0.22"
+webview2-com = "0.38"
+windows-core = "0.61"
 windows = { version = "0.62", features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",
@@ -61,6 +63,9 @@ tauri-plugin-process = "2.0"
 # dance required (the Sonoma-crashing layout-translation path simply
 # isn't called).
 keytap = "0.4"
+
+[dev-dependencies]
+regex = "1"
 
 [features]
 # This feature is used for production builds or when `devPath` points to the filesystem

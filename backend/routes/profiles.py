@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from .. import config, models
 from ..utils.http import safe_content_disposition
 from ..database import VoiceProfile as DBVoiceProfile, get_db
-from ..services import channels, export_import, personality, profiles
+from ..services import channels, export_import, personality, profiles, settings as settings_service
 from ..services.profiles import _profile_to_response
 
 logger = logging.getLogger(__name__)
@@ -162,20 +162,20 @@ async def add_profile_sample(
     _uploaded_ext = Path(file.filename or "").suffix.lower()
     file_suffix = _uploaded_ext if _uploaded_ext in _allowed_audio_exts else ".wav"
 
-    with tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False) as tmp:
-        total_size = 0
-        while chunk := await file.read(SAMPLE_UPLOAD_CHUNK_SIZE):
-            total_size += len(chunk)
-            if total_size > SAMPLE_MAX_FILE_SIZE:
-                Path(tmp.name).unlink(missing_ok=True)
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"File too large (max {SAMPLE_MAX_FILE_SIZE // (1024 * 1024)} MB)",
-                )
-            tmp.write(chunk)
-        tmp_path = tmp.name
-
+    tmp = tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False)
+    tmp_path = tmp.name
     try:
+        with tmp:
+            total_size = 0
+            while chunk := await file.read(SAMPLE_UPLOAD_CHUNK_SIZE):
+                total_size += len(chunk)
+                if total_size > SAMPLE_MAX_FILE_SIZE:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large (max {SAMPLE_MAX_FILE_SIZE // (1024 * 1024)} MB)",
+                    )
+                tmp.write(chunk)
+
         sample = await profiles.add_profile_sample(
             profile_id,
             tmp_path,
@@ -183,6 +183,8 @@ async def add_profile_sample(
             db,
         )
         return sample
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -225,6 +227,10 @@ async def update_profile_sample(
     return sample
 
 
+AVATAR_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+AVATAR_UPLOAD_CHUNK_SIZE = 1024 * 1024   # 1 MB
+
+
 @router.post("/profiles/{profile_id}/avatar", response_model=models.VoiceProfileResponse)
 async def upload_profile_avatar(
     profile_id: str,
@@ -232,12 +238,28 @@ async def upload_profile_avatar(
     db: Session = Depends(get_db),
 ):
     """Upload or update avatar image for a profile."""
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename or "").suffix) as tmp:
-        content = await file.read()
-        tmp.write(content)
-        tmp_path = tmp.name
-
+    _ALLOWED_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"}
+    _raw_ext = Path(file.filename or "").suffix.lower()
+    if _raw_ext and _raw_ext not in _ALLOWED_IMAGE_EXTS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported image format '{_raw_ext}'. Allowed: {sorted(_ALLOWED_IMAGE_EXTS)}",
+        )
+    suffix = _raw_ext if _raw_ext in _ALLOWED_IMAGE_EXTS else ".png"
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    tmp_path = tmp.name
     try:
+        with tmp:
+            total_size = 0
+            while chunk := await file.read(AVATAR_UPLOAD_CHUNK_SIZE):
+                total_size += len(chunk)
+                if total_size > AVATAR_MAX_FILE_SIZE:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Avatar file too large (max {AVATAR_MAX_FILE_SIZE // (1024 * 1024)} MB)",
+                    )
+                tmp.write(chunk)
+
         profile = await profiles.upload_avatar(profile_id, tmp_path, db)
         return profile
     except ValueError as e:
@@ -384,7 +406,13 @@ async def compose_in_character(
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found")
     try:
-        result = await personality.compose_as_profile(profile.personality)
+        # See routes/generations.py's speak-in-character handling: the
+        # refinement model size must come from capture_settings.llm_model,
+        # not the LLM backend singleton's last-loaded size.
+        refinement_model_size = settings_service.get_capture_settings(db).llm_model
+        result = await personality.compose_as_profile(
+            profile.personality, model_size=refinement_model_size
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return models.PersonalityTextResponse(

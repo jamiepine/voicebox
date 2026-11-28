@@ -11,6 +11,7 @@ import {
 import type { VoiceProfileResponse } from '@/lib/api/types';
 import { getLanguageOptionsForEngine } from '@/lib/constants/languages';
 import type { GenerationFormValues } from '@/lib/hooks/useGenerationForm';
+import { useUnavailableEngines } from '@/lib/hooks/useUnavailableEngines';
 
 /**
  * Engine/model options and their display metadata.
@@ -132,14 +133,16 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
   const modelSize = form.watch('modelSize');
   const selectValue = getSelectValue(engine, modelSize);
   const availableOptions = getAvailableOptions(selectedProfile);
+  const unavailableEngines = useUnavailableEngines();
+  const selectableOptions = availableOptions.filter((opt) => !unavailableEngines.has(opt.engine));
 
-  const currentEngineAvailable = availableOptions.some((opt) => opt.value === selectValue);
+  const currentEngineAvailable = selectableOptions.some((opt) => opt.value === selectValue);
 
   useEffect(() => {
-    if (!currentEngineAvailable && availableOptions.length > 0) {
-      applyEngineSelection(form, availableOptions[0].value);
+    if (!currentEngineAvailable && selectableOptions.length > 0) {
+      applyEngineSelection(form, selectableOptions[0].value);
     }
-  }, [availableOptions, currentEngineAvailable, form]);
+  }, [selectableOptions, currentEngineAvailable, form]);
 
   const itemClass = compact ? 'text-xs text-muted-foreground' : undefined;
   const triggerClass = compact
@@ -154,11 +157,22 @@ export function EngineModelSelector({ form, compact, selectedProfile }: EngineMo
         </SelectTrigger>
       </FormControl>
       <SelectContent side={compact ? 'top' : undefined}>
-        {availableOptions.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value} className={itemClass}>
-            {opt.label}
-          </SelectItem>
-        ))}
+        {availableOptions.map((opt) => {
+          const unavailableReason = unavailableEngines.get(opt.engine);
+          return (
+            <SelectItem
+              key={opt.value}
+              value={opt.value}
+              className={itemClass}
+              disabled={unavailableReason !== undefined}
+            >
+              {opt.label}
+              {unavailableReason && (
+                <span className="block text-xs text-muted-foreground">{unavailableReason}</span>
+              )}
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );

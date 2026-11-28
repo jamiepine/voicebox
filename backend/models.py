@@ -3,13 +3,15 @@ Pydantic models for request/response validation.
 """
 
 from pydantic import BaseModel, Field, model_validator
-from typing import Any, Optional, List
+from typing import Any, Literal, Optional, List
 from datetime import datetime
 
 from .utils.capture_chords import (
     default_push_to_talk_chord,
     default_toggle_to_talk_chord,
 )
+
+GenerationSource = Literal["mcp", "rest", "manual", "import", "personality_speak"]
 
 
 class VoiceProfileCreate(BaseModel):
@@ -118,7 +120,7 @@ class GenerationResponse(BaseModel):
     status: str = "completed"
     error: Optional[str] = None
     is_favorited: bool = False
-    source: str = "manual"
+    source: GenerationSource = "manual"
     created_at: datetime
     versions: Optional[List["GenerationVersionResponse"]] = None
     active_version_id: Optional[str] = None
@@ -171,7 +173,7 @@ class HistoryListResponse(BaseModel):
 class TranscriptionRequest(BaseModel):
     """Request model for audio transcription."""
 
-    language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
+    language: Optional[str] = Field(None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$")
     model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
 
 
@@ -242,7 +244,7 @@ class CaptureRetranscribeRequest(BaseModel):
     """Request to re-run STT on a capture's audio with a different model."""
 
     model: Optional[str] = Field(None, pattern="^(base|small|medium|large|turbo)$")
-    language: Optional[str] = Field(None, pattern="^(en|zh|ja|ko|de|fr|ru|pt|es|it)$")
+    language: Optional[str] = Field(None, pattern="^(zh|en|ja|ko|de|fr|ru|pt|es|it|he|ar|da|el|fi|hi|ms|nl|no|pl|sv|sw|tr)$")
 
 
 class CaptureSettingsResponse(BaseModel):
@@ -511,6 +513,9 @@ class ModelStatus(BaseModel):
     downloading: bool = False  # True if download is in progress
     size_mb: Optional[float] = None
     loaded: bool = False
+    engine: Optional[str] = None
+    available: bool = True
+    unavailable_reason: Optional[str] = None
 
 
 class ModelStatusListResponse(BaseModel):

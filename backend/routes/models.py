@@ -2,6 +2,7 @@
 
 import asyncio
 import shutil
+from functools import partial
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -64,6 +65,15 @@ def _resolve_model_config(model_name: str):
     return config
 
 
+def _ensure_engine_available(engine: str) -> None:
+    """Raise a 400 when *engine* can't run on this machine."""
+    from ..backends import engine_unavailable_reason
+
+    reason = engine_unavailable_reason(engine)
+    if reason:
+        raise HTTPException(status_code=400, detail=reason)
+
+
 @router.post("/models/load")
 async def load_model(
     request: models.ModelLoadRequest | None = None,
@@ -78,7 +88,7 @@ async def load_model(
     request for the default — silently loading Qwen there is the very bug this
     endpoint had.
     """
-    from ..backends import get_model_load_func
+    from ..backends import find_model_config, get_model_load_func, get_tts_model_configs, track_model_download
     from ..services import tts
 
     requested_name = request.model_name if request else None
@@ -86,10 +96,9 @@ async def load_model(
 
     if requested_name is not None:
         config = _resolve_model_config(requested_name)
+        _ensure_engine_available(config.engine)
         try:
-            result = get_model_load_func(config)()
-            if asyncio.iscoroutine(result):
-                await result
+            await track_model_download(config, get_model_load_func(config))
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e)) from e
         return {"message": f"Model {config.model_name} loaded successfully"}
@@ -97,7 +106,11 @@ async def load_model(
     size = requested_size or DEFAULT_QWEN_MODEL_SIZE
     try:
         tts_model = tts.get_tts_model()
-        await tts_model.load_model_async(size)
+        config = find_model_config(get_tts_model_configs(), "qwen", size)
+        if config is None:
+            await tts_model.load_model_async(size)
+        else:
+            await track_model_download(config, partial(tts_model.load_model_async, size))
         return {"message": f"Model {size} loaded successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -288,8 +301,6 @@ async def get_migration_progress():
 @router.get("/models/status", response_model=models.ModelStatusListResponse)
 async def get_model_status():
     """Get status of all available models."""
-    from huggingface_hub import constants as hf_constants
-
     backend_type = get_backend_type()
     task_manager = get_task_manager()
 
@@ -305,8 +316,9 @@ async def get_model_status():
     except ImportError:
         use_scan_cache = False
 
-    from ..backends import get_all_model_configs, check_model_loaded
-    from ..backends.base import has_in_progress_download, is_model_cached
+    from ..backends import check_model_loaded, engine_unavailable_reason, get_all_model_configs
+    from ..backends.base import ANY_WEIGHT_EXTENSIONS, is_model_cached
+    from ..utils.download_state import repo_cache_dir
 
     registry_configs = get_all_model_configs()
     model_configs = [
@@ -316,6 +328,8 @@ async def get_model_status():
             "hf_repo_id": cfg.hf_repo_id,
             "aux_hf_repo_ids": cfg.aux_hf_repo_ids,
             "model_size": cfg.model_size,
+            "engine": cfg.engine,
+            "unavailable_reason": engine_unavailable_reason(cfg.engine),
             "check_loaded": lambda c=cfg: check_model_loaded(c),
         }
         for cfg in registry_configs
@@ -335,81 +349,34 @@ async def get_model_status():
 
     for config in model_configs:
         try:
-            downloaded = False
             size_mb = None
             loaded = False
-
-            if cache_info:
-                repo_id = config["hf_repo_id"]
-                for repo in cache_info.repos:
-                    if repo.repo_id == repo_id:
-                        has_model_weights = False
-                        for rev in repo.revisions:
-                            for f in rev.files:
-                                fname = f.file_name.lower()
-                                if fname.endswith((".safetensors", ".bin", ".pt", ".pth", ".npz")):
-                                    has_model_weights = True
-                                    break
-                            if has_model_weights:
-                                break
-
-                        has_incomplete = False
-                        try:
-                            cache_dir = hf_constants.HF_HUB_CACHE
-                            blobs_dir = Path(cache_dir) / ("models--" + repo_id.replace("/", "--")) / "blobs"
-                            has_incomplete = has_in_progress_download(blobs_dir)
-                        except Exception:
-                            pass
-
-                        if has_model_weights and not has_incomplete:
-                            downloaded = True
-                            try:
-                                total_size = sum(revision.size_on_disk for revision in repo.revisions)
-                                size_mb = total_size / (1024 * 1024)
-                            except Exception:
-                                pass
-                        break
-
-            if not downloaded:
-                try:
-                    cache_dir = hf_constants.HF_HUB_CACHE
-                    repo_cache = Path(cache_dir) / ("models--" + config["hf_repo_id"].replace("/", "--"))
-
-                    if repo_cache.exists():
-                        blobs_dir = repo_cache / "blobs"
-                        has_incomplete = has_in_progress_download(blobs_dir)
-
-                        if not has_incomplete:
-                            snapshots_dir = repo_cache / "snapshots"
-                            has_model_files = False
-                            if snapshots_dir.exists():
-                                has_model_files = (
-                                    any(snapshots_dir.rglob("*.bin"))
-                                    or any(snapshots_dir.rglob("*.safetensors"))
-                                    or any(snapshots_dir.rglob("*.pt"))
-                                    or any(snapshots_dir.rglob("*.pth"))
-                                    or any(snapshots_dir.rglob("*.npz"))
-                                )
-
-                            if has_model_files:
-                                downloaded = True
-                                try:
-                                    total_size = sum(
-                                        f.stat().st_size
-                                        for f in repo_cache.rglob("*")
-                                        if f.is_file() and not f.name.endswith(".incomplete")
-                                    )
-                                    size_mb = total_size / (1024 * 1024)
-                                except Exception:
-                                    pass
-                except Exception:
-                    pass
 
             # A model whose backend also pulls auxiliary repos at load time
             # (e.g. Chatterbox MLX's S3 tokenizer) is only downloaded once
             # those are present too, matching the backend's own cache check.
-            if downloaded and not all(is_model_cached(repo) for repo in config["aux_hf_repo_ids"]):
-                downloaded = False
+            repo_id = config["hf_repo_id"]
+            downloaded = all(
+                is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS)
+                for repo in (repo_id, *config["aux_hf_repo_ids"])
+            )
+
+            if downloaded:
+                try:
+                    cached_repo = (
+                        next((r for r in cache_info.repos if r.repo_id == repo_id), None) if cache_info else None
+                    )
+                    if cached_repo:
+                        total_size = sum(revision.size_on_disk for revision in cached_repo.revisions)
+                    else:
+                        total_size = sum(
+                            f.stat().st_size
+                            for f in repo_cache_dir(repo_id).rglob("*")
+                            if f.is_file() and not f.name.endswith(".incomplete")
+                        )
+                    size_mb = total_size / (1024 * 1024)
+                except Exception:
+                    pass
 
             try:
                 loaded = config["check_loaded"]()
@@ -431,6 +398,9 @@ async def get_model_status():
                     downloading=is_downloading,
                     size_mb=size_mb,
                     loaded=loaded,
+                    engine=config["engine"],
+                    available=config["unavailable_reason"] is None,
+                    unavailable_reason=config["unavailable_reason"],
                 )
             )
         except Exception:
@@ -450,6 +420,9 @@ async def get_model_status():
                     downloading=is_downloading,
                     size_mb=None,
                     loaded=loaded,
+                    engine=config["engine"],
+                    available=config["unavailable_reason"] is None,
+                    unavailable_reason=config["unavailable_reason"],
                 )
             )
 
@@ -459,7 +432,7 @@ async def get_model_status():
 @router.post("/models/download")
 async def trigger_model_download(request: models.ModelDownloadRequest):
     """Trigger download of a specific model."""
-    from ..backends import get_model_config, get_model_load_func
+    from ..backends import get_model_config, get_model_load_func, track_model_download
 
     task_manager = get_task_manager()
     progress_manager = get_progress_manager()
@@ -467,14 +440,13 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
     config = get_model_config(request.model_name)
     if not config:
         raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_name}")
+    _ensure_engine_available(config.engine)
 
     load_func = get_model_load_func(config)
 
     async def download_in_background():
         try:
-            result = load_func()
-            if asyncio.iscoroutine(result):
-                await result
+            await track_model_download(config, load_func, force=True)
             task_manager.complete_download(request.model_name)
         except Exception as e:
             task_manager.error_download(request.model_name, str(e))

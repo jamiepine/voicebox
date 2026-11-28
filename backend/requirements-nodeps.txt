@@ -1,0 +1,15 @@
+# Engine packages installed with `pip install --no-deps -r requirements-nodeps.txt`
+# after requirements.txt. Each one pins something our stack cannot satisfy, so
+# its real runtime dependencies are listed by hand in requirements.txt instead.
+# The justfile, the Dockerfile and every release.yml build job read this file,
+# so an engine added here reaches every build. build_binary.py copies package
+# metadata for some of these, which fails the PyInstaller build if one is
+# missing.
+#
+# chatterbox-tts pins numpy<1.26 / torch==2.6, which break on Python 3.12+.
+chatterbox-tts
+# hume-tada pins torch>=2.7,<2.8.
+hume-tada
+# omnivoice requires transformers>=5.3; the one class it needs from 5.x is
+# vendored under backend/vendor/.
+omnivoice

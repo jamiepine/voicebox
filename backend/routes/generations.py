@@ -10,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from .. import config, models
-from ..services import history, personality, profiles, tts
+from ..services import history, personality, profiles, settings as settings_service, tts
 from ..database import Generation as DBGeneration, VoiceProfile as DBVoiceProfile, get_db
 from ..services.generation import release_generation_memory, run_generation
 from ..services.task_queue import cancel_generation as cancel_generation_job, enqueue_generation
@@ -53,12 +53,24 @@ def _resolve_generation_engine(data: models.GenerationRequest, profile) -> str:
     return data.engine or profiles.default_engine_for_profile(profile)
 
 
-@router.post("/generate", response_model=models.GenerationResponse)
-async def generate_speech(
+@router.post(
+    "/generate",
+    response_model=models.GenerationResponse,
+    operation_id="generate_speech_generate_post",
+)
+async def generate_speech_endpoint(
     data: models.GenerationRequest,
     db: Session = Depends(get_db),
 ):
     """Generate speech from text using a voice profile."""
+    return await generate_speech(data, db)
+
+
+async def generate_speech(
+    data: models.GenerationRequest,
+    db: Session,
+    source: "models.GenerationSource | None" = None,
+):
     task_manager = get_task_manager()
     generation_id = str(uuid.uuid4())
 
@@ -77,16 +89,25 @@ async def generate_speech(
     model_size = (data.model_size or "1.7B") if engine_has_model_sizes(engine) else None
 
     text = data.text
-    source = "manual"
+    resolved_source: models.GenerationSource = source or "manual"
     if data.personality and getattr(profile, "personality", None):
+        # Speak-in-character shares the single refinement LLM configured in
+        # Settings → Model Management (capture_settings.llm_model) — without
+        # threading it through here, rewrite_as_profile() falls back to
+        # whatever the LLM backend singleton last happened to load, ignoring
+        # the user's selection.
+        refinement_model_size = settings_service.get_capture_settings(db).llm_model
         try:
-            llm_result = await personality.rewrite_as_profile(profile.personality, data.text)
+            llm_result = await personality.rewrite_as_profile(
+                profile.personality, data.text, model_size=refinement_model_size
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         text = llm_result.text.strip()
         if not text:
             raise HTTPException(status_code=500, detail="LLM produced empty output; nothing to speak.")
-        source = "personality_speak"
+        if not source:
+            resolved_source = "personality_speak"
 
     generation = await history.create_generation(
         profile_id=data.profile_id,
@@ -101,7 +122,7 @@ async def generate_speech(
         status="generating",
         engine=engine,
         model_size=model_size if engine_has_model_sizes(engine) else None,
-        source=source,
+        source=resolved_source,
     )
 
     task_manager.start_generation(
@@ -350,7 +371,7 @@ async def stream_speech(
         engine=engine,
     )
 
-    from ..utils.chunked_tts import generate_chunked
+    from ..utils.chunked_tts import generate_chunked_for_engine
 
     trim_fn = None
     runaway_detector = None
@@ -364,10 +385,11 @@ async def stream_speech(
         runaway_detector = has_tts_runaway
 
     try:
-        audio, sample_rate = await generate_chunked(
+        audio, sample_rate = await generate_chunked_for_engine(
             tts_model,
             data.text,
             voice_prompt,
+            engine=engine,
             language=data.language,
             seed=data.seed,
             instruct=data.instruct,

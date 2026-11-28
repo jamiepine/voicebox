@@ -332,3 +332,31 @@ def test_aac_without_ffmpeg_is_unsupported(monkeypatch):
         openai_compat.encode_audio(np.zeros(100, dtype=np.float32), 24000, "aac")
     assert exc_info.value.code == "unsupported_format"
     assert json.loads(exc_info.value.response().body)["error"]["param"] == "response_format"
+
+
+# ─── Behind the Host / Origin guard ─────────────────────────────────────
+
+
+async def test_sdk_reaches_guarded_app_over_loopback(app):
+    from backend.utils.request_guard import configure_request_security
+
+    configure_request_security(app)
+    transport = httpx.ASGITransport(app=app)
+    sdk = AsyncOpenAI(
+        base_url="http://127.0.0.1:17493/v1",
+        api_key="not-used",
+        http_client=httpx.AsyncClient(transport=transport),
+    )
+    models = await sdk.models.list()
+    assert "tts-1" in {m.id for m in models.data}
+    response = await sdk.audio.speech.create(model="tts-1", voice="Morgan", input="Hi")
+    assert response.response.headers["content-type"] == "audio/wav"
+    assert response.response.headers["x-content-type-options"] == "nosniff"
+
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:17493") as raw:
+        rejected = await raw.post(
+            "/v1/audio/speech",
+            json={"model": "tts-1", "voice": "Morgan", "input": "Hi"},
+            headers={"Origin": "http://evil.com"},
+        )
+    assert rejected.status_code == 403

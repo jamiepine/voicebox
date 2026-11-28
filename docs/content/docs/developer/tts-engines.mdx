@@ -329,8 +329,9 @@ some-model-package>=1.0.0
 
 **Pinned dependency conflicts (`--no-deps`)** — If the model package pins old versions of torch/numpy/transformers, install with `--no-deps` and list sub-dependencies manually. This is the pattern used for `chatterbox-tts`:
 ```bash
-# In justfile / CI setup:
-pip install --no-deps chatterbox-tts
+# In backend/requirements-nodeps.txt (installed with --no-deps by the
+# justfile, Dockerfile and every release.yml build job):
+chatterbox-tts
 
 # In requirements.txt — list each actual sub-dependency:
 conformer>=0.3.2
@@ -382,9 +383,7 @@ Dependencies must be added in multiple places:
 | File | What to add |
 |------|------------|
 | `backend/requirements.txt` | Package and version constraint |
-| `justfile` | `--no-deps` install line if needed (in `setup-python` and `setup-python-release` targets) |
-| `.github/workflows/release.yml` | Same `--no-deps` line in CI build steps |
-| `Dockerfile` | Same install commands for Docker builds |
+| `backend/requirements-nodeps.txt` | The package, if it must install `--no-deps` (the justfile, Dockerfile and release.yml all read this file) |
 
 ## Phase 5: PyInstaller Bundling (`build_binary.py`)
 

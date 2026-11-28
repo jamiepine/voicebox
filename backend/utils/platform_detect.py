@@ -19,6 +19,11 @@ def is_apple_silicon() -> bool:
     return platform.system() == "Darwin" and platform.machine() == "arm64"
 
 
+def is_intel_mac() -> bool:
+    """Check if running on Intel (x86_64) macOS, where torch stops at 2.2.2."""
+    return platform.system() == "Darwin" and platform.machine() == "x86_64"
+
+
 @lru_cache(maxsize=1)
 def is_amd_gpu_windows() -> bool:
     """

@@ -38,7 +38,7 @@ async def transcribe_audio(
     stt_path = tmp_path
     try:
         from ..utils.audio import load_audio, save_audio
-        from ..backends import WHISPER_HF_REPOS
+        from ..backends import WHISPER_HF_REPOS, load_stt_model
 
         audio, sr = await asyncio.to_thread(load_audio, tmp_path)
         duration = len(audio) / sr
@@ -71,7 +71,7 @@ async def transcribe_audio(
 
             async def download_whisper_background():
                 try:
-                    await whisper_model.load_model_async(model_size)
+                    await load_stt_model(whisper_model, model_size)
                     task_manager.complete_download(progress_model_name)
                 except Exception as e:
                     task_manager.error_download(progress_model_name, str(e))
@@ -88,6 +88,7 @@ async def transcribe_audio(
                 },
             )
 
+        await load_stt_model(whisper_model, model_size)
         text = await whisper_model.transcribe(stt_path, language, model_size)
 
         return models.TranscriptionResponse(

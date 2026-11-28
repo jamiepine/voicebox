@@ -256,7 +256,7 @@
       "placeholder": "Um homem mais velho de voz quente e rouca, com sotaque escocês pausado e um toque de humor.",
       "engineNote": "Usa Qwen VoiceDesign",
       "badge": "Voz projetada",
-      "note": "Este perfil usa uma voz descrita. A descrição não pode ser alterada após a criação."
+      "note": "Este perfil usa uma voz descrita. Editar a descrição muda o som das novas gerações."
     },
     "sampleTabs": {
       "upload": "Enviar",
@@ -711,7 +711,8 @@
     "button": {
       "generate": "Gerar fala",
       "generating": "Gerando…",
-      "selectFirst": "Selecione um perfil de voz primeiro"
+      "selectFirst": "Selecione um perfil de voz primeiro",
+      "unsupportedProfile": "Este perfil de voz não pode ser usado com o modelo selecionado"
     },
     "instruct": {
       "show": "Mostrar instruções de entrega",
@@ -1261,5 +1262,22 @@
       "migrationFailedGeneric": "Falha ao migrar os modelos",
       "migrationConnectionLost": "Conexão perdida durante a migração"
     }
+  },
+  "microphonePermission": {
+    "title": "O acesso ao microfone está bloqueado",
+    "blockedError": "O acesso ao microfone está bloqueado.",
+    "body": {
+      "windows": "O Voicebox não pode usar seu microfone porque o acesso foi negado. Se o Windows estiver bloqueando, escolha Abrir configurações de privacidade, ative Acesso ao microfone e Permitir que aplicativos da área de trabalho acessem seu microfone e depois escolha Tentar novamente.",
+      "macos": "O Voicebox não pode usar seu microfone porque o acesso foi negado. Escolha Abrir configurações de privacidade e ative o Voicebox em Privacidade e Segurança → Microfone. O macOS aplica a alteração depois que você fecha e abre o Voicebox novamente.",
+      "linux": "O Voicebox não pode usar seu microfone porque o acesso foi negado. Verifique se há um microfone conectado e se as configurações de som ou privacidade do seu desktop permitem que o Voicebox o use, depois escolha Tentar novamente.",
+      "browser": "Seu navegador bloqueou o acesso ao microfone nesta página. Clique no ícone de configurações do site ao lado da barra de endereços, permita o microfone e depois escolha Tentar novamente."
+    },
+    "stillBlocked": {
+      "default": "O acesso ao microfone continua bloqueado. Verifique as configurações acima e tente novamente.",
+      "macos": "O acesso ao microfone continua bloqueado. Se você acabou de ativá-lo, feche e abra o Voicebox novamente."
+    },
+    "retry": "Tentar novamente",
+    "retrying": "Tentando…",
+    "openSettings": "Abrir configurações de privacidade"
   }
 }

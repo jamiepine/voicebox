@@ -72,8 +72,9 @@ def captured_request(monkeypatch):
     """
     captured = {}
 
-    async def fake_generate_speech(req, db):
+    async def fake_generate_speech(req, db, source=None):
         captured["req"] = req
+        captured["source"] = source
         return _FakeGeneration()
 
     monkeypatch.setattr(generations, "generate_speech", fake_generate_speech)
@@ -156,3 +157,13 @@ async def test_mcp_speak_explicit_language_wins(captured_request, monkeypatch):
 async def test_mcp_speak_defaults_to_en_without_profile_language(captured_request, monkeypatch):
     await _call_mcp(monkeypatch, profile_language=None)
     assert captured_request["req"].language == "en"
+
+
+async def test_rest_speak_records_rest_source(captured_request, monkeypatch):
+    await _call_rest(monkeypatch, profile_language="fr")
+    assert captured_request["source"] == "rest"
+
+
+async def test_mcp_speak_records_mcp_source(captured_request, monkeypatch):
+    await _call_mcp(monkeypatch, profile_language="fr")
+    assert captured_request["source"] == "mcp"

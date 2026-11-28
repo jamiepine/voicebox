@@ -104,13 +104,13 @@ if not os.environ.get("MIOPEN_LOG_LEVEL"):
 
 import torch
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__, config, database
 from .services import tts, transcribe, llm
 from .database import get_db
 from .utils.platform_detect import get_backend_type
 from .utils.progress import get_progress_manager
+from .utils.request_guard import configure_request_security
 # Re-exported for backwards compatibility with callers importing it from here.
 from .utils.http import safe_content_disposition as safe_content_disposition
 from .services.task_queue import create_background_task, init_queue
@@ -154,7 +154,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    _configure_cors(application)
+    configure_request_security(application)
     application.add_middleware(ClientIdMiddleware)
     register_routers(application)
     application.mount("/mcp", mcp_app)
@@ -164,30 +164,7 @@ def create_app() -> FastAPI:
     return application
 
 
-def _configure_cors(application: FastAPI) -> None:
-    """Set up CORS middleware with local-first defaults."""
-    default_origins = [
-        "http://localhost:5173",  # Vite dev server
-        "http://127.0.0.1:5173",
-        "http://localhost:17493",
-        "http://127.0.0.1:17493",
-        "tauri://localhost",  # Tauri webview (macOS)
-        "https://tauri.localhost",  # Tauri webview (Windows/Linux)
-        "http://tauri.localhost",  # Tauri webview (Windows, some builds)
-    ]
-    env_origins = os.environ.get("VOICEBOX_CORS_ORIGINS", "")
-    all_origins = default_origins + [o.strip() for o in env_origins.split(",") if o.strip()]
-
-    application.add_middleware(
-        CORSMiddleware,
-        allow_origins=all_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
-
-def _mount_frontend(application: FastAPI) -> None:
+def _mount_frontend(application: FastAPI, frontend_dir: Path | None = None) -> None:
     """Serve the built web frontend when present (Docker / web deployment).
 
     The Dockerfile copies the Vite build output to ``/app/frontend/``.  When
@@ -195,10 +172,11 @@ def _mount_frontend(application: FastAPI) -> None:
     the React SPA handles client-side routing.  In dev or API-only mode the
     directory is absent and this function is a no-op.
     """
-    frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+    frontend_dir = frontend_dir or Path(__file__).resolve().parent.parent / "frontend"
     if not frontend_dir.is_dir():
         return
 
+    from fastapi import HTTPException, Request
     from fastapi.staticfiles import StaticFiles
     from fastapi.responses import FileResponse
 
@@ -214,11 +192,15 @@ def _mount_frontend(application: FastAPI) -> None:
     # SPA catch-all: serve files if they exist, otherwise index.html for
     # client-side routes like /voices, /stories, /models, etc.
     @application.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
+    async def serve_spa(full_path: str, request: Request):
         file_path = (frontend_dir / full_path).resolve()
         # Guard against path traversal — only serve files inside frontend_dir
         if full_path and file_path.is_file() and file_path.is_relative_to(frontend_dir):
             return FileResponse(file_path)
+        # Only a browser opening a page asks for HTML. An API client calling a
+        # path that isn't a route gets a 404, not the app's HTML with a 200.
+        if "text/html" not in request.headers.get("accept", ""):
+            raise HTTPException(status_code=404, detail="Not Found")
         return FileResponse(frontend_dir / "index.html", media_type="text/html")
 
     logger.info("Frontend: serving SPA from %s", frontend_dir)

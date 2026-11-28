@@ -5,7 +5,8 @@
 #
 # Requires ROCm drivers on the host:
 # https://rocm.docs.amd.com/projects/install-on-linux
-# RDNA4 (RX 9000): export ROCM_VERSION=7.2 (default 6.3 covers RDNA1-3).
+# Builds against the PyTorch ROCm 7.2 wheels by default (torch>=2.10 is not
+# published for ROCm 6.x). Override with ROCM_VERSION if you need another.
 
 services:
   voicebox:
@@ -13,7 +14,7 @@ services:
       context: .
       args:
         PYTORCH_VARIANT: rocm
-        ROCM_VERSION: ${ROCM_VERSION:-6.3}
+        ROCM_VERSION: ${ROCM_VERSION:-7.2}
 
     devices:
       - /dev/kfd
@@ -25,7 +26,6 @@ services:
       # the ROCm release. app.py sets 10.3.0 (RDNA2) by default; override here
       # for your GPU family:
       #   RDNA4 / RX 9000 series:              12.0.0
-      #                                           (requires ROCM_VERSION=7.2)
       #   RDNA3 / RX 7000 series / Strix Halo: 11.0.0
       #   RDNA2 / RX 6000 series:              10.3.0
       #   RDNA1 / RX 5000 series:              10.1.0

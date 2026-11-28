@@ -176,10 +176,10 @@ Ships with 4 built-in presets (Robotic, Radio, Echo Chamber, Deep Voice) and sup
 
 Text is automatically split at sentence boundaries and each chunk is generated independently, then crossfaded together. Works with all engines.
 
-- Configurable auto-chunking limit (100–5,000 chars)
+- Configurable auto-chunking limit (100–5,000 chars; Chatterbox uses a UTF-8 byte budget)
 - Crossfade slider (0–200ms) for smooth transitions
 - Max text length: 50,000 characters
-- Smart splitting respects abbreviations, CJK punctuation, and `[tags]`
+- Smart splitting respects abbreviations, Indic/Arabic/CJK punctuation, and `[tags]`
 
 ### Generation Versions
 
@@ -336,9 +336,8 @@ Voicebox ships a built-in **Model Context Protocol** server so any MCP-aware age
 **Claude Code one-liner:**
 
 ```
-claude mcp add voicebox \
-  --transport http \
-  --url http://127.0.0.1:17493/mcp \
+claude mcp add --transport http voicebox \
+  http://127.0.0.1:17493/mcp \
   --header "X-Voicebox-Client-Id: claude-code"
 ```
 

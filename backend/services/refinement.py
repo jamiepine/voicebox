@@ -11,6 +11,7 @@ of appending one helper below and wiring one toggle on the frontend.
 import re
 from dataclasses import dataclass
 
+from ..backends import load_llm_model
 from . import llm as llm_service
 
 
@@ -284,6 +285,7 @@ async def refine_transcript(
     cleaned_input = collapse_repetitive_artifacts(transcript)
 
     system_prompt = build_refinement_prompt(flags)
+    await load_llm_model(backend, resolved_size)
     text = await backend.generate(
         prompt=cleaned_input,
         system=system_prompt,

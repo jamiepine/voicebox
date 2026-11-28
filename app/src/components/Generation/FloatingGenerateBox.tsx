@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils/cn';
 import { useGenerationStore } from '@/stores/generationStore';
 import { useStoryStore } from '@/stores/storyStore';
 import { useUIStore } from '@/stores/uiStore';
-import { EngineModelSelector } from './EngineModelSelector';
+import { EngineModelSelector, isProfileCompatibleWithEngine } from './EngineModelSelector';
 import { ParalinguisticInput } from './ParalinguisticInput';
 
 interface FloatingGenerateBoxProps {
@@ -256,7 +256,24 @@ export function FloatingGenerateBox({
     };
   }, [isExpanded]);
 
+  // The profile list greys out voices the selected model can't use, but the
+  // selection itself survives a model switch -- e.g. a Kokoro preset voice with
+  // TADA picked -- and generating then failed on the server.
+  const profileUnsupported =
+    !!selectedProfile &&
+    !!watchedEngine &&
+    !isProfileCompatibleWithEngine(selectedProfile, watchedEngine);
+
+  const submitLabel = isPending
+    ? t('generation.button.generating')
+    : !selectedProfileId
+      ? t('generation.button.selectFirst')
+      : profileUnsupported
+        ? t('generation.button.unsupportedProfile')
+        : t('generation.button.generate');
+
   async function onSubmit(data: Parameters<typeof handleSubmit>[0]) {
+    if (profileUnsupported) return;
     await handleSubmit(data, selectedProfileId);
   }
 
@@ -486,16 +503,10 @@ export function FloatingGenerateBox({
                 <div className="group relative">
                   <Button
                     type="submit"
-                    disabled={isPending || !selectedProfileId}
+                    disabled={isPending || !selectedProfileId || profileUnsupported}
                     className="h-10 w-10 rounded-full bg-accent hover:bg-accent/90 hover:scale-105 text-accent-foreground shadow-lg hover:shadow-accent/50 transition-all duration-200"
                     size="icon"
-                    aria-label={
-                      isPending
-                        ? t('generation.button.generating')
-                        : !selectedProfileId
-                          ? t('generation.button.selectFirst')
-                          : t('generation.button.generate')
-                    }
+                    aria-label={submitLabel}
                   >
                     {isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -504,11 +515,7 @@ export function FloatingGenerateBox({
                     )}
                   </Button>
                   <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 whitespace-nowrap rounded-md bg-popover px-3 py-1.5 text-xs text-popover-foreground border border-border opacity-0 transition-opacity group-hover:opacity-100 z-[9999]">
-                    {isPending
-                      ? t('generation.button.generating')
-                      : !selectedProfileId
-                        ? t('generation.button.selectFirst')
-                        : t('generation.button.generate')}
+                    {submitLabel}
                   </span>
                 </div>
               </div>

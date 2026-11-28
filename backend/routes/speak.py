@@ -80,6 +80,7 @@ async def speak(
             personality=bool(personality_flag),
         ),
         db,
+        source="rest",
     )
 
     mcp_events.publish(

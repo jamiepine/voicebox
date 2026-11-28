@@ -16,6 +16,7 @@ Exit 0 on clean EOF, 1 on transport error, 2 if backend never answers.
 from __future__ import annotations
 
 import asyncio
+import io
 import json
 import os
 import sys
@@ -187,6 +188,10 @@ async def _run() -> int:
 
 
 def main() -> int:
+    # MCP stdio frames are UTF-8 regardless of the Windows ANSI code page.
+    for stream in (sys.stdin, sys.stdout):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
     try:
         return asyncio.run(_run())
     except KeyboardInterrupt:

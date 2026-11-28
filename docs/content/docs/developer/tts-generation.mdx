@@ -160,7 +160,7 @@ The request path from frontend to audio file:
 
 ## Chunking for Long Text
 
-Text longer than `max_chunk_chars` (default 800, range 100–5000) is split at sentence boundaries, generated in sequence, and crossfaded together. The chunking behavior is engine-agnostic — it lives in the service layer, not in individual backends.
+Text longer than `max_chunk_chars` (default 800, range 100–5000) is split at sentence boundaries, generated in sequence, and crossfaded together. The chunking behavior lives in the service layer, not in individual backends. Chatterbox uses a UTF-8 byte budget for this limit so non-Latin text is chunked before it can exceed the model's token ceiling.
 
 ## Instruct Mode
 

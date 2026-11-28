@@ -12,8 +12,11 @@ and a model config registry that eliminates per-engine dispatch maps.
 # HF_HUB_OFFLINE=1 and on network failures.
 from ..utils import hf_offline_patch  # noqa: F401
 
+import asyncio
+import logging
 import threading
 from dataclasses import dataclass, field
+from functools import partial
 from typing import Protocol, Optional, Tuple, List
 from typing_extensions import runtime_checkable
 import numpy as np
@@ -21,7 +24,9 @@ import numpy as np
 DEFAULT_LLM_MAX_TOKENS = 512
 DEFAULT_LLM_TEMPERATURE = 0.7
 
-from ..utils.platform_detect import get_backend_type
+from ..utils.platform_detect import get_backend_type, is_intel_mac
+
+logger = logging.getLogger(__name__)
 
 LANGUAGE_CODE_TO_NAME = {
     "zh": "chinese",
@@ -244,6 +249,17 @@ TTS_ENGINES = {
 LLM_ENGINES = {
     "qwen_llm": "Qwen3 LLM",
 }
+
+# The vendored Higgs Audio V2 codec uses torch.nn.Buffer (added in torch 2.5),
+# and PyTorch's last x86_64 macOS wheel is 2.2.2.
+OMNIVOICE_INTEL_MAC_REASON = "OmniVoice needs PyTorch 2.5 or newer, which isn't available for Intel Macs."
+
+
+def engine_unavailable_reason(engine: str) -> Optional[str]:
+    """Why *engine* can't run on this machine, or None when it can."""
+    if engine == "omnivoice" and is_intel_mac():
+        return OMNIVOICE_INTEL_MAC_REASON
+    return None
 
 
 def _get_qwen_model_configs() -> list[ModelConfig]:
@@ -630,15 +646,110 @@ def engine_has_model_sizes(engine: str) -> bool:
     return len(configs) > 1
 
 
+async def track_model_download(config: ModelConfig, load, *, force: bool = False) -> None:
+    """Run *load* so that a partial download never counts as installed.
+
+    Before loading, every repo of the model gets an in-progress marker when
+    a download may happen (always when *force*, which also makes the backend
+    skip its forced-offline mode and fetch whatever is missing). Only a
+    successful load records the snapshot as verified and clears the marker.
+    A model that is already resident is left alone: its loader returns
+    without touching the disk, so it can't verify the snapshot. The
+    exception is a forced download of a resident model that is still marked
+    in progress, which is unloaded first so the snapshot is reloaded from
+    disk and verified.
+
+    A model that looked cached but has no verified record (downloaded by an
+    older Voicebox, possibly partially) gets one online retry if the load
+    fails with a file or network error (OSError) and left nothing resident,
+    so missing files are fetched instead of failing offline forever.
+    """
+    from .base import ANY_WEIGHT_EXTENSIONS, is_model_cached
+    from ..utils.download_state import (
+        is_download_in_progress,
+        mark_download_started,
+        mark_download_verified,
+        verified_snapshot_complete,
+    )
+
+    async def run_load():
+        result = load()
+        if asyncio.iscoroutine(result):
+            await result
+
+    repos = (config.hf_repo_id, *config.aux_hf_repo_ids)
+    if check_model_loaded(config):
+        if not (force and any(is_download_in_progress(repo) for repo in repos)):
+            await run_load()
+            return
+        unload_model_by_config(config)
+
+    marked = force or not all(is_model_cached(repo, weight_extensions=ANY_WEIGHT_EXTENSIONS) for repo in repos)
+    if marked:
+        for repo in repos:
+            mark_download_started(repo)
+
+    try:
+        await run_load()
+    except OSError as exc:
+        unverified = [] if marked else [repo for repo in repos if verified_snapshot_complete(repo) is None]
+        if not unverified or check_model_loaded(config):
+            raise
+        logger.warning("Loading %s failed with an unverified snapshot, retrying online: %s", config.model_name, exc)
+        for repo in unverified:
+            mark_download_started(repo)
+        try:
+            await run_load()
+        except Exception as retry_exc:
+            raise exc from retry_exc
+
+    for repo in repos:
+        mark_download_verified(repo)
+
+
 async def load_engine_model(engine: str, model_size: str = "default") -> None:
     """Load a model for the given engine, handling engines with multiple model sizes."""
     backend = get_tts_backend_for_engine(engine)
     if engine in ("qwen", "qwen_custom_voice"):
-        await backend.load_model_async(model_size)
+        load = partial(backend.load_model_async, model_size)
     elif engine == "tada":
-        await backend.load_model(model_size)
+        load = partial(backend.load_model, model_size)
     else:
-        await backend.load_model()
+        load = backend.load_model
+
+    config = find_model_config(get_tts_model_configs(), engine, model_size)
+    if config is None:
+        await load()
+        return
+    await track_model_download(config, load)
+
+
+async def load_stt_model(backend: STTBackend, model_size: str) -> None:
+    """Load a Whisper size through download tracking."""
+    config = find_model_config(get_stt_model_configs(), "whisper", model_size)
+    if config is None:
+        await backend.load_model(model_size)
+        return
+    await track_model_download(config, partial(backend.load_model, model_size))
+
+
+async def load_llm_model(backend: LLMBackend, model_size: str) -> None:
+    """Load a local Qwen LLM size through download tracking; remote endpoints need no load."""
+    from .openai_compat_backend import OpenAICompatLLMBackend
+
+    if isinstance(backend, OpenAICompatLLMBackend):
+        return
+    config = find_model_config(get_llm_model_configs(), "qwen_llm", model_size)
+    if config is None:
+        await backend.load_model(model_size)
+        return
+    await track_model_download(config, partial(backend.load_model, model_size))
+
+
+def find_model_config(configs: list[ModelConfig], engine: str, model_size: str) -> ModelConfig | None:
+    """The config for *engine* at *model_size*, or the engine's only config."""
+    matches = [c for c in configs if c.engine == engine]
+    return next((c for c in matches if c.model_size == model_size), matches[0] if len(matches) == 1 else None)
 
 
 async def ensure_model_cached_or_raise(engine: str, model_size: str = "default") -> None:
@@ -738,7 +849,7 @@ def check_model_loaded(config: ModelConfig) -> bool:
             loaded_size = getattr(tts_model, "_current_model_size", None) or getattr(tts_model, "model_size", None)
             return tts_model.is_loaded() and loaded_size == config.model_size
 
-        if config.engine == "qwen_custom_voice":
+        if config.engine in ("qwen_custom_voice", "tada"):
             backend = get_tts_backend_for_engine(config.engine)
             loaded_size = getattr(backend, "_current_model_size", None) or getattr(backend, "model_size", None)
             return backend.is_loaded() and loaded_size == config.model_size

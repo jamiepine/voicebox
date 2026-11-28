@@ -8,11 +8,16 @@ sqlalchemy>=2.0.0
 alembic>=1.13.0
 
 # ML models
-# 2.5 is the first release with torch.nn.Buffer, which the vendored Higgs
-# Audio V2 codec uses (backend/vendor/higgs_audio_v2_tokenizer). The old >=2.2
-# floor was already well below what the CUDA/ROCm install paths and the
-# transformers 4.57 workarounds actually run against.
-torch>=2.5.0
+# 2.10 is the floor for CVE-2026-24747: earlier torch lets a crafted
+# checkpoint run code during torch.load even with weights_only=True.
+# Two platforms cannot reach it and keep their last available torch:
+#   - Intel macOS: PyTorch stopped publishing x86_64 macOS wheels after
+#     2.2.2. 2.2.x has no torch.nn.Buffer, so the vendored Higgs Audio V2
+#     codec (OmniVoice) cannot load there.
+#   - Windows ROCm: AMD's newest stable wheel is 2.9.1+rocm7.2.1, pinned in
+#     requirements-rocm.txt and installed by build_binary.py --rocm.
+torch>=2.10.0; sys_platform != "darwin" or platform_machine != "x86_64"
+torch>=2.2.0,<2.3; sys_platform == "darwin" and platform_machine == "x86_64"
 transformers>=4.36.0,<=4.57.6
 accelerate>=0.26.0
 huggingface_hub>=0.20.0
@@ -43,7 +48,8 @@ pyloudnorm
 # descript-audio-codec is NOT installed — it pulls onnx/tensorboard
 # via descript-audiotools.  A lightweight shim in utils/dac_shim.py
 # provides the only class TADA uses: Snake1d.)
-torchaudio
+torchaudio>=2.10.0; sys_platform != "darwin" or platform_machine != "x86_64"
+torchaudio>=2.2.0,<2.3; sys_platform == "darwin" and platform_machine == "x86_64"
 
 # OmniVoice sub-dependencies (omnivoice itself is installed --no-deps
 # in the setup script because it requires transformers>=5.3, while several

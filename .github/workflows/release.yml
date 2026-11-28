@@ -83,9 +83,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r backend/requirements.txt
-          pip install --no-deps chatterbox-tts
-          pip install --no-deps hume-tada
-          pip install --no-deps omnivoice
+          pip install --no-deps -r backend/requirements-nodeps.txt
 
       - name: Install MLX dependencies (Apple Silicon only)
         if: matrix.backend == 'mlx'
@@ -182,13 +180,13 @@ jobs:
         run: |
           # Use the version tauri-action resolves (tauri.conf.json). On a tag
           # push it equals the tag minus 'v'; under workflow_dispatch
-          # GITHUB_REF_NAME is a branch name (e.g. release/0.6) whose slash
-          # breaks the sed address below.
+          # GITHUB_REF_NAME is a branch name (e.g. release/0.6).
           VERSION="$(jq -r '.version' tauri/src-tauri/tauri.conf.json)"
 
-          # Extract the section for this version from CHANGELOG.md
-          # Matches from "## [X.Y.Z]" until the next "## [" heading
-          NOTES=$(sed -n "/^## \[${VERSION}\]/,/^## \[/{/^## \[${VERSION}\]/d;/^## \[/d;p;}" CHANGELOG.md)
+          # The "## [X.Y.Z]" section of CHANGELOG.md, without its heading.
+          # This feeds the release body (when this job creates the release)
+          # and the notes field of latest.json, which the in-app updater shows.
+          NOTES=$(bash scripts/changelog-section.sh "$VERSION")
 
           # Fall back to a placeholder if the version isn't in the changelog
           if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
@@ -292,9 +290,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r backend/requirements.txt
-          pip install --no-deps chatterbox-tts
-          pip install --no-deps hume-tada
-          pip install --no-deps omnivoice
+          pip install --no-deps -r backend/requirements-nodeps.txt
 
       - name: Install PyTorch with CUDA 12.8
         run: |
@@ -395,14 +391,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pyinstaller
-          pip install torch torchaudio \
+          pip install "torch>=2.10.0" "torchaudio>=2.10.0" \
             --index-url ${{ matrix.torch_index }}
 
       - name: Install remaining Python dependencies
         run: |
           pip install -r backend/requirements.txt
-          pip install --no-deps chatterbox-tts
-          pip install --no-deps hume-tada
+          pip install --no-deps -r backend/requirements-nodeps.txt
 
       - name: Verify GPU support in torch
         run: python -c "import torch; assert torch.version.${{ matrix.torch_attr }}, 'torch is not a ${{ matrix.backend }} build'; print(torch.__version__)"
@@ -455,9 +450,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pyinstaller
           pip install -r backend/requirements.txt
-          pip install --no-deps chatterbox-tts
-          pip install --no-deps hume-tada
-          pip install --no-deps omnivoice
+          pip install --no-deps -r backend/requirements-nodeps.txt
 
       - name: Build ROCm server binary (onedir)
         shell: bash
@@ -497,3 +490,41 @@ jobs:
           name: voicebox-server-rocm-windows
           path: backend/dist/voicebox-server-rocm/
           retention-days: 7
+
+  # The GPU jobs' softprops/action-gh-release steps can create the draft
+  # release before tauri-action does (or update it after), and neither one
+  # sets a body on a release that already exists, so the draft could end up
+  # with an empty body. Once every build has finished, write the CHANGELOG
+  # section into the draft. A published release is left alone, and the
+  # release stays a draft for a person to publish.
+  release-notes:
+    needs: [release, build-cuda-windows, build-gpu-linux, build-rocm-windows]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set the draft release body from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r '.version' tauri/src-tauri/tauri.conf.json)"
+          TAG="v${VERSION}"
+          bash scripts/changelog-section.sh "$VERSION" > release-notes.md
+          if [ -z "$(tr -d '[:space:]' < release-notes.md)" ]; then
+            echo "::warning::CHANGELOG.md has no [${VERSION}] section; leaving the release body unchanged"
+            exit 0
+          fi
+          if ! IS_DRAFT=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft); then
+            echo "::warning::No release found for ${TAG}; nothing to update"
+            exit 0
+          fi
+          if [ "$IS_DRAFT" != "true" ]; then
+            echo "::notice::${TAG} is already published; leaving its notes alone"
+            exit 0
+          fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes-file release-notes.md
+          echo "Set the ${TAG} draft body from CHANGELOG.md ($(wc -c < release-notes.md) bytes)"

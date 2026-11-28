@@ -51,6 +51,7 @@ import {
 } from '@/lib/hooks/useProfiles';
 import { useSystemAudioCapture } from '@/lib/hooks/useSystemAudioCapture';
 import { useTranscription } from '@/lib/hooks/useTranscription';
+import { useUnavailableEngines } from '@/lib/hooks/useUnavailableEngines';
 import { convertToWav, formatAudioDuration, getAudioDuration } from '@/lib/utils/audio';
 import { usePlatform } from '@/platform/PlatformContext';
 import { useServerStore } from '@/stores/serverStore';
@@ -299,6 +300,7 @@ export function ProfileForm() {
   const availableDefaultEngines = DEFAULT_ENGINE_OPTIONS.filter(
     (option) => !isSampleBasedProfile || !PRESET_ONLY_ENGINES.has(option.value),
   );
+  const unavailableEngines = useUnavailableEngines();
 
   // Show recording errors
   useEffect(() => {
@@ -349,6 +351,7 @@ export function ProfileForm() {
       setProfileEffectsChain(editingProfile.effects_chain ?? []);
       setEffectsDirty(false);
       setDefaultEngine(editingProfile.default_engine ?? '');
+      setDesignPrompt(editingProfile.design_prompt ?? '');
     } else if (profileFormDraft && open) {
       // Restore from draft when opening in create mode
       form.reset({
@@ -391,6 +394,7 @@ export function ProfileForm() {
       });
       setSampleMode('record');
       setAvatarPreview(null);
+      setDesignPrompt('');
     }
   }, [editingProfile, profileFormDraft, open, form]);
 
@@ -502,6 +506,17 @@ export function ProfileForm() {
   async function onSubmit(data: ProfileFormValues) {
     try {
       if (editingProfileId) {
+        const isDesigned = editingProfile?.voice_type === 'designed';
+        const trimmedDesign = designPrompt.trim();
+        if (isDesigned && !trimmedDesign) {
+          toast({
+            title: t('profileForm.toast.noDesignPrompt'),
+            description: t('profileForm.toast.noDesignPromptDescription'),
+            variant: 'destructive',
+          });
+          return;
+        }
+
         // Editing: update profile
         await updateProfile.mutateAsync({
           profileId: editingProfileId,
@@ -511,6 +526,7 @@ export function ProfileForm() {
             language: data.language,
             default_engine: defaultEngine || undefined,
             personality: data.personality?.trim() ? data.personality.trim() : undefined,
+            ...(isDesigned && { design_prompt: trimmedDesign }),
           },
         });
 
@@ -1209,8 +1225,16 @@ export function ProfileForm() {
                           <div className="text-sm font-medium text-muted-foreground">
                             {t('profileForm.design.badge')}
                           </div>
-                          <p className="text-sm leading-relaxed">
-                            {editingProfile.design_prompt}
+                          <Textarea
+                            value={designPrompt}
+                            onChange={(e) => setDesignPrompt(e.target.value)}
+                            placeholder={t('profileForm.design.placeholder')}
+                            maxLength={MAX_DESIGN_PROMPT_LENGTH}
+                            rows={6}
+                            className="resize-none"
+                          />
+                          <p className="text-xs text-muted-foreground tabular-nums text-right">
+                            {designPrompt.length}/{MAX_DESIGN_PROMPT_LENGTH}
                           </p>
                           <Badge variant="secondary" className="text-xs">
                             {editingProfile.default_engine}
@@ -1382,11 +1406,23 @@ export function ProfileForm() {
                         <SelectItem value="_none">
                           {t('profileForm.fields.noPreference')}
                         </SelectItem>
-                        {availableDefaultEngines.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
+                        {availableDefaultEngines.map((option) => {
+                          const unavailableReason = unavailableEngines.get(option.value);
+                          return (
+                            <SelectItem
+                              key={option.value}
+                              value={option.value}
+                              disabled={unavailableReason !== undefined}
+                            >
+                              {option.label}
+                              {unavailableReason && (
+                                <span className="block text-xs text-muted-foreground">
+                                  {unavailableReason}
+                                </span>
+                              )}
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">

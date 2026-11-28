@@ -15,6 +15,7 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 
 from ..utils.audio import normalize_audio, load_audio
+from ..utils.download_state import is_download_in_progress, verified_snapshot_complete
 from ..utils.hf_offline_patch import force_offline_if_cached
 from ..utils.progress import get_progress_manager
 from ..utils.hf_progress import HFProgressTracker, create_hf_progress_callback
@@ -41,6 +42,9 @@ def has_in_progress_download(blobs_dir: Path) -> bool:
     )
 
 
+ANY_WEIGHT_EXTENSIONS = (".safetensors", ".bin", ".pt", ".pth", ".npz")
+
+
 def is_model_cached(
     hf_repo: str,
     *,
@@ -65,6 +69,14 @@ def is_model_cached(
         repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + hf_repo.replace("/", "--"))
 
         if not repo_cache.exists():
+            return False
+
+        if is_download_in_progress(hf_repo):
+            logger.debug(f"Download of {hf_repo} has not been verified yet")
+            return False
+
+        if verified_snapshot_complete(hf_repo) is False:
+            logger.debug(f"Snapshot of {hf_repo} is missing files recorded at download time")
             return False
 
         if has_in_progress_download(repo_cache / "blobs"):

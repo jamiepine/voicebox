@@ -18,6 +18,7 @@ from typing import Optional
 
 import httpx
 
+from ..utils.redact import redact_url, redact_urls_in_text
 from . import DEFAULT_LLM_MAX_TOKENS, DEFAULT_LLM_TEMPERATURE
 
 logger = logging.getLogger(__name__)
@@ -99,8 +100,9 @@ class OpenAICompatLLMBackend:
         Raises:
             RuntimeError: The remote returned a non-2xx status, could not be
                 reached (timeout, DNS, TLS), or sent a non-JSON body. The
-                message names the endpoint so the settings UI and the
-                dictation pill show something actionable.
+                message names the endpoint (userinfo and secret query values
+                redacted) so the settings UI and the dictation pill show
+                something actionable.
             ValueError: The response was well-formed JSON but carried no
                 content in either the chat or legacy completion shapes.
         """
@@ -117,6 +119,7 @@ class OpenAICompatLLMBackend:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
         url = f"{self.endpoint}/chat/completions"
+        display_url = redact_url(url)
         async with httpx.AsyncClient(timeout=self.timeout, follow_redirects=True) as client:
             try:
                 response = await client.post(url, headers=headers, json=payload)
@@ -124,31 +127,33 @@ class OpenAICompatLLMBackend:
             except httpx.HTTPStatusError as exc:
                 # Truncate the body — some servers echo the whole prompt in
                 # error responses, and log files fill up fast otherwise.
-                body_preview = exc.response.text[:500]
+                body_preview = redact_urls_in_text(exc.response.text)[:500]
                 logger.error(
                     "OpenAI-compat endpoint %s returned %d: %s",
-                    url,
+                    display_url,
                     exc.response.status_code,
                     body_preview,
                 )
                 raise RuntimeError(
-                    f"Custom LLM endpoint {url} returned HTTP {exc.response.status_code}: "
+                    f"Custom LLM endpoint {display_url} returned HTTP {exc.response.status_code}: "
                     f"{body_preview[:200] or exc.response.reason_phrase}"
-                ) from exc
+                ) from None
             except httpx.RequestError as exc:
-                logger.error("OpenAI-compat endpoint %s request failed: %s", url, exc)
+                error = redact_urls_in_text(str(exc))
+                logger.error("OpenAI-compat endpoint %s request failed: %s", display_url, error)
                 raise RuntimeError(
-                    f"Custom LLM endpoint {url} is unreachable: {exc.__class__.__name__}: {exc}"
-                ) from exc
+                    f"Custom LLM endpoint {display_url} is unreachable: {exc.__class__.__name__}: {error}"
+                ) from None
 
             try:
                 data = response.json()
             except ValueError as exc:
                 raise RuntimeError(
-                    f"Custom LLM endpoint {url} returned a non-JSON body: {response.text[:200]}"
+                    f"Custom LLM endpoint {display_url} returned a non-JSON body: "
+                    f"{redact_urls_in_text(response.text)[:200]}"
                 ) from exc
 
-        return _extract_content(data, url)
+        return _extract_content(data, display_url)
 
 
 def _build_messages(

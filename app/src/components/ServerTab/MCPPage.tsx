@@ -95,7 +95,7 @@ export function MCPPage() {
           <SnippetRow
             title={t('settings.mcp.install.claudeCode.title')}
             description={t('settings.mcp.install.claudeCode.description')}
-            snippet={`claude mcp add voicebox --transport http --url ${mcpUrl} --header "X-Voicebox-Client-Id: claude-code"`}
+            snippet={`claude mcp add --transport http voicebox ${mcpUrl} --header "X-Voicebox-Client-Id: claude-code"`}
           />
           <SnippetRow
             title={t('settings.mcp.install.stdio.title')}
